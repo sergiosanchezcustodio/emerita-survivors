@@ -1,4 +1,13 @@
-// Teclado, gamepad y joystick virtual táctil unificados en un solo vector.
+// Teclado, gamepad y joystick virtual táctil, repartidos POR JUGADOR.
+//
+// Reparto: el teclado siempre maneja al jugador 1; el mando k maneja al jugador
+// k. Jugando solo con mando, el mando 0 y el teclado mandan sobre el mismo
+// personaje y no estorban entre sí, porque gana el que más desplace el stick.
+// Es la regla más simple que funciona sin pantalla de asignación, y esa
+// pantalla llega con los menús de la Fase 7.
+//
+// Las teclas globales (F3, pausa, depuración) NO son de nadie: se leen del
+// teclado directamente, no del control de un jugador.
 
 const ZONA_MUERTA = 0.18;     // radial, nunca por eje
 const RADIO_STICK = 42;       // px de pantalla que equivalen a stick al máximo
@@ -8,14 +17,39 @@ const DERECHA   = ['KeyD', 'ArrowRight'];
 const ARRIBA    = ['KeyW', 'ArrowUp'];
 const ABAJO     = ['KeyS', 'ArrowDown'];
 
-export class Entrada {
-  constructor(lienzo) {
+// Cruceta en el mapeo estándar del navegador. NO son ejes, son botones.
+const CRUZ_ARRIBA = 12, CRUZ_ABAJO = 13, CRUZ_IZQ = 14, CRUZ_DER = 15;
+
+// El vector de movimiento de un jugador y el flanco de sus botones. Uno por
+// jugador, preasignados: no se crean ni se destruyen durante la partida.
+export class Control {
+  constructor(indice) {
+    this.indice = indice;
     this.ejeX = 0;
     this.ejeY = 0;
-    this.fuente = 'teclado';       // teclado | gamepad | tactil
-    this.hayGamepad = false;
+    this.fuente = 'teclado';
+    this.conectado = false;       // ¿tiene mando propio enchufado?
+    this._botonesPrev = 0;
+    this._flancoBotones = 0;
+  }
 
-    // Estado del joystick virtual
+  consumirBoton(boton) {
+    const bit = 1 << boton;
+    if (this._flancoBotones & bit) { this._flancoBotones &= ~bit; return true; }
+    return false;
+  }
+}
+
+export class Entrada {
+  constructor(lienzo, maxJugadores) {
+    this.controles = new Array(maxJugadores);
+    for (let i = 0; i < maxJugadores; i++) this.controles[i] = new Control(i);
+
+    this.hayGamepad = false;
+    this.mandosConectados = 0;
+
+    // Estado del joystick virtual (solo jugador 1: el táctil es de un móvil,
+    // y en un móvil no hay cooperativo local).
     this.tactilActivo = false;
     this.tactilBaseX = 0;
     this.tactilBaseY = 0;
@@ -25,14 +59,12 @@ export class Entrada {
 
     this._teclas = new Set();
     this._flanco = new Set();      // pulsadas desde el último paso de lógica
-    this._botonesPrev = 0;
-    this._flancoBotones = 0;
 
     addEventListener('keydown', (e) => {
       if (e.repeat) { this._teclas.add(e.code); return; }
       this._teclas.add(e.code);
       this._flanco.add(e.code);
-      // F3 y las flechas las reclama el navegador; aquí mandan nosotros.
+      // F3 y las flechas las reclama el navegador; aquí mandamos nosotros.
       if (e.code === 'F3' || e.code === 'Escape' || e.code.startsWith('Arrow')) {
         e.preventDefault();
       }
@@ -41,7 +73,11 @@ export class Entrada {
     addEventListener('blur', () => { this._teclas.clear(); this._flanco.clear(); });
 
     addEventListener('gamepadconnected', () => { this.hayGamepad = true; });
-    addEventListener('gamepaddisconnected', () => { this.hayGamepad = false; });
+    addEventListener('gamepaddisconnected', () => {
+      // No se apaga `hayGamepad` a la ligera: con varios mandos, desenchufar
+      // uno no debe dejar de sondear a los demás.
+      this.hayGamepad = this._contarMandos() > 0;
+    });
 
     this._instalarTactil(lienzo);
   }
@@ -76,88 +112,98 @@ export class Entrada {
   // Se llama una vez por PASO DE LÓGICA, no por frame: el gamepad se sondea,
   // no emite eventos, y su instantánea debe alinearse con el timestep fijo.
   actualizar() {
-    let x = 0, y = 0, fuente = 'teclado';
+    const lista = this._listaMandos();
+    this.mandosConectados = 0;
 
-    // --- Teclado: vector discreto, se normaliza la diagonal ----------------
-    let tx = 0, ty = 0;
-    if (this._algunaTecla(DERECHA))   tx += 1;
-    if (this._algunaTecla(IZQUIERDA)) tx -= 1;
-    if (this._algunaTecla(ABAJO))     ty += 1;
-    if (this._algunaTecla(ARRIBA))    ty -= 1;
-    if (tx !== 0 && ty !== 0) {
-      const inv = Math.SQRT1_2;      // 1/raiz(2): nada de ir un 41% más rápido
-      tx *= inv; ty *= inv;
-    }
-    let magMax = Math.hypot(tx, ty);
-    x = tx; y = ty;
+    for (let i = 0; i < this.controles.length; i++) {
+      const c = this.controles[i];
+      let x = 0, y = 0, magMax = 0, fuente = 'teclado';
 
-    // --- Táctil ------------------------------------------------------------
-    if (this.tactilActivo) {
-      let dx = (this.tactilX - this.tactilBaseX) / RADIO_STICK;
-      let dy = (this.tactilY - this.tactilBaseY) / RADIO_STICK;
-      const m = Math.hypot(dx, dy);
-      if (m > 1) { dx /= m; dy /= m; }
-      if (m > magMax) { x = dx; y = dy; magMax = Math.min(m, 1); fuente = 'tactil'; }
-    }
-
-    // --- Gamepad -----------------------------------------------------------
-    const gp = this._primerGamepad();
-    let botones = 0;
-    if (gp) {
-      let gx = gp.axes[0] || 0;
-      let gy = gp.axes[1] || 0;
-      const m = Math.hypot(gx, gy);
-      if (m > ZONA_MUERTA) {
-        // Reescalado desde el borde de la zona muerta: el primer milímetro útil
-        // del stick vale 0, no 0.18, o el personaje arranca a tirones.
-        const util = Math.min(1, (m - ZONA_MUERTA) / (1 - ZONA_MUERTA));
-        gx = (gx / m) * util;
-        gy = (gy / m) * util;
-        // ACOTAR a 1, jamás normalizar a 1: normalizar mataría el control
-        // analógico y el personaje iría siempre a velocidad máxima.
-        if (util > magMax) { x = gx; y = gy; magMax = util; fuente = 'gamepad'; }
-      }
-
-      // Cruceta. En el mapeo estándar del navegador NO es un eje: son los
-      // botones 12 a 15 (arriba, abajo, izquierda, derecha). Leyendo solo
-      // axes[0] y axes[1] no hacía absolutamente nada, que es justo lo que
-      // pasaba con el mando de Xbox.
-      //
-      // Es digital, como el teclado, así que vale 1 a secas: no hay medias
-      // pulsaciones en una cruceta.
-      let cx = 0, cy = 0;
-      const bs = gp.buttons;
-      if (bs.length > 15) {
-        if (bs[12] && bs[12].pressed) cy -= 1;
-        if (bs[13] && bs[13].pressed) cy += 1;
-        if (bs[14] && bs[14].pressed) cx -= 1;
-        if (bs[15] && bs[15].pressed) cx += 1;
-      }
-      if (cx !== 0 || cy !== 0) {
-        if (cx !== 0 && cy !== 0) {
-          const inv = Math.SQRT1_2;      // la diagonal no puede ir un 41% más rápido
-          cx *= inv; cy *= inv;
+      // --- Teclado y táctil: solo el jugador 1 ----------------------------
+      if (i === 0) {
+        let tx = 0, ty = 0;
+        if (this._algunaTecla(DERECHA))   tx += 1;
+        if (this._algunaTecla(IZQUIERDA)) tx -= 1;
+        if (this._algunaTecla(ABAJO))     ty += 1;
+        if (this._algunaTecla(ARRIBA))    ty -= 1;
+        if (tx !== 0 && ty !== 0) {
+          const inv = Math.SQRT1_2;      // 1/raiz(2): nada de ir un 41% más rápido
+          tx *= inv; ty *= inv;
         }
-        if (magMax < 1) { x = cx; y = cy; magMax = 1; fuente = 'gamepad'; }
+        magMax = Math.hypot(tx, ty);
+        x = tx; y = ty;
+
+        if (this.tactilActivo) {
+          let dx = (this.tactilX - this.tactilBaseX) / RADIO_STICK;
+          let dy = (this.tactilY - this.tactilBaseY) / RADIO_STICK;
+          const m = Math.hypot(dx, dy);
+          if (m > 1) { dx /= m; dy /= m; }
+          if (m > magMax) { x = dx; y = dy; magMax = Math.min(m, 1); fuente = 'tactil'; }
+        }
       }
 
-      for (let i = 0; i < bs.length && i < 32; i++) {
-        if (bs[i].pressed) botones |= (1 << i);
+      // --- Mando del jugador ---------------------------------------------
+      const gp = lista ? lista[i] : null;
+      c.conectado = !!(gp && gp.connected);
+      let botones = 0;
+      if (c.conectado) {
+        this.mandosConectados++;
+
+        let gx = gp.axes[0] || 0;
+        let gy = gp.axes[1] || 0;
+        const m = Math.hypot(gx, gy);
+        if (m > ZONA_MUERTA) {
+          // Reescalado desde el borde de la zona muerta: el primer milímetro
+          // útil del stick vale 0, no 0.18, o el personaje arranca a tirones.
+          const util = Math.min(1, (m - ZONA_MUERTA) / (1 - ZONA_MUERTA));
+          gx = (gx / m) * util;
+          gy = (gy / m) * util;
+          // ACOTAR a 1, jamás normalizar a 1: normalizar mataría el control
+          // analógico y el personaje iría siempre a velocidad máxima.
+          if (util > magMax) { x = gx; y = gy; magMax = util; fuente = 'gamepad'; }
+        }
+
+        // Cruceta: digital, así que vale 1 a secas. No hay medias pulsaciones.
+        const bs = gp.buttons;
+        let cx = 0, cy = 0;
+        if (bs.length > CRUZ_DER) {
+          if (bs[CRUZ_ARRIBA] && bs[CRUZ_ARRIBA].pressed) cy -= 1;
+          if (bs[CRUZ_ABAJO]  && bs[CRUZ_ABAJO].pressed)  cy += 1;
+          if (bs[CRUZ_IZQ]    && bs[CRUZ_IZQ].pressed)    cx -= 1;
+          if (bs[CRUZ_DER]    && bs[CRUZ_DER].pressed)    cx += 1;
+        }
+        if (cx !== 0 || cy !== 0) {
+          if (cx !== 0 && cy !== 0) { const inv = Math.SQRT1_2; cx *= inv; cy *= inv; }
+          if (magMax < 1) { x = cx; y = cy; magMax = 1; fuente = 'gamepad'; }
+        }
+
+        for (let b = 0; b < bs.length && b < 32; b++) {
+          if (bs[b].pressed) botones |= (1 << b);
+        }
       }
+
+      c._flancoBotones = botones & ~c._botonesPrev;
+      c._botonesPrev = botones;
+      c.ejeX = x;
+      c.ejeY = y;
+      c.fuente = fuente;
     }
-    this._flancoBotones = botones & ~this._botonesPrev;
-    this._botonesPrev = botones;
 
-    this.ejeX = x;
-    this.ejeY = y;
-    this.fuente = fuente;
+    if (this.mandosConectados > 0) this.hayGamepad = true;
   }
 
-  // Consume el flanco: devuelve true una sola vez por pulsación.
+  // --- Teclas globales, no atribuidas a ningún jugador ---------------------
+  // Consume el flanco: devuelve true una sola vez por pulsación. Acepta también
+  // un botón de mando, que se busca en CUALQUIER control: la pausa la puede
+  // pedir quien sea.
   consumirFlanco(codigo, boton = -1) {
     let pulsada = this._flanco.has(codigo);
     if (pulsada) this._flanco.delete(codigo);
-    if (boton >= 0 && (this._flancoBotones & (1 << boton))) pulsada = true;
+    if (boton >= 0) {
+      for (let i = 0; i < this.controles.length; i++) {
+        if (this.controles[i].consumirBoton(boton)) pulsada = true;
+      }
+    }
     return pulsada;
   }
 
@@ -170,20 +216,20 @@ export class Entrada {
     return false;
   }
 
-  _primerGamepad() {
+  _listaMandos() {
     // navigator.getGamepads() construye una lista NUEVA en cada llamada, y esto
     // se llama una vez por paso de lógica: son 60 asignaciones por segundo
-    // regaladas cuando se juega con teclado, justo la presión sobre el
-    // recolector que el pool existe para evitar. El evento gamepadconnected ya
-    // dice si hay mando, así que ni se pregunta hasta entonces.
-    if (!this.hayGamepad) return null;
+    // regaladas cuando se juega con teclado. El evento gamepadconnected ya dice
+    // si hay mando, así que ni se pregunta hasta entonces.
+    if (!this.hayGamepad || !navigator.getGamepads) return null;
+    return navigator.getGamepads();
+  }
+
+  _contarMandos() {
     const lista = navigator.getGamepads ? navigator.getGamepads() : null;
-    if (!lista) return null;
-    for (let i = 0; i < lista.length; i++) {
-      // En Chrome el mando no aparece hasta que se pulsa un botón: es una
-      // medida antihuella, no un fallo. Por eso la portada pide "pulsa A".
-      if (lista[i] && lista[i].connected) { this.hayGamepad = true; return lista[i]; }
-    }
-    return null;
+    if (!lista) return 0;
+    let n = 0;
+    for (let i = 0; i < lista.length; i++) if (lista[i] && lista[i].connected) n++;
+    return n;
   }
 }

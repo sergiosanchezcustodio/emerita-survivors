@@ -67,13 +67,39 @@ const DECAIMIENTO_EMPUJE = 12;
 // Cuánto dura el blanqueo del sprite al recibir un impacto.
 const DURACION_DESTELLO = 0.07;
 
-// A partir de este daño en un solo golpe, el impacto congela la lógica un
-// instante. Es el hitstop del plan: sin él, pegar fuerte y pegar flojo se
-// sienten igual.
-const DANYO_HITSTOP = 25;
+// El hitstop se reserva a la MUERTE de un enemigo duro, no a un umbral de daño.
+//
+// Estaba puesto en "25 de daño o más" y era un error de bulto: el Pilum a nivel
+// 8 pega 31, así que a partir de ese nivel CADA disparo congelaba la lógica 35
+// ms. Con un solo enemigo en pantalla bastaba para que el juego diera tirones
+// constantes, y no se veía en ninguna medición porque un frame congelado no
+// tarda más: se salta el trabajo.
+//
+// Ligarlo a la vida máxima del que cae lo arregla de raíz. Una serpiente muere
+// sin ceremonia por mucho que le pegues; un cíclope o un jefe paran el mundo un
+// instante, que es justo lo que el recurso debe subrayar.
+const VIDA_HITSTOP = 150;
 
 // Cubos de la ordenación por Y, uno por unidad lógica de alto visible.
 const CUBOS_Y = MARGEN_ARRIBA + ALTO_LOGICO + MARGEN_ABAJO;
+
+// Jugador vivo más cercano a un punto, o null si no queda ninguno en pie.
+// Exportada porque el sistema de colisiones necesita exactamente el mismo
+// criterio: si el empuje y el daño usaran objetivos distintos, un enemigo
+// podría perseguir a uno y morder a otro.
+export function masCercano(jugadores, x, y) {
+  let mejor = null;
+  let mejorD2 = Infinity;
+  for (let i = 0; i < jugadores.length; i++) {
+    const j = jugadores[i];
+    if (j.abatido) continue;
+    const dx = j.x - x;
+    const dy = j.y - y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < mejorD2) { mejorD2 = d2; mejor = j; }
+  }
+  return mejor;
+}
 
 // Forma única para todos los enemigos: un solo tipo oculto en V8. Si unos
 // enemigos tuvieran campos que otros no, cada acceso pasaría a ser polimórfico.
@@ -91,11 +117,16 @@ function crearEnemigo() {
     frames: 1, frame: 0, relojAnim: 0,
     // Referencias resueltas al aparecer: dibujar 800 entidades no puede pagar
     // dos búsquedas en Map por entidad y frame.
+    objetivo: null,          // jugador al que persigue este paso
     meta: null, img: null, imgEspejo: null, imgTinte: null, imgTinteEspejo: null
   };
 }
 
 export class Enemigos {
+  // Interruptor de perfilado, no de juego. Estático porque el dibujado lo
+  // consulta en el bucle interno y no merece una indirección por entidad.
+  static destelloActivo = true;
+
   constructor(capacidad, rng) {
     this.pool = new Pool(crearEnemigo, capacidad);
     this.rejilla = new Rejilla(capacidad, CULL_X, CULL_Y);
@@ -105,6 +136,7 @@ export class Enemigos {
     this._cubo     = new Int32Array(capacidad);
     this._orden    = new Int32Array(capacidad);
     this._conteo   = new Int32Array(CUBOS_Y + 1);
+    this._ordenJugadores = new Array(8);   // holgado: nunca habrá más de 4
 
     this.dibujados = 0;
     this.reciclados = 0;
@@ -162,25 +194,34 @@ export class Enemigos {
     return e;
   }
 
-  // Persecución directa hacia el jugador. La separación NO entra aquí: se aplica
-  // después, como corrección de posición, una vez construida la rejilla (ver
-  // sistemas/colisiones.js). Mezclarla en la velocidad no funciona, porque la
-  // persecución tira siempre a tope y acaba ganando.
+  // Persecución hacia el jugador MÁS CERCANO. La separación NO entra aquí: se
+  // aplica después, como corrección de posición, una vez construida la rejilla
+  // (ver sistemas/colisiones.js). Mezclarla en la velocidad no funciona, porque
+  // la persecución tira siempre a tope y acaba ganando.
+  //
+  // Con cooperativo, cada enemigo elige objetivo cada paso. Son cuatro
+  // comparaciones por enemigo como mucho, y elegir una vez y recordarlo daría
+  // bichos que ignoran al jugador que tienen encima por seguir al de la otra
+  // punta. El objetivo se guarda en `e.objetivo` porque el tope de acercamiento
+  // lo necesita después y no tiene sentido recalcularlo.
   //
   // xPrev queda con la posición de principio de paso, así que la interpolación
   // del render recoge también lo que mueva la separación.
-  mover(dt, jugador) {
+  mover(dt, jugadores) {
     const items = this.pool.items;
     const n = this.pool.activos;
-    const jx = jugador.x, jy = jugador.y;
 
     for (let k = 0; k < n; k++) {
       const e = items[k];
       e.xPrev = e.x;
       e.yPrev = e.y;
 
-      let dx = jx - e.x;
-      let dy = jy - e.y;
+      const objetivo = masCercano(jugadores, e.x, e.y);
+      e.objetivo = objetivo;
+      if (!objetivo) { if (e.destello > 0) e.destello -= dt; continue; }
+
+      let dx = objetivo.x - e.x;
+      let dy = objetivo.y - e.y;
       const d2 = dx * dx + dy * dy;
       if (d2 > 0.0001) {
         const inv = 1 / Math.sqrt(d2);
@@ -244,20 +285,29 @@ export class Enemigos {
       e.empujeY += dirY * imp;
     }
 
-    if (cantidad >= DANYO_HITSTOP) VFX.congelar(0.035);
-
     if (e.vida <= 0) {
       e.vida = 0;
       this.bajas++;
-      Particulas.estallido(e.x, e.y - 4, 7, 70, 0.45, 2,
+      if (e.vidaMaxima >= VIDA_HITSTOP) VFX.congelar(0.045);
+      // Con la matanza en marcha se recorta el estallido: cuando mueren cien a
+      // la vez, nadie distingue siete partículas de tres, pero el coste sí se
+      // nota. La muerte SIEMPRE deja algo, o el enemigo se esfumaría sin más.
+      const apretado = Particulas.saturado();
+      Particulas.estallido(e.x, e.y - 4, apretado ? 3 : 7, 70, 0.45, 2,
                            COLOR_SANGRE, 1, this._rng);
-      Particulas.estallido(e.x, e.y - 4, 3, 40, 0.30, 1,
-                           COLOR_POLVO, 0.4, this._rng);
+      if (!apretado) {
+        Particulas.estallido(e.x, e.y - 4, 3, 40, 0.30, 1,
+                             COLOR_POLVO, 0.4, this._rng);
+      }
       return true;
     }
 
-    Particulas.estallido(e.x, e.y - 6, 2, 45, 0.22, 1,
-                         COLOR_CHISPA, 0.6, this._rng);
+    // Las chispas de impacto son lo primero que se sacrifica: son adorno, y un
+    // arco de melé a nivel 8 pide doscientas de golpe.
+    if (!Particulas.saturado()) {
+      Particulas.estallido(e.x, e.y - 6, 2, 45, 0.22, 1,
+                           COLOR_CHISPA, 0.6, this._rng);
+    }
     return false;
   }
 
@@ -296,12 +346,14 @@ export class Enemigos {
   // comparación por frame: eso asigna, y además su coste es n log n cuando aquí
   // el rango de Y está acotado y se puede hacer en O(n + k).
   //
-  // El jugador se intercala en el mismo orden mediante `yCorte` + `pintarCorte`,
-  // en vez de pintarse antes o después del bloque: con la pantalla llena, un
-  // jugador siempre encima flota sobre el enjambre y siempre debajo desaparece.
-  // `pintarCorte` es una referencia creada UNA vez en el arranque; construir una
-  // closure aquí sería asignar memoria por frame.
-  dibujar(ctx, camara, alpha, yCorte, pintarCorte) {
+  // Los jugadores se intercalan en el mismo orden, en vez de pintarse antes o
+  // después del bloque: con la pantalla llena, un jugador siempre encima flota
+  // sobre el enjambre y siempre debajo desaparece.
+  //
+  // Se pintan por orden de Y creciente, igual que los enemigos. Como son cuatro
+  // como mucho, se ordenan con una inserción sobre un array preasignado; montar
+  // aquí un sort con comparador sería asignar una closure por frame.
+  dibujar(ctx, camara, alpha, jugadores) {
     const items = this.pool.items;
     const n = this.pool.activos;
     const izq = camara.izquierda;
@@ -343,16 +395,33 @@ export class Enemigos {
 
     // 3. Pintar de arriba a abajo. Un solo drawImage por entidad: el volteo sale
     //    de la copia espejada precacheada, no de tocar la matriz del contexto.
-    let faltaCorte = pintarCorte !== undefined;
+    // Jugadores ordenados por Y creciente, con inserción sobre buffer propio.
+    const ordenJ = this._ordenJugadores;
+    let nj = 0;
+    for (let i = 0; i < jugadores.length; i++) {
+      const j = jugadores[i];
+      let p = nj++;
+      while (p > 0 && ordenJ[p - 1].yVista > j.yVista) { ordenJ[p] = ordenJ[p - 1]; p--; }
+      ordenJ[p] = j;
+    }
+    let sigJugador = 0;
+
     for (let i = 0; i < vis; i++) {
       const e = items[orden[i]];
       const meta = e.meta;
       if (!meta) continue;
-      if (faltaCorte && e.yVista > yCorte) { pintarCorte(); faltaCorte = false; }
+      while (sigJugador < nj && ordenJ[sigJugador].yVista <= e.yVista) {
+        ordenJ[sigJugador++].dibujar(ctx);
+      }
 
       // Recién golpeado: se pinta la copia blanqueada, generada al cargar. No
       // hay filtro ni composición en caliente, solo se elige otra imagen.
-      const img = e.destello > 0
+      //
+      // Se puede apagar (tecla T) porque es sospechoso de coste: con un arma de
+      // área a nivel alto, casi todos los enemigos visibles destellan a la vez y
+      // el dibujado pasa a alternar entre dos imágenes distintas cientos de
+      // veces por frame, que es lo que rompe el agrupado del canvas.
+      const img = (e.destello > 0 && Enemigos.destelloActivo)
         ? (e.mirandoDerecha ? e.imgTinte : e.imgTinteEspejo)
         : (e.mirandoDerecha ? e.img : e.imgEspejo);
 
@@ -392,8 +461,8 @@ export class Enemigos {
         (cxF - (meta.w >> 1)) / ESCALA_ARTE, dyF / ESCALA_ARTE,
         meta.w / ESCALA_ARTE, meta.h / ESCALA_ARTE);
     }
-    // Nadie por detrás del jugador, o ningún enemigo visible.
-    if (faltaCorte) pintarCorte();
+    // Los que quedan van por delante de todo lo visible (o no había enemigos).
+    while (sigJugador < nj) ordenJ[sigJugador++].dibujar(ctx);
 
     this.dibujados = vis;
   }

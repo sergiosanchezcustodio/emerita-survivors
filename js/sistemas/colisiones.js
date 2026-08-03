@@ -229,15 +229,16 @@ function aplicarCorrecciones(items, n) {
 // Se recorta SOLO la componente que apunta al jugador. De lado y hacia fuera la
 // multitud sigue empujando todo lo que necesite, que es lo que deshace los
 // amontonamientos.
-function topeAcercamiento(items, n, jugador) {
-  const jx = jugador.x;
-  const jy = jugador.y;
+function topeAcercamiento(items, n) {
   for (let k = 0; k < n; k++) {
     const e = items[k];
     if (e.contactos === 0) continue;     // sin vecinos nadie le ha empujado
+    // Se recorta el acercamiento a SU objetivo, el mismo que eligió al moverse.
+    const obj = e.objetivo;
+    if (!obj) continue;
 
-    let hx = jx - e.xPrev;
-    let hy = jy - e.yPrev;
+    let hx = obj.x - e.xPrev;
+    let hy = obj.y - e.yPrev;
     const h2 = hx * hx + hy * hy;
     if (h2 < 0.0001) continue;
     const invH = 1 / Math.sqrt(h2);
@@ -302,7 +303,7 @@ function apartarDelJugador(items, rejilla, jugador) {
   }
 }
 
-export function separacion(enemigos, jugador) {
+export function separacion(enemigos, jugadores) {
   const pool = enemigos.pool;
   const items = pool.items;
   const n = pool.activos;
@@ -339,11 +340,15 @@ export function separacion(enemigos, jugador) {
   //
   // El empuje del jugador puede volver a meter a alguien dentro de otro enemigo,
   // pero solo a los pocos que le tocan, y el frame siguiente lo deshace.
-  topeAcercamiento(items, n, jugador);
+  topeAcercamiento(items, n);
   for (let iter = 0; iter < ajustes.pasadasDuras; iter++) {
     recorrerPares(items, rejilla, separarDuro);
   }
-  apartarDelJugador(items, rejilla, jugador);
+  // Cada jugador aparta lo suyo. El último en tocar manda, y como los cuerpos
+  // de dos jugadores nunca se solapan entre sí, no compiten por lo mismo.
+  for (let i = 0; i < jugadores.length; i++) {
+    if (!jugadores[i].abatido) apartarDelJugador(items, rejilla, jugadores[i]);
+  }
 }
 
 // Daño por contacto. Solo se miran las 9 celdas alrededor del jugador: da igual
@@ -365,6 +370,13 @@ export function separacion(enemigos, jugador) {
 // impacto, y eso ahora lo garantiza el propio cuerpo sólido: si el ala te toca,
 // es que el bicho está pegado a ti de verdad. `radio` sigue existiendo y será el
 // que usen las armas en la Fase 3, donde el criterio original sí aplica.
+// Daño por contacto de TODOS los jugadores. Cada uno con su cadencia propia:
+// los i-frames son individuales, así que dos jugadores pegados al mismo bicho
+// no comparten el reloj del golpe.
+export function contactoJugadores(enemigos, jugadores) {
+  for (let i = 0; i < jugadores.length; i++) contactoJugador(enemigos, jugadores[i]);
+}
+
 export function contactoJugador(enemigos, jugador) {
   if (jugador.abatido || jugador.invulnerable > 0) return 0;
 
@@ -402,6 +414,48 @@ export function contactoJugador(enemigos, jugador) {
     VFX.sacudir(1.2 + peor * 0.12);
   }
   return peor;
+}
+
+// Los jugadores tampoco se atraviesan entre sí.
+//
+// Aquí el reparto es MITAD Y MITAD, sin masas: dos jugadores son iguales y
+// ninguno tiene derecho a empujar al otro. Es la diferencia con el empuje contra
+// enemigos, donde el jugador manda y nadie le aparta a él.
+//
+// Recorrido de todos los pares: con cuatro jugadores son seis comparaciones, así
+// que la rejilla espacial aquí sobra por completo.
+export function separarJugadores(jugadores) {
+  const n = jugadores.length;
+  if (n < 2) return;
+  for (let i = 0; i < n; i++) {
+    const a = jugadores[i];
+    if (a.abatido) continue;
+    for (let k = i + 1; k < n; k++) {
+      const b = jugadores[k];
+      if (b.abatido) continue;
+
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const r = a.radioCuerpo + b.radioCuerpo;
+      const d2 = dx * dx + dy * dy;
+      if (d2 >= r * r) continue;
+
+      let nx, ny, pen;
+      if (d2 > 0.0001) {
+        const d = Math.sqrt(d2);
+        nx = dx / d; ny = dy / d; pen = r - d;
+      } else {
+        // Exactamente encima (dos que entran a la vez): se separan siempre en
+        // la misma dirección para que no vibren.
+        nx = 1; ny = 0; pen = r;
+      }
+      const mitad = pen * 0.5;
+      a.x -= nx * mitad;
+      a.y -= ny * mitad;
+      b.x += nx * mitad;
+      b.y += ny * mitad;
+    }
+  }
 }
 
 // --- Consultas para las armas -----------------------------------------------

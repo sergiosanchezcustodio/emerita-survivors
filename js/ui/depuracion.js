@@ -4,8 +4,8 @@ import { ANCHO_FISICO, ESCALA_ARTE } from '../core/constantes.js';
 // arte: es interfaz de desarrollo, no pixel art, y tiene que leerse.
 const LINEAS = [];
 
-const AYUDA = 'F3 · ESC · C personaje · 1/2/3/4 enemigos · X vaciar · G inmortal · R revivir · K +Gladius · L subir armas'
-            + '   ||   APAGAR: Y suelo · P particulas · N numeros · O efectos';
+const AYUDA = 'F3 · ESC · C personaje · J/H mas/menos jugadores · 1/2/3/4 enemigos · X vaciar · G inmortal · R revivir · K +Gladius · L subir armas'
+            + '   ||   APAGAR: Y suelo · P particulas · N numeros · O efectos · T destello';
 
 export function dibujarDepuracion(ctx, datos) {
   const pool = datos.pool;
@@ -26,29 +26,34 @@ export function dibujarDepuracion(ctx, datos) {
               `[suelo ${p.suelo.toFixed(2)} · ent ${p.entidades.toFixed(2)} · ` +
               `fx ${p.efectos.toFixed(2)} · txt ${p.texto.toFixed(2)}]`);
   LINEAS.push(`navegador  ${resto.toFixed(2)} ms  (rasterizado y composicion)`);
-  LINEAS.push(`apagados   ${datos.activo.suelo ? '' : 'suelo '}` +
-              `${datos.activo.particulas ? '' : 'particulas '}` +
-              `${datos.activo.numeros ? '' : 'numeros '}` +
-              `${datos.activo.efectos ? '' : 'efectos '}` +
-              `${datos.activo.suelo && datos.activo.particulas &&
-                 datos.activo.numeros && datos.activo.efectos ? 'ninguno' : ''}`);
+  const a = datos.activo;
+  const todos = a.suelo && a.particulas && a.numeros && a.efectos && a.destello;
+  LINEAS.push(`apagados   ${a.suelo ? '' : 'suelo '}${a.particulas ? '' : 'particulas '}` +
+              `${a.numeros ? '' : 'numeros '}${a.efectos ? '' : 'efectos '}` +
+              `${a.destello ? '' : 'destello '}${todos ? 'ninguno' : ''}`);
   LINEAS.push(`entidades  ${datos.entidades}  (${datos.dibujados} en pantalla)`);
   LINEAS.push(`pool       ${pool.activos}/${pool.capacidad}  pico ${pool.pico}` +
               (pool.agotado > 0 ? `  AGOTADO x${pool.agotado}` : ''));
   LINEAS.push(`reciclados ${datos.reciclados}  ·  rejilla ${datos.celdas} celdas`);
   LINEAS.push(`bajas      ${datos.bajas}`);
   LINEAS.push(`efectos    ${datos.proyectiles} proy · ${datos.particulas} part · ${datos.numeros} num`);
-  for (let i = 0; i < datos.armas.length; i++) {
-    const a = datos.armas[i];
-    LINEAS.push(`  ${a.def.nombre.padEnd(9)} niv ${a.nivel}  ` +
-                `${a.stats.danyo} dmg · ${a.stats.recarga.toFixed(2)}s`);
-  }
   LINEAS.push(`tiles      ${datos.tiles}`);
-  LINEAS.push(`jugador    ${datos.jx.toFixed(0)}, ${datos.jy.toFixed(0)}`);
-  LINEAS.push(`vida       ${datos.vida.toFixed(0)}/${datos.vidaMaxima}  ` +
-              `golpes ${datos.golpes}${datos.inmortal ? '  [INMORTAL]' : ''}`);
+
+  for (let i = 0; i < datos.jugadores.length; i++) {
+    const j = datos.jugadores[i];
+    LINEAS.push(`J${i + 1} ${j.personaje.padEnd(6)} ${j.vida.toFixed(0)}/${j.vidaMaxima} vida · ` +
+                `${j.x.toFixed(0)},${j.y.toFixed(0)}` +
+                `${j.inmortal ? ' [INMORTAL]' : ''}${j.abatido ? ' [ABATIDO]' : ''}`);
+    const eq = datos.arsenales[i].equipadas;
+    for (let k = 0; k < eq.length; k++) {
+      const a = eq[k];
+      LINEAS.push(`   ${a.def.nombre.padEnd(9)} niv ${a.nivel}  ` +
+                  `${a.stats.danyo} dmg · ${a.stats.recarga.toFixed(2)}s`);
+    }
+  }
+
   LINEAS.push(`camara     ${datos.cx.toFixed(0)}, ${datos.cy.toFixed(0)}`);
-  LINEAS.push(`entrada    ${datos.fuente}${datos.gamepad ? ' (mando ok)' : ''}`);
+  LINEAS.push(`entrada    ${datos.fuente} · ${datos.mandos} mando(s)`);
   LINEAS.push(`escala     ${ESCALA_ARTE}x arte · ${datos.zoom}x pantalla`);
   if (datos.sustituidos > 0) {
     LINEAS.push(`sustituidos ${datos.sustituidos} placeholder(s)`);

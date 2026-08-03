@@ -18,6 +18,9 @@ import { Pool } from '../core/pool.js';
 const GRAVEDAD = 90;        // unidades lógicas por segundo al cuadrado
 const ROZAMIENTO = 2.6;     // frenado exponencial por segundo
 
+// A partir de esta ocupación del pool, quien emite adorno se recorta.
+const UMBRAL_SATURACION = 0.45;
+
 // Paleta de partículas. Constantes, no se construyen nunca en caliente.
 export const COLOR_SANGRE  = '#a8323c';
 export const COLOR_CHISPA  = '#ffe9a8';
@@ -47,6 +50,14 @@ export const Particulas = {
   },
 
   get activas() { return this.pool ? this.pool.activos : 0; },
+
+  // ¿Vamos apretados? Quien emite adorno lo consulta antes para recortarse solo,
+  // en vez de pedir mil partículas y que el pool las rechace una a una. La
+  // diferencia importa: rechazar es barato, pero DIBUJAR las que sí entraron no,
+  // y sin este freno el pool vive siempre lleno.
+  saturado() {
+    return this.pool.activos > this.pool.capacidad * UMBRAL_SATURACION;
+  },
 
   emitir(x, y, vx, vy, vida, tam, color, gravedad) {
     const p = this.pool.obtener();

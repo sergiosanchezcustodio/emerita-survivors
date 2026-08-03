@@ -13,7 +13,7 @@ import { Armas } from './sistemas/armas.js';
 import { Particulas } from './sistemas/particulas.js';
 import { VFX } from './sistemas/vfx.js';
 import {
-  separacion, contactoJugador, impactosProyectiles, ajustes
+  separacion, contactoJugadores, impactosProyectiles, separarJugadores, ajustes
 } from './sistemas/colisiones.js';
 import { dibujarDepuracion, dibujarPausa, dibujarAbatido } from './ui/depuracion.js';
 import { NIVEL } from './datos/niveles/merida.js';
@@ -79,17 +79,26 @@ const ctx = lienzo.getContext('2d', { alpha: false });
 lienzo.width = ANCHO_FISICO;
 lienzo.height = ALTO_FISICO;
 
-const entrada = new Entrada(lienzo);
+// Cooperativo local hasta 4. El motor no sabe cuántos hay: recorre el array.
+const MAX_JUGADORES = 4;
+
+const entrada = new Entrada(lienzo, MAX_JUGADORES);
 const camara = new Camara();
 const rng = crearRng(SEMILLA);
-let jugador = null;
+
+// Array de jugadores en juego, y su arsenal en paralelo por índice. Cada uno
+// tiene sus armas: en cooperativo las armas no se comparten, y en la Fase 4 el
+// sorteo de subida de nivel además impedirá que dos lleven la misma.
+const jugadores = [];
+const arsenales = [];
+
 let enemigos = null;
 let proyectiles = null;
-let armas = null;
 let bucle = null;
 
-// Contexto que reciben los comportamientos de arma. Se construye UNA vez: crear
-// un objeto literal por paso de lógica sería una asignación por frame.
+// Contexto que reciben los comportamientos de arma. Se construye UNA vez y se
+// reapunta al jugador que toca antes de cada llamada: crear un objeto literal
+// por jugador y paso de lógica sería asignar memoria en caliente.
 const ctxArmas = { jugador: null, enemigos: null, proyectiles: null, rng: null };
 
 let pausado = false;
@@ -108,12 +117,42 @@ let indicePersonaje = 0;
 // Los interruptores permiten apagar un sistema y ver el efecto en el acto, que
 // es la única forma honesta de saber qué cuesta en una máquina concreta.
 const perfil = { suelo: 0, entidades: 0, efectos: 0, texto: 0 };
-const activo = { suelo: true, particulas: true, numeros: true, efectos: true };
+const activo = { suelo: true, particulas: true, numeros: true, efectos: true, destello: true };
 
-// Referencia creada UNA vez: se la pasamos al gestor de enemigos para que
-// intercale al jugador en la ordenación por profundidad. Si se construyera en
-// cada frame sería una asignación por frame, justo lo que el pool evita.
-const pintarJugador = () => jugador.dibujar(ctx);
+// --- Alta y baja de jugadores ------------------------------------------------
+// Un jugador entra al enchufar un mando, o a mano con J, para poder probar el
+// cooperativo sin cuatro mandos encima de la mesa.
+function anyadirJugador() {
+  if (jugadores.length >= MAX_JUGADORES) return null;
+  const i = jugadores.length;
+  const j = new Jugador(PERSONAJES[i % PERSONAJES.length]);
+
+  // En abanico alrededor del primero, para que no nazcan uno dentro de otro.
+  const ang = (i / MAX_JUGADORES) * Math.PI * 2;
+  const cx = i === 0 ? ANCHO_LOGICO / 2 : jugadores[0].x;
+  const cy = i === 0 ? ALTO_LOGICO / 2 : jugadores[0].y;
+  j.x = j.xPrev = j.xVista = cx + (i === 0 ? 0 : Math.cos(ang) * 26);
+  j.y = j.yPrev = j.yVista = cy + (i === 0 ? 0 : Math.sin(ang) * 26);
+  jugadores.push(j);
+
+  // Arsenal propio. En cooperativo las armas no se comparten, y en la Fase 4 el
+  // sorteo de subida de nivel impedirá además que dos lleven la misma.
+  const arsenal = new Armas(rng);
+  arsenal.equipar(ARMA_INICIAL);
+  arsenales.push(arsenal);
+  return j;
+}
+
+function quitarJugador() {
+  if (jugadores.length <= 1) return;   // siempre queda al menos uno
+  jugadores.pop();
+  arsenales.pop();
+}
+
+// Cada mando que se enchufa suma un jugador, hasta cuatro.
+addEventListener('gamepadconnected', () => {
+  if (entrada.mandosConectados >= jugadores.length) anyadirJugador();
+});
 
 // --- Escalado entero al viewport -------------------------------------------
 // Múltiplos enteros y solo enteros: cualquier otra cosa rompe la rejilla de
@@ -127,14 +166,16 @@ function redimensionar() {
 }
 addEventListener('resize', redimensionar);
 
+// Aparecen alrededor de la CÁMARA, no de un jugador concreto: con el grupo
+// repartido por la pantalla, anclarlo a uno dejaría el borde opuesto vacío.
 function aparecerTanda(cantidad, mezcla) {
   for (let i = 0; i < cantidad; i++) {
     const ang = rng() * Math.PI * 2;
     const k = 1 + rng() * DISPERSION;
     const tipo = mezcla[(rng() * mezcla.length) | 0];
     const e = enemigos.aparecer(tipo,
-      jugador.x + Math.cos(ang) * SEMI_APARICION_X * k,
-      jugador.y + Math.sin(ang) * SEMI_APARICION_Y * k);
+      camara.x + Math.cos(ang) * SEMI_APARICION_X * k,
+      camara.y + Math.sin(ang) * SEMI_APARICION_Y * k);
     if (!e) break;                 // pool lleno: no insistir
   }
 }
@@ -146,16 +187,24 @@ function actualizar(dt) {
   if (entrada.consumirFlanco('F3')) verDepuracion = !verDepuracion;
   if (entrada.consumirFlanco('Escape', 9)) pausado = !pausado;
   if (entrada.consumirFlanco('KeyC')) {
+    // Cambia el personaje del jugador 1; los demás llevan el suyo.
     indicePersonaje = (indicePersonaje + 1) % PERSONAJES.length;
-    jugador.personaje = PERSONAJES[indicePersonaje];
+    jugadores[0].personaje = PERSONAJES[indicePersonaje];
   }
+  if (entrada.consumirFlanco('KeyJ')) anyadirJugador();
+  if (entrada.consumirFlanco('KeyH')) quitarJugador();
   if (entrada.consumirFlanco('Digit1')) aparecerTanda(100, MEZCLA_TEMPRANA);
   if (entrada.consumirFlanco('Digit2')) aparecerTanda(500, MEZCLA_TEMPRANA);
   if (entrada.consumirFlanco('Digit3')) aparecerTanda(800, MEZCLA_TEMPRANA);
   if (entrada.consumirFlanco('Digit4')) aparecerTanda(300, MEZCLA_TARDIA);
   if (entrada.consumirFlanco('KeyX')) { enemigos.vaciar(); proyectiles.vaciar(); }
-  if (entrada.consumirFlanco('KeyG')) jugador.inmortal = !jugador.inmortal;
-  if (entrada.consumirFlanco('KeyR')) jugador.reiniciar();
+  if (entrada.consumirFlanco('KeyG')) {
+    const nuevo = !jugadores[0].inmortal;
+    for (let i = 0; i < jugadores.length; i++) jugadores[i].inmortal = nuevo;
+  }
+  if (entrada.consumirFlanco('KeyR')) {
+    for (let i = 0; i < jugadores.length; i++) jugadores[i].reiniciar();
+  }
   if (entrada.consumirFlanco('KeyL')) subirTodasLasArmas();
   if (entrada.consumirFlanco('KeyK')) equiparGladius();
   // Interruptores de perfilado: apagar un sistema y mirar los fps es la forma
@@ -164,6 +213,10 @@ function actualizar(dt) {
   if (entrada.consumirFlanco('KeyN')) activo.numeros = !activo.numeros;
   if (entrada.consumirFlanco('KeyO')) activo.efectos = !activo.efectos;
   if (entrada.consumirFlanco('KeyY')) activo.suelo = !activo.suelo;
+  if (entrada.consumirFlanco('KeyT')) {
+    Enemigos.destelloActivo = !Enemigos.destelloActivo;
+    activo.destello = Enemigos.destelloActivo;
+  }
 
   if (pausado) { entrada.limpiarFlanco(); return; }
 
@@ -177,8 +230,12 @@ function actualizar(dt) {
     return;
   }
 
-  jugador.actualizar(dt, entrada);
-  enemigos.mover(dt, jugador);
+  // Cada jugador con SU control. El jugador 1 lleva teclado y mando 0; los
+  // demás, su mando.
+  for (let i = 0; i < jugadores.length; i++) {
+    jugadores[i].actualizar(dt, entrada.controles[i]);
+  }
+  enemigos.mover(dt, jugadores);
   proyectiles.mover(dt);
 
   // Orden deliberado: primero se recicla (el pool intercambia posiciones y
@@ -193,14 +250,22 @@ function actualizar(dt) {
   enemigos.reciclarLejanos(camara.x, camara.y);
   enemigos.rejilla.reconstruir(
     enemigos.pool.items, enemigos.pool.activos, camara.x, camara.y);
-  separacion(enemigos, jugador);
-  contactoJugador(enemigos, jugador);
+  separacion(enemigos, jugadores);
+  contactoJugadores(enemigos, jugadores);
 
   // Las armas disparan DESPUÉS de reconstruir la rejilla: el arco melee la
   // consulta para saber a quién alcanza, y con una rejilla del paso anterior
   // podría dar a alguien que ya no está donde se ve.
-  armas.actualizar(dt, ctxArmas);
-  armas.actualizarTajos(dt);
+  //
+  // Un arsenal por jugador, cada uno con sus recargas. El contexto se reapunta
+  // en vez de crearse: cuatro jugadores por sesenta pasos serían 240 objetos
+  // por segundo tirados a la basura.
+  for (let i = 0; i < jugadores.length; i++) {
+    if (jugadores[i].abatido) continue;      // un caído no dispara
+    ctxArmas.jugador = jugadores[i];
+    arsenales[i].actualizar(dt, ctxArmas);
+    arsenales[i].actualizarTajos(dt);
+  }
   impactosProyectiles(proyectiles, enemigos);
 
   // Los muertos se retiran cuando ya nadie recorre la rejilla. Hasta aquí solo
@@ -210,24 +275,37 @@ function actualizar(dt) {
 
   Particulas.actualizar(dt);
   VFX.actualizar(dt);
-  camara.seguir(jugador.x, jugador.y, dt);
+
+  // La cámara va al centro del grupo y la correa impide que nadie se salga de
+  // pantalla. Sujetar DESPUÉS de mover la cámara: al revés, el rezagado toparía
+  // contra un borde que ya no está donde se le sujetó.
+  camara.seguirGrupo(jugadores, dt);
+  camara.sujetar(jugadores);
+  // Después de la correa: si dos topan contra el mismo borde, hay que volver a
+  // separarlos o el tope los dejaría uno dentro del otro.
+  separarJugadores(jugadores);
   entrada.limpiarFlanco();
 }
 
 // --- Atajos de prueba (TEMPORAL, Fase 3) ------------------------------------
 // La progresión de verdad llega en la Fase 4 con la pantalla de subida de nivel.
 function subirTodasLasArmas() {
-  for (let i = 0; i < armas.equipadas.length; i++) {
-    armas.subirNivel(armas.equipadas[i].id);
+  for (let i = 0; i < arsenales.length; i++) {
+    const eq = arsenales[i].equipadas;
+    for (let k = 0; k < eq.length; k++) arsenales[i].subirNivel(eq[k].id);
   }
 }
 function equiparGladius() {
-  if (!armas.equipadas.some((a) => a.id === 'gladius')) armas.equipar('gladius');
+  for (let i = 0; i < arsenales.length; i++) {
+    if (!arsenales[i].equipadas.some((a) => a.id === 'gladius')) {
+      arsenales[i].equipar('gladius');
+    }
+  }
 }
 
 // --- Render -----------------------------------------------------------------
 function dibujar(alpha) {
-  jugador.interpolar(alpha);
+  for (let i = 0; i < jugadores.length; i++) jugadores[i].interpolar(alpha);
   camara.interpolar(alpha);
 
   // La cámara se ancla a píxel físico entero. Sin esto el suelo tiembla:
@@ -248,7 +326,7 @@ function dibujar(alpha) {
   perfil.suelo = performance.now() - t;
 
   t = performance.now();
-  enemigos.dibujar(ctx, camara, alpha, jugador.yVista, pintarJugador);
+  enemigos.dibujar(ctx, camara, alpha, jugadores);
   perfil.entidades = performance.now() - t;
 
   // Por encima de las entidades: los efectos tienen que leerse siempre, aunque
@@ -256,7 +334,7 @@ function dibujar(alpha) {
   t = performance.now();
   if (activo.efectos) {
     proyectiles.dibujar(ctx, alpha);
-    armas.dibujarTajos(ctx);
+    for (let i = 0; i < arsenales.length; i++) arsenales[i].dibujarTajos(ctx);
   }
   if (activo.particulas) Particulas.dibujar(ctx, alpha);
   perfil.efectos = performance.now() - t;
@@ -273,7 +351,7 @@ function dibujar(alpha) {
       msUpdate: bucle.msUpdate,
       msRender: bucle.msRender,
       pasos: bucle.pasosUltimoFrame,
-      entidades: enemigos.activos + 1,
+      entidades: enemigos.activos + jugadores.length,
       dibujados: enemigos.dibujados,
       pool: enemigos.pool,
       reciclados: enemigos.reciclados,
@@ -281,23 +359,22 @@ function dibujar(alpha) {
       proyectiles: proyectiles.activos,
       particulas: Particulas.activas,
       numeros: VFX.numerosActivos,
-      armas: armas.equipadas,
+      jugadores,
+      arsenales,
       perfil,
       activo,
       celdas: enemigos.rejilla.numCeldas,
       tiles: tilesDibujados,
-      jx: jugador.x, jy: jugador.y,
-      vida: jugador.vida, vidaMaxima: jugador.vidaMaxima,
-      golpes: jugador.golpesRecibidos,
-      inmortal: jugador.inmortal,
       cx: camara.x, cy: camara.y,
-      fuente: entrada.fuente,
-      gamepad: entrada.hayGamepad,
+      fuente: entrada.controles[0].fuente,
+      mandos: entrada.mandosConectados,
       zoom: zoomPantalla,
       sustituidos: Recursos.sustituidos.length
     });
   }
-  if (jugador.abatido) dibujarAbatido(ctx, ALTO_FISICO);
+  // Solo se pierde cuando caen TODOS. Con un compañero en pie la partida sigue,
+  // que es lo que hace que el cooperativo tenga sentido.
+  if (jugadores.every((j) => j.abatido)) dibujarAbatido(ctx, ALTO_FISICO);
   if (pausado) dibujarPausa(ctx, ALTO_FISICO);
 }
 
@@ -329,23 +406,20 @@ function dibujarSuelo(izq, arr) {
 async function arrancar() {
   await Recursos.cargar(NIVEL);
 
-  jugador = new Jugador(PERSONAJES[indicePersonaje]);
-  jugador.x = jugador.xPrev = ANCHO_LOGICO / 2;
-  jugador.y = jugador.yPrev = ALTO_LOGICO / 2;
-  camara.situar(jugador.x, jugador.y);
-
   // Todos los pools se preasignan aquí, antes del primer frame.
   enemigos = new Enemigos(CAPACIDAD_ENEMIGOS, rng);
   proyectiles = new Proyectiles(CAPACIDAD_PROYECTILES);
   Particulas.iniciar(CAPACIDAD_PARTICULAS);
   VFX.iniciar(CAPACIDAD_NUMEROS);
 
-  armas = new Armas(rng);
-  armas.equipar(ARMA_INICIAL);
-  ctxArmas.jugador = jugador;
   ctxArmas.enemigos = enemigos;
   ctxArmas.proyectiles = proyectiles;
   ctxArmas.rng = rng;
+
+  // Siempre arranca al menos el jugador 1. Los demás entran al enchufar mando
+  // o pulsando J.
+  anyadirJugador();
+  camara.situar(jugadores[0].x, jugadores[0].y);
 
   redimensionar();
   document.getElementById('cargando').remove();
@@ -359,8 +433,10 @@ async function arrancar() {
   // reproducir una situación exacta (misma semilla, mismos pasos) al ajustar el
   // balance, que es de lo que va el criterio 10.
   window.EMERITA = {
-    jugador, enemigos, proyectiles, armas, camara, entrada, bucle,
+    jugadores, arsenales, enemigos, proyectiles, camara, entrada, bucle,
     particulas: Particulas, vfx: VFX, ajustes, activo, perfil,
+    anyadirJugador, quitarJugador,
+    get jugador() { return jugadores[0]; },   // atajo para el caso de uno solo
     avanzar(n) { for (let i = 0; i < n; i++) actualizar(DT); return enemigos.activos; }
   };
 
