@@ -203,6 +203,140 @@ public class Procesador {
     }
 
     // ---------------------------------------------------------------------
+    // Animacion horneada de personajes
+    // ---------------------------------------------------------------------
+    //
+    // Convierte el sprite de un fotograma que acaba de escribir Procesar() en
+    // una tira de 6: 2 de quieto y 4 de andar. Deforma la unica pose que hay,
+    // igual que hacia el motor en tiempo real, pero OFFLINE, que cambia dos
+    // cosas importantes:
+    //
+    //   - Se puede afinar por personaje (donde empiezan las piernas no es igual
+    //     en Eric que en Vicky) y revisar el resultado fotograma a fotograma.
+    //   - El juego se queda con un drawImage por entidad y cero matematicas de
+    //     deformacion. Mas rapido y, sobre todo, sin el hormigueo que provoca
+    //     reescalar en fracciones de pixel cada frame.
+    //
+    // Un paso de verdad es ANTISIMETRICO: una pierna sube mientras la otra
+    // apoya. El apano que tenia el motor ensanchaba las dos a la vez y salia
+    // patizambo. Aqui se levanta una sola, con el desplazamiento creciendo de
+    // cero en la cadera a maximo en el pie, para que no aparezca un escalon.
+    //
+    // Ciclo: paso izquierdo, pase alto, paso derecho, pase alto. En un andar
+    // real el cuerpo esta MAS ALTO en el pase, cuando ninguna pierna apoya del
+    // todo, y por eso los fotogramas 1 y 3 del ciclo suben el cuerpo un pixel.
+    //
+    // modo "falda": Lucy lleva vestido hasta los tobillos y no tiene piernas
+    // que separar. Se le balancea el bajo en horizontal, que es lo que hace una
+    // falda al andar.
+    // Fraccion del alto a la que estan los hombros. La inclinacion lateral deja
+    // de crecer aqui: de los hombros para arriba la cabeza se desplaza ENTERA,
+    // como un bloque. Si el desplazamiento siguiera creciendo hasta la coronilla,
+    // la cara se cizallaria contra el cuello y se veria un tajo; ya paso en el
+    // primer intento y en Vicky, con el pelo suelto, era escandaloso.
+    const double HOMBROS = 0.28;
+
+    public static string AnimarPersonaje(string archivo, double cadera,
+                                         int ampPierna, bool falda, int ampEscora) {
+        int w, h, stride;
+        byte[] px;
+        using (Bitmap b = new Bitmap(archivo)) {
+            w = b.Width; h = b.Height;
+            BitmapData d = b.LockBits(new Rectangle(0,0,w,h), ImageLockMode.ReadOnly,
+                                      PixelFormat.Format32bppArgb);
+            stride = d.Stride;
+            px = new byte[stride*h];
+            Marshal.Copy(d.Scan0, px, 0, px.Length);
+            b.UnlockBits(d);
+        }
+
+        // 0-1 quieto, 2-5 andar de frente, 6-9 andar de lado (escorado).
+        const int FRAMES = 10;
+        int yCadera = (int)Math.Round(h * cadera);
+        if (yCadera < 1) yCadera = 1;
+        if (yCadera > h - 2) yCadera = h - 2;
+        int yHombros = (int)Math.Round(h * HOMBROS);
+        int centro = w / 2;
+
+        int tiraW = w * FRAMES;
+        int dStride = tiraW * 4;
+        byte[] dst = new byte[dStride * h];
+
+        for (int f = 0; f < FRAMES; f++) {
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    int sx = x, sy = y;
+
+                    // t: 0 en la cadera, 1 en los pies. Fuera de las piernas es 0.
+                    double t = y > yCadera ? (double)(y - yCadera) / (h - yCadera) : 0.0;
+                    // u: 1 en la coronilla, 0 en la cadera. Para el torso.
+                    double u = y < yCadera ? (double)(yCadera - y) / yCadera : 0.0;
+
+                    // Los fotogramas laterales reutilizan el ciclo frontal y le
+                    // suman la escora. El pie que apoya no se inclina.
+                    int paso = f >= 6 ? f - 4 : f;
+
+                    switch (paso) {
+                        case 0:                       // quieto, pose original
+                            break;
+                        case 1:                       // quieto, respirando
+                            sy = y - (int)Math.Round(u);
+                            break;
+                        case 2:                       // paso: apoya izquierda
+                            if (falda) sx = x - (int)Math.Round(t);
+                            else if (x < centro) sy = y + (int)Math.Round(ampPierna * t);
+                            break;
+                        // Pase: las dos piernas juntas y el cuerpo un pixel mas
+                        // alto. NO se balancea el torso en horizontal: la
+                        // deformacion crecia hasta la coronilla y despegaba la
+                        // cabeza de los hombros, que en pelo suelto se veia como
+                        // un tajo. Un pixel de cizalla lateral en una cara de 20
+                        // pixeles es medio rostro movido.
+                        case 3:
+                        case 5:
+                            sy = y + 1;
+                            break;
+                        case 4:                       // paso: apoya derecha
+                            if (falda) sx = x + (int)Math.Round(t);
+                            else if (x >= centro) sy = y + (int)Math.Round(ampPierna * t);
+                            break;
+                    }
+
+                    // --- Escora lateral --------------------------------
+                    // Solo en los fotogramas 6-9. Crece de cero en los pies a
+                    // maximo en los hombros, y de ahi arriba se mantiene: el
+                    // cuerpo se inclina hacia donde va y la cabeza le acompana
+                    // entera. Es lo que quita la sensacion de patinar de lado
+                    // que da un sprite frontal desplazandose en horizontal.
+                    if (f >= 6 && ampEscora > 0) {
+                        double v = y >= h - 1 ? 0.0
+                                 : Math.Min(1.0, (double)(h - 1 - y) / (h - 1 - yHombros));
+                        sx -= (int)Math.Round(ampEscora * v);
+                    }
+
+                    int q = y * dStride + (f * w + x) * 4;
+                    if (sx < 0 || sy < 0 || sx >= w || sy >= h) continue;   // queda transparente
+                    int s = sy * stride + sx * 4;
+                    dst[q]     = px[s];
+                    dst[q + 1] = px[s + 1];
+                    dst[q + 2] = px[s + 2];
+                    dst[q + 3] = px[s + 3];
+                }
+            }
+        }
+
+        using (Bitmap sal = new Bitmap(tiraW, h, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0,0,tiraW,h), ImageLockMode.WriteOnly,
+                                         PixelFormat.Format32bppArgb);
+            for (int y = 0; y < h; y++)
+                Marshal.Copy(dst, y*dStride, (IntPtr)(dd.Scan0.ToInt64() + y*dd.Stride), dStride);
+            sal.UnlockBits(dd);
+            sal.Save(archivo, ImageFormat.Png);
+        }
+        return w + "|" + h + "|" + FRAMES;
+    }
+
+    // ---------------------------------------------------------------------
     // GIF animado
     // ---------------------------------------------------------------------
     //
@@ -565,10 +699,15 @@ $CATALOGO = @(
     # la figura dentro de un cuadrado comun hacia que las poses anchas salieran
     # mas bajas: a Vicky, con ratio 1.43, la limitaba el ancho y se quedaba en 22
     # de alto frente a los 32 de Eric.
-    @{ src='characters\Eric.png';          dst='personajes\eric.png';    id='eric';      alto=32;  anchoFijo=0;  tol=0 }
-    @{ src='characters\Lucy.png';          dst='personajes\lucy.png';    id='lucy';      alto=32;  anchoFijo=0;  tol=0 }
-    @{ src='characters\Sara.png';          dst='personajes\sara.png';    id='sara';      alto=32;  anchoFijo=0;  tol=0 }
-    @{ src='characters\Vicky.png';         dst='personajes\vicky.png';   id='vicky';     alto=32;  anchoFijo=0;  tol=0 }
+    # Los personajes se animan al vuelo desde su unica pose (ver
+    # AnimarPersonaje). `cadera` es la fraccion del alto a la que empiezan las
+    # piernas de verdad, medida sobre el sprite: no es el 52% generico que usaba
+    # el motor, ahi todavia hay pantalon. Lucy va en modo falda porque su vestido
+    # llega al tobillo y no hay piernas que separar.
+    @{ src='characters\Eric.png';  dst='personajes\eric.png';  id='eric';  alto=32; anchoFijo=0; tol=0; cadera=0.68; ampPierna=4; ampEscora=4 }
+    @{ src='characters\Lucy.png';  dst='personajes\lucy.png';  id='lucy';  alto=32; anchoFijo=0; tol=0; cadera=0.55; ampPierna=3; falda=$true; ampEscora=3 }
+    @{ src='characters\Sara.png';  dst='personajes\sara.png';  id='sara';  alto=32; anchoFijo=0; tol=0; cadera=0.62; ampPierna=4; ampEscora=4 }
+    @{ src='characters\Vicky.png'; dst='personajes\vicky.png'; id='vicky'; alto=32; anchoFijo=0; tol=0; cadera=0.62; ampPierna=4; ampEscora=4 }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'enemigos')   | Out-Null
@@ -651,16 +790,32 @@ foreach ($e in $CATALOGO) {
     $quitado = 100 - $opaco
     $estado = if ($quitado -lt 5) { 'FALLO' } elseif ($quitado -lt 15) { 'DUDOSO' } else { 'OK' }
 
+    $nFrames = 1
+    $clips = $null
+    # Personajes: expandir la pose unica a una tira de 6 (2 quieto + 4 andar).
+    if ($null -ne $e.cadera) {
+        $ra = [Procesador]::AnimarPersonaje($rutaDst, [double]$e.cadera,
+                                            [int]$e.ampPierna, [bool]$e.falda,
+                                            [int]$e.ampEscora)
+        $nFrames = [int](($ra -split '\|')[2])
+        $clips = [ordered]@{
+            quieto        = [ordered]@{ desde = 0; n = 2; fps = 3 }
+            andar         = [ordered]@{ desde = 2; n = 4; fps = 8 }
+            andar_lateral = [ordered]@{ desde = 6; n = 4; fps = 8 }
+        }
+    }
+
     $atlas[$e.id] = [ordered]@{
         archivo = $e.dst.Replace('\', '/')
-        w = $fw; h = $fh; anclaX = $ax; anclaY = $ay; frames = 1
+        w = $fw; h = $fh; anclaX = $ax; anclaY = $ay; frames = $nFrames
     }
+    if ($clips) { $atlas[$e.id].clips = $clips }
 
     $informe += [PSCustomObject]@{
         Id      = $e.id
         Silueta = "${silW}x${silH}"
         Ratio   = $ratio
-        Sprite  = "${fw}x${fh}"
+        Sprite  = if ($nFrames -gt 1) { "${fw}x${fh} x$nFrames" } else { "${fw}x${fh}" }
         Quitado = "$quitado%"
         Estado  = $estado
     }

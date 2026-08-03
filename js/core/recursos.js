@@ -26,6 +26,8 @@ export const Recursos = {
   atlas: null,
   imagenes: new Map(),      // id -> HTMLImageElement | HTMLCanvasElement
   espejos: new Map(),       // id -> canvas volteado en horizontal
+  tintes: new Map(),        // id -> canvas blanqueado (destello de impacto)
+  tintesEspejo: new Map(),  // id -> el mismo, volteado
   tilesSuelo: [],           // canvas de 64x64 físicos
   sustituidos: [],          // ids que acabaron con placeholder
   paleta: null,
@@ -54,10 +56,15 @@ export const Recursos = {
   _cargarEntidad(id) {
     const meta = this.atlas.entidades[id];
     return new Promise((resolver) => {
+      const registrar = (fuente) => {
+        const espejo = this._espejo(fuente, meta);
+        this.imagenes.set(id, fuente);
+        this.espejos.set(id, espejo);
+        this.tintes.set(id, this._tinte(fuente, meta));
+        this.tintesEspejo.set(id, this._tinte(espejo, meta));
+      };
       const conPlaceholder = () => {
-        const c = this._placeholder(id, meta);
-        this.imagenes.set(id, c);
-        this.espejos.set(id, this._espejo(c, meta));
+        registrar(this._placeholder(id, meta));
         this.sustituidos.push(id);
         resolver();
       };
@@ -65,8 +72,7 @@ export const Recursos = {
 
       const img = new Image();
       img.onload = () => {
-        this.imagenes.set(id, img);
-        this.espejos.set(id, this._espejo(img, meta));
+        registrar(img);
         resolver();
       };
       img.onerror = conPlaceholder;
@@ -102,6 +108,29 @@ export const Recursos = {
       g.drawImage(fuente, f * meta.w, 0, meta.w, meta.h, 0, 0, meta.w, meta.h);
       g.restore();
     }
+    return c;
+  },
+
+  // Copia blanqueada para el destello de impacto.
+  //
+  // Se genera UNA vez al cargar, nunca por frame: es el requisito 6 del plan.
+  // Blanquear en caliente exigiría un canvas temporal o un filtro por entidad
+  // golpeada, y en el minuto 16 hay decenas de impactos por frame.
+  //
+  // 'source-atop' pinta el blanco SOLO donde ya había píxel, así que respeta la
+  // silueta y el alfa del borde. Se deja algo de color original asomando para
+  // que el bicho siga reconociéndose en el fogonazo.
+  _tinte(fuente, meta) {
+    const frames = meta.frames || 1;
+    const c = document.createElement('canvas');
+    c.width = meta.w * frames;
+    c.height = meta.h;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.drawImage(fuente, 0, 0, c.width, c.height);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = 'rgba(255,255,255,.82)';
+    g.fillRect(0, 0, c.width, c.height);
     return c;
   },
 
@@ -203,5 +232,7 @@ export const Recursos = {
 
   meta(id) { return this.atlas.entidades[id]; },
   imagen(id) { return this.imagenes.get(id); },
-  espejo(id) { return this.espejos.get(id); }
+  espejo(id) { return this.espejos.get(id); },
+  tinte(id) { return this.tintes.get(id); },
+  tinteEspejo(id) { return this.tintesEspejo.get(id); }
 };

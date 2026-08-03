@@ -1,0 +1,125 @@
+import { Pool } from '../core/pool.js';
+
+// Partículas. Singleton con pool preasignado, como Recursos: hay uno solo y lo
+// usa todo el mundo, así que pasarlo por parámetro por media docena de archivos
+// solo añadiría ruido.
+//
+// Se dibujan por código, nunca con sprite. Son cuadrados de uno o dos píxeles
+// con rozamiento y gravedad: a esta resolución, un cuadradito bien colocado se
+// lee mejor que cualquier textura.
+//
+// EL COLOR SE PASA YA HECHO, como cadena. La versión obvia sería guardar r,g,b
+// y componer `rgba(...)` al dibujar, pero eso construye una cadena por partícula
+// y por frame: con 400 partículas son 24.000 cadenas por segundo, justo la
+// presión sobre el recolector que el pool existe para evitar. Las cadenas de
+// color son constantes de módulo en quien emite, y aquí solo se guarda la
+// referencia. La transparencia va por `globalAlpha`, que es un número.
+
+const GRAVEDAD = 90;        // unidades lógicas por segundo al cuadrado
+const ROZAMIENTO = 2.6;     // frenado exponencial por segundo
+
+// Paleta de partículas. Constantes, no se construyen nunca en caliente.
+export const COLOR_SANGRE  = '#a8323c';
+export const COLOR_CHISPA  = '#ffe9a8';
+export const COLOR_POLVO   = '#b99b6b';
+export const COLOR_CENIZA  = '#6d6a63';
+
+// La paleta es CERRADA a propósito: el dibujado agrupa por color y recorre esta
+// lista, así que un color nuevo tiene que añadirse aquí o no se pintará.
+const PALETA = [COLOR_SANGRE, COLOR_CHISPA, COLOR_POLVO, COLOR_CENIZA];
+
+function crearParticula() {
+  return {
+    x: 0, y: 0, xPrev: 0, yPrev: 0,
+    vx: 0, vy: 0,
+    vida: 0, vidaMax: 1,
+    tam: 1,
+    gravedad: 0,
+    color: COLOR_CHISPA
+  };
+}
+
+export const Particulas = {
+  pool: null,
+
+  iniciar(capacidad) {
+    this.pool = new Pool(crearParticula, capacidad);
+  },
+
+  get activas() { return this.pool ? this.pool.activos : 0; },
+
+  emitir(x, y, vx, vy, vida, tam, color, gravedad) {
+    const p = this.pool.obtener();
+    if (!p) return null;                 // lleno: se pierde una chispa, da igual
+    p.x = p.xPrev = x;
+    p.y = p.yPrev = y;
+    p.vx = vx; p.vy = vy;
+    p.vida = p.vidaMax = vida;
+    p.tam = tam;
+    p.gravedad = gravedad;
+    p.color = color;
+    return p;
+  },
+
+  // Estallido radial. Es el efecto de muerte y el de impacto: cambian el
+  // número, la velocidad y el color, no la forma.
+  estallido(x, y, cantidad, velocidad, vida, tam, color, gravedad, rng) {
+    for (let i = 0; i < cantidad; i++) {
+      const a = rng() * Math.PI * 2;
+      const v = velocidad * (0.35 + rng() * 0.65);
+      this.emitir(x, y, Math.cos(a) * v, Math.sin(a) * v,
+                  vida * (0.6 + rng() * 0.4), tam, color, gravedad);
+    }
+  },
+
+  actualizar(dt) {
+    const items = this.pool.items;
+    const frenado = Math.exp(-ROZAMIENTO * dt);
+    let k = 0;
+    while (k < this.pool.activos) {
+      const p = items[k];
+      p.xPrev = p.x;
+      p.yPrev = p.y;
+      p.vx *= frenado;
+      p.vy *= frenado;
+      p.vy += GRAVEDAD * p.gravedad * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vida -= dt;
+      if (p.vida <= 0) this.pool.liberarEn(k);   // sin avanzar k
+      else k++;
+    }
+  },
+
+  vaciar() { if (this.pool) this.pool.vaciar(); },
+
+  // Un fillRect por partícula, sin rutas ni transformaciones. El alfa cae con la
+  // vida restante para que se apaguen en vez de desaparecer de golpe.
+  //
+  // Se dibuja AGRUPADO POR COLOR, una pasada por color de la paleta. Asignar
+  // fillStyle obliga a parsear la cadena CSS, y hacerlo por partícula eran
+  // trescientas asignaciones por frame en el orden en que cayeran. Con la
+  // paleta cerrada a cuatro colores, agrupar deja cuatro.
+  dibujar(ctx, alpha) {
+    const items = this.pool.items;
+    const n = this.pool.activos;
+    if (n === 0) return;
+
+    const alfaPrev = ctx.globalAlpha;
+    for (let c = 0; c < PALETA.length; c++) {
+      const color = PALETA[c];
+      let usado = false;
+      for (let k = 0; k < n; k++) {
+        const p = items[k];
+        if (p.color !== color) continue;
+        if (!usado) { ctx.fillStyle = color; usado = true; }
+        const x = p.xPrev + (p.x - p.xPrev) * alpha;
+        const y = p.yPrev + (p.y - p.yPrev) * alpha;
+        const t = p.vida / p.vidaMax;
+        ctx.globalAlpha = t > 1 ? 1 : t;
+        ctx.fillRect(x - p.tam * 0.5, y - p.tam * 0.5, p.tam, p.tam);
+      }
+    }
+    ctx.globalAlpha = alfaPrev;
+  }
+};

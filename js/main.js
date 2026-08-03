@@ -8,9 +8,16 @@ import { Recursos } from './core/recursos.js';
 import { crearRng, hash2 } from './core/rng.js';
 import { Jugador } from './entidades/jugador.js';
 import { Enemigos } from './entidades/enemigo.js';
-import { separacion, contactoJugador } from './sistemas/colisiones.js';
+import { Proyectiles } from './entidades/proyectil.js';
+import { Armas } from './sistemas/armas.js';
+import { Particulas } from './sistemas/particulas.js';
+import { VFX } from './sistemas/vfx.js';
+import {
+  separacion, contactoJugador, impactosProyectiles, ajustes
+} from './sistemas/colisiones.js';
 import { dibujarDepuracion, dibujarPausa, dibujarAbatido } from './ui/depuracion.js';
 import { NIVEL } from './datos/niveles/merida.js';
+import { ARMA_INICIAL } from './datos/armas.js';
 
 // Los cuatro se re-exportaron con alfa real y proporciones parejas, así que
 // ninguno cae ya a placeholder. Se rotan con C para comparar siluetas.
@@ -20,6 +27,15 @@ const PERSONAJES = ['eric', 'lucy', 'sara', 'vicky'];
 // margen extra absorbe los picos de una oleada que entra mientras la anterior
 // aún no ha salido por culling.
 const CAPACIDAD_ENEMIGOS = 1000;
+
+// Proyectiles: la Ballista a nivel 8 con la Clepsidra dispara mucho, y varias
+// armas de proyectil conviven. 400 es holgado y son objetos diminutos.
+const CAPACIDAD_PROYECTILES = 400;
+// Partículas: 7 por muerte más chispas de impacto. Con la horda del minuto 16
+// muriendo a ritmo alto esto se llena, y llenarse es aceptable: se pierde una
+// chispa, no un enemigo.
+const CAPACIDAD_PARTICULAS = 900;
+const CAPACIDAD_NUMEROS = 160;
 
 const SEMILLA = 0xE3E21A;
 
@@ -68,13 +84,31 @@ const camara = new Camara();
 const rng = crearRng(SEMILLA);
 let jugador = null;
 let enemigos = null;
+let proyectiles = null;
+let armas = null;
 let bucle = null;
+
+// Contexto que reciben los comportamientos de arma. Se construye UNA vez: crear
+// un objeto literal por paso de lógica sería una asignación por frame.
+const ctxArmas = { jugador: null, enemigos: null, proyectiles: null, rng: null };
 
 let pausado = false;
 let verDepuracion = false;
 let zoomPantalla = 1;
 let tilesDibujados = 0;
 let indicePersonaje = 0;
+
+// --- Perfilado por subsistema ------------------------------------------------
+// El tiempo que mide el bucle es el de EMITIR órdenes de dibujo; el canvas 2D
+// las encola y rasteriza después, así que puede ir sobrado de JavaScript y aun
+// así perder frames. Por eso el overlay compara el tiempo de frame REAL (el que
+// sale de los intervalos de requestAnimationFrame) con lo que suman lógica y
+// render: la diferencia es lo que se lleva el navegador componiendo.
+//
+// Los interruptores permiten apagar un sistema y ver el efecto en el acto, que
+// es la única forma honesta de saber qué cuesta en una máquina concreta.
+const perfil = { suelo: 0, entidades: 0, efectos: 0, texto: 0 };
+const activo = { suelo: true, particulas: true, numeros: true, efectos: true };
 
 // Referencia creada UNA vez: se la pasamos al gestor de enemigos para que
 // intercale al jugador en la ordenación por profundidad. Si se construyera en
@@ -119,19 +153,38 @@ function actualizar(dt) {
   if (entrada.consumirFlanco('Digit2')) aparecerTanda(500, MEZCLA_TEMPRANA);
   if (entrada.consumirFlanco('Digit3')) aparecerTanda(800, MEZCLA_TEMPRANA);
   if (entrada.consumirFlanco('Digit4')) aparecerTanda(300, MEZCLA_TARDIA);
-  if (entrada.consumirFlanco('KeyX')) enemigos.vaciar();
+  if (entrada.consumirFlanco('KeyX')) { enemigos.vaciar(); proyectiles.vaciar(); }
   if (entrada.consumirFlanco('KeyG')) jugador.inmortal = !jugador.inmortal;
   if (entrada.consumirFlanco('KeyR')) jugador.reiniciar();
+  if (entrada.consumirFlanco('KeyL')) subirTodasLasArmas();
+  if (entrada.consumirFlanco('KeyK')) equiparGladius();
+  // Interruptores de perfilado: apagar un sistema y mirar los fps es la forma
+  // más directa de saber qué cuesta en una máquina concreta.
+  if (entrada.consumirFlanco('KeyP')) activo.particulas = !activo.particulas;
+  if (entrada.consumirFlanco('KeyN')) activo.numeros = !activo.numeros;
+  if (entrada.consumirFlanco('KeyO')) activo.efectos = !activo.efectos;
+  if (entrada.consumirFlanco('KeyY')) activo.suelo = !activo.suelo;
 
   if (pausado) { entrada.limpiarFlanco(); return; }
 
+  // Hitstop: congela la LÓGICA unos milisegundos tras un golpe fuerte, pero el
+  // render sigue corriendo. Se siente como un frenazo del mundo, no como una
+  // caída de fps. La sacudida sí avanza, o el parón la dejaría clavada.
+  if (VFX.congelado > 0) {
+    VFX.congelado -= dt;
+    VFX.actualizar(dt);
+    entrada.limpiarFlanco();
+    return;
+  }
+
   jugador.actualizar(dt, entrada);
   enemigos.mover(dt, jugador);
+  proyectiles.mover(dt);
 
   // Orden deliberado: primero se recicla (el pool intercambia posiciones y
   // dejaría los índices de la rejilla apuntando a otras entidades), y solo
-  // entonces se construye la rejilla. Se construye UNA vez y la usan los dos
-  // sistemas que vienen detrás.
+  // entonces se construye la rejilla. Se construye UNA vez y la usan TODOS los
+  // sistemas que vienen detrás: separación, contacto, armas e impactos.
   //
   // La separación mueve hasta 4px después de construirla, así que el contacto
   // trabaja con una rejilla desfasada esos 4px. Es inofensivo: la consulta 3x3
@@ -143,8 +196,33 @@ function actualizar(dt) {
   separacion(enemigos, jugador);
   contactoJugador(enemigos, jugador);
 
+  // Las armas disparan DESPUÉS de reconstruir la rejilla: el arco melee la
+  // consulta para saber a quién alcanza, y con una rejilla del paso anterior
+  // podría dar a alguien que ya no está donde se ve.
+  armas.actualizar(dt, ctxArmas);
+  armas.actualizarTajos(dt);
+  impactosProyectiles(proyectiles, enemigos);
+
+  // Los muertos se retiran cuando ya nadie recorre la rejilla. Hasta aquí solo
+  // estaban marcados con vida a cero.
+  enemigos.retirarMuertos();
+  proyectiles.reciclarFuera(camara);
+
+  Particulas.actualizar(dt);
+  VFX.actualizar(dt);
   camara.seguir(jugador.x, jugador.y, dt);
   entrada.limpiarFlanco();
+}
+
+// --- Atajos de prueba (TEMPORAL, Fase 3) ------------------------------------
+// La progresión de verdad llega en la Fase 4 con la pantalla de subida de nivel.
+function subirTodasLasArmas() {
+  for (let i = 0; i < armas.equipadas.length; i++) {
+    armas.subirNivel(armas.equipadas[i].id);
+  }
+}
+function equiparGladius() {
+  if (!armas.equipadas.some((a) => a.id === 'gladius')) armas.equipar('gladius');
 }
 
 // --- Render -----------------------------------------------------------------
@@ -153,16 +231,41 @@ function dibujar(alpha) {
   camara.interpolar(alpha);
 
   // La cámara se ancla a píxel físico entero. Sin esto el suelo tiembla:
-  // el vecino más próximo va duplicando y saltando filas de píxeles.
-  const offX = Math.round(camara.izquierda * ESCALA_ARTE);
-  const offY = Math.round(camara.arriba * ESCALA_ARTE);
+  // el vecino más próximo va duplicando y saltando filas de píxeles. La
+  // sacudida se suma ANTES de redondear, así que también sale en píxeles
+  // enteros y no rompe la rejilla.
+  const offX = Math.round((camara.izquierda + VFX.desvioX) * ESCALA_ARTE);
+  const offY = Math.round((camara.arriba + VFX.desvioY) * ESCALA_ARTE);
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.imageSmoothingEnabled = false;
 
   ctx.setTransform(ESCALA_ARTE, 0, 0, ESCALA_ARTE, -offX, -offY);
-  dibujarSuelo(offX / ESCALA_ARTE, offY / ESCALA_ARTE);
+
+  let t = performance.now();
+  if (activo.suelo) dibujarSuelo(offX / ESCALA_ARTE, offY / ESCALA_ARTE);
+  else { ctx.fillStyle = '#b99b6b'; ctx.fillRect(offX / ESCALA_ARTE, offY / ESCALA_ARTE, ANCHO_LOGICO, ALTO_LOGICO); tilesDibujados = 0; }
+  perfil.suelo = performance.now() - t;
+
+  t = performance.now();
   enemigos.dibujar(ctx, camara, alpha, jugador.yVista, pintarJugador);
+  perfil.entidades = performance.now() - t;
+
+  // Por encima de las entidades: los efectos tienen que leerse siempre, aunque
+  // haya ochocientos cuerpos debajo.
+  t = performance.now();
+  if (activo.efectos) {
+    proyectiles.dibujar(ctx, alpha);
+    armas.dibujarTajos(ctx);
+  }
+  if (activo.particulas) Particulas.dibujar(ctx, alpha);
+  perfil.efectos = performance.now() - t;
+
+  // Números de daño: en píxeles físicos, con la matriz identidad. Son
+  // tipografía, no pixel art.
+  t = performance.now();
+  if (activo.numeros) VFX.dibujarNumeros(ctx, offX, offY);
+  perfil.texto = performance.now() - t;
 
   if (verDepuracion) {
     dibujarDepuracion(ctx, {
@@ -174,6 +277,13 @@ function dibujar(alpha) {
       dibujados: enemigos.dibujados,
       pool: enemigos.pool,
       reciclados: enemigos.reciclados,
+      bajas: enemigos.bajas,
+      proyectiles: proyectiles.activos,
+      particulas: Particulas.activas,
+      numeros: VFX.numerosActivos,
+      armas: armas.equipadas,
+      perfil,
+      activo,
       celdas: enemigos.rejilla.numCeldas,
       tiles: tilesDibujados,
       jx: jugador.x, jy: jugador.y,
@@ -224,8 +334,18 @@ async function arrancar() {
   jugador.y = jugador.yPrev = ALTO_LOGICO / 2;
   camara.situar(jugador.x, jugador.y);
 
-  // Todo el pool se preasigna aquí, antes del primer frame.
+  // Todos los pools se preasignan aquí, antes del primer frame.
   enemigos = new Enemigos(CAPACIDAD_ENEMIGOS, rng);
+  proyectiles = new Proyectiles(CAPACIDAD_PROYECTILES);
+  Particulas.iniciar(CAPACIDAD_PARTICULAS);
+  VFX.iniciar(CAPACIDAD_NUMEROS);
+
+  armas = new Armas(rng);
+  armas.equipar(ARMA_INICIAL);
+  ctxArmas.jugador = jugador;
+  ctxArmas.enemigos = enemigos;
+  ctxArmas.proyectiles = proyectiles;
+  ctxArmas.rng = rng;
 
   redimensionar();
   document.getElementById('cargando').remove();
@@ -239,7 +359,8 @@ async function arrancar() {
   // reproducir una situación exacta (misma semilla, mismos pasos) al ajustar el
   // balance, que es de lo que va el criterio 10.
   window.EMERITA = {
-    jugador, enemigos, camara, entrada, bucle,
+    jugador, enemigos, proyectiles, armas, camara, entrada, bucle,
+    particulas: Particulas, vfx: VFX, ajustes, activo, perfil,
     avanzar(n) { for (let i = 0; i < n; i++) actualizar(DT); return enemigos.activos; }
   };
 

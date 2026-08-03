@@ -3,6 +3,10 @@ import { Pool } from '../core/pool.js';
 import { Rejilla } from '../core/rejilla.js';
 import { Recursos } from '../core/recursos.js';
 import { ENEMIGOS } from '../datos/enemigos.js';
+import { VFX } from '../sistemas/vfx.js';
+import {
+  Particulas, COLOR_SANGRE, COLOR_POLVO, COLOR_CHISPA
+} from '../sistemas/particulas.js';
 
 // --- Culling ----------------------------------------------------------------
 // 1.5 pantallas medidas desde el CENTRO de la cámara. Lo que sale de aquí vuelve
@@ -30,19 +34,12 @@ const FACTOR_CUERPO = 0.45;      // del ancho del sprite: 0.9 del semiancho
 // que nadie se meta dentro de nadie.
 export const FACTOR_SEPARACION = 1.25;
 
-// Palanca global de velocidad de los enemigos. Los valores del bestiario salen
-// de la sección 10 del plan y se mantienen tal cual en datos/enemigos.js: las
-// proporciones entre roles (la arpía sigue siendo el doble de rápida que un
-// legionario) son diseño y no se tocan. Esto escala el conjunto.
-//
-// A 1.0 la serpiente iba a 68 contra los 85 del jugador: sobre el papel se huye,
-// pero en la práctica la persecución resultaba asfixiante. A 0.75 el jugador le
-// gana 34 px/s en vez de 17, y despegarse se nota.
-//
-// OJO con subirlo por encima de 0.92: ahí la arpía (92 nominal) vuelve a superar
-// al jugador, que es su papel en el plan pero también lo que hacía imposible
-// escapar.
-export const ESCALA_VELOCIDAD = 0.75;
+// Palanca global de velocidad. Ahora en 1.0: las velocidades de
+// datos/enemigos.js ya son absolutas y están afinadas una a una para el género
+// (la masa al 35-40% de la del jugador). La palanca se queda porque sigue
+// siendo útil para probar de un golpe si la partida entera va sobrada o corta,
+// pero el ajuste fino va en los datos, no aquí.
+export const ESCALA_VELOCIDAD = 1.0;
 
 // --- Márgenes de dibujo -----------------------------------------------------
 // El ancla es el centro de los pies, así que el sprite crece hacia ARRIBA: la
@@ -62,6 +59,19 @@ const FLOTE_PX = 3;      // desplazamiento vertical de los que vuelan
 // origen; a más, el aleteo se vuelve nervioso y deja de leerse.
 const SEG_POR_FRAME = 0.1;
 
+// Frenado exponencial del empuje por daño, por segundo. Alto a propósito: un
+// golpe tiene que dar un tirón seco y devolver el control enseguida, no mandar
+// al bicho de paseo.
+const DECAIMIENTO_EMPUJE = 12;
+
+// Cuánto dura el blanqueo del sprite al recibir un impacto.
+const DURACION_DESTELLO = 0.07;
+
+// A partir de este daño en un solo golpe, el impacto congela la lógica un
+// instante. Es el hitstop del plan: sin él, pegar fuerte y pegar flojo se
+// sienten igual.
+const DANYO_HITSTOP = 25;
+
 // Cubos de la ordenación por Y, uno por unidad lógica de alto visible.
 const CUBOS_Y = MARGEN_ARRIBA + ALTO_LOGICO + MARGEN_ABAJO;
 
@@ -71,14 +81,17 @@ function crearEnemigo() {
   return {
     def: null, tipo: '',
     x: 0, y: 0, xPrev: 0, yPrev: 0, xVista: 0, yVista: 0,
-    vida: 0, velocidad: 0,
+    vida: 0, vidaMaxima: 0, velocidad: 0,
     sepX: 0, sepY: 0, contactos: 0,
+    empujeX: 0, empujeY: 0,
+    destello: 0,             // segundos que queda blanqueado tras un impacto
+    ultimoSello: 0,          // marca del último proyectil que le golpeó
     radio: 0, radioCuerpo: 0, radioSep: 0, invMasa: 1, vuela: false,
     fase: 0, cadencia: 0, mirandoDerecha: true,
     frames: 1, frame: 0, relojAnim: 0,
     // Referencias resueltas al aparecer: dibujar 800 entidades no puede pagar
     // dos búsquedas en Map por entidad y frame.
-    meta: null, img: null, imgEspejo: null
+    meta: null, img: null, imgEspejo: null, imgTinte: null, imgTinteEspejo: null
   };
 }
 
@@ -95,6 +108,7 @@ export class Enemigos {
 
     this.dibujados = 0;
     this.reciclados = 0;
+    this.bajas = 0;
   }
 
   get activos() { return this.pool.activos; }
@@ -108,12 +122,15 @@ export class Enemigos {
     e.tipo = tipo;
     e.x = e.xPrev = e.xVista = x;
     e.y = e.yPrev = e.yVista = y;
-    e.vida = def.vida;
+    e.vida = e.vidaMaxima = def.vida;
     // Las estadísticas se instancian POR ENEMIGO al aparecer, no se leen del
     // catálogo en cada paso. Aquí es donde la Fase 5 aplicará el escalado por
     // minuto (multiplicadorVida = 1 + 0.09 x minuto) sin tocar nada más.
     e.velocidad = def.velocidad * ESCALA_VELOCIDAD;
     e.sepX = 0; e.sepY = 0;
+    e.empujeX = 0; e.empujeY = 0;
+    e.destello = 0;
+    e.ultimoSello = 0;
     e.radio = def.radio;
     e.invMasa = 1 / def.masa;
     e.vuela = def.vuela;
@@ -140,6 +157,8 @@ export class Enemigos {
 
     e.img = Recursos.imagen(def.sprite);
     e.imgEspejo = Recursos.espejo(def.sprite);
+    e.imgTinte = Recursos.tinte(def.sprite);
+    e.imgTinteEspejo = Recursos.tinteEspejo(def.sprite);
     return e;
   }
 
@@ -174,6 +193,20 @@ export class Enemigos {
       e.x += dx * v * dt;
       e.y += dy * v * dt;
 
+      // Empuje por daño. Decae rápido y en exponencial: un golpe da un tirón
+      // seco, no un desplazamiento largo. Los inmunes ni lo acumulan.
+      if (e.empujeX !== 0 || e.empujeY !== 0) {
+        e.x += e.empujeX * dt;
+        e.y += e.empujeY * dt;
+        const frenado = Math.exp(-DECAIMIENTO_EMPUJE * dt);
+        e.empujeX *= frenado;
+        e.empujeY *= frenado;
+        if (Math.abs(e.empujeX) < 1 && Math.abs(e.empujeY) < 1) {
+          e.empujeX = 0; e.empujeY = 0;
+        }
+      }
+      if (e.destello > 0) e.destello -= dt;
+
       // Umbral ancho a propósito: con uno estrecho, un enemigo que persigue casi
       // en vertical se pasa el rato volteándose por el ruido de la separación.
       if (dx > 0.08) e.mirandoDerecha = true;
@@ -188,6 +221,54 @@ export class Enemigos {
       } else {
         e.fase += dt * e.cadencia;
       }
+    }
+  }
+
+  // Aplica daño. NO recicla al morir: solo deja la vida a cero y suelta el
+  // efecto. Retirar aquí mismo intercambiaría posiciones en el pool y dejaría
+  // los índices de la rejilla —que es justo lo que está recorriendo quien
+  // llama— apuntando a otras entidades. La retirada va aparte, en
+  // retirarMuertos(), cuando ya no hay nadie iterando.
+  danyar(e, cantidad, dirX, dirY, fuerza) {
+    if (e.vida <= 0) return false;          // ya muerto este paso
+
+    e.vida -= cantidad;
+    e.destello = DURACION_DESTELLO;
+    VFX.numero(e.x, e.y - e.meta.h / ESCALA_ARTE * 0.6, cantidad, this._rng);
+
+    // Empuje proporcional al daño e inverso a la masa, como pide el plan: una
+    // serpiente sale despedida y un cíclope ni se entera.
+    if (!e.def.inmuneEmpuje && fuerza > 0) {
+      const imp = fuerza * e.invMasa * (0.5 + cantidad / 40);
+      e.empujeX += dirX * imp;
+      e.empujeY += dirY * imp;
+    }
+
+    if (cantidad >= DANYO_HITSTOP) VFX.congelar(0.035);
+
+    if (e.vida <= 0) {
+      e.vida = 0;
+      this.bajas++;
+      Particulas.estallido(e.x, e.y - 4, 7, 70, 0.45, 2,
+                           COLOR_SANGRE, 1, this._rng);
+      Particulas.estallido(e.x, e.y - 4, 3, 40, 0.30, 1,
+                           COLOR_POLVO, 0.4, this._rng);
+      return true;
+    }
+
+    Particulas.estallido(e.x, e.y - 6, 2, 45, 0.22, 1,
+                         COLOR_CHISPA, 0.6, this._rng);
+    return false;
+  }
+
+  // Retira del pool a los que se quedaron sin vida. Se llama cuando ya no hay
+  // ningún sistema recorriendo la rejilla.
+  retirarMuertos() {
+    const items = this.pool.items;
+    let k = 0;
+    while (k < this.pool.activos) {
+      if (items[k].vida <= 0) this.pool.liberarEn(k);   // sin avanzar k
+      else k++;
     }
   }
 
@@ -268,7 +349,12 @@ export class Enemigos {
       const meta = e.meta;
       if (!meta) continue;
       if (faltaCorte && e.yVista > yCorte) { pintarCorte(); faltaCorte = false; }
-      const img = e.mirandoDerecha ? e.img : e.imgEspejo;
+
+      // Recién golpeado: se pinta la copia blanqueada, generada al cargar. No
+      // hay filtro ni composición en caliente, solo se elige otra imagen.
+      const img = e.destello > 0
+        ? (e.mirandoDerecha ? e.imgTinte : e.imgTinteEspejo)
+        : (e.mirandoDerecha ? e.img : e.imgEspejo);
 
       // Todo se cuadra a PÍXEL FÍSICO ENTERO antes de dibujar.
       //
@@ -291,27 +377,20 @@ export class Enemigos {
         continue;
       }
 
-      const seno = Math.sin(e.fase);
-      if (e.vuela) {
-        // Los que vuelan flotan: no pisan, así que aplastarlos contra el suelo
-        // sería mentira. Solo se desplaza el ancla, sin deformar, y así no hay
-        // remuestreo ninguno.
-        const dyF = cyF - meta.h + Math.round(seno * FLOTE_PX);
-        ctx.drawImage(img,
-          (cxF - (meta.w >> 1)) / ESCALA_ARTE, dyF / ESCALA_ARTE,
-          meta.w / ESCALA_ARTE, meta.h / ESCALA_ARTE);
-      } else {
-        // Squash & stretch desde los pies, en escalones de un píxel: se ensancha
-        // al aplastarse y se estrecha al estirarse, que es lo que conserva el
-        // volumen aparente. Al ir de entero en entero, la deformación se lee
-        // como animación en vez de como ruido.
-        const bote = Math.round(seno * BOTE_PX);
-        const hF = meta.h + bote;
-        const wF = meta.w - bote;
-        ctx.drawImage(img,
-          (cxF - (wF >> 1)) / ESCALA_ARTE, (cyF - hF) / ESCALA_ARTE,
-          wF / ESCALA_ARTE, hF / ESCALA_ARTE);
-      }
+      // Bote vertical, SIN deformar. Antes esto era squash & stretch: el ancho y
+      // el alto de destino cambiaban un par de píxeles con la animación.
+      // Se veía bien, pero significaba que CADA enemigo de suelo se dibujaba
+      // escalado, y un drawImage escalado no entra por la ruta rápida del
+      // navegador. Con setecientos por frame eso se paga.
+      //
+      // Desplazar el ancla da casi la misma sensación de peso y deja todos los
+      // blits a escala 1:1. Si algún día sobra presupuesto, el squash vuelve
+      // aquí y en ningún otro sitio.
+      const amp = e.vuela ? FLOTE_PX : BOTE_PX;
+      const dyF = cyF - meta.h + Math.round(Math.sin(e.fase) * amp);
+      ctx.drawImage(img,
+        (cxF - (meta.w >> 1)) / ESCALA_ARTE, dyF / ESCALA_ARTE,
+        meta.w / ESCALA_ARTE, meta.h / ESCALA_ARTE);
     }
     // Nadie por detrás del jugador, o ningún enemigo visible.
     if (faltaCorte) pintarCorte();

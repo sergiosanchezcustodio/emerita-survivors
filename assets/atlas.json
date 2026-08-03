@@ -95,7 +95,24 @@
                                    "h":  64,
                                    "anclaX":  14,
                                    "anclaY":  64,
-                                   "frames":  1
+                                   "frames":  10,
+                                   "clips":  {
+                                                 "quieto":  {
+                                                                "desde":  0,
+                                                                "n":  2,
+                                                                "fps":  3
+                                                            },
+                                                 "andar":  {
+                                                               "desde":  2,
+                                                               "n":  4,
+                                                               "fps":  8
+                                                           },
+                                                 "andar_lateral":  {
+                                                                       "desde":  6,
+                                                                       "n":  4,
+                                                                       "fps":  8
+                                                                   }
+                                             }
                                },
                       "lucy":  {
                                    "archivo":  "personajes/lucy.png",
@@ -103,7 +120,24 @@
                                    "h":  64,
                                    "anclaX":  12,
                                    "anclaY":  64,
-                                   "frames":  1
+                                   "frames":  10,
+                                   "clips":  {
+                                                 "quieto":  {
+                                                                "desde":  0,
+                                                                "n":  2,
+                                                                "fps":  3
+                                                            },
+                                                 "andar":  {
+                                                               "desde":  2,
+                                                               "n":  4,
+                                                               "fps":  8
+                                                           },
+                                                 "andar_lateral":  {
+                                                                       "desde":  6,
+                                                                       "n":  4,
+                                                                       "fps":  8
+                                                                   }
+                                             }
                                },
                       "sara":  {
                                    "archivo":  "personajes/sara.png",
@@ -111,7 +145,24 @@
                                    "h":  64,
                                    "anclaX":  16,
                                    "anclaY":  64,
-                                   "frames":  1
+                                   "frames":  10,
+                                   "clips":  {
+                                                 "quieto":  {
+                                                                "desde":  0,
+                                                                "n":  2,
+                                                                "fps":  3
+                                                            },
+                                                 "andar":  {
+                                                               "desde":  2,
+                                                               "n":  4,
+                                                               "fps":  8
+                                                           },
+                                                 "andar_lateral":  {
+                                                                       "desde":  6,
+                                                                       "n":  4,
+                                                                       "fps":  8
+                                                                   }
+                                             }
                                },
                       "vicky":  {
                                     "archivo":  "personajes/vicky.png",
@@ -119,7 +170,24 @@
                                     "h":  64,
                                     "anclaX":  16,
                                     "anclaY":  64,
-                                    "frames":  1
+                                    "frames":  10,
+                                    "clips":  {
+                                                  "quieto":  {
+                                                                 "desde":  0,
+                                                                 "n":  2,
+                                                                 "fps":  3
+                                                             },
+                                                  "andar":  {
+                                                                "desde":  2,
+                                                                "n":  4,
+                                                                "fps":  8
+                                                            },
+                                                  "andar_lateral":  {
+                                                                        "desde":  6,
+                                                                        "n":  4,
+                                                                        "fps":  8
+                                                                    }
+                                              }
                                 }
                   }
 }

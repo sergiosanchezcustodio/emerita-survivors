@@ -24,8 +24,11 @@ body {
 
 #juego {
   display: block;
-  image-rendering: pixelated;
+  /* El orden importa: gana la última que el navegador entienda. `pixelated` va
+     al final porque es la que aplica Chrome; `crisp-edges` queda de repliegue
+     para los que no la soporten. */
   image-rendering: crisp-edges;
+  image-rendering: pixelated;
   background: #b99b6b;
   /* Sin esto, el navegador interpola al escalar y se pierde la nitidez que
      tanto cuesta mantener en el resto del motor. */

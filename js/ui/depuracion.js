@@ -4,19 +4,45 @@ import { ANCHO_FISICO, ESCALA_ARTE } from '../core/constantes.js';
 // arte: es interfaz de desarrollo, no pixel art, y tiene que leerse.
 const LINEAS = [];
 
-const AYUDA = 'F3 depuracion · ESC pausa · C personaje · 1/2/3 +100/+500/+800 lentos · 4 +300 con arpias · X vaciar · G inmortal · R revivir';
+const AYUDA = 'F3 · ESC · C personaje · 1/2/3/4 enemigos · X vaciar · G inmortal · R revivir · K +Gladius · L subir armas'
+            + '   ||   APAGAR: Y suelo · P particulas · N numeros · O efectos';
 
 export function dibujarDepuracion(ctx, datos) {
   const pool = datos.pool;
 
   LINEAS.length = 0;
-  LINEAS.push(`fps        ${datos.fps.toFixed(1)}`);
+  // El tiempo de frame REAL sale de los intervalos de requestAnimationFrame, así
+  // que incluye todo: lógica, emisión de órdenes de dibujo y lo que el navegador
+  // tarde en rasterizar y componer. `resto` es esa última parte, la que el
+  // cronómetro de dentro del bucle NO puede ver. Si resto es grande, el cuello
+  // de botella está en el dibujado real, no en el JavaScript.
+  const msFrame = datos.fps > 0 ? 1000 / datos.fps : 0;
+  const resto = Math.max(0, msFrame - datos.msUpdate - datos.msRender);
+  const p = datos.perfil;
+
+  LINEAS.push(`fps        ${datos.fps.toFixed(1)}   frame ${msFrame.toFixed(2)} ms`);
   LINEAS.push(`update     ${datos.msUpdate.toFixed(2)} ms  (${datos.pasos} pasos)`);
-  LINEAS.push(`render     ${datos.msRender.toFixed(2)} ms`);
+  LINEAS.push(`render     ${datos.msRender.toFixed(2)} ms  ` +
+              `[suelo ${p.suelo.toFixed(2)} · ent ${p.entidades.toFixed(2)} · ` +
+              `fx ${p.efectos.toFixed(2)} · txt ${p.texto.toFixed(2)}]`);
+  LINEAS.push(`navegador  ${resto.toFixed(2)} ms  (rasterizado y composicion)`);
+  LINEAS.push(`apagados   ${datos.activo.suelo ? '' : 'suelo '}` +
+              `${datos.activo.particulas ? '' : 'particulas '}` +
+              `${datos.activo.numeros ? '' : 'numeros '}` +
+              `${datos.activo.efectos ? '' : 'efectos '}` +
+              `${datos.activo.suelo && datos.activo.particulas &&
+                 datos.activo.numeros && datos.activo.efectos ? 'ninguno' : ''}`);
   LINEAS.push(`entidades  ${datos.entidades}  (${datos.dibujados} en pantalla)`);
   LINEAS.push(`pool       ${pool.activos}/${pool.capacidad}  pico ${pool.pico}` +
               (pool.agotado > 0 ? `  AGOTADO x${pool.agotado}` : ''));
   LINEAS.push(`reciclados ${datos.reciclados}  ·  rejilla ${datos.celdas} celdas`);
+  LINEAS.push(`bajas      ${datos.bajas}`);
+  LINEAS.push(`efectos    ${datos.proyectiles} proy · ${datos.particulas} part · ${datos.numeros} num`);
+  for (let i = 0; i < datos.armas.length; i++) {
+    const a = datos.armas[i];
+    LINEAS.push(`  ${a.def.nombre.padEnd(9)} niv ${a.nivel}  ` +
+                `${a.stats.danyo} dmg · ${a.stats.recarga.toFixed(2)}s`);
+  }
   LINEAS.push(`tiles      ${datos.tiles}`);
   LINEAS.push(`jugador    ${datos.jx.toFixed(0)}, ${datos.jy.toFixed(0)}`);
   LINEAS.push(`vida       ${datos.vida.toFixed(0)}/${datos.vidaMaxima}  ` +

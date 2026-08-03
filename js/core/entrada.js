@@ -117,8 +117,32 @@ export class Entrada {
         // analógico y el personaje iría siempre a velocidad máxima.
         if (util > magMax) { x = gx; y = gy; magMax = util; fuente = 'gamepad'; }
       }
-      for (let i = 0; i < gp.buttons.length && i < 32; i++) {
-        if (gp.buttons[i].pressed) botones |= (1 << i);
+
+      // Cruceta. En el mapeo estándar del navegador NO es un eje: son los
+      // botones 12 a 15 (arriba, abajo, izquierda, derecha). Leyendo solo
+      // axes[0] y axes[1] no hacía absolutamente nada, que es justo lo que
+      // pasaba con el mando de Xbox.
+      //
+      // Es digital, como el teclado, así que vale 1 a secas: no hay medias
+      // pulsaciones en una cruceta.
+      let cx = 0, cy = 0;
+      const bs = gp.buttons;
+      if (bs.length > 15) {
+        if (bs[12] && bs[12].pressed) cy -= 1;
+        if (bs[13] && bs[13].pressed) cy += 1;
+        if (bs[14] && bs[14].pressed) cx -= 1;
+        if (bs[15] && bs[15].pressed) cx += 1;
+      }
+      if (cx !== 0 || cy !== 0) {
+        if (cx !== 0 && cy !== 0) {
+          const inv = Math.SQRT1_2;      // la diagonal no puede ir un 41% más rápido
+          cx *= inv; cy *= inv;
+        }
+        if (magMax < 1) { x = cx; y = cy; magMax = 1; fuente = 'gamepad'; }
+      }
+
+      for (let i = 0; i < bs.length && i < 32; i++) {
+        if (bs[i].pressed) botones |= (1 << i);
       }
     }
     this._flancoBotones = botones & ~this._botonesPrev;

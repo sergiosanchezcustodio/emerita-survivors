@@ -1,4 +1,5 @@
 import { DT } from '../core/constantes.js';
+import { VFX } from './vfx.js';
 
 // Colisiones sobre la rejilla espacial. Dos consumidores:
 //   - separacion()      enemigo <-> enemigo, para que no se apilen en un punto
@@ -46,14 +47,18 @@ const RELAJACION = 0.8;
 // disparado a la otra punta del mapa.
 const MAX_CORRECCION = 4;
 
-// Pasadas del solucionador por paso de lógica. Es la palanca directa entre
-// "no se solapan" y coste de CPU: cada pasada vuelve a recorrer todos los pares.
-const ITERACIONES = 2;
-
-// Pasadas del escalón duro. Dos, porque una sola no propaga: al resolver un
-// solape se empuja a alguien contra el de más allá, y esa cadena necesita otra
-// vuelta para deshacerse.
-const PASADAS_DURAS = 3;
+// Pasadas del solucionador por paso de lógica. Es la palanca directa entre "no
+// se solapan" y coste de CPU: cada pasada recorre TODOS los pares vecinos, y con
+// los valores por defecto son cinco recorridos por paso.
+//
+// Ajustables en caliente desde la consola (`window.EMERITA.ajustes`) para poder
+// medir su coste real en una máquina concreta, que es algo que no se puede
+// deducir a ojo. Bajar `pasadasDuras` a 1 y `iteraciones` a 1 corta el trabajo
+// de separación a la quinta parte, a cambio de que se interpenetren más.
+export const ajustes = {
+  iteraciones: 2,      // pasadas blandas, reparten la multitud
+  pasadasDuras: 3      // pasadas duras, garantizan que no se solapen
+};
 
 // El daño por contacto alcanza un poco más lejos que el cuerpo sólido. Sin este
 // margen, los enemigos quedarían empujados a exactamente el borde y el golpe
@@ -311,7 +316,7 @@ export function separacion(enemigos, jugador) {
   // mueve 4px como mucho, y entre el alcance real de un par (44,8 con dos
   // cíclopes) y los 64 que cubre la consulta 3x3 hay 19px de holgura de sobra.
   const rejilla = enemigos.rejilla;
-  for (let iter = 0; iter < ITERACIONES; iter++) {
+  for (let iter = 0; iter < ajustes.iteraciones; iter++) {
     for (let k = 0; k < n; k++) {
       const e = items[k];
       e.sepX = 0;
@@ -335,7 +340,7 @@ export function separacion(enemigos, jugador) {
   // El empuje del jugador puede volver a meter a alguien dentro de otro enemigo,
   // pero solo a los pocos que le tocan, y el frame siguiente lo deshace.
   topeAcercamiento(items, n, jugador);
-  for (let iter = 0; iter < PASADAS_DURAS; iter++) {
+  for (let iter = 0; iter < ajustes.pasadasDuras; iter++) {
     recorrerPares(items, rejilla, separarDuro);
   }
   apartarDelJugador(items, rejilla, jugador);
@@ -391,6 +396,126 @@ export function contactoJugador(enemigos, jugador) {
     }
   }
 
-  if (peor > 0) jugador.recibirDanyo(peor);
+  if (peor > 0 && jugador.recibirDanyo(peor)) {
+    // La sacudida escala con el mordisco, no es fija: un roce de serpiente y un
+    // pisotón de cíclope tienen que sentirse distintos.
+    VFX.sacudir(1.2 + peor * 0.12);
+  }
   return peor;
+}
+
+// --- Consultas para las armas -----------------------------------------------
+
+// Enemigo vivo más cercano dentro de `alcance`, o null.
+//
+// Recorrido lineal sobre los activos, a propósito. Es O(n) POR DISPARO, no por
+// frame: con las recargas del plan son un puñado de búsquedas por segundo, y
+// 800 comprobaciones de distancia al cuadrado no se notan. Si algún arma
+// llegara a disparar todos los frames, esto tendría que pasar a recorrer
+// anillos de celdas de la rejilla.
+export function enemigoMasCercano(enemigos, x, y, alcance) {
+  const items = enemigos.pool.items;
+  const n = enemigos.pool.activos;
+  let mejor = null;
+  let mejorD2 = alcance * alcance;
+  for (let k = 0; k < n; k++) {
+    const e = items[k];
+    if (e.vida <= 0) continue;
+    const dx = e.x - x;
+    const dy = e.y - y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < mejorD2) { mejorD2 = d2; mejor = e; }
+  }
+  return mejor;
+}
+
+// Rellena `salida` (Int32Array preasignado) con los índices de pool de los
+// enemigos vivos dentro del radio. Devuelve cuántos. Usa la rejilla porque esto
+// sí puede llamarse a menudo y con la pantalla llena.
+export function enemigosEnRadio(enemigos, x, y, radio, salida) {
+  const rejilla = enemigos.rejilla;
+  const items = enemigos.pool.items;
+  const inicio = rejilla.inicio;
+  const indices = rejilla.indices;
+  const columnas = rejilla.columnas;
+  const filas = rejilla.filas;
+
+  const c0 = rejilla.columnaDe(x - radio);
+  const c1 = rejilla.columnaDe(x + radio);
+  const f0 = rejilla.filaDe(y - radio);
+  const f1 = rejilla.filaDe(y + radio);
+  const tope = salida.length;
+
+  let n = 0;
+  for (let fy = f0; fy <= f1 && fy < filas; fy++) {
+    if (fy < 0) continue;
+    for (let fx = c0; fx <= c1 && fx < columnas; fx++) {
+      if (fx < 0) continue;
+      const c = fy * columnas + fx;
+      for (let p = inicio[c]; p < inicio[c + 1]; p++) {
+        const idx = indices[p];
+        const e = items[idx];
+        if (e.vida <= 0) continue;
+        const dx = e.x - x;
+        const dy = e.y - y;
+        // Radio del enemigo incluido: un cíclope se toca antes que una serpiente.
+        const r = radio + e.radioCuerpo;
+        if (dx * dx + dy * dy > r * r) continue;
+        if (n >= tope) return n;
+        salida[n++] = idx;
+      }
+    }
+  }
+  return n;
+}
+
+// Proyectiles contra enemigos. La perforación se resuelve con el sello: cada
+// proyectil lleva una marca única y el enemigo guarda la del último que le dio,
+// así que atravesar a alguien nunca cuenta dos veces aunque sigan solapados
+// varios frames seguidos.
+export function impactosProyectiles(proyectiles, enemigos) {
+  const rejilla = enemigos.rejilla;
+  const items = enemigos.pool.items;
+  const inicio = rejilla.inicio;
+  const indices = rejilla.indices;
+  const columnas = rejilla.columnas;
+  const filas = rejilla.filas;
+  const pItems = proyectiles.pool.items;
+
+  let k = 0;
+  while (k < proyectiles.pool.activos) {
+    const p = pItems[k];
+    let agotado = false;
+
+    const c0 = rejilla.columnaDe(p.x - p.radio);
+    const c1 = rejilla.columnaDe(p.x + p.radio);
+    const f0 = rejilla.filaDe(p.y - p.radio);
+    const f1 = rejilla.filaDe(p.y + p.radio);
+
+    for (let fy = f0; fy <= f1 && !agotado; fy++) {
+      if (fy < 0 || fy >= filas) continue;
+      for (let fx = c0; fx <= c1 && !agotado; fx++) {
+        if (fx < 0 || fx >= columnas) continue;
+        const c = fy * columnas + fx;
+        for (let q = inicio[c]; q < inicio[c + 1]; q++) {
+          const e = items[indices[q]];
+          if (e.vida <= 0 || e.ultimoSello === p.sello) continue;
+          const dx = e.x - p.x;
+          const dy = e.y - p.y;
+          const r = p.radio + e.radioCuerpo;
+          if (dx * dx + dy * dy > r * r) continue;
+
+          e.ultimoSello = p.sello;
+          const v = Math.hypot(p.vx, p.vy) || 1;
+          enemigos.danyar(e, p.danyo, p.vx / v, p.vy / v, p.empuje);
+
+          if (p.perforacion > 0) p.perforacion--;
+          else { agotado = true; break; }
+        }
+      }
+    }
+
+    if (agotado) proyectiles.liberarEn(k);   // sin avanzar k: ver Pool
+    else k++;
+  }
 }
