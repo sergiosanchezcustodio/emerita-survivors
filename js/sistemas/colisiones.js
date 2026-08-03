@@ -1,0 +1,396 @@
+import { DT } from '../core/constantes.js';
+
+// Colisiones sobre la rejilla espacial. Dos consumidores:
+//   - separacion()      enemigo <-> enemigo, para que no se apilen en un punto
+//   - contactoJugador() enemigo <-> jugador, daño por contacto
+//
+// Ambos leen la MISMA rejilla, construida una sola vez por paso de lógica.
+
+// La separación es una RESTRICCIÓN POSICIONAL, no una fuerza.
+//
+// Primero se intentó como fuerza sumada a la velocidad y no funciona: la
+// persecución tira siempre a tope hacia el jugador y el empuje solo aparece
+// cuando ya hay solape, así que el montón se comprime hasta que ambos se
+// igualan. Peor aún, dentro de un amontonamiento simétrico los empujes de todos
+// los lados se cancelan y el que está en el centro no tiene a dónde ir. Con 500
+// serpientes eso daba 2.354 pares gravemente solapados y una distancia mínima de
+// 0,34px: literalmente unos dentro de otros.
+//
+// Como restricción no hay equilibrio de fuerzas que negociar: si dos siluetas se
+// solapan, se separan y punto. La persecución puede empujar todo lo que quiera.
+// El resultado es el muro de cuerpos del género: los de atrás no llegan al
+// jugador porque los de delante ocupan el sitio.
+
+// Fracción del solape que se corrige por paso.
+//
+// Las correcciones acumuladas se dividen por la RAÍZ del número de contactos.
+// No es un número elegido a ojo: con 500 enemigos asentados alrededor del
+// jugador, midiendo qué porcentaje de pasos invierte cada enemigo su dirección
+// de movimiento (que es exactamente lo que se ve como vibración) sale
+//
+//   divisor 1 (sumar)      98,9% de pasos invertidos, 2,55px por paso  <- vibra
+//   divisor raiz(c)         9,6%                      0,05px
+//   divisor c (promediar)   5,7%                      0,11px
+//
+// Sumar sobrecorrige: un enemigo con doce vecinos recibe doce correcciones
+// completas, se pasa de largo, al paso siguiente le corrigen en sentido
+// contrario y vuelta a empezar, 60 veces por segundo. Promediar estabiliza pero
+// se queda tan corto que deja de separar (la distancia mínima entre bichos cae
+// a 0,08px y los pares solapados se multiplican por quince). La raíz da lo
+// mejor de ambos: se asienta Y separa mejor que sumando (distancia mínima 3,76
+// frente a 1,40).
+const RELAJACION = 0.8;
+
+// Tope del desplazamiento por paso, en px lógicos. Un enemigo en el centro de un
+// apelotonamiento recibe la suma de veinte correcciones y sin tope saldría
+// disparado a la otra punta del mapa.
+const MAX_CORRECCION = 4;
+
+// Pasadas del solucionador por paso de lógica. Es la palanca directa entre
+// "no se solapan" y coste de CPU: cada pasada vuelve a recorrer todos los pares.
+const ITERACIONES = 2;
+
+// Pasadas del escalón duro. Dos, porque una sola no propaga: al resolver un
+// solape se empuja a alguien contra el de más allá, y esa cadena necesita otra
+// vuelta para deshacerse.
+const PASADAS_DURAS = 3;
+
+// El daño por contacto alcanza un poco más lejos que el cuerpo sólido. Sin este
+// margen, los enemigos quedarían empujados a exactamente el borde y el golpe
+// entraría o no según el último bit del cálculo en coma flotante. Con el 10%,
+// el que está pegado a ti te hace daño siempre.
+const MARGEN_DANYO = 1.10;
+
+// Acumula la corrección de un par. El chequeo va SIEMPRE con distancias al
+// cuadrado; la raíz solo se paga en los pares que de verdad se solapan, y hace
+// falta para tener la dirección.
+//
+// Acumular y aplicar al final (Jacobi) en vez de mover dentro del bucle
+// (Gauss-Seidel): el segundo converge antes, pero hace que el resultado dependa
+// del orden en que la rejilla visita las celdas, y ese orden cambia cuando el
+// pool intercambia posiciones al reciclar. Mismo estado, distinto resultado.
+function empujar(a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const r = a.radioSep + b.radioSep;
+  const d2 = dx * dx + dy * dy;
+  if (d2 >= r * r) return;
+
+  let nx, ny, solape;
+  if (d2 > 0.0001) {
+    const d = Math.sqrt(d2);
+    nx = dx / d;
+    ny = dy / d;
+    solape = r - d;              // en px, no normalizado: es una distancia
+  } else {
+    // Exactamente encima: cualquier dirección vale, pero tiene que ser siempre
+    // la misma o el par vibraría. Determinista, que es el criterio 10.
+    nx = 1; ny = 0; solape = r;
+  }
+
+  // Reparto por masa: el ligero cede. Un cíclope (masa 8) contra una serpiente
+  // (masa 1) apenas se aparta y es la serpiente la que rodea.
+  const total = a.invMasa + b.invMasa;
+  const corr = solape * RELAJACION;
+  const ca = (corr * a.invMasa) / total;
+  const cb = (corr * b.invMasa) / total;
+
+  a.sepX -= nx * ca;
+  a.sepY -= ny * ca;
+  b.sepX += nx * cb;
+  b.sepY += ny * cb;
+  a.contactos++;
+  b.contactos++;
+}
+
+// Resuelve una penetración REAL de los círculos de colisión, al instante y al
+// 100%. Es el segundo escalón, y es el que garantiza el invariante duro: dos
+// cuerpos no ocupan el mismo sitio, nunca.
+//
+// La separación blanda de arriba trabaja sobre `radioSep` (radio x 1.6) y es
+// quien reparte la multitud, pero como se relaja y se promedia siempre deja un
+// residuo: medido, 114 pares interpenetrados con hasta 4,73px de solape. Esta
+// pasada los corrige de golpe.
+//
+// Aquí sí se mueve dentro del bucle (Gauss-Seidel) en vez de acumular: no hay
+// riesgo de oscilación porque solo actúa sobre los que de verdad se solapan, que
+// son pocos, y así una sola pasada basta.
+function separarDuro(a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const r = a.radioCuerpo + b.radioCuerpo;
+  const d2 = dx * dx + dy * dy;
+  if (d2 >= r * r) return;
+
+  let nx, ny, pen;
+  if (d2 > 0.0001) {
+    const d = Math.sqrt(d2);
+    nx = dx / d;
+    ny = dy / d;
+    pen = r - d;
+  } else {
+    nx = 1; ny = 0; pen = r;
+  }
+
+  const total = a.invMasa + b.invMasa;
+  const ca = (pen * a.invMasa) / total;
+  const cb = (pen * b.invMasa) / total;
+  a.x -= nx * ca;
+  a.y -= ny * ca;
+  b.x += nx * cb;
+  b.y += ny * cb;
+}
+
+// Todos los pares entre dos celdas distintas.
+function paresEntre(items, indices, iniA, finA, iniB, finB, fn) {
+  for (let p = iniA; p < finA; p++) {
+    const a = items[indices[p]];
+    for (let q = iniB; q < finB; q++) fn(a, items[indices[q]]);
+  }
+}
+
+// Recorre cada par de enemigos vecinos EXACTAMENTE UNA VEZ y le aplica `fn`.
+// `fn` es una referencia a función de módulo, no una closure: no se asigna nada.
+function recorrerPares(items, rejilla, fn) {
+  const inicio = rejilla.inicio;
+  const indices = rejilla.indices;
+  const columnas = rejilla.columnas;
+  const filas = rejilla.filas;
+
+  // MEDIA vecindad. Con las 9 celdas cada par se visitaría dos veces; mirando
+  // solo derecha, abajo-izquierda, abajo y abajo-derecha (más la propia celda
+  // con q > p) cada par sale exactamente una vez y el trabajo se reduce a la
+  // mitad, tanto en recorrido como en cuentas.
+  for (let cy = 0; cy < filas; cy++) {
+    const ultimaFila = cy === filas - 1;
+    for (let cx = 0; cx < columnas; cx++) {
+      const c = cy * columnas + cx;
+      const ini = inicio[c];
+      const fin = inicio[c + 1];
+      if (ini === fin) continue;
+
+      // Pares dentro de la propia celda
+      for (let p = ini; p < fin; p++) {
+        const a = items[indices[p]];
+        for (let q = p + 1; q < fin; q++) fn(a, items[indices[q]]);
+      }
+
+      // Derecha
+      if (cx + 1 < columnas) {
+        const d = c + 1;
+        paresEntre(items, indices, ini, fin, inicio[d], inicio[d + 1], fn);
+      }
+      if (ultimaFila) continue;
+
+      const base = c + columnas;
+      // Abajo-izquierda, abajo, abajo-derecha
+      if (cx > 0)            paresEntre(items, indices, ini, fin, inicio[base - 1], inicio[base], fn);
+      paresEntre(items, indices, ini, fin, inicio[base], inicio[base + 1], fn);
+      if (cx + 1 < columnas) paresEntre(items, indices, ini, fin, inicio[base + 1], inicio[base + 2], fn);
+    }
+  }
+}
+
+// Vuelca lo acumulado sobre las posiciones.
+function aplicarCorrecciones(items, n) {
+  for (let k = 0; k < n; k++) {
+    const e = items[k];
+    const c = e.contactos;
+    if (c === 0) continue;
+
+    const div = Math.sqrt(c);
+    let cx = e.sepX / div;
+    let cy = e.sepY / div;
+    const m2 = cx * cx + cy * cy;
+    if (m2 > MAX_CORRECCION * MAX_CORRECCION) {
+      const inv = MAX_CORRECCION / Math.sqrt(m2);
+      cx *= inv;
+      cy *= inv;
+    }
+    e.x += cx;
+    e.y += cy;
+  }
+}
+
+// Ningún enemigo puede ACERCARSE al jugador más rápido de lo que anda, pase lo
+// que pase con la multitud.
+//
+// Sin esto, los de atrás empujan a los de delante y la primera línea avanza más
+// deprisa que su propia velocidad: medido con 500 enemigos, serpientes de 68
+// px/s llegaban a 83,6 y el jugador (85) no lograba despegarse ni un píxel en
+// cinco segundos de huida. La horda entera corría más que el bicho más rápido
+// que la compone.
+//
+// Se recorta SOLO la componente que apunta al jugador. De lado y hacia fuera la
+// multitud sigue empujando todo lo que necesite, que es lo que deshace los
+// amontonamientos.
+function topeAcercamiento(items, n, jugador) {
+  const jx = jugador.x;
+  const jy = jugador.y;
+  for (let k = 0; k < n; k++) {
+    const e = items[k];
+    if (e.contactos === 0) continue;     // sin vecinos nadie le ha empujado
+
+    let hx = jx - e.xPrev;
+    let hy = jy - e.yPrev;
+    const h2 = hx * hx + hy * hy;
+    if (h2 < 0.0001) continue;
+    const invH = 1 / Math.sqrt(h2);
+    hx *= invH;
+    hy *= invH;
+
+    const avance = (e.x - e.xPrev) * hx + (e.y - e.yPrev) * hy;
+    const tope = e.velocidad * DT;
+    if (avance > tope) {
+      const exceso = avance - tope;
+      e.x -= hx * exceso;
+      e.y -= hy * exceso;
+    }
+  }
+}
+
+// El jugador es un cuerpo SÓLIDO que aparta, y al que nadie aparta.
+//
+// La asimetría es deliberada y es lo único que hace jugable tener cuerpos
+// sólidos en este género. Si el empuje fuera mutuo, quedar rodeado sería una
+// sentencia: no podrías atravesar el muro de cuerpos ni retroceder. Apartando
+// tú a ellos, te abres paso a tu velocidad y ellos ceden, que es como se siente
+// caminar entre una multitud.
+//
+// Se resuelve al 100%, sin relajación: aquí no hay riesgo de oscilación porque
+// es uno contra uno, no una red de restricciones, y el jugador NO puede quedar
+// penetrado ni un frame o se vería el solape.
+function apartarDelJugador(items, rejilla, jugador) {
+  const inicio = rejilla.inicio;
+  const indices = rejilla.indices;
+  const columnas = rejilla.columnas;
+  const filas = rejilla.filas;
+  const jx = jugador.x;
+  const jy = jugador.y;
+
+  const cx = rejilla.columnaDe(jx);
+  const cy = rejilla.filaDe(jy);
+
+  for (let fy = cy - 1; fy <= cy + 1; fy++) {
+    if (fy < 0 || fy >= filas) continue;
+    for (let fx = cx - 1; fx <= cx + 1; fx++) {
+      if (fx < 0 || fx >= columnas) continue;
+      const c = fy * columnas + fx;
+      for (let p = inicio[c]; p < inicio[c + 1]; p++) {
+        const e = items[indices[p]];
+        const dx = e.x - jx;
+        const dy = e.y - jy;
+        const r = jugador.radioCuerpo + e.radioCuerpo;
+        const d2 = dx * dx + dy * dy;
+        if (d2 >= r * r) continue;
+
+        if (d2 > 0.0001) {
+          const d = Math.sqrt(d2);
+          const f = (r - d) / d;         // escala el propio delta, sin normalizar
+          e.x += dx * f;
+          e.y += dy * f;
+        } else {
+          e.x += r;                      // justo encima: sale por la derecha
+        }
+      }
+    }
+  }
+}
+
+export function separacion(enemigos, jugador) {
+  const pool = enemigos.pool;
+  const items = pool.items;
+  const n = pool.activos;
+
+  // Varias pasadas del solucionador. Con una sola quedaban 1.507 pares
+  // solapados: la persecución mete a los enemigos unos dentro de otros cada
+  // paso y una única corrección parcial no llega a deshacerlo. Cada pasada
+  // adicional recorre los pares otra vez sobre las posiciones ya corregidas.
+  //
+  // La rejilla se construyó antes y NO se reconstruye entre pasadas: cada una
+  // mueve 4px como mucho, y entre el alcance real de un par (44,8 con dos
+  // cíclopes) y los 64 que cubre la consulta 3x3 hay 19px de holgura de sobra.
+  const rejilla = enemigos.rejilla;
+  for (let iter = 0; iter < ITERACIONES; iter++) {
+    for (let k = 0; k < n; k++) {
+      const e = items[k];
+      e.sepX = 0;
+      e.sepY = 0;
+      e.contactos = 0;
+    }
+    recorrerPares(items, rejilla, empujar);
+    aplicarCorrecciones(items, n);
+  }
+
+  // El ORDEN de lo que viene importa, y se descubrió midiendo: con la pasada
+  // dura antes del tope y del empuje del jugador, esos dos volvían a meter unos
+  // dentro de otros lo que la dura acababa de separar, y los pares
+  // interpenetrados apenas bajaban de 114 a 102. Van de menor a mayor prioridad,
+  // y el último en tocar una posición es el que manda:
+  //
+  //   1. tope de acercamiento  — restricción de velocidad, la más blanda
+  //   2. pasada dura           — dos cuerpos no ocupan el mismo sitio
+  //   3. empuje del jugador    — invariante absoluto, nunca se le penetra
+  //
+  // El empuje del jugador puede volver a meter a alguien dentro de otro enemigo,
+  // pero solo a los pocos que le tocan, y el frame siguiente lo deshace.
+  topeAcercamiento(items, n, jugador);
+  for (let iter = 0; iter < PASADAS_DURAS; iter++) {
+    recorrerPares(items, rejilla, separarDuro);
+  }
+  apartarDelJugador(items, rejilla, jugador);
+}
+
+// Daño por contacto. Solo se miran las 9 celdas alrededor del jugador: da igual
+// que haya 800 enemigos vivos si solo un puñado puede estar tocándolo.
+//
+// Se aplica POR TICS, no por frame: quien impone la cadencia es la
+// invulnerabilidad de 0,5s del jugador. Sin eso, estar dentro de un enjambre
+// serían 60 impactos por segundo y la vida se evaporaría en un suspiro.
+//
+// De todos los que tocan se coge el de MÁS daño, no el primero que aparezca: el
+// orden dentro de la celda depende del pool y cambiaría el resultado de un frame
+// a otro sin que el jugador hiciera nada distinto.
+//
+// DESVIACIÓN DEL PLAN, consciente: el alcance es `radioCuerpo`, no el `radio` de
+// la sección 10. Con los cuerpos sólidos, a una gárgola (cuerpo 17, radio de
+// daño 7) la restricción física ya la mantiene a 27px del jugador, así que con
+// el radio pequeño NUNCA podría hacer daño: sería inofensiva por geometría. El
+// motivo original del radio pequeño era que rozar un ala no contase como
+// impacto, y eso ahora lo garantiza el propio cuerpo sólido: si el ala te toca,
+// es que el bicho está pegado a ti de verdad. `radio` sigue existiendo y será el
+// que usen las armas en la Fase 3, donde el criterio original sí aplica.
+export function contactoJugador(enemigos, jugador) {
+  if (jugador.abatido || jugador.invulnerable > 0) return 0;
+
+  const rejilla = enemigos.rejilla;
+  const items = enemigos.pool.items;
+  const inicio = rejilla.inicio;
+  const indices = rejilla.indices;
+  const columnas = rejilla.columnas;
+  const filas = rejilla.filas;
+
+  const cx = rejilla.columnaDe(jugador.x);
+  const cy = rejilla.filaDe(jugador.y);
+  const jx = jugador.x;
+  const jy = jugador.y;
+
+  let peor = 0;
+  for (let fy = cy - 1; fy <= cy + 1; fy++) {
+    if (fy < 0 || fy >= filas) continue;
+    for (let fx = cx - 1; fx <= cx + 1; fx++) {
+      if (fx < 0 || fx >= columnas) continue;
+      const c = fy * columnas + fx;
+      for (let p = inicio[c]; p < inicio[c + 1]; p++) {
+        const e = items[indices[p]];
+        const dx = e.x - jx;
+        const dy = e.y - jy;
+        const r = (e.radioCuerpo + jugador.radioCuerpo) * MARGEN_DANYO;
+        if (dx * dx + dy * dy < r * r && e.def.danyo > peor) peor = e.def.danyo;
+      }
+    }
+  }
+
+  if (peor > 0) jugador.recibirDanyo(peor);
+  return peor;
+}

@@ -1,0 +1,125 @@
+{
+    "escalaArte":  2,
+    "entidades":  {
+                      "serpiente":  {
+                                        "archivo":  "enemigos/serpiente.png",
+                                        "w":  28,
+                                        "h":  40,
+                                        "anclaX":  14,
+                                        "anclaY":  40,
+                                        "frames":  1
+                                    },
+                      "gargola":  {
+                                      "archivo":  "enemigos/gargola.png",
+                                      "w":  34,
+                                      "h":  37,
+                                      "anclaX":  17,
+                                      "anclaY":  37,
+                                      "frames":  7
+                                  },
+                      "legionario":  {
+                                         "archivo":  "enemigos/legionario.png",
+                                         "w":  32,
+                                         "h":  52,
+                                         "anclaX":  16,
+                                         "anclaY":  52,
+                                         "frames":  1
+                                     },
+                      "gladiador":  {
+                                        "archivo":  "enemigos/gladiador.png",
+                                        "w":  48,
+                                        "h":  48,
+                                        "anclaX":  24,
+                                        "anclaY":  48,
+                                        "frames":  1
+                                    },
+                      "arpia":  {
+                                    "archivo":  "enemigos/arpia.png",
+                                    "w":  52,
+                                    "h":  44,
+                                    "anclaX":  26,
+                                    "anclaY":  44,
+                                    "frames":  1
+                                },
+                      "medusa":  {
+                                     "archivo":  "enemigos/medusa.png",
+                                     "w":  40,
+                                     "h":  56,
+                                     "anclaX":  20,
+                                     "anclaY":  56,
+                                     "frames":  1
+                                 },
+                      "minotauro":  {
+                                        "archivo":  "enemigos/minotauro.png",
+                                        "w":  80,
+                                        "h":  72,
+                                        "anclaX":  40,
+                                        "anclaY":  72,
+                                        "frames":  1
+                                    },
+                      "ciclope":  {
+                                      "archivo":  "enemigos/ciclope.png",
+                                      "w":  64,
+                                      "h":  84,
+                                      "anclaX":  32,
+                                      "anclaY":  84,
+                                      "frames":  1
+                                  },
+                      "manticora":  {
+                                        "archivo":  "enemigos/manticora.png",
+                                        "w":  88,
+                                        "h":  104,
+                                        "anclaX":  44,
+                                        "anclaY":  104,
+                                        "frames":  1
+                                    },
+                      "cerbero":  {
+                                      "archivo":  "enemigos/cerbero.png",
+                                      "w":  176,
+                                      "h":  172,
+                                      "anclaX":  88,
+                                      "anclaY":  172,
+                                      "frames":  1
+                                  },
+                      "hidra":  {
+                                    "archivo":  "enemigos/hidra.png",
+                                    "w":  224,
+                                    "h":  224,
+                                    "anclaX":  112,
+                                    "anclaY":  224,
+                                    "frames":  1
+                                },
+                      "eric":  {
+                                   "archivo":  "personajes/eric.png",
+                                   "w":  28,
+                                   "h":  64,
+                                   "anclaX":  14,
+                                   "anclaY":  64,
+                                   "frames":  1
+                               },
+                      "lucy":  {
+                                   "archivo":  "personajes/lucy.png",
+                                   "w":  24,
+                                   "h":  64,
+                                   "anclaX":  12,
+                                   "anclaY":  64,
+                                   "frames":  1
+                               },
+                      "sara":  {
+                                   "archivo":  "personajes/sara.png",
+                                   "w":  32,
+                                   "h":  64,
+                                   "anclaX":  16,
+                                   "anclaY":  64,
+                                   "frames":  1
+                               },
+                      "vicky":  {
+                                    "archivo":  "personajes/vicky.png",
+                                    "w":  32,
+                                    "h":  64,
+                                    "anclaX":  16,
+                                    "anclaY":  64,
+                                    "frames":  1
+                                }
+                  }
+}

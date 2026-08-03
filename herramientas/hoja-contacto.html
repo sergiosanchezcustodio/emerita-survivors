@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Emerita Survivors — hoja de contacto de sprites</title>
+<style>
+  :root { --arena:#b99b6b; --piedra:#8f8271; --noche:#1c1a20; }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; padding:24px; background:#15141a; color:#e8e4dc;
+    font:14px/1.5 ui-monospace, Consolas, monospace;
+  }
+  h1 { font-size:18px; margin:0 0 4px; letter-spacing:.5px; }
+  p.nota { margin:0 0 20px; color:#9a9490; }
+  .controles { display:flex; gap:16px; align-items:center; margin-bottom:20px; flex-wrap:wrap; }
+  label { display:flex; gap:6px; align-items:center; cursor:pointer; }
+  .rejilla { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:14px; }
+  .celda { background:#211f28; border:1px solid #322f3c; border-radius:6px; padding:10px; }
+  .celda h2 { font-size:13px; margin:0 0 8px; color:#f0c987; font-weight:600; }
+  .lienzos { display:flex; gap:6px; }
+  canvas { image-rendering:pixelated; border-radius:3px; display:block; }
+  .datos { margin-top:8px; font-size:11px; color:#9a9490; }
+  .aviso { color:#e8836b; }
+</style>
+</head>
+<body>
+<h1>Hoja de contacto de sprites</h1>
+<p class="nota">
+  Cada entidad sobre arena, piedra y noche. La línea roja marca la línea de pies (ancla),
+  el círculo verde el radio de colisión. Sirve para cazar halos de fondo y comprobar que
+  los pies se alinean entre bichos de alturas distintas.
+</p>
+
+<div class="controles">
+  <label><input type="checkbox" id="anclas" checked> Anclas y radios</label>
+  <label>Zoom <input type="range" id="zoom" min="1" max="6" value="3"></label>
+  <span id="zoomVal">3×</span>
+</div>
+
+<div class="rejilla" id="rejilla"></div>
+
+<script type="module">
+// Radios de colision en unidades logicas. Viven aqui solo para dibujarlos:
+// su sitio definitivo es js/datos/enemigos.js, que es donde van los datos de juego.
+const RADIOS = {
+  serpiente:6, gargola:7, legionario:7, gladiador:8, arpia:8, medusa:9,
+  minotauro:13, ciclope:14, manticora:18, cerbero:30, hidra:39,
+  eric:10, lucy:10, sara:10, vicky:10
+};
+const FONDOS = ['#b99b6b', '#8f8271', '#1c1a20'];
+
+const atlas = await (await fetch('../assets/atlas.json')).json();
+const escala = atlas.escalaArte;
+const rejilla = document.getElementById('rejilla');
+const entradas = [];
+
+for (const [id, e] of Object.entries(atlas.entidades)) {
+  const img = new Image();
+  img.src = '../assets/' + e.archivo;
+  await img.decode().catch(() => {});
+
+  const celda = document.createElement('div');
+  celda.className = 'celda';
+  celda.innerHTML = `<h2>${id}</h2>`;
+
+  const fila = document.createElement('div');
+  fila.className = 'lienzos';
+  const lienzos = FONDOS.map(() => {
+    const c = document.createElement('canvas');
+    fila.appendChild(c);
+    return c;
+  });
+  celda.appendChild(fila);
+
+  const logW = e.w / escala, logH = e.h / escala;
+  const datos = document.createElement('div');
+  datos.className = 'datos';
+  datos.innerHTML =
+    `${e.w}×${e.h} fís · ${logW}×${logH} lóg<br>ancla ${e.anclaX},${e.anclaY} · radio ${RADIOS[id] ?? '?'}`;
+  celda.appendChild(datos);
+
+  rejilla.appendChild(celda);
+  entradas.push({ id, e, img, lienzos });
+}
+
+function pintar() {
+  const zoom = +document.getElementById('zoom').value;
+  const verAnclas = document.getElementById('anclas').checked;
+  document.getElementById('zoomVal').textContent = zoom + '×';
+
+  for (const { id, e, img, lienzos } of entradas) {
+    lienzos.forEach((c, i) => {
+      const w = e.w * zoom, h = e.h * zoom;
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = FONDOS[i];
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+
+      if (!verAnclas) return;
+      const ax = e.anclaX * zoom, ay = e.anclaY * zoom;
+
+      ctx.strokeStyle = 'rgba(255,70,70,.85)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, ay - .5); ctx.lineTo(w, ay - .5); ctx.stroke();
+
+      const r = (RADIOS[id] ?? 8) * escala * zoom;
+      ctx.strokeStyle = 'rgba(90,230,140,.9)';
+      ctx.beginPath(); ctx.arc(ax, ay - r, r, 0, Math.PI * 2); ctx.stroke();
+    });
+  }
+}
+
+document.getElementById('zoom').addEventListener('input', pintar);
+document.getElementById('anclas').addEventListener('change', pintar);
+pintar();
+</script>
+</body>
+</html>
