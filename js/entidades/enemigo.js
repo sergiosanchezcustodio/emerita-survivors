@@ -107,7 +107,7 @@ function crearEnemigo() {
   return {
     def: null, tipo: '',
     x: 0, y: 0, xPrev: 0, yPrev: 0, xVista: 0, yVista: 0,
-    vida: 0, vidaMaxima: 0, velocidad: 0,
+    vida: 0, vidaMaxima: 0, velocidad: 0, danyo: 0,
     sepX: 0, sepY: 0, contactos: 0,
     empujeX: 0, empujeY: 0,
     frenado: 0,              // 0..1, cuánto le ralentiza una red o un charco
@@ -147,7 +147,16 @@ export class Enemigos {
 
   get activos() { return this.pool.activos; }
 
-  aparecer(tipo, x, y) {
+  // `escalaVida` y `escalaDanyo` son el escalado por minuto de la curva de
+  // oleadas (ver datos/niveles/merida.js y sistemas/simulacro.js). Se aplican
+  // AQUÍ, al aparecer, y quedan congelados en la entidad: un enemigo del minuto
+  // 15 conserva su vida aunque el reloj siga corriendo mientras esté vivo, que
+  // es lo que hace que matarlo cueste lo que costaba cuando salió.
+  //
+  // La velocidad NO escala a propósito. Un bestiario en el que todo acelera con
+  // el reloj deja de poder leerse: la serpiente ya no es "la lenta", y la única
+  // información fiable que da un enemigo a distancia es cómo se mueve.
+  aparecer(tipo, x, y, escalaVida = 1, escalaDanyo = 1) {
     const e = this.pool.obtener();
     if (!e) return null;                     // pool lleno: se ignora, sin asignar
 
@@ -156,10 +165,10 @@ export class Enemigos {
     e.tipo = tipo;
     e.x = e.xPrev = e.xVista = x;
     e.y = e.yPrev = e.yVista = y;
-    e.vida = e.vidaMaxima = def.vida;
     // Las estadísticas se instancian POR ENEMIGO al aparecer, no se leen del
-    // catálogo en cada paso. Aquí es donde la Fase 5 aplicará el escalado por
-    // minuto (multiplicadorVida = 1 + 0.09 x minuto) sin tocar nada más.
+    // catálogo en cada paso.
+    e.vida = e.vidaMaxima = def.vida * escalaVida;
+    e.danyo = def.danyo * escalaDanyo;
     e.velocidad = def.velocidad * ESCALA_VELOCIDAD;
     e.sepX = 0; e.sepY = 0;
     e.empujeX = 0; e.empujeY = 0;

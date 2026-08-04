@@ -403,7 +403,10 @@ export function contactoJugador(enemigos, jugador) {
         const dx = e.x - jx;
         const dy = e.y - jy;
         const r = (e.radioCuerpo + jugador.radioCuerpo) * MARGEN_DANYO;
-        if (dx * dx + dy * dy < r * r && e.def.danyo > peor) peor = e.def.danyo;
+        // e.danyo, no e.def.danyo: el escalado por minuto se congela en la
+        // entidad al aparecer (ver entidades/enemigo.js), y leer del catálogo
+        // devolvería siempre el valor de minuto 0.
+        if (dx * dx + dy * dy < r * r && e.danyo > peor) peor = e.danyo;
       }
     }
   }

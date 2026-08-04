@@ -1,5 +1,7 @@
 import { ANCHO_FISICO, ESCALA_ARTE } from '../core/constantes.js';
-import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
+import { FUENTE, FUENTE_TITULO, textoBorde, textoEspaciado } from './capa.js';
+import { Tema, panel, cenefa } from './tema.js';
+import { Simulacro } from '../sistemas/simulacro.js';
 
 // Overlay de depuración (F3). Va en la CAPA DE INTERFAZ (ui/capa.js), como el
 // resto de la interfaz: es texto de desarrollo y hay que poder leer décimas de
@@ -11,7 +13,7 @@ const MONO = 'Consolas, "Cascadia Mono", ui-monospace, monospace';
 
 const LINEAS = [];
 
-const AYUDA = 'F3 · ESC · C personaje · J/H mas/menos jugadores · 1/2/3/4 enemigos · X vaciar · G inmortal · R revivir · M/, cambiar de arma · K +Gladius · L subir nivel'
+const AYUDA = 'F3 · ESC · C personaje · J/H mas/menos jugadores · 1/2/3/4 enemigos sueltos · 5 SIMULACRO DE OLEADAS (6/7 adelantar/atrasar 1 min) · X vaciar · G inmortal · R revivir · M/, cambiar de arma · K +Gladius · L subir nivel'
             + '   ||   APAGAR: Y suelo · P particulas · N numeros · O efectos · T destello';
 
 export function dibujarDepuracion(ctx, datos) {
@@ -46,6 +48,13 @@ export function dibujarDepuracion(ctx, datos) {
   LINEAS.push(`bajas      ${datos.bajas}`);
   LINEAS.push(`efectos    ${datos.proyectiles} proy · ${datos.particulas} part · ${datos.numeros} num`);
   LINEAS.push(`tiles      ${datos.tiles}`);
+  if (Simulacro.activo) {
+    const m = Simulacro.t / 60;
+    const e = Simulacro.nivel.escalado;
+    LINEAS.push(`simulacro  ${Simulacro.reloj}  tope ${Math.round(Simulacro.tope)} vivos · ` +
+                `x${(1 + e.vida * m).toFixed(2)} vida · x${(1 + e.danyo * m).toFixed(2)} danyo · ` +
+                `ultimo patron ${Simulacro.ultimoPatron || '-'}`);
+  }
 
   for (let i = 0; i < datos.jugadores.length; i++) {
     const j = datos.jugadores[i];
@@ -99,45 +108,78 @@ export function dibujarDepuracion(ctx, datos) {
 // panel no deja ver a través de sí mismo —eso arruinaría el contraste del
 // texto— pero tampoco tapa la partida. Al reanudar sigues viendo dónde estabas
 // y por dónde venían, que en pausa es justo lo que se quiere mirar.
+// Y llevan el TEMA DEL NIVEL, igual que la subida de nivel: en Emerita, piedra
+// tostada con marco de bronce y greca. Pausar el juego no debería sacarte de
+// donde estás jugando.
 const ANCHO_AVISO = 268;
-const ALTO_AVISO = 84;
+const ALTO_AVISO = 90;
 
 function pantallaDeAviso(ctx, alto, borde, titulo, colorTitulo, pie, colorPie) {
   const x = (ANCHO_FISICO - ANCHO_AVISO) / 2;
   const y = (alto - ALTO_AVISO) / 2;
 
   ctx.save();
-  ctx.fillStyle = '#15121d';
-  ctx.fillRect(x, y, ANCHO_AVISO, ALTO_AVISO);
-  ctx.strokeStyle = '#0a0810';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(x - 1.5, y - 1.5, ANCHO_AVISO + 3, ALTO_AVISO + 3);
-  ctx.strokeStyle = borde;
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(x + 0.75, y + 0.75, ANCHO_AVISO - 1.5, ALTO_AVISO - 1.5);
+  panel(ctx, x, y, ANCHO_AVISO, ALTO_AVISO, borde);
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
   ctx.font = `24px ${FUENTE_TITULO}`;
   ctx.fillStyle = colorTitulo;
-  textoEspaciado(ctx, titulo, ANCHO_FISICO / 2, y + 32, 5);
+  textoEspaciado(ctx, titulo, ANCHO_FISICO / 2, y + 30, 5);
+
+  cenefa(ctx, x + 34, y + 46, ANCHO_AVISO - 68);
 
   ctx.font = `400 10px ${FUENTE}`;
   ctx.fillStyle = colorPie;
-  ctx.fillText(pie, ANCHO_FISICO / 2, y + 60);
+  ctx.fillText(pie, ANCHO_FISICO / 2, y + 68);
   ctx.restore();
 }
 
 export function dibujarPausa(ctx, alto) {
-  pantallaDeAviso(ctx, alto, '#4a4256', 'PAUSA', '#e8dfc8',
-                  'ESC o Start para continuar', '#948d81');
+  const t = Tema.actual;
+  pantallaDeAviso(ctx, alto, t.filo, 'PAUSA', t.titulo,
+                  'ESC o Start para continuar', t.texto);
 }
 
 // Provisional. La pantalla de derrota de verdad (tiempo, nivel, bajas, arsenal)
 // llega en la Fase 7; esto solo cierra el ciclo del daño por contacto para poder
 // probarlo en la Fase 2.
 export function dibujarAbatido(ctx, alto) {
-  pantallaDeAviso(ctx, alto, '#7a3a34', 'ABATIDO', '#e8b0a4',
+  pantallaDeAviso(ctx, alto, '#a04a3c', 'ABATIDO', '#e8b0a4',
                   'R para revivir  ·  X para vaciar la horda', '#a4837c');
+}
+
+// --- Marcador del simulacro --------------------------------------------------
+// Se ve SIN F3, y es deliberado: el simulacro sirve para juzgar el ritmo, y para
+// eso hay que estar mirando la partida, no un muro de cifras. Con el overlay de
+// depuración abierto tapando media pantalla no se puede juzgar nada.
+//
+// Arriba en el centro, que es la única franja que ni las fichas ni los menús
+// usan. Sin caja: reborde oscuro, como el resto de la interfaz.
+export function dibujarSimulacro(ctx) {
+  if (!Simulacro.activo) return;
+  const t = Tema.actual;
+  const cx = ANCHO_FISICO / 2;
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  ctx.font = `600 15px ${FUENTE}`;
+  textoBorde(ctx, Simulacro.reloj, cx, 6, t.titulo, 3);
+
+  ctx.font = `500 8.5px ${FUENTE}`;
+  textoBorde(ctx, `oleadas · ${Simulacro.ultimoPatron || 'esperando'}`, cx, 23,
+             t.texto, 2.6);
+
+  // Aviso de jefe. El simulacro no lo invoca —los jefes son la Fase 6— pero
+  // avisar de cuándo tocaría es la mitad de la información: sin eso, el minuto
+  // 10 parece un tramo tranquilo cuando en realidad es el que falta.
+  if (Simulacro.hitoRestante > 0) {
+    ctx.font = `600 11px ${FUENTE}`;
+    textoBorde(ctx, `AQUI ENTRARIA: ${Simulacro.hito.toUpperCase()}`, cx, 36,
+               '#e8b73a', 3);
+  }
+  ctx.restore();
 }

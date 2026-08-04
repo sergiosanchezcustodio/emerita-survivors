@@ -1,6 +1,8 @@
 import { ANCHO_FISICO, ALTO_FISICO } from '../core/constantes.js';
 import { Progresion } from '../sistemas/progresion.js';
 import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
+import { Tema, panel, cenefa } from './tema.js';
+import { ALTO_FICHA, MARGEN_FICHA } from './hud.js';
 
 // Pantalla de subida de nivel. Va en la CAPA DE INTERFAZ (ui/capa.js), a
 // resolución de pantalla: aquí hay que leer, y leer deprisa, porque el juego
@@ -16,6 +18,11 @@ import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
 // que el menú salga siempre en el centro obliga a preguntar en voz alta de quién
 // es; saliendo en tu esquina, lo sabes sin mirar el nombre.
 //
+// EL ASPECTO LO PONE EL NIVEL, no este archivo: fondo, marco, ornamento y
+// colores salen de ui/tema.js, que los lee del NIVEL en curso. En Emerita el
+// panel es piedra tostada, marfil y bronce con greca; el nivel que venga después
+// traerá el suyo sin tocar nada de aquí.
+//
 // Tres opciones, no las cuatro del plan: decisión de diseño. Con tres, la
 // elección se lee de un vistazo y no interrumpe tanto el ritmo.
 
@@ -23,22 +30,14 @@ const ANCHO_CARTA = 132;
 const ALTO_CARTA = 94;
 const HUECO = 8;
 const RELLENO = 12;         // margen interior del panel
-const CABECERA = 30;
+const CABECERA = 36;        // titular + cenefa
 const PIE = 15;
 
 const MARGEN_PANTALLA = 14;
-// Alto que ocupa la ficha del jugador en su esquina (ver ui/hud.js). El menú se
-// coloca por detrás de ella para no taparle a nadie su propia vida.
-const ALTO_FICHA = 129;
-
-// SIN TRANSPARENCIAS, ni en el panel ni en las cartas: el fondo es opaco. Lo que
-// cambió es el TAMAÑO, no la opacidad. Un panel translúcido sobre la horda es
-// ilegible justo en el momento en que hay que decidir.
-const FONDO_PANEL   = '#15121d';
-const FONDO_CARTA   = '#1f1b29';
-const FONDO_ELEGIDA = '#332b47';
-const BORDE_OSCURO  = '#0a0810';
-const BORDE_SUAVE   = '#4a4256';
+// El menú se coloca por detrás de la ficha del jugador para no taparle a nadie
+// su propia vida. La medida la exporta ui/hud.js: cuando estaba copiada aquí,
+// cambiar el tamaño de la ficha dejaba las dos cosas solapadas.
+const ESTORBO_FICHA = ALTO_FICHA + MARGEN_FICHA;
 
 const COLOR_ARMA_NUEVA    = '#e8b73a';
 const COLOR_ARMA_MEJORA   = '#cbbfa4';
@@ -85,8 +84,8 @@ function situar(indice, unSolo, ancho, alto) {
   return {
     x: derecha ? ANCHO_FISICO - ancho - MARGEN_PANTALLA : MARGEN_PANTALLA,
     y: abajo
-      ? ALTO_FISICO - MARGEN_PANTALLA - ALTO_FICHA - HUECO - alto
-      : MARGEN_PANTALLA + ALTO_FICHA + HUECO
+      ? ALTO_FISICO - ESTORBO_FICHA - HUECO - alto
+      : ESTORBO_FICHA + HUECO
   };
 }
 
@@ -94,6 +93,7 @@ export function dibujarMenuNivel(ctx, jugadores) {
   const j = Progresion.actual;
   if (!j) return;
 
+  const t = Tema.actual;
   const n = Progresion.nOpciones;
   const ancho = n * ANCHO_CARTA + (n - 1) * HUECO + RELLENO * 2;
   const alto = CABECERA + ALTO_CARTA + PIE + RELLENO;
@@ -105,21 +105,13 @@ export function dibujarMenuNivel(ctx, jugadores) {
 
   ctx.save();
 
-  // Panel opaco con doble borde. El exterior oscuro lo despega del juego; el
-  // interior lleva el color del jugador, que es el segundo indicio de a quién
-  // le toca sin tener que leer nada.
-  ctx.fillStyle = FONDO_PANEL;
-  ctx.fillRect(px, py, ancho, alto);
-  ctx.strokeStyle = BORDE_OSCURO;
-  ctx.lineWidth = 1;
-  ctx.strokeRect(px - 1.5, py - 1.5, ancho + 3, alto + 3);
-  ctx.strokeStyle = colorJ;
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(px + 0.75, py + 0.75, ancho - 1.5, alto - 1.5);
+  // Fondo, marcos y escuadras. El marco interior lleva el color del jugador, que
+  // es el segundo indicio de a quién le toca sin tener que leer nada.
+  panel(ctx, px, py, ancho, alto, colorJ);
 
   // --- Cabecera: de quién es y qué nivel ---------------------------------
   ctx.textBaseline = 'middle';
-  const yCabecera = py + RELLENO + 7;
+  const yCabecera = py + RELLENO + 5;
 
   ctx.textAlign = 'left';
   ctx.font = `600 10px ${FUENTE}`;
@@ -129,8 +121,11 @@ export function dibujarMenuNivel(ctx, jugadores) {
 
   ctx.textAlign = 'right';
   ctx.font = `17px ${FUENTE_TITULO}`;
-  ctx.fillStyle = '#e8dfc8';
+  ctx.fillStyle = t.titulo;
   textoEspaciado(ctx, `NIVEL ${j.nivel}`, px + ancho - RELLENO, yCabecera, 2.5);
+
+  // Cenefa de separación: es el ornamento del nivel, no una raya cualquiera.
+  cenefa(ctx, px + RELLENO, py + RELLENO + 14, ancho - RELLENO * 2);
 
   // --- Cartas ------------------------------------------------------------
   const x0 = px + RELLENO;
@@ -142,7 +137,7 @@ export function dibujarMenuNivel(ctx, jugadores) {
     const elegida = i === Progresion.seleccion;
     const color = colorDe(o);
 
-    ctx.fillStyle = elegida ? FONDO_ELEGIDA : FONDO_CARTA;
+    ctx.fillStyle = elegida ? t.cartaElegida : t.fondoCarta;
     ctx.fillRect(x, y0, ANCHO_CARTA, ALTO_CARTA);
 
     // Franja de color arriba: identifica de un vistazo si es arma o pasivo,
@@ -150,9 +145,11 @@ export function dibujarMenuNivel(ctx, jugadores) {
     ctx.fillStyle = color;
     ctx.fillRect(x, y0, ANCHO_CARTA, elegida ? 3 : 2);
 
-    ctx.strokeStyle = elegida ? color : BORDE_SUAVE;
+    ctx.strokeStyle = elegida ? color : t.filo;
+    ctx.globalAlpha = elegida ? 1 : 0.5;
     ctx.lineWidth = elegida ? 1.5 : 1;
     ctx.strokeRect(x + 0.5, y0 + 0.5, ANCHO_CARTA - 1, ALTO_CARTA - 1);
+    ctx.globalAlpha = 1;
 
     const centro = x + ANCHO_CARTA / 2;
     ctx.textAlign = 'center';
@@ -162,11 +159,11 @@ export function dibujarMenuNivel(ctx, jugadores) {
     textoEspaciado(ctx, etiquetaDe(o), centro, y0 + 17, 1);
 
     ctx.font = `600 14px ${FUENTE}`;
-    ctx.fillStyle = elegida ? '#ffffff' : '#e6dfcf';
+    ctx.fillStyle = elegida ? '#ffffff' : t.titulo;
     ctx.fillText(o.nombre, centro, y0 + 40);
 
     ctx.font = `400 9.5px ${FUENTE}`;
-    ctx.fillStyle = '#a29c90';
+    ctx.fillStyle = t.texto;
     const [l1, l2] = partir(o.descripcion || '');
     if (l2) {
       ctx.fillText(l1, centro, y0 + 62);
@@ -187,14 +184,14 @@ export function dibujarMenuNivel(ctx, jugadores) {
   if (j.rerolls > 0) {
     ctx.textAlign = 'left';
     ctx.font = `500 9px ${FUENTE}`;
-    ctx.fillStyle = '#7d766a';
+    ctx.fillStyle = t.apagado;
     ctx.fillText(`R  ×${j.rerolls}`, px + RELLENO, yPie);
   }
 
   if (Progresion.cola.length > 0) {
     ctx.textAlign = 'right';
     ctx.font = `500 9px ${FUENTE}`;
-    ctx.fillStyle = '#e8b73a';
+    ctx.fillStyle = COLOR_ARMA_NUEVA;
     ctx.fillText(`${Progresion.cola.length} esperando`, px + ancho - RELLENO, yPie);
   }
 

@@ -907,10 +907,19 @@ foreach ($e in $CATALOGO) {
     if ($null -ne $e.cadera) {
         $rutaCara = Join-Path $DESTINO ("personajes\" + $e.id + "-cara.png")
         try {
-            [Procesador]::RecortarCabeza($rutaSrc, $rutaCara, 72, 0.30, 0.22) | Out-Null
+            # 192 y no 72. El retrato NO es pixel art: se dibuja en la capa de
+            # interfaz, que va a la resolucion real del monitor. Con zoom de
+            # pantalla 3x y densidad 2x, la capa trabaja a 6 pixeles de
+            # dispositivo por unidad, asi que un retrato de 30 unidades pide 180
+            # pixeles reales. A 72 habia que AMPLIARLO dos veces y media y se
+            # veia blando, que es justo lo contrario de lo que busca recortar
+            # desde el original a resolucion completa. A 192 sobra en cualquier
+            # combinacion razonable de zoom y densidad, y son cuatro PNG de unos
+            # 40 KB: no hay nada que optimizar aqui.
+            [Procesador]::RecortarCabeza($rutaSrc, $rutaCara, 192, 0.30, 0.22) | Out-Null
             $atlas[$e.id + 'Cara'] = [ordered]@{
                 archivo = "personajes/$($e.id)-cara.png"
-                w = 72; h = 72; anclaX = 36; anclaY = 72; frames = 1
+                w = 192; h = 192; anclaX = 96; anclaY = 192; frames = 1
             }
         } catch {
             Write-Host "  aviso: no se pudo recortar la cabeza de $($e.id)"

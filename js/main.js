@@ -21,7 +21,11 @@ import { Progresion } from './sistemas/progresion.js';
 import { dibujarMenuNivel } from './ui/menuNivel.js';
 import { dibujarPaneles } from './ui/hud.js';
 import { Capa } from './ui/capa.js';
-import { dibujarDepuracion, dibujarPausa, dibujarAbatido } from './ui/depuracion.js';
+import { Tema, olvidarDegradados } from './ui/tema.js';
+import {
+  dibujarDepuracion, dibujarPausa, dibujarAbatido, dibujarSimulacro
+} from './ui/depuracion.js';
+import { Simulacro, aparecerTanda } from './sistemas/simulacro.js';
 import { NIVEL } from './datos/niveles/merida.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from './datos/personajes.js';
 import { ARMAS } from './datos/armas.js';
@@ -48,10 +52,15 @@ const CAPACIDAD_ZONAS = 220;
 
 const SEMILLA = 0xE3E21A;
 
-// --- Aparición de prueba (TEMPORAL, Fase 2) ---------------------------------
-// Esto lo sustituye el director de oleadas en la Fase 5, que leerá los eventos
-// de datos/niveles/merida.js. Aquí solo hace falta poder poner 500 enemigos en
-// pantalla para validar los 60 fps, que es el criterio de esta fase.
+// --- Aparición de prueba en bruto (teclas 1-4) ------------------------------
+// Esto NO es la curva del juego: es un martillo para meter N enemigos de golpe y
+// ver si el motor aguanta. Sirve para medir fps y poco más — en una partida no
+// aparecen 500 serpientes a la vez, así que no dice nada sobre el ritmo.
+//
+// Para juzgar el daño, la experiencia y el movimiento contra la presión real
+// está el SIMULACRO DE OLEADAS (tecla 5), que recorre los veinte minutos de
+// datos/niveles/merida.js. Las dos cosas conviven porque responden preguntas
+// distintas.
 //
 // Hay DOS mezclas porque una sola mentía sobre el juego. Metiendo todo el
 // bestiario desde el segundo cero aparecían arpías, que a 92 px/s son más
@@ -75,20 +84,10 @@ const MEZCLA_TARDIA = [
   'arpia', 'arpia', 'medusa',
   'ciclope', 'minotauro'
 ];
-// Aparición uniforme sobre el PERÍMETRO del rectángulo de pantalla.
-//
-// Antes se repartía por ángulo uniforme sobre una elipse, y estaba mal: un
-// ángulo uniforme NO da puntos uniformes sobre el perímetro de una elipse, se
-// apelotonan en los extremos del eje largo. Medido con 500 enemigos, los
-// octantes de izquierda y derecha recibían 80-95 y los de arriba y abajo 35-44
-// — más del doble por un lado que por otro, y se notaba jugando.
-//
-// Recorriendo el perímetro del rectángulo, cada tramo de borde recibe enemigos
-// en proporción a su longitud: el borde superior mide 480 y el lateral 270, así
-// que llegan más por arriba que por un lado, que es lo correcto. Lo que queda
-// constante es la DENSIDAD a lo largo del borde, que es lo que se percibe.
-const MARGEN_APARICION = 40;                    // fuera de cámara, sin verse nacer
-const DISPERSION = 34;                          // ensancha el anillo de entrada
+// La geometría de aparición (perímetro, dispersión y los cinco patrones) vive en
+// sistemas/simulacro.js y la comparten los atajos y la curva de verdad: si la
+// aparición de prueba y la de la partida usaran códigos distintos, probar una no
+// diría nada de la otra.
 
 const lienzo = document.getElementById('juego');
 const ctx = lienzo.getContext('2d', { alpha: false });
@@ -203,6 +202,10 @@ function redimensionar() {
   // La capa de interfaz ocupa el mismo rectángulo en CSS, pero por debajo lleva
   // tantos píxeles como dé la pantalla.
   Capa.redimensionar(factor);
+  // Los degradados del tema guardan coordenadas absolutas y se cachean; tras un
+  // cambio de escala habría que repintarlos igual, pero más vale tirarlos que
+  // arrastrar una banda mal colocada.
+  olvidarDegradados();
 }
 addEventListener('resize', redimensionar);
 
@@ -218,33 +221,8 @@ function vigilarDensidad() {
 
 // Aparecen alrededor de la CÁMARA, no de un jugador concreto: con el grupo
 // repartido por la pantalla, anclarlo a uno dejaría el borde opuesto vacío.
-function aparecerTanda(cantidad, mezcla) {
-  const semiX = ANCHO_LOGICO / 2 + MARGEN_APARICION;
-  const semiY = ALTO_LOGICO / 2 + MARGEN_APARICION;
-  const ladoH = semiX * 2;
-  const ladoV = semiY * 2;
-  const perimetro = (ladoH + ladoV) * 2;
-
-  for (let i = 0; i < cantidad; i++) {
-    // Se recorre el perímetro y se mira en qué tramo cae. Sin trigonometría y
-    // con densidad constante a lo largo del borde.
-    let t = rng() * perimetro;
-    let x, y;
-    if (t < ladoH)                { x = -semiX + t;             y = -semiY; }
-    else if (t < ladoH + ladoV)   { x = semiX;                  y = -semiY + (t - ladoH); }
-    else if (t < ladoH * 2 + ladoV) { x = semiX - (t - ladoH - ladoV); y = semiY; }
-    else                          { x = -semiX;                 y = semiY - (t - ladoH * 2 - ladoV); }
-
-    // Empujón hacia fuera para que el anillo tenga grosor y no sea una línea.
-    const fuera = rng() * DISPERSION;
-    const nx = x > 0 ? 1 : (x < 0 ? -1 : 0);
-    const ny = y > 0 ? 1 : (y < 0 ? -1 : 0);
-    x += nx * fuera * (Math.abs(x) === semiX ? 1 : 0.35);
-    y += ny * fuera * (Math.abs(y) === semiY ? 1 : 0.35);
-
-    const tipo = mezcla[(rng() * mezcla.length) | 0];
-    if (!enemigos.aparecer(tipo, camara.x + x, camara.y + y)) break;  // pool lleno
-  }
+function tanda(cantidad, mezcla) {
+  aparecerTanda(enemigos, camara, cantidad, mezcla, rng);
 }
 
 // --- Lógica -----------------------------------------------------------------
@@ -260,10 +238,20 @@ function actualizar(dt) {
   }
   if (entrada.consumirFlanco('KeyJ')) anyadirJugador();
   if (entrada.consumirFlanco('KeyH')) quitarJugador();
-  if (entrada.consumirFlanco('Digit1')) aparecerTanda(100, MEZCLA_TEMPRANA);
-  if (entrada.consumirFlanco('Digit2')) aparecerTanda(500, MEZCLA_TEMPRANA);
-  if (entrada.consumirFlanco('Digit3')) aparecerTanda(800, MEZCLA_TEMPRANA);
-  if (entrada.consumirFlanco('Digit4')) aparecerTanda(300, MEZCLA_TARDIA);
+  if (entrada.consumirFlanco('Digit1')) tanda(100, MEZCLA_TEMPRANA);
+  if (entrada.consumirFlanco('Digit2')) tanda(500, MEZCLA_TEMPRANA);
+  if (entrada.consumirFlanco('Digit3')) tanda(800, MEZCLA_TEMPRANA);
+  if (entrada.consumirFlanco('Digit4')) tanda(300, MEZCLA_TARDIA);
+  // Simulacro de oleadas: la curva de veinte minutos del nivel, con su escalado
+  // y su techo de densidad. Al encenderlo se limpia la pantalla porque lo que se
+  // mide es la curva, y arrastrar ochocientas serpientes de la tecla 3 falsea el
+  // minuto 0 entero. 6 y 7 mueven el reloj un minuto: probar el minuto 16
+  // esperando dieciséis minutos no es probar, es esperar.
+  if (entrada.consumirFlanco('Digit5')) {
+    if (Simulacro.alternar()) { enemigos.vaciar(); proyectiles.vaciar(); zonas.vaciar(); }
+  }
+  if (entrada.consumirFlanco('Digit6')) Simulacro.saltar(60);
+  if (entrada.consumirFlanco('Digit7')) Simulacro.saltar(-60);
   if (entrada.consumirFlanco('KeyX')) { enemigos.vaciar(); proyectiles.vaciar(); zonas.vaciar(); }
   if (entrada.consumirFlanco('KeyG')) {
     const nuevo = !jugadores[0].inmortal;
@@ -365,6 +353,11 @@ function actualizar(dt) {
   // Después de la correa: si dos topan contra el mismo borde, hay que volver a
   // separarlos o el tope los dejaría uno dentro del otro.
   separarJugadores(jugadores);
+
+  // El simulacro aparece DESPUÉS de mover la cámara: si lo hiciera antes, con la
+  // cámara corriendo detrás del grupo los enemigos entrarían medio metidos en
+  // pantalla por el lado hacia el que se avanza.
+  Simulacro.actualizar(dt, enemigos, camara);
   entrada.limpiarFlanco();
 }
 
@@ -517,6 +510,7 @@ function dibujar(alpha) {
     });
   }
   dibujarPaneles(ctxUi, jugadores);
+  dibujarSimulacro(ctxUi);
 
   // Solo se pierde cuando caen TODOS. Con un compañero en pie la partida sigue,
   // que es lo que hace que el cooperativo tenga sentido.
@@ -554,6 +548,12 @@ function dibujarSuelo(izq, arr) {
 async function arrancar() {
   await Recursos.cargar(NIVEL);
 
+  // El aspecto de pausa, derrota y subida de nivel lo pone el NIVEL. Se inyecta
+  // en vez de importarlo desde ui/: si la interfaz importara merida.js, añadir
+  // un nivel obligaría a tocar la interfaz, y el contrato dice que un nivel
+  // nuevo es copiar un archivo de datos/niveles/ y nada más.
+  Tema.usar(NIVEL);
+
   // Todos los pools se preasignan aquí, antes del primer frame.
   enemigos = new Enemigos(CAPACIDAD_ENEMIGOS, rng);
   proyectiles = new Proyectiles(CAPACIDAD_PROYECTILES);
@@ -563,6 +563,10 @@ async function arrancar() {
   zonas = new Zonas(CAPACIDAD_ZONAS);
   enemigos.recogibles = recogibles;
   Progresion.iniciar(rng);
+  // Comparte el RNG con todo lo demás, así que con la misma semilla salen las
+  // mismas oleadas: es el criterio 10 del plan y sin él no se puede comparar un
+  // ajuste de balance con el anterior.
+  Simulacro.iniciar(NIVEL, rng);
 
   ctxArmas.enemigos = enemigos;
   ctxArmas.proyectiles = proyectiles;
@@ -588,7 +592,8 @@ async function arrancar() {
   // balance, que es de lo que va el criterio 10.
   window.EMERITA = {
     jugadores, arsenales, enemigos, proyectiles, recogibles, zonas, camara, entrada, bucle,
-    particulas: Particulas, vfx: VFX, progresion: Progresion, ajustes, activo, perfil,
+    particulas: Particulas, vfx: VFX, progresion: Progresion, simulacro: Simulacro,
+    ajustes, activo, perfil,
     anyadirJugador, quitarJugador,
     get jugador() { return jugadores[0]; },   // atajo para el caso de uno solo
     avanzar(n) { for (let i = 0; i < n; i++) actualizar(DT); return enemigos.activos; }

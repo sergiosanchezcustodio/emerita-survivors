@@ -91,10 +91,10 @@
                                 },
                       "ericCara":  {
                                        "archivo":  "personajes/eric-cara.png",
-                                       "w":  72,
-                                       "h":  72,
-                                       "anclaX":  36,
-                                       "anclaY":  72,
+                                       "w":  192,
+                                       "h":  192,
+                                       "anclaX":  96,
+                                       "anclaY":  192,
                                        "frames":  1
                                    },
                       "eric":  {
@@ -124,10 +124,10 @@
                                },
                       "lucyCara":  {
                                        "archivo":  "personajes/lucy-cara.png",
-                                       "w":  72,
-                                       "h":  72,
-                                       "anclaX":  36,
-                                       "anclaY":  72,
+                                       "w":  192,
+                                       "h":  192,
+                                       "anclaX":  96,
+                                       "anclaY":  192,
                                        "frames":  1
                                    },
                       "lucy":  {
@@ -157,10 +157,10 @@
                                },
                       "saraCara":  {
                                        "archivo":  "personajes/sara-cara.png",
-                                       "w":  72,
-                                       "h":  72,
-                                       "anclaX":  36,
-                                       "anclaY":  72,
+                                       "w":  192,
+                                       "h":  192,
+                                       "anclaX":  96,
+                                       "anclaY":  192,
                                        "frames":  1
                                    },
                       "sara":  {
@@ -190,10 +190,10 @@
                                },
                       "vickyCara":  {
                                         "archivo":  "personajes/vicky-cara.png",
-                                        "w":  72,
-                                        "h":  72,
-                                        "anclaX":  36,
-                                        "anclaY":  72,
+                                        "w":  192,
+                                        "h":  192,
+                                        "anclaX":  96,
+                                        "anclaY":  192,
                                         "frames":  1
                                     },
                       "vicky":  {
