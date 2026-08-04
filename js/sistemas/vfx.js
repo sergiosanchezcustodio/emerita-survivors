@@ -1,5 +1,6 @@
 import { ESCALA_ARTE } from '../core/constantes.js';
 import { Pool } from '../core/pool.js';
+import { FUENTE } from '../ui/capa.js';
 
 // Efectos de realimentación: números de daño flotantes, sacudida de cámara y
 // hitstop. Singleton, como Particulas.
@@ -129,6 +130,17 @@ export const VFX = {
     this.congelado = 0;
   },
 
+  // Se dibujan en la CAPA DE INTERFAZ (ui/capa.js), no en el lienzo del juego.
+  //
+  // Son tipografía, y el lienzo del juego se amplía por enteros con el vecino
+  // más próximo: cualquier letra trazada ahí sale escalonada por definición. Con
+  // la pantalla llena, los números de daño son el texto MÁS presente que hay, o
+  // sea que era justo el peor sitio donde dejarlos.
+  //
+  // Las coordenadas no cambian ni un ápice: la capa trabaja en las mismas
+  // unidades físicas que ya usaban estos números, así que el anclaje al mundo
+  // sigue saliendo de offX/offY igual que antes.
+  //
   // offX/offY: desplazamiento de cámara YA redondeado a píxel físico, el mismo
   // que usa el mundo. Así el número se ancla al enemigo sin bailar respecto a él.
   dibujarNumeros(ctx, offX, offY) {
@@ -137,9 +149,9 @@ export const VFX = {
     if (n === 0) return;
 
     ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
+    ctx.lineJoin = 'round';
 
     // DOS PASADAS, una por tamaño de letra.
     //
@@ -154,8 +166,8 @@ export const VFX = {
         const p = items[k];
         if (p.gordo !== gordo) continue;
         if (!usada) {
-          ctx.font = gordo ? 'bold 15px Consolas, monospace'
-                           : 'bold 12px Consolas, monospace';
+          ctx.font = gordo ? `700 15px ${FUENTE}` : `600 12px ${FUENTE}`;
+          ctx.lineWidth = gordo ? 3.5 : 3;
           usada = true;
         }
         const t = p.vida / VIDA_NUMERO;        // 1 recién salido, 0 al apagarse
@@ -164,8 +176,13 @@ export const VFX = {
         const py = Math.round((p.y - subida) * ESCALA_ARTE - offY);
 
         ctx.globalAlpha = t > 0.6 ? 1 : t / 0.6;
-        ctx.fillStyle = 'rgba(20,12,10,.85)';
-        ctx.fillText(p.texto, px + 1, py + 1);  // sombra, para que lea sobre arena
+        // Contorno en vez de sombra desplazada: la sombra a un píxel funcionaba
+        // cuando el número ERA de un píxel de rejilla, pero aquí se traza a la
+        // resolución del monitor y quedaba como una letra mal impresa. El
+        // contorno cerrado lee igual de bien sobre la arena y no dobla la
+        // figura.
+        ctx.strokeStyle = 'rgba(18,11,9,.9)';
+        ctx.strokeText(p.texto, px, py);
         ctx.fillStyle = gordo ? '#ffd24a' : '#f4efe2';
         ctx.fillText(p.texto, px, py);
       }

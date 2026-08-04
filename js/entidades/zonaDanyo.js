@@ -111,8 +111,17 @@ export class Zonas {
 
   vaciar() { this.pool.vaciar(); }
 
-  // Círculo relleno tenue con el borde encendido. En 'lighter', como el resto de
-  // efectos: se suman entre sí y dos charcos solapados se ven más calientes.
+  // DOS PASADAS: el relleno suma luz, el borde no.
+  //
+  // Antes iba todo en 'lighter'. Sobre la arena clara del anfiteatro eso se
+  // suma hasta saturar y el resultado era una mancha lavada sin canto: no se
+  // sabía dónde acaba la zona que hace daño, que es LA única información que
+  // una zona tiene que dar. Pisar o no pisar es la decisión entera.
+  //
+  // Ahora el relleno sigue siendo aditivo —dos charcos solapados se ven más
+  // calientes, y eso es correcto— pero el borde va en composición normal y con
+  // una línea oscura por fuera. Un canto oscuro contra uno claro se lee sobre
+  // cualquier fondo, que es lo que un contorno tiene que garantizar.
   dibujar(ctx) {
     const items = this.pool.items;
     const n = this.pool.activos;
@@ -122,19 +131,33 @@ export class Zonas {
     ctx.globalCompositeOperation = 'lighter';
     for (let k = 0; k < n; k++) {
       const z = items[k];
+      if (z.relleno <= 0) continue;
       const t = z.vida / z.vidaMax;          // 1 al nacer, 0 al morir
-      ctx.globalAlpha = z.modo === 'onda' ? t * 0.9 : (0.5 + t * 0.5) * 0.7;
+      ctx.globalAlpha = (z.modo === 'onda' ? t * 0.75 : 0.35 + t * 0.35) * z.relleno;
+      ctx.fillStyle = z.color;
+      ctx.beginPath();
+      ctx.arc(z.x, z.y, z.radioActual, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
 
-      if (z.relleno > 0) {
-        ctx.fillStyle = z.color;
-        ctx.globalAlpha *= z.relleno;
-        ctx.beginPath();
-        ctx.arc(z.x, z.y, z.radioActual, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha /= z.relleno;
-      }
+    ctx.save();
+    for (let k = 0; k < n; k++) {
+      const z = items[k];
+      const t = z.vida / z.vidaMax;
+      // La onda adelgaza según se abre; el charco mantiene su canto toda la
+      // vida, porque su borde no es un efecto, es la frontera del daño.
+      const grosor = z.modo === 'onda' ? 1 + t * 2.5 : 2;
+      ctx.globalAlpha = z.modo === 'onda' ? t : 0.55 + t * 0.45;
+
+      ctx.strokeStyle = 'rgba(16,11,20,.55)';
+      ctx.lineWidth = grosor + 1.6;
+      ctx.beginPath();
+      ctx.arc(z.x, z.y, z.radioActual, 0, Math.PI * 2);
+      ctx.stroke();
+
       ctx.strokeStyle = z.color;
-      ctx.lineWidth = z.modo === 'onda' ? 1 + t * 2.5 : 1.5;
+      ctx.lineWidth = grosor;
       ctx.beginPath();
       ctx.arc(z.x, z.y, z.radioActual, 0, Math.PI * 2);
       ctx.stroke();

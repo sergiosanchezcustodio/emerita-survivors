@@ -22,6 +22,26 @@ body {
   -webkit-user-select: none;
 }
 
+/* Contenedor de los dos lienzos. Existe para que la interfaz pueda colocarse
+   ENCIMA del juego con posición absoluta sin salirse de su sitio: el body está
+   centrado con flex, y un absoluto contra el body se iría a la esquina. */
+#marco {
+  position: relative;
+  line-height: 0;      /* o el hueco de la línea base añade unos píxeles debajo */
+}
+
+/* La interfaz va clavada sobre el juego, al mismo tamaño en CSS pero con muchos
+   más píxeles reales por debajo. NADA de `image-rendering: pixelated` aquí: es
+   justo lo contrario de lo que se busca. */
+#interfaz {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* Transparente a los eventos: el joystick virtual y el foco los sigue
+     recibiendo el lienzo del juego, que es donde Entrada se engancha. */
+  pointer-events: none;
+}
+
 #juego {
   display: block;
   /* El orden importa: gana la última que el navegador entienda. `pixelated` va

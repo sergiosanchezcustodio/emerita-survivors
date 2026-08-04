@@ -430,22 +430,69 @@ export class Armas {
     }
   }
 
+  // Un orbital es un OBJETO, no una luz.
+  //
+  // Estaba dibujado como disco relleno en 'lighter' y sobre la arena clara del
+  // anfiteatro eso satura enseguida: salían bolas BLANCAS, sin el color del
+  // arma, sin canto, y tapando a los enemigos de debajo. Un escudo que no se
+  // distingue de otro escudo no informa de nada, y con tres armas orbitales en
+  // el catálogo eso importa.
+  //
+  // Van en dos pasadas. Primero un halo aditivo flojo, que es lo que da el calor
+  // y lo que se acumula cuando varios se juntan; encima el cuerpo opaco con
+  // reborde oscuro, que le devuelve el color y el borde.
   dibujarOrbitales(ctx, jugador) {
     for (let i = 0; i < this.equipadas.length; i++) {
       const arma = this.equipadas[i];
       if (!arma.orbitalActivo) continue;
       const s = arma.stats;
       const radio = areaDe(s.radioOrbita, jugador);
+      const r = s.radioEscudo;
+      const paso = (Math.PI * 2) / s.escudos;
+
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.22;
       ctx.fillStyle = arma.def.color;
       for (let k = 0; k < s.escudos; k++) {
-        const a = arma.anguloOrbital + (k / s.escudos) * Math.PI * 2;
+        const a = arma.anguloOrbital + k * paso;
+        ctx.beginPath();
+        ctx.arc(jugador.x + Math.cos(a) * radio, jugador.y - 6 + Math.sin(a) * radio,
+                r * 1.35, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // Aro, no moneda. Relleno translúcido y canto marcado: relleno opaco
+      // tapaba al enemigo que tienes justo encima, y en un juego donde lo que
+      // mata es no ver quién se te ha pegado, eso es un efecto que juega en tu
+      // contra. Con el aro se sabe dónde está el escudo y se sigue viendo qué
+      // hay debajo.
+      ctx.save();
+      ctx.lineWidth = 1.4;
+      for (let k = 0; k < s.escudos; k++) {
+        const a = arma.anguloOrbital + k * paso;
         const ox = jugador.x + Math.cos(a) * radio;
         const oy = jugador.y - 6 + Math.sin(a) * radio;
+
+        ctx.globalAlpha = 0.32;
+        ctx.fillStyle = arma.def.color;
         ctx.beginPath();
-        ctx.arc(ox, oy, s.radioEscudo, 0, Math.PI * 2);
+        ctx.arc(ox, oy, r, 0, Math.PI * 2);
         ctx.fill();
+
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = 'rgba(18,12,22,.8)';
+        ctx.lineWidth = 2.6;
+        ctx.beginPath();
+        ctx.arc(ox, oy, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = arma.def.color;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(ox, oy, r, 0, Math.PI * 2);
+        ctx.stroke();
       }
       ctx.restore();
     }

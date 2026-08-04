@@ -1,8 +1,10 @@
 import { ANCHO_FISICO, ALTO_FISICO } from '../core/constantes.js';
 import { Progresion } from '../sistemas/progresion.js';
+import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
 
-// Pantalla de subida de nivel. Se dibuja en PÍXELES FÍSICOS con la matriz
-// identidad: es interfaz, no pixel art, y tiene que leerse.
+// Pantalla de subida de nivel. Se dibuja en la CAPA DE INTERFAZ (ui/capa.js),
+// a resolución de pantalla: aquí hay que leer, y leer deprisa, porque el juego
+// está parado esperando una decisión.
 //
 // Tres opciones, no las cuatro del plan: decisión de diseño. Con tres, la
 // elección se lee de un vistazo y no interrumpe tanto el ritmo.
@@ -11,25 +13,24 @@ import { Progresion } from '../sistemas/progresion.js';
 // dos menús simultáneos sobre la misma pantalla no hay forma de leerlos. Se
 // indica de quién es arriba del todo.
 
-const ANCHO_CARTA = 258;
-const ALTO_CARTA = 132;
-const HUECO = 18;
+const ANCHO_CARTA = 262;
+const ALTO_CARTA = 150;
+const HUECO = 20;
 
-// SIN transparencias. El menú detiene el juego, así que no tiene por qué dejar
-// ver lo que hay detrás: un panel translúcido sobre ochocientos enemigos es
-// ilegible justo en el momento en que hay que decidir. Fondo opaco, bordes
-// dobles y tipografía con contraste.
-const FONDO_VELO   = '#12101a';
-const FONDO_CARTA  = '#1d1926';
-const FONDO_ELEGIDA= '#2e2740';
-const BORDE_OSCURO = '#0a0810';
-const BORDE_SUAVE  = '#4a4256';
+// SIN TRANSPARENCIAS, en el velo y en las cartas. El menú detiene el juego, así
+// que no tiene por qué dejar ver lo que hay detrás: un panel translúcido sobre
+// ochocientos enemigos es ilegible justo en el momento en que hay que decidir.
+const FONDO_VELO    = '#12101a';
+const FONDO_CARTA   = '#1d1926';
+const FONDO_ELEGIDA = '#2e2740';
+const BORDE_OSCURO  = '#0a0810';
+const BORDE_SUAVE   = '#4a4256';
 
-const COLOR_ARMA_NUEVA   = '#e8b73a';
-const COLOR_ARMA_MEJORA  = '#cbbfa4';
-const COLOR_PASIVO_NUEVO = '#7fc4e8';
-const COLOR_PASIVO_MEJORA= '#9fb0bd';
-const COLOR_CURACION     = '#8fbf5a';
+const COLOR_ARMA_NUEVA    = '#e8b73a';
+const COLOR_ARMA_MEJORA   = '#cbbfa4';
+const COLOR_PASIVO_NUEVO  = '#7fc4e8';
+const COLOR_PASIVO_MEJORA = '#9fb0bd';
+const COLOR_CURACION      = '#8fbf5a';
 
 function colorDe(o) {
   if (o.clase === 'curacion') return COLOR_CURACION;
@@ -42,7 +43,21 @@ function etiquetaDe(o) {
   const esArma = o.clase === 'arma';
   if (o.nuevo) return esArma ? 'ARMA NUEVA' : 'PASIVO NUEVO';
   const que = esArma ? 'ARMA' : 'PASIVO';
-  return `${que}  ·  nivel ${o.nivelActual} → ${o.nivelActual + 1}`;
+  return `${que}   ${o.nivelActual} → ${o.nivelActual + 1}`;
+}
+
+// Corta la descripción en dos líneas por el hueco más cercano al centro, para
+// que no quede una línea larga y otra de dos palabras.
+function partir(texto) {
+  if (texto.length <= 30) return [texto, ''];
+  const medio = texto.length >> 1;
+  let corte = -1;
+  for (let i = 0; i < texto.length; i++) {
+    if (texto[i] !== ' ') continue;
+    if (corte < 0 || Math.abs(i - medio) < Math.abs(corte - medio)) corte = i;
+  }
+  if (corte < 0) return [texto, ''];
+  return [texto.slice(0, corte), texto.slice(corte + 1)];
 }
 
 export function dibujarMenuNivel(ctx) {
@@ -50,7 +65,6 @@ export function dibujarMenuNivel(ctx) {
   if (!j) return;
 
   ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
 
   // Fondo OPACO. El juego está congelado detrás y no aporta nada verlo; lo que
   // aporta es que las tres cartas se lean sin competir con la horda.
@@ -60,18 +74,18 @@ export function dibujarMenuNivel(ctx) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  ctx.font = 'bold 22px Consolas, monospace';
-  ctx.fillStyle = '#e2dccb';
-  ctx.fillText(`NIVEL ${j.nivel}`, ANCHO_FISICO / 2, 44);
+  ctx.font = `28px ${FUENTE_TITULO}`;
+  ctx.fillStyle = '#e8dfc8';
+  textoEspaciado(ctx, `NIVEL ${j.nivel}`, ANCHO_FISICO / 2, 46, 4);
 
-  ctx.font = '13px Consolas, monospace';
-  ctx.fillStyle = '#a49d90';
-  ctx.fillText(`${j.def.nombre}  ·  elige una mejora`, ANCHO_FISICO / 2, 68);
+  ctx.font = `400 14px ${FUENTE}`;
+  ctx.fillStyle = '#948d81';
+  ctx.fillText(`${j.def.nombre}   ·   elige una mejora`, ANCHO_FISICO / 2, 74);
 
   const n = Progresion.nOpciones;
   const anchoTotal = n * ANCHO_CARTA + (n - 1) * HUECO;
   const x0 = (ANCHO_FISICO - anchoTotal) / 2;
-  const y0 = 108;
+  const y0 = 104;
 
   for (let i = 0; i < n; i++) {
     const o = Progresion.opciones[i];
@@ -85,7 +99,7 @@ export function dibujarMenuNivel(ctx) {
     // Franja de color arriba: identifica de un vistazo si es arma o pasivo,
     // nuevo o mejora, sin tener que leer la etiqueta.
     ctx.fillStyle = color;
-    ctx.fillRect(x, y0, ANCHO_CARTA, 3);
+    ctx.fillRect(x, y0, ANCHO_CARTA, elegida ? 4 : 3);
 
     ctx.strokeStyle = BORDE_OSCURO;
     ctx.lineWidth = 1;
@@ -95,49 +109,52 @@ export function dibujarMenuNivel(ctx) {
     ctx.strokeRect(x + 1, y0 + 1, ANCHO_CARTA - 2, ALTO_CARTA - 2);
 
     ctx.textAlign = 'center';
-    ctx.font = '10px Consolas, monospace';
+    const centro = x + ANCHO_CARTA / 2;
+
+    ctx.font = `600 10px ${FUENTE}`;
     ctx.fillStyle = color;
-    ctx.fillText(etiquetaDe(o), x + ANCHO_CARTA / 2, y0 + 24);
+    textoEspaciado(ctx, etiquetaDe(o), centro, y0 + 30, 1.5);
 
-    ctx.font = 'bold 17px Consolas, monospace';
-    ctx.fillStyle = '#f0ead9';
-    ctx.fillText(o.nombre, x + ANCHO_CARTA / 2, y0 + 54);
+    ctx.font = `600 20px ${FUENTE}`;
+    ctx.fillStyle = '#f2ecdc';
+    ctx.fillText(o.nombre, centro, y0 + 62);
 
-    // Descripción partida a mano en dos líneas: measureText por frame para
-    // ajustar el corte sería caro y aquí el texto es fijo.
-    ctx.font = '11px Consolas, monospace';
-    ctx.fillStyle = '#b9b2a4';
-    const desc = o.descripcion || '';
-    const corte = desc.length > 34 ? desc.lastIndexOf(' ', 34) : -1;
-    if (corte > 0) {
-      ctx.fillText(desc.slice(0, corte), x + ANCHO_CARTA / 2, y0 + 84);
-      ctx.fillText(desc.slice(corte + 1), x + ANCHO_CARTA / 2, y0 + 100);
+    ctx.font = `400 12px ${FUENTE}`;
+    ctx.fillStyle = '#a9a396';
+    const [l1, l2] = partir(o.descripcion || '');
+    if (l2) {
+      ctx.fillText(l1, centro, y0 + 95);
+      ctx.fillText(l2, centro, y0 + 113);
     } else {
-      ctx.fillText(desc, x + ANCHO_CARTA / 2, y0 + 92);
+      ctx.fillText(l1, centro, y0 + 104);
     }
 
     // Número de atajo, para elegir con 1/2/3 sin moverse por el menú.
-    ctx.font = 'bold 12px Consolas, monospace';
-    ctx.fillStyle = '#7d7669';
+    ctx.font = `600 12px ${FUENTE}`;
+    ctx.fillStyle = elegida ? color : '#6b6459';
     ctx.textAlign = 'left';
-    ctx.fillText(String(i + 1), x + 8, y0 + ALTO_CARTA - 12);
+    ctx.fillText(String(i + 1), x + 11, y0 + ALTO_CARTA - 14);
   }
 
   ctx.textAlign = 'center';
-  ctx.font = '12px Consolas, monospace';
-  ctx.fillStyle = '#a49d90';
-  ctx.fillText('◀ ▶ o 1/2/3 para elegir  ·  ENTER o A confirma', ANCHO_FISICO / 2, y0 + ALTO_CARTA + 30);
+  ctx.font = `400 13px ${FUENTE}`;
+  ctx.fillStyle = '#948d81';
+  ctx.fillText('◀ ▶ o 1/2/3 para elegir   ·   ENTER o A confirma',
+               ANCHO_FISICO / 2, y0 + ALTO_CARTA + 32);
 
   if (j.rerolls > 0) {
-    ctx.fillStyle = '#7d7669';
-    ctx.fillText(`R vuelve a tirar  (${j.rerolls})`, ANCHO_FISICO / 2, y0 + ALTO_CARTA + 50);
+    ctx.font = `400 12px ${FUENTE}`;
+    ctx.fillStyle = '#6b6459';
+    ctx.fillText(`R vuelve a tirar   (${j.rerolls})`,
+                 ANCHO_FISICO / 2, y0 + ALTO_CARTA + 54);
   }
 
   // Aviso de cola: con cooperativo puede haber varios esperando turno.
   if (Progresion.cola.length > 0) {
+    ctx.font = `500 12px ${FUENTE}`;
     ctx.fillStyle = '#e8b73a';
     ctx.fillText(`${Progresion.cola.length} jugador(es) esperando turno`,
-                 ANCHO_FISICO / 2, ALTO_FISICO - 24);
+                 ANCHO_FISICO / 2, ALTO_FISICO - 26);
   }
 
   ctx.restore();

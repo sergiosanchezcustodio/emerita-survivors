@@ -20,6 +20,7 @@ import { Zonas } from './entidades/zonaDanyo.js';
 import { Progresion } from './sistemas/progresion.js';
 import { dibujarMenuNivel } from './ui/menuNivel.js';
 import { dibujarPaneles } from './ui/hud.js';
+import { Capa } from './ui/capa.js';
 import { dibujarDepuracion, dibujarPausa, dibujarAbatido } from './ui/depuracion.js';
 import { NIVEL } from './datos/niveles/merida.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from './datos/personajes.js';
@@ -94,6 +95,11 @@ const ctx = lienzo.getContext('2d', { alpha: false });
 lienzo.width = ANCHO_FISICO;
 lienzo.height = ALTO_FISICO;
 
+// La interfaz vive en su propio lienzo, encima y a resolución de pantalla. El
+// motivo está explicado en ui/capa.js: el ampliado por enteros que mantiene
+// crujiente el pixel art es justo lo que dejaba el texto escalonado.
+Capa.iniciar(document.getElementById('interfaz'));
+
 // Cooperativo local hasta 4. El motor no sabe cuántos hay: recorre el array.
 const MAX_JUGADORES = 4;
 
@@ -133,7 +139,7 @@ let indicePersonaje = 0;
 //
 // Los interruptores permiten apagar un sistema y ver el efecto en el acto, que
 // es la única forma honesta de saber qué cuesta en una máquina concreta.
-const perfil = { suelo: 0, entidades: 0, efectos: 0, texto: 0 };
+const perfil = { suelo: 0, entidades: 0, efectos: 0, texto: 0, interfaz: 0 };
 const activo = { suelo: true, particulas: true, numeros: true, efectos: true, destello: true };
 
 // --- Alta y baja de jugadores ------------------------------------------------
@@ -194,8 +200,21 @@ function redimensionar() {
   zoomPantalla = factor;
   lienzo.style.width  = (ANCHO_FISICO * factor) + 'px';
   lienzo.style.height = (ALTO_FISICO  * factor) + 'px';
+  // La capa de interfaz ocupa el mismo rectángulo en CSS, pero por debajo lleva
+  // tantos píxeles como dé la pantalla.
+  Capa.redimensionar(factor);
 }
 addEventListener('resize', redimensionar);
+
+// Cambio de densidad de pantalla: pasa al arrastrar la ventana de un monitor a
+// otro, o al hacer zoom en el navegador. Sin esto, la interfaz se queda con la
+// resolución del monitor anterior y se ve blanda. La consulta hay que rehacerla
+// cada vez porque solo dispara UNA vez por umbral cruzado.
+function vigilarDensidad() {
+  matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
+    .addEventListener('change', () => { redimensionar(); vigilarDensidad(); },
+                      { once: true });
+}
 
 // Aparecen alrededor de la CÁMARA, no de un jugador concreto: con el grupo
 // repartido por la pantalla, anclarlo a uno dejaría el borde opuesto vacío.
@@ -454,14 +473,24 @@ function dibujar(alpha) {
   if (activo.particulas) Particulas.dibujar(ctx, alpha);
   perfil.efectos = performance.now() - t;
 
-  // Números de daño: en píxeles físicos, con la matriz identidad. Son
-  // tipografía, no pixel art.
+  // --- Interfaz, en su propio lienzo -----------------------------------
+  // A partir de aquí se dibuja sobre `ctxUi`, no sobre `ctx`. Se limpia entera
+  // cada frame: es barata (unas decenas de órdenes) y así no hay que llevar la
+  // cuenta de qué zonas quedaron sucias del frame anterior.
   t = performance.now();
-  if (activo.numeros) VFX.dibujarNumeros(ctx, offX, offY);
-  perfil.texto = performance.now() - t;
+  Capa.limpiar();
+  const ctxUi = Capa.ctx;
+
+  // Los números de daño van los PRIMEROS de la capa: son del mundo, no de la
+  // interfaz, y tienen que quedar por debajo del panel y de los menús. Que
+  // vivan en este lienzo es solo porque son texto y aquí es donde el texto se
+  // ve bien.
+  const tNum = performance.now();
+  if (activo.numeros) VFX.dibujarNumeros(ctxUi, offX, offY);
+  perfil.texto = performance.now() - tNum;
 
   if (verDepuracion) {
-    dibujarDepuracion(ctx, {
+    dibujarDepuracion(ctxUi, {
       fps: bucle.fps,
       msUpdate: bucle.msUpdate,
       msRender: bucle.msRender,
@@ -487,13 +516,14 @@ function dibujar(alpha) {
       sustituidos: Recursos.sustituidos.length
     });
   }
-  dibujarPaneles(ctx, jugadores);
+  dibujarPaneles(ctxUi, jugadores);
 
   // Solo se pierde cuando caen TODOS. Con un compañero en pie la partida sigue,
   // que es lo que hace que el cooperativo tenga sentido.
-  if (jugadores.every((j) => j.abatido)) dibujarAbatido(ctx, ALTO_FISICO);
-  if (Progresion.abierto) dibujarMenuNivel(ctx);
-  else if (pausado) dibujarPausa(ctx, ALTO_FISICO);
+  if (jugadores.every((j) => j.abatido)) dibujarAbatido(ctxUi, ALTO_FISICO);
+  if (Progresion.abierto) dibujarMenuNivel(ctxUi);
+  else if (pausado) dibujarPausa(ctxUi, ALTO_FISICO);
+  perfil.interfaz = performance.now() - t;
 }
 
 // Suelo infinito con scroll toroidal: no hay mapa en memoria, la variante de
@@ -545,6 +575,7 @@ async function arrancar() {
   camara.situar(jugadores[0].x, jugadores[0].y);
 
   redimensionar();
+  vigilarDensidad();
   document.getElementById('cargando').remove();
 
   bucle = new Bucle(actualizar, dibujar);

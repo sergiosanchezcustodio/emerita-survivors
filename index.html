@@ -7,7 +7,14 @@
 <link rel="stylesheet" href="css/estilos.css">
 </head>
 <body>
-  <canvas id="juego"></canvas>
+  <!-- Dos lienzos superpuestos. El de abajo es el juego, pixel art ampliado por
+       enteros; el de arriba es la interfaz, a resolución de pantalla. Ver
+       js/ui/capa.js: es la única forma de que el texto salga nítido sin perder
+       el crujido del arte. -->
+  <div id="marco">
+    <canvas id="juego"></canvas>
+    <canvas id="interfaz"></canvas>
+  </div>
   <div id="cargando">Cargando Emerita Augusta…</div>
   <p id="pie">WASD o flechas · stick izquierdo del mando (pulsa A para que el navegador lo detecte) · F3 depuración · ESC pausa · C cambia de personaje<br>
   Pruebas: <b>1</b>/<b>2</b>/<b>3</b> +100/+500/+800 enemigos · <b>4</b> +300 con arpías · <b>X</b> vaciar · <b>G</b> inmortal · <b>R</b> revivir · <b>K</b> equipar Gladius · <b>L</b> subir nivel de las armas</p>

@@ -1,7 +1,14 @@
 import { ANCHO_FISICO, ESCALA_ARTE } from '../core/constantes.js';
+import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
 
-// Overlay de depuración (F3). Se dibuja en píxeles FÍSICOS, sin la escala del
-// arte: es interfaz de desarrollo, no pixel art, y tiene que leerse.
+// Overlay de depuración (F3). Va en la CAPA DE INTERFAZ (ui/capa.js), como el
+// resto de la interfaz: es texto de desarrollo y hay que poder leer décimas de
+// milisegundo de un vistazo.
+//
+// Monoespaciada a propósito, y esta es la excepción a la fuente general: las
+// columnas se alinean con padEnd y con una proporcional se descuadran.
+const MONO = 'Consolas, "Cascadia Mono", ui-monospace, monospace';
+
 const LINEAS = [];
 
 const AYUDA = 'F3 · ESC · C personaje · J/H mas/menos jugadores · 1/2/3/4 enemigos · X vaciar · G inmortal · R revivir · M/, cambiar de arma · K +Gladius · L subir nivel'
@@ -24,7 +31,8 @@ export function dibujarDepuracion(ctx, datos) {
   LINEAS.push(`update     ${datos.msUpdate.toFixed(2)} ms  (${datos.pasos} pasos)`);
   LINEAS.push(`render     ${datos.msRender.toFixed(2)} ms  ` +
               `[suelo ${p.suelo.toFixed(2)} · ent ${p.entidades.toFixed(2)} · ` +
-              `fx ${p.efectos.toFixed(2)} · txt ${p.texto.toFixed(2)}]`);
+              `fx ${p.efectos.toFixed(2)} · txt ${p.texto.toFixed(2)} · ` +
+              `ui ${p.interfaz.toFixed(2)}]`);
   LINEAS.push(`navegador  ${resto.toFixed(2)} ms  (rasterizado y composicion)`);
   const a = datos.activo;
   const todos = a.suelo && a.particulas && a.numeros && a.efectos && a.destello;
@@ -60,8 +68,7 @@ export function dibujarDepuracion(ctx, datos) {
   }
 
   ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.font = '12px Consolas, ui-monospace, monospace';
+  ctx.font = `12px ${MONO}`;
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
 
@@ -80,42 +87,40 @@ export function dibujarDepuracion(ctx, datos) {
   }
 
   ctx.fillStyle = 'rgba(215,232,200,.45)';
-  ctx.font = '11px Consolas, ui-monospace, monospace';
+  ctx.font = `11px ${MONO}`;
   ctx.fillText(AYUDA, 14, 12 + LINEAS.length * 15 + 2);
   ctx.restore();
 }
 
-export function dibujarPausa(ctx, alto) {
+// Pausa y derrota comparten forma: velo OPACO y dos líneas centradas. Opaco
+// igual que el menú de nivel — el juego está detenido y verlo por debajo solo
+// resta contraste al texto.
+function pantallaDeAviso(ctx, alto, fondo, titulo, colorTitulo, pie, colorPie) {
   ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = 'rgba(8,6,12,.55)';
+  ctx.fillStyle = fondo;
   ctx.fillRect(0, 0, ANCHO_FISICO, alto);
-  ctx.font = 'bold 28px Consolas, ui-monospace, monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#e2dccb';
-  ctx.fillText('PAUSA', ANCHO_FISICO / 2, alto / 2);
-  ctx.font = '14px Consolas, ui-monospace, monospace';
-  ctx.fillStyle = 'rgba(226,220,203,.7)';
-  ctx.fillText('ESC o Start para continuar', ANCHO_FISICO / 2, alto / 2 + 28);
+
+  ctx.font = `34px ${FUENTE_TITULO}`;
+  ctx.fillStyle = colorTitulo;
+  textoEspaciado(ctx, titulo, ANCHO_FISICO / 2, alto / 2, 6);
+
+  ctx.font = `400 14px ${FUENTE}`;
+  ctx.fillStyle = colorPie;
+  ctx.fillText(pie, ANCHO_FISICO / 2, alto / 2 + 34);
   ctx.restore();
+}
+
+export function dibujarPausa(ctx, alto) {
+  pantallaDeAviso(ctx, alto, '#12101a', 'PAUSA', '#e8dfc8',
+                  'ESC o Start para continuar', '#948d81');
 }
 
 // Provisional. La pantalla de derrota de verdad (tiempo, nivel, bajas, arsenal)
 // llega en la Fase 7; esto solo cierra el ciclo del daño por contacto para poder
 // probarlo en la Fase 2.
 export function dibujarAbatido(ctx, alto) {
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = 'rgba(40,6,12,.45)';
-  ctx.fillRect(0, 0, ANCHO_FISICO, alto);
-  ctx.font = 'bold 28px Consolas, ui-monospace, monospace';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#e8b0a4';
-  ctx.fillText('ABATIDO', ANCHO_FISICO / 2, alto / 2);
-  ctx.font = '14px Consolas, ui-monospace, monospace';
-  ctx.fillStyle = 'rgba(232,176,164,.7)';
-  ctx.fillText('R para revivir · X para vaciar la horda', ANCHO_FISICO / 2, alto / 2 + 28);
-  ctx.restore();
+  pantallaDeAviso(ctx, alto, '#1a0a0e', 'ABATIDO', '#e8b0a4',
+                  'R para revivir  ·  X para vaciar la horda', '#a4837c');
 }
