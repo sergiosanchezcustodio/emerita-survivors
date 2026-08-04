@@ -521,7 +521,7 @@ function dibujar(alpha) {
   // Solo se pierde cuando caen TODOS. Con un compañero en pie la partida sigue,
   // que es lo que hace que el cooperativo tenga sentido.
   if (jugadores.every((j) => j.abatido)) dibujarAbatido(ctxUi, ALTO_FISICO);
-  if (Progresion.abierto) dibujarMenuNivel(ctxUi);
+  if (Progresion.abierto) dibujarMenuNivel(ctxUi, jugadores);
   else if (pausado) dibujarPausa(ctxUi, ALTO_FISICO);
   perfil.interfaz = performance.now() - t;
 }

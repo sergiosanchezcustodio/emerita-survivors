@@ -117,7 +117,10 @@ export function textoBorde(ctx, txt, x, y, color, grosor = 3) {
 // resto de la interfaz y acaba saliendo texto corrido donde nadie lo pidió.
 // Aquí no hay estado que se escape: se avanza el cursor y ya está. Son dos
 // titulares por pantalla, no un bucle caliente.
-export function textoEspaciado(ctx, txt, x, y, extra, centrado = true) {
+// Respeta el ctx.textAlign que haya puesto quien llama, porque trazar letra a
+// letra obliga a alinear a mano: si no, un texto pedido "a la derecha" se dibuja
+// hacia la derecha DESDE el punto dado y se sale por el borde.
+export function textoEspaciado(ctx, txt, x, y, extra) {
   const letras = [...txt];
   const anchos = new Array(letras.length);
   let total = 0;
@@ -128,8 +131,11 @@ export function textoEspaciado(ctx, txt, x, y, extra, centrado = true) {
   total -= extra;                       // el último no lleva hueco detrás
 
   const alineacion = ctx.textAlign;
+  let cx = x;
+  if (alineacion === 'center') cx = x - total / 2;
+  else if (alineacion === 'right' || alineacion === 'end') cx = x - total;
+
   ctx.textAlign = 'left';
-  let cx = centrado ? x - total / 2 : x;
   for (let i = 0; i < letras.length; i++) {
     ctx.fillText(letras[i], cx, y);
     cx += anchos[i] + extra;

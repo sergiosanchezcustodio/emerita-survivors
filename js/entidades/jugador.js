@@ -246,10 +246,28 @@ export class Jugador {
   // con el suavizado apagado, un destino fraccionario hace que el vecino más
   // próximo elija filas distintas cada frame y el sprite hierva.
   dibujar(ctx) {
-    const meta = Recursos.meta(this.personaje);
-    const img = this.mirandoDerecha
-      ? Recursos.imagen(this.personaje)
-      : Recursos.espejo(this.personaje);
+    // DOS HOJAS POR PERSONAJE SI EL ATLAS LAS TRAE: `<id>` mira a la derecha y
+    // `<id>Izq` a la izquierda.
+    //
+    // Es mejor que espejar por código en cuanto el arte NO es simétrico: un
+    // arma colgada de una cadera, la raya del pelo, una cicatriz. El espejo se
+    // las cambia de lado cada vez que giras, y eso se nota más de lo que
+    // parece porque girar es lo que más se hace en este juego.
+    //
+    // Si no hay hoja izquierda se sigue usando la copia espejada precacheada,
+    // así que el arte antiguo y los placeholders siguen funcionando sin tocar
+    // nada. Las dos hojas deben declarar los MISMOS clips: el reloj de
+    // animación es uno solo y no se reinicia al girar.
+    let meta = Recursos.meta(this.personaje);
+    let img;
+    if (this.mirandoDerecha) {
+      img = Recursos.imagen(this.personaje);
+    } else {
+      const idIzq = this.personaje + 'Izq';
+      const metaIzq = Recursos.meta(idIzq);
+      if (metaIzq) { meta = metaIzq; img = Recursos.imagen(idIzq); }
+      else img = Recursos.espejo(this.personaje);
+    }
     if (!meta || !img) return;
 
     // Parpadeo de los i-frames. Se salta el sprite, no la barra de vida: durante

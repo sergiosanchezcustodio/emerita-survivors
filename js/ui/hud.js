@@ -30,14 +30,28 @@ import { FUENTE, textoBorde } from './capa.js';
 // Cuando existan iconos de verdad, basta con meterlos en el atlas y sustituir
 // dibujarIcono: el resto del panel no se entera.
 
-const ANCHO = 170;         // ancho de la columna de contenido
+const ANCHO = 152;         // ancho de la columna de contenido
 const MARGEN = 10;
-const ICONO = 19;          // paso entre iconos
-const CABEZA = 44;         // lado del retrato
-const HUECO_ICONO = 4;
+const CABEZA = 40;         // lado del retrato
+const HUECO_ICONO = 6;
+
+// SIEMPRE cuatro ranuras por fila, llenas o vacías, y reparten el ancho entero
+// del panel. Las vacías no son decoración: MAX_ARMAS y MAX_PASIVOS son 4, así
+// que el hueco vacío dice cuánto te queda por elegir, que es una decisión que
+// se toma cada subida de nivel. Con las ranuras apareciendo según se llenan, la
+// fila cambiaba de tamaño y no se sabía si cabía algo más.
+const RANURAS = 4;
+const RANURA = (ANCHO - (RANURAS - 1) * HUECO_ICONO) / RANURAS;
 
 const COLOR_JUGADOR = ['#5aa9e6', '#e8b73a', '#8fbf5a', '#d64b8f'];
 const COLOR_PASIVO = '#9fd0e8';
+
+// Marco de la ranura: suave y translúcido. Lleva relleno oscuro Y borde claro
+// porque el panel no tiene fondo: contra la arena del anfiteatro solo el borde
+// claro desaparecería, y contra una zona de fuego solo el relleno oscuro.
+const RANURA_FONDO = 'rgba(10,8,16,.30)';
+const RANURA_BORDE = 'rgba(238,232,220,.20)';
+const RANURA_BORDE_LLENA = 'rgba(238,232,220,.34)';
 
 // Sombra de las formas. Para el texto se usa textoBorde, que da un contorno más
 // duro; para los glifos basta con esto y no hay que pelearse con los grosores de
@@ -221,24 +235,38 @@ function dibujarCabeza(ctx, x, y, jugador) {
   ctx.restore();
 }
 
-// Icono suelto: glifo con sombra y el nivel pegado abajo a la derecha. Sin
-// casilla, sin borde.
-function dibujarIcono(ctx, x, y, color, nivel, pintarGlifo) {
+// Ranura: marco suave siempre, y dentro el glifo y el nivel si está ocupada.
+function dibujarRanura(ctx, x, y, color, nivel, pintarGlifo) {
+  const llena = pintarGlifo !== null;
+
   ctx.save();
-  ctx.translate(x + ICONO / 2, y + ICONO / 2);
+  ctx.beginPath();
+  ctx.roundRect(x + 0.5, y + 0.5, RANURA - 1, RANURA - 1, 4);
+  ctx.fillStyle = RANURA_FONDO;
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = llena ? RANURA_BORDE_LLENA : RANURA_BORDE;
+  ctx.stroke();
+  ctx.restore();
+
+  if (!llena) return;
+
+  ctx.save();
+  ctx.translate(x + RANURA / 2, y + RANURA / 2);
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
-  ctx.lineWidth = 1.6;
+  ctx.lineWidth = 1.8;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   sombraDura(ctx);
-  pintarGlifo(ctx, ICONO * 0.34);
+  pintarGlifo(ctx, RANURA * 0.30);
   ctx.restore();
 
-  ctx.font = `600 9px ${FUENTE}`;
+  // El nivel es un dato de apoyo, no un titular: pequeño y en la esquina.
+  ctx.font = `600 7px ${FUENTE}`;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  textoBorde(ctx, String(nivel), x + ICONO + 1, y + ICONO + 3, '#ffffff', 2.5);
+  textoBorde(ctx, String(nivel), x + RANURA - 2, y + RANURA - 1.5, '#ffffff', 2);
 }
 
 export function dibujarPaneles(ctx, jugadores) {
@@ -250,8 +278,9 @@ export function dibujarPaneles(ctx, jugadores) {
     const idsPasivos = Object.keys(j.pasivos);
     const color = COLOR_JUGADOR[i % COLOR_JUGADOR.length];
 
-    const filas = (armas.length > 0 ? 1 : 0) + (idsPasivos.length > 0 ? 1 : 0);
-    const alto = CABEZA + filas * (ICONO + HUECO_ICONO);
+    // Las dos filas están SIEMPRE, aunque no lleves nada: el panel no cambia de
+    // tamaño durante la partida y la vista no tiene que reaprender dónde mirar.
+    const alto = CABEZA + 2 * (RANURA + HUECO_ICONO);
 
     // Esquinas: 0 arriba-izq, 1 arriba-der, 2 abajo-izq, 3 abajo-der. Los de la
     // derecha van ESPEJADOS —retrato a la derecha, texto e iconos alineados a
@@ -275,12 +304,12 @@ export function dibujarPaneles(ctx, jugadores) {
     ctx.textBaseline = 'top';
     ctx.textAlign = derecha ? 'right' : 'left';
     const xNombre = derecha ? xFin : bx;
-    textoBorde(ctx, `J${i + 1}  ${j.def.nombre}`, xNombre, y + 1,
+    textoBorde(ctx, `P${i + 1}  ${j.def.nombre}`, xNombre, y + 1,
                j.abatido ? '#c0453f' : color);
 
     ctx.textAlign = derecha ? 'left' : 'right';
-    ctx.font = `500 11px ${FUENTE}`;
-    textoBorde(ctx, `nivel ${j.nivel}`, derecha ? bx : xFin, y + 3, '#cdc5b6');
+    ctx.font = `500 10px ${FUENTE}`;
+    textoBorde(ctx, `LV ${j.nivel}`, derecha ? bx : xFin, y + 3.5, '#cdc5b6');
 
     // Barra de vida. El carril oscuro no es "fondo del panel": es parte de la
     // barra, y sin él no se distingue lo que falta de lo que no hay.
@@ -292,11 +321,13 @@ export function dibujarPaneles(ctx, jugadores) {
     ctx.fillStyle = fracVida > 0.5 ? '#8fbf5a' : (fracVida > 0.25 ? '#d8a13c' : '#c0453f');
     ctx.fillRect(bx, y + 19, anchoBarra * fracVida, 8);
 
-    ctx.font = `600 9px ${FUENTE}`;
+    // La cifra exacta es de consulta, no de vistazo: lo que se lee de un golpe
+    // es cuánto queda de barra verde. Pequeña y discreta.
+    ctx.font = `600 7.5px ${FUENTE}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     textoBorde(ctx, `${Math.ceil(j.vida)} / ${Math.round(j.vidaMaxima)}`,
-               bx + anchoBarra / 2, y + 23.5, '#ffffff', 2.5);
+               bx + anchoBarra / 2, y + 23.5, '#ffffff', 2);
 
     // Experiencia: fina y pegada debajo, para no competir con la vida.
     const fracXp = j.xpNecesaria > 0 ? Math.min(1, j.xp / j.xpNecesaria) : 0;
@@ -307,27 +338,28 @@ export function dibujarPaneles(ctx, jugadores) {
     ctx.fillStyle = color;
     ctx.fillRect(bx, y + 29, anchoBarra * fracXp, 4);
 
-    // --- Filas de iconos ------------------------------------------------
-    // Se colocan de fuera hacia dentro: en los paneles espejados, el primer
-    // icono queda pegado al borde derecho.
-    let filaY = y + CABEZA + 2;
+    // --- Filas de ranuras -----------------------------------------------
+    // Se colocan de fuera hacia dentro: en los paneles espejados, la primera
+    // ranura queda pegada al borde derecho, que es el borde "de casa".
+    const filaArmas = y + CABEZA + HUECO_ICONO;
+    const filaPasivos = filaArmas + RANURA + HUECO_ICONO;
     const colocar = (k) => derecha
-      ? x + ANCHO - ICONO - k * (ICONO + HUECO_ICONO)
-      : x + k * (ICONO + HUECO_ICONO);
+      ? x + ANCHO - RANURA - k * (RANURA + HUECO_ICONO)
+      : x + k * (RANURA + HUECO_ICONO);
 
-    for (let k = 0; k < armas.length; k++) {
+    for (let k = 0; k < RANURAS; k++) {
       const a = armas[k];
-      dibujarIcono(ctx, colocar(k), filaY, a.def.color, a.nivel,
-        (c, r) => glifoArma(c, a.def.comportamiento, r));
+      dibujarRanura(ctx, colocar(k), filaArmas,
+        a ? a.def.color : null, a ? a.nivel : 0,
+        a ? ((c, r) => glifoArma(c, a.def.comportamiento, r)) : null);
     }
-    if (armas.length > 0) filaY += ICONO + HUECO_ICONO;
 
-    for (let k = 0; k < idsPasivos.length; k++) {
+    for (let k = 0; k < RANURAS; k++) {
       const id = idsPasivos[k];
-      const def = PASIVOS[id];
-      if (!def) continue;
-      dibujarIcono(ctx, colocar(k), filaY, COLOR_PASIVO, j.pasivos[id],
-        (c, r) => glifoPasivo(c, def.campo, r));
+      const def = id ? PASIVOS[id] : null;
+      dibujarRanura(ctx, colocar(k), filaPasivos,
+        def ? COLOR_PASIVO : null, def ? j.pasivos[id] : 0,
+        def ? ((c, r) => glifoPasivo(c, def.campo, r)) : null);
     }
   }
 

@@ -641,19 +641,38 @@ export class Armas {
     for (let i = 0; i < MAX_TAJOS; i++) if (this.rayos[i].vida > 0) { hay = true; break; }
     if (!hay) return;
 
+    // Dos trazos: un halo aditivo ancho y flojo, y encima el núcleo del COLOR
+    // del arma en composición normal.
+    //
+    // Antes era un solo trazo grueso en 'lighter' y sobre la arena clara se
+    // saturaba a blanco puro: un rayo rosa y uno azul se veían idénticos, y una
+    // recta blanca cruzando la pantalla de lado a lado parece un fallo de
+    // dibujado más que un disparo. El núcleo opaco es lo que le devuelve el
+    // color y lo que hace que se lea como un haz.
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
     ctx.lineCap = 'round';
     for (let i = 0; i < MAX_TAJOS; i++) {
       const r = this.rayos[i];
       if (r.vida <= 0) continue;
       const k = r.vida / r.vidaMax;
-      ctx.globalAlpha = k;
+      const x2 = r.x + Math.cos(r.ang) * r.largo;
+      const y2 = r.y + Math.sin(r.ang) * r.largo;
+
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = k * 0.4;
       ctx.strokeStyle = r.color;
-      ctx.lineWidth = r.grosor * (0.6 + k * 1.6);
+      ctx.lineWidth = r.grosor * (0.8 + k * 2.2);
       ctx.beginPath();
       ctx.moveTo(r.x, r.y);
-      ctx.lineTo(r.x + Math.cos(r.ang) * r.largo, r.y + Math.sin(r.ang) * r.largo);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = k;
+      ctx.lineWidth = r.grosor * (0.35 + k * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(r.x, r.y);
+      ctx.lineTo(x2, y2);
       ctx.stroke();
     }
     ctx.restore();

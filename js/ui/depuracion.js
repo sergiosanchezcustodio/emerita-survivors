@@ -92,28 +92,45 @@ export function dibujarDepuracion(ctx, datos) {
   ctx.restore();
 }
 
-// Pausa y derrota comparten forma: velo OPACO y dos líneas centradas. Opaco
-// igual que el menú de nivel — el juego está detenido y verlo por debajo solo
-// resta contraste al texto.
-function pantallaDeAviso(ctx, alto, fondo, titulo, colorTitulo, pie, colorPie) {
+// Pausa y derrota comparten forma: un panel PEQUEÑO y opaco en el centro, no un
+// velo a pantalla completa.
+//
+// Opaco pero pequeño. Son dos cosas distintas y conviene no confundirlas: el
+// panel no deja ver a través de sí mismo —eso arruinaría el contraste del
+// texto— pero tampoco tapa la partida. Al reanudar sigues viendo dónde estabas
+// y por dónde venían, que en pausa es justo lo que se quiere mirar.
+const ANCHO_AVISO = 268;
+const ALTO_AVISO = 84;
+
+function pantallaDeAviso(ctx, alto, borde, titulo, colorTitulo, pie, colorPie) {
+  const x = (ANCHO_FISICO - ANCHO_AVISO) / 2;
+  const y = (alto - ALTO_AVISO) / 2;
+
   ctx.save();
-  ctx.fillStyle = fondo;
-  ctx.fillRect(0, 0, ANCHO_FISICO, alto);
+  ctx.fillStyle = '#15121d';
+  ctx.fillRect(x, y, ANCHO_AVISO, ALTO_AVISO);
+  ctx.strokeStyle = '#0a0810';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x - 1.5, y - 1.5, ANCHO_AVISO + 3, ALTO_AVISO + 3);
+  ctx.strokeStyle = borde;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x + 0.75, y + 0.75, ANCHO_AVISO - 1.5, ALTO_AVISO - 1.5);
+
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  ctx.font = `34px ${FUENTE_TITULO}`;
+  ctx.font = `24px ${FUENTE_TITULO}`;
   ctx.fillStyle = colorTitulo;
-  textoEspaciado(ctx, titulo, ANCHO_FISICO / 2, alto / 2, 6);
+  textoEspaciado(ctx, titulo, ANCHO_FISICO / 2, y + 32, 5);
 
-  ctx.font = `400 14px ${FUENTE}`;
+  ctx.font = `400 10px ${FUENTE}`;
   ctx.fillStyle = colorPie;
-  ctx.fillText(pie, ANCHO_FISICO / 2, alto / 2 + 34);
+  ctx.fillText(pie, ANCHO_FISICO / 2, y + 60);
   ctx.restore();
 }
 
 export function dibujarPausa(ctx, alto) {
-  pantallaDeAviso(ctx, alto, '#12101a', 'PAUSA', '#e8dfc8',
+  pantallaDeAviso(ctx, alto, '#4a4256', 'PAUSA', '#e8dfc8',
                   'ESC o Start para continuar', '#948d81');
 }
 
@@ -121,6 +138,6 @@ export function dibujarPausa(ctx, alto) {
 // llega en la Fase 7; esto solo cierra el ciclo del daño por contacto para poder
 // probarlo en la Fase 2.
 export function dibujarAbatido(ctx, alto) {
-  pantallaDeAviso(ctx, alto, '#1a0a0e', 'ABATIDO', '#e8b0a4',
+  pantallaDeAviso(ctx, alto, '#7a3a34', 'ABATIDO', '#e8b0a4',
                   'R para revivir  ·  X para vaciar la horda', '#a4837c');
 }
