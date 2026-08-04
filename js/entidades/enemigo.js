@@ -67,6 +67,47 @@ const DECAIMIENTO_EMPUJE = 12;
 // Cuánto dura el blanqueo del sprite al recibir un impacto.
 const DURACION_DESTELLO = 0.07;
 
+// --- Patrones de movimiento --------------------------------------------------
+//
+// Códigos numéricos, no cadenas. La comparación está en el bucle más caliente
+// del juego —hasta 850 entidades por paso— y comparar enteros es lo que permite
+// que el compilador convierta esto en un salto de tabla. La traducción desde el
+// nombre que trae datos/enemigos.js se hace UNA vez, al aparecer.
+const MOV_DIRECTO = 0;
+const MOV_ZIGZAG = 1;
+const MOV_REVOLOTEO = 2;
+const MOV_ORBITA = 3;
+const MOV_ACECHO = 4;
+const CODIGO_MOV = {
+  directo: MOV_DIRECTO, zigzag: MOV_ZIGZAG, revoloteo: MOV_REVOLOTEO,
+  orbita: MOV_ORBITA, acecho: MOV_ACECHO
+};
+// Frecuencia base de cada patrón, en radianes por segundo. Cada individuo la
+// multiplica por un factor propio: si todas las serpientes culebrearan al mismo
+// ritmo, el enjambre volvería a leerse como un solo organismo.
+const CADENCIA_MOV = [0, 3.2, 1.9, 1.25, 1.5];
+
+// Amplitud del desvío lateral, como fracción del avance.
+const AMP_ZIGZAG = 0.80;
+const AMP_REVOLOTEO = 1.15;
+
+// A menos de esta distancia todos van RECTO, con el desvío desvaneciéndose de
+// forma continua. Sin esto, un enemigo que culebrea nunca llega a tocarte:
+// pasa de largo una y otra vez y el combate cuerpo a cuerpo deja de existir.
+const CERCA = 26;
+
+// --- Tabla de senos ----------------------------------------------------------
+// Math.sin llamado dos o tres veces por entidad y paso son 150.000 llamadas por
+// segundo con la horda llena. La tabla cuesta 4 KB una sola vez y el error de
+// muestreo a 1024 entradas es de milésimas de radián: invisible en una
+// trayectoria.
+const TAU = Math.PI * 2;
+const N_SENO = 1024;
+const SENO = new Float32Array(N_SENO);
+for (let i = 0; i < N_SENO; i++) SENO[i] = Math.sin(i * TAU / N_SENO);
+const ESCALA_SENO = N_SENO / TAU;
+function seno(a) { return SENO[((a * ESCALA_SENO) | 0) & (N_SENO - 1)]; }
+
 // El hitstop se reserva a la MUERTE de un enemigo duro, no a un umbral de daño.
 //
 // Estaba puesto en "25 de daño o más" y era un error de bulto: el Pilum a nivel
@@ -115,6 +156,9 @@ function crearEnemigo() {
     ultimoSello: 0,          // marca del último proyectil que le golpeó
     radio: 0, radioCuerpo: 0, radioSep: 0, invMasa: 1, vuela: false,
     fase: 0, cadencia: 0, mirandoDerecha: true,
+    // Personalidad de movimiento. Todo se sortea al aparecer y no cambia: es lo
+    // que hace que dos bichos del mismo tipo no vayan nunca sincronizados.
+    mov: 0, faseMov: 0, cadenciaMov: 0, giro: 1, radioOrbita: 0,
     frames: 1, frame: 0, relojAnim: 0,
     // Referencias resueltas al aparecer: dibujar 800 entidades no puede pagar
     // dos búsquedas en Map por entidad y frame.
@@ -169,7 +213,20 @@ export class Enemigos {
     // catálogo en cada paso.
     e.vida = e.vidaMaxima = def.vida * escalaVida;
     e.danyo = def.danyo * escalaDanyo;
-    e.velocidad = def.velocidad * ESCALA_VELOCIDAD;
+
+    // VELOCIDAD PROPIA DE CADA INDIVIDUO, ±14% sobre la de su tipo. Es la medida
+    // más barata contra el efecto rebaño y la que más se nota: con la velocidad
+    // exacta del catálogo, veinte serpientes que salen del mismo borde llegan en
+    // formación cerrada y se mueven como una placa. Con esto la fila se
+    // desordena sola en un par de segundos.
+    const varianza = 0.86 + this._rng() * 0.28;
+    e.velocidad = def.velocidad * ESCALA_VELOCIDAD * varianza;
+
+    e.mov = CODIGO_MOV[def.movimiento] || MOV_DIRECTO;
+    e.faseMov = this._rng() * TAU;
+    e.cadenciaMov = CADENCIA_MOV[e.mov] * (0.8 + this._rng() * 0.5);
+    e.giro = this._rng() < 0.5 ? -1 : 1;      // sentido del culebreo o del giro
+    e.radioOrbita = 30 + this._rng() * 30;    // solo lo usa la órbita
     e.sepX = 0; e.sepY = 0;
     e.empujeX = 0; e.empujeY = 0;
     e.frenado = 0;
@@ -235,18 +292,66 @@ export class Enemigos {
       let dx = objetivo.x - e.x;
       let dy = objetivo.y - e.y;
       const d2 = dx * dx + dy * dy;
+      let dist = 0;
       if (d2 > 0.0001) {
-        const inv = 1 / Math.sqrt(d2);
+        dist = Math.sqrt(d2);
+        const inv = 1 / dist;
         dx *= inv; dy *= inv;
       } else {
         dx = 0; dy = 0;
+      }
+
+      // --- Personalidad de movimiento ---------------------------------
+      // Aquí es donde la horda deja de ser un bloque. Sobre la dirección de
+      // persecución se monta el patrón del tipo, y el desvío se APAGA de
+      // forma continua en el último tramo: un enemigo que culebrea pegado a
+      // ti pasaría de largo una y otra vez sin llegar a tocarte nunca.
+      let vFactor = 1;
+      if (e.mov !== MOV_DIRECTO && dist > 0) {
+        e.faseMov += dt * e.cadenciaMov;
+        if (e.faseMov > TAU) e.faseMov -= TAU;
+        const k = dist < CERCA ? dist / CERCA : 1;
+
+        let nx = dx, ny = dy;
+        if (e.mov === MOV_ZIGZAG) {
+          // Desvío perpendicular sinusoidal: culebreo.
+          const s = seno(e.faseMov) * AMP_ZIGZAG * k * e.giro;
+          nx = dx - dy * s; ny = dy + dx * s;
+        } else if (e.mov === MOV_REVOLOTEO) {
+          // DOS ondas de periodo inconmensurable. Con una sola se le ve el
+          // bucle enseguida y deja de parecer errático; con dos, el patrón
+          // tarda tanto en repetirse que se lee como azar.
+          const s = (seno(e.faseMov) * 0.62 + seno(e.faseMov * 0.41 + 1.7) * 0.38)
+                    * AMP_REVOLOTEO * k * e.giro;
+          nx = dx - dy * s; ny = dy + dx * s;
+          vFactor = 0.80 + 0.35 * (seno(e.faseMov * 0.7) + 1);
+        } else if (e.mov === MOV_ORBITA) {
+          // Espiral: el radio al que quiere girar late, así que la vuelta se
+          // va cerrando y abriendo y acaba pasando por la distancia de
+          // contacto. Girando a radio fijo no llegaría a golpear jamás.
+          const ro = e.radioOrbita * (0.78 + 0.22 * seno(e.faseMov));
+          const fuera = dist > ro;
+          const radial = fuera ? 1 : -0.30;
+          const tang = (fuera ? 0.55 : 1) * k * e.giro;
+          nx = dx * radial - dy * tang;
+          ny = dy * radial + dx * tang;
+        } else if (e.mov === MOV_ACECHO) {
+          // Ni desvío ni curva: solo el ritmo. Se para, mira, y embiste.
+          vFactor = seno(e.faseMov) > 0.15 ? 1.85 : 0.16;
+        }
+
+        const m2 = nx * nx + ny * ny;
+        if (m2 > 0.0001) {
+          const invm = 1 / Math.sqrt(m2);
+          dx = nx * invm; dy = ny * invm;
+        }
       }
 
       // El frenado lo imponen las redes y los charcos, y se desvanece solo. Es
       // un valor máximo, no acumulativo: dos redes solapadas frenan lo mismo
       // que una, o bastaría con apilar armas de control para dejar el mapa
       // congelado.
-      const v = e.velocidad * (1 - e.frenado);
+      const v = e.velocidad * vFactor * (1 - e.frenado);
       if (e.frenado > 0) {
         e.frenado -= dt * 1.6;
         if (e.frenado < 0) e.frenado = 0;

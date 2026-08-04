@@ -29,7 +29,14 @@ const BASE = {
   armadura: 0,
   regeneracion: 0,
   radioRecogida: 40,
-  radio: 10               // círculo de colisión
+  // Cuerpo al 70%, como todo el arte: los sprites se redujeron para que quepa
+  // más campo en pantalla (ver el catálogo de herramientas/procesar-assets.ps1)
+  // y el círculo de colisión tiene que seguir cabiendo dentro de la silueta.
+  //
+  // El radio de RECOGIDA no baja: es una distancia de juego, no un cuerpo. Con
+  // los bichos más pequeños las gemas caen más juntas, y encoger también el imán
+  // habría hecho la recogida más pesada justo cuando hay más que recoger.
+  radio: 7                // círculo de colisión
 };
 
 // Invulnerabilidad tras golpe. Es lo que convierte el daño de contacto en tics:

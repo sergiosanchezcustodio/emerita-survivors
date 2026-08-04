@@ -3,139 +3,154 @@
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
-                                        "w":  28,
-                                        "h":  40,
-                                        "anclaX":  14,
-                                        "anclaY":  40,
+                                        "w":  20,
+                                        "h":  28,
+                                        "anclaX":  10,
+                                        "anclaY":  28,
                                         "frames":  1
                                     },
                       "gargola":  {
                                       "archivo":  "enemigos/gargola.png",
-                                      "w":  34,
-                                      "h":  37,
-                                      "anclaX":  17,
-                                      "anclaY":  37,
+                                      "w":  26,
+                                      "h":  28,
+                                      "anclaX":  13,
+                                      "anclaY":  28,
                                       "frames":  7
                                   },
                       "legionario":  {
                                          "archivo":  "enemigos/legionario.png",
-                                         "w":  32,
-                                         "h":  52,
-                                         "anclaX":  16,
-                                         "anclaY":  52,
+                                         "w":  20,
+                                         "h":  36,
+                                         "anclaX":  10,
+                                         "anclaY":  36,
                                          "frames":  1
                                      },
                       "gladiador":  {
                                         "archivo":  "enemigos/gladiador.png",
-                                        "w":  48,
-                                        "h":  48,
-                                        "anclaX":  24,
-                                        "anclaY":  48,
+                                        "w":  36,
+                                        "h":  34,
+                                        "anclaX":  18,
+                                        "anclaY":  34,
                                         "frames":  1
                                     },
                       "arpia":  {
                                     "archivo":  "enemigos/arpia.png",
-                                    "w":  52,
-                                    "h":  44,
-                                    "anclaX":  26,
-                                    "anclaY":  44,
+                                    "w":  36,
+                                    "h":  30,
+                                    "anclaX":  18,
+                                    "anclaY":  30,
                                     "frames":  1
                                 },
                       "medusa":  {
                                      "archivo":  "enemigos/medusa.png",
-                                     "w":  40,
-                                     "h":  56,
-                                     "anclaX":  20,
-                                     "anclaY":  56,
+                                     "w":  28,
+                                     "h":  40,
+                                     "anclaX":  14,
+                                     "anclaY":  40,
                                      "frames":  1
                                  },
                       "minotauro":  {
                                         "archivo":  "enemigos/minotauro.png",
-                                        "w":  80,
-                                        "h":  72,
-                                        "anclaX":  40,
-                                        "anclaY":  72,
+                                        "w":  56,
+                                        "h":  50,
+                                        "anclaX":  28,
+                                        "anclaY":  50,
                                         "frames":  1
                                     },
                       "ciclope":  {
                                       "archivo":  "enemigos/ciclope.png",
-                                      "w":  64,
-                                      "h":  84,
-                                      "anclaX":  32,
-                                      "anclaY":  84,
+                                      "w":  44,
+                                      "h":  58,
+                                      "anclaX":  22,
+                                      "anclaY":  58,
                                       "frames":  1
                                   },
                       "manticora":  {
                                         "archivo":  "enemigos/manticora.png",
-                                        "w":  88,
-                                        "h":  104,
-                                        "anclaX":  44,
-                                        "anclaY":  104,
+                                        "w":  60,
+                                        "h":  72,
+                                        "anclaX":  30,
+                                        "anclaY":  72,
                                         "frames":  1
                                     },
                       "cerbero":  {
                                       "archivo":  "enemigos/cerbero.png",
-                                      "w":  176,
-                                      "h":  172,
-                                      "anclaX":  88,
-                                      "anclaY":  172,
+                                      "w":  124,
+                                      "h":  120,
+                                      "anclaX":  62,
+                                      "anclaY":  120,
                                       "frames":  1
                                   },
                       "hidra":  {
                                     "archivo":  "enemigos/hidra.png",
-                                    "w":  224,
-                                    "h":  224,
-                                    "anclaX":  112,
-                                    "anclaY":  224,
+                                    "w":  156,
+                                    "h":  156,
+                                    "anclaX":  78,
+                                    "anclaY":  156,
                                     "frames":  1
                                 },
                       "ericCara":  {
                                        "archivo":  "personajes/eric-cara.png",
-                                       "w":  192,
-                                       "h":  192,
-                                       "anclaX":  96,
-                                       "anclaY":  192,
+                                       "w":  264,
+                                       "h":  438,
+                                       "anclaX":  132,
+                                       "anclaY":  438,
                                        "frames":  1
                                    },
+                      "ericIzq":  {
+                                      "archivo":  "personajes/eric-izq.png",
+                                      "w":  22,
+                                      "h":  44,
+                                      "anclaX":  11,
+                                      "anclaY":  44,
+                                      "frames":  14,
+                                      "clips":  {
+                                                    "andar":  {
+                                                                  "desde":  0,
+                                                                  "n":  12,
+                                                                  "fps":  12
+                                                              },
+                                                    "quieto":  {
+                                                                   "desde":  12,
+                                                                   "n":  2,
+                                                                   "fps":  2
+                                                               }
+                                                }
+                                  },
                       "eric":  {
                                    "archivo":  "personajes/eric.png",
-                                   "w":  28,
-                                   "h":  64,
-                                   "anclaX":  14,
-                                   "anclaY":  64,
-                                   "frames":  10,
+                                   "w":  22,
+                                   "h":  44,
+                                   "anclaX":  11,
+                                   "anclaY":  44,
+                                   "frames":  14,
                                    "clips":  {
-                                                 "quieto":  {
-                                                                "desde":  0,
-                                                                "n":  2,
-                                                                "fps":  3
-                                                            },
                                                  "andar":  {
-                                                               "desde":  2,
-                                                               "n":  4,
-                                                               "fps":  8
+                                                               "desde":  0,
+                                                               "n":  12,
+                                                               "fps":  12
                                                            },
-                                                 "andar_lateral":  {
-                                                                       "desde":  6,
-                                                                       "n":  4,
-                                                                       "fps":  8
-                                                                   }
+                                                 "quieto":  {
+                                                                "desde":  12,
+                                                                "n":  2,
+                                                                "fps":  2
+                                                            }
                                              }
                                },
                       "lucyCara":  {
                                        "archivo":  "personajes/lucy-cara.png",
-                                       "w":  192,
-                                       "h":  192,
-                                       "anclaX":  96,
-                                       "anclaY":  192,
+                                       "w":  264,
+                                       "h":  438,
+                                       "anclaX":  132,
+                                       "anclaY":  438,
                                        "frames":  1
                                    },
                       "lucy":  {
                                    "archivo":  "personajes/lucy.png",
-                                   "w":  24,
-                                   "h":  64,
-                                   "anclaX":  12,
-                                   "anclaY":  64,
+                                   "w":  20,
+                                   "h":  44,
+                                   "anclaX":  10,
+                                   "anclaY":  44,
                                    "frames":  10,
                                    "clips":  {
                                                  "quieto":  {
@@ -157,18 +172,18 @@
                                },
                       "saraCara":  {
                                        "archivo":  "personajes/sara-cara.png",
-                                       "w":  192,
-                                       "h":  192,
-                                       "anclaX":  96,
-                                       "anclaY":  192,
+                                       "w":  264,
+                                       "h":  438,
+                                       "anclaX":  132,
+                                       "anclaY":  438,
                                        "frames":  1
                                    },
                       "sara":  {
                                    "archivo":  "personajes/sara.png",
-                                   "w":  32,
-                                   "h":  64,
-                                   "anclaX":  16,
-                                   "anclaY":  64,
+                                   "w":  24,
+                                   "h":  44,
+                                   "anclaX":  12,
+                                   "anclaY":  44,
                                    "frames":  10,
                                    "clips":  {
                                                  "quieto":  {
@@ -190,18 +205,18 @@
                                },
                       "vickyCara":  {
                                         "archivo":  "personajes/vicky-cara.png",
-                                        "w":  192,
-                                        "h":  192,
-                                        "anclaX":  96,
-                                        "anclaY":  192,
+                                        "w":  264,
+                                        "h":  438,
+                                        "anclaX":  132,
+                                        "anclaY":  438,
                                         "frames":  1
                                     },
                       "vicky":  {
                                     "archivo":  "personajes/vicky.png",
-                                    "w":  32,
-                                    "h":  64,
-                                    "anclaX":  16,
-                                    "anclaY":  64,
+                                    "w":  20,
+                                    "h":  44,
+                                    "anclaX":  10,
+                                    "anclaY":  44,
                                     "frames":  10,
                                     "clips":  {
                                                   "quieto":  {

@@ -4,25 +4,36 @@ import { comportamientoImplementado } from './armas.js';
 
 // Experiencia, subida de nivel y generación de ofertas.
 //
-// Curva de experiencia.
+// --- Curva de experiencia ----------------------------------------------------
 //
-// La del plan (5 + n*10) se probó y sube demasiado deprisa: los primeros niveles
-// caían de tres en tres y la elección dejaba de tener peso. Esta es la misma
-// forma —tres tramos de pendiente creciente— pero un 80% más exigente y con
-// arranque más caro, para que el primer minuto no sea una lluvia de menús.
+// CUADRÁTICA, no tres tramos rectos. La anterior era 12 + 18n y tenía el
+// problema al revés de lo que parece: era plana. Cada nivel costaba 18 más que
+// el anterior, siempre, así que el arranque era carísimo en términos relativos
+// —el nivel 1 pedía 30 puntos cuando una serpiente da 1— y el final se quedaba
+// corto, porque a esas alturas mueren tantos enemigos por segundo que 18 más no
+// se notan.
 //
-// Es la palanca de ritmo más directa que hay. La calibración definitiva llega
-// con el director de oleadas en la Fase 5: hasta que no haya una curva real de
-// enemigos por minuto, cualquier número aquí es una conjetura educada.
-const XP_BASE = 12;
-const XP_TRAMO_1 = 18;      // por nivel hasta el 20
-const XP_TRAMO_2 = 26;      // del 20 al 40
-const XP_TRAMO_3 = 36;      // del 40 en adelante
+// La forma correcta para este género es barata al principio y acelerando: las
+// tres o cuatro primeras elecciones son las que definen la partida y hay que
+// llegar a ellas pronto, y a partir de ahí cada subida tiene que costar
+// visiblemente más o el jugador se sale de la curva de dificultad.
+//
+//   nivel    1     3     5    10    20    30    40
+//   antes   30    66   102   192   372   632   892
+//   ahora   14    28    48   118   348   698  1168
+//
+// Se cruza alrededor del nivel 22: hasta ahí se sube casi tres veces más
+// rápido, y a partir de ahí cada nivel cuesta más de lo que costaba.
+//
+// Tres números y no siete, que es lo que la hace ajustable: BASE mueve el
+// primer nivel, LINEAL el ritmo del arranque y CUADRATICO cuánto se cierra
+// después. Esto se va a tocar varias veces contra el simulacro de oleadas.
+const XP_BASE = 8;
+const XP_LINEAL = 5;
+const XP_CUADRATICO = 0.6;
 
 export function xpNecesaria(nivel) {
-  if (nivel < 20) return XP_BASE + nivel * XP_TRAMO_1;
-  if (nivel < 40) return XP_BASE + 20 * XP_TRAMO_1 + (nivel - 20) * XP_TRAMO_2;
-  return XP_BASE + 20 * XP_TRAMO_1 + 20 * XP_TRAMO_2 + (nivel - 40) * XP_TRAMO_3;
+  return Math.round(XP_BASE + XP_LINEAL * nivel + XP_CUADRATICO * nivel * nivel);
 }
 
 // Cuatro y cuatro, no seis. Con menos ranuras cada elección duele más y las

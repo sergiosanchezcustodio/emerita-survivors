@@ -220,7 +220,8 @@ public class Procesador {
     // centroide horizontal de ESA franja, no en el de la figura entera. Importa
     // porque un brazo estirado desplaza el centro del cuerpo pero no el de la
     // cabeza, y el retrato saldria descentrado.
-    public static string RecortarCabeza(string entrada, string salida, int lado,
+    public static string RecortarCabeza(string entrada, string salida,
+                                        int anchoSal, int altoSal,
                                         double fraccionAlto, double margen) {
         int w, h, stride;
         byte[] px;
@@ -262,57 +263,36 @@ public class Procesador {
         if (cuenta == 0) return "VACIA";
         int cx = (int)(suma / cuenta);
 
-        // Caja cuadrada que cubra la cabeza con holgura
+        // Caja de recorte. El ANCHO lo fija la cabeza; el ALTO sale de la
+        // proporcion pedida y crece hacia ABAJO, hacia los hombros.
+        //
+        // Es un BUSTO, no una cabeza recortada en cuadrado. La ficha de jugador
+        // reserva una columna alta y estrecha para el retrato, y meter ahi una
+        // imagen cuadrada obliga a elegir entre dejar huecos o recortar media
+        // cara. Encuadrando cabeza y hombros desde el principio, el retrato
+        // llena su hueco tal cual y ademas se lee mejor: una cabeza flotando
+        // sin cuello parece un icono, un busto parece una ficha de personaje.
         int altoCabeza = yFin - minY + 1;
         int anchoCabeza = hMaxX - hMinX + 1;
-        int ladoCaja = (int)(Math.Max(altoCabeza, anchoCabeza) * (1.0 + margen));
-        int x0 = cx - ladoCaja / 2;
+        int anchoCaja = (int)(Math.Max(altoCabeza, anchoCabeza) * (1.0 + margen));
+        int altoCaja = (int)((long)anchoCaja * altoSal / anchoSal);
+        int x0 = cx - anchoCaja / 2;
         int y0 = minY - (int)(altoCabeza * margen * 0.5);
 
-        // --- Reduccion por media de area con alfa premultiplicado ----------
-        byte[] dst = new byte[lado * 4 * lado];
-        int dStride = lado * 4;
-        for (int y = 0; y < lado; y++) {
-            int sy0 = y0 + (int)((long)y * ladoCaja / lado);
-            int sy1 = y0 + (int)((long)(y+1) * ladoCaja / lado);
-            if (sy1 <= sy0) sy1 = sy0 + 1;
-            for (int x = 0; x < lado; x++) {
-                int sx0 = x0 + (int)((long)x * ladoCaja / lado);
-                int sx1 = x0 + (int)((long)(x+1) * ladoCaja / lado);
-                if (sx1 <= sx0) sx1 = sx0 + 1;
+        int dStride = anchoSal * 4;
+        byte[] dst = new byte[dStride * altoSal];
+        EscalarBloque(px, stride, w, h, x0, y0, anchoCaja, altoCaja,
+                      dst, dStride, 0, 0, anchoSal, altoSal);
 
-                long sA=0, sR=0, sG=0, sB=0; int n=0;
-                for (int sy = sy0; sy < sy1; sy++) {
-                    if (sy < 0 || sy >= h) { n++; continue; }
-                    for (int sx = sx0; sx < sx1; sx++) {
-                        if (sx < 0 || sx >= w) { n++; continue; }
-                        int p = sy*stride + sx*4;
-                        int a = px[p+3];
-                        sA += a;
-                        sB += px[p]*a; sG += px[p+1]*a; sR += px[p+2]*a;
-                        n++;
-                    }
-                }
-                int q = y*dStride + x*4;
-                if (sA == 0) { dst[q]=0; dst[q+1]=0; dst[q+2]=0; dst[q+3]=0; }
-                else {
-                    dst[q]   = (byte)(sB / sA);
-                    dst[q+1] = (byte)(sG / sA);
-                    dst[q+2] = (byte)(sR / sA);
-                    dst[q+3] = (byte)(sA / n);
-                }
-            }
-        }
-
-        using (Bitmap sal = new Bitmap(lado, lado, PixelFormat.Format32bppArgb)) {
-            BitmapData dd = sal.LockBits(new Rectangle(0,0,lado,lado), ImageLockMode.WriteOnly,
-                                         PixelFormat.Format32bppArgb);
-            for (int y = 0; y < lado; y++)
+        using (Bitmap sal = new Bitmap(anchoSal, altoSal, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0,0,anchoSal,altoSal),
+                                         ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < altoSal; y++)
                 Marshal.Copy(dst, y*dStride, (IntPtr)(dd.Scan0.ToInt64() + y*dd.Stride), dStride);
             sal.UnlockBits(dd);
             sal.Save(salida, ImageFormat.Png);
         }
-        return lado + "|" + lado + "|1";
+        return anchoSal + "|" + altoSal + "|1";
     }
 
     // ---------------------------------------------------------------------
@@ -778,6 +758,159 @@ public class Procesador {
         if (y < h - 1 && fondo[(y + 1) * w + x]) return true;
         return false;
     }
+
+    // ---------------------------------------------------------------------
+    // Hojas de animacion dibujadas a mano (rejilla de celdas)
+    // ---------------------------------------------------------------------
+    //
+    // Formato de entrada: una rejilla de cols x filas celdas iguales, con los
+    // fotogramas en orden de lectura y fondo transparente. Es lo que sale de
+    // cualquier exportador de sprites, asi que no se le pide nada raro al arte.
+    //
+    // LA CAJA DE RECORTE ES COMUN A TODOS LOS FOTOGRAMAS, y ademas comun a las
+    // dos hojas (derecha e izquierda) del mismo personaje. Si cada fotograma se
+    // recortara por su cuenta, la figura quedaria centrada en su propia silueta
+    // y el personaje daria un brinco en cada paso: al abrir las piernas la caja
+    // se ensancha, el centro se desplaza y el sprite se mueve sin que nadie lo
+    // haya movido. Por eso la medicion va aparte del recorte.
+
+    static void CargarPx(string ruta, out byte[] px, out int w, out int h, out int stride) {
+        using (Bitmap orig = new Bitmap(ruta)) {
+            w = orig.Width; h = orig.Height;
+            using (Bitmap src = new Bitmap(w, h, PixelFormat.Format32bppArgb)) {
+                using (Graphics g = Graphics.FromImage(src)) { g.DrawImage(orig, 0, 0, w, h); }
+                BitmapData d = src.LockBits(new Rectangle(0,0,w,h), ImageLockMode.ReadOnly,
+                                            PixelFormat.Format32bppArgb);
+                stride = d.Stride;
+                px = new byte[stride*h];
+                Marshal.Copy(d.Scan0, px, 0, px.Length);
+                src.UnlockBits(d);
+            }
+        }
+    }
+
+    // Caja que envuelve la silueta de TODAS las celdas, en coordenadas de celda.
+    // Devuelve: minX|minY|maxX|maxY|celdaW|celdaH
+    public static string MedirHoja(string entrada, int cols, int filas) {
+        byte[] px; int w, h, stride;
+        CargarPx(entrada, out px, out w, out h, out stride);
+        int cw = w / cols, ch = h / filas;
+
+        int minX = cw, minY = ch, maxX = -1, maxY = -1;
+        for (int r = 0; r < filas; r++) {
+            for (int c = 0; c < cols; c++) {
+                int ox = c*cw, oy = r*ch;
+                for (int y = 0; y < ch; y++) {
+                    int fila = (oy+y)*stride + ox*4 + 3;
+                    for (int x = 0; x < cw; x++) {
+                        if (px[fila + x*4] <= 40) continue;
+                        if (x < minX) minX = x; if (x > maxX) maxX = x;
+                        if (y < minY) minY = y; if (y > maxY) maxY = y;
+                    }
+                }
+            }
+        }
+        if (maxY < 0) return "VACIA";
+        return minX + "|" + minY + "|" + maxX + "|" + maxY + "|" + cw + "|" + ch;
+    }
+
+    // Recorta la rejilla a una TIRA HORIZONTAL con la caja dada, reducida al alto
+    // fisico pedido. Anade al final nQuieto fotogramas de reposo copiados del
+    // fotograma idle: la hoja trae solo el ciclo de andar, y un personaje parado
+    // que no respira parece congelado, no quieto. La segunda copia baja un
+    // pixel — un solo pixel a 2 fps, que es lo justo para que se lea como peso.
+    //
+    // Devuelve: frameW|frameH|nFrames
+    public static string RecortarHoja(string entrada, string salida, int cols, int filas,
+                                      int minX, int minY, int maxX, int maxY,
+                                      int altoFis, int idle, int nQuieto) {
+        byte[] px; int w, h, stride;
+        CargarPx(entrada, out px, out w, out h, out stride);
+        int cw = w / cols, ch = h / filas;
+
+        int cajaW = maxX - minX + 1;
+        int cajaH = maxY - minY + 1;
+        int frameH = altoFis;
+        // Ancho PAR: el ancla horizontal es frameW/2 y con impar caeria en medio
+        // pixel, que con el suavizado apagado hace hervir el sprite.
+        int frameW = (int)Math.Round((double)cajaW * altoFis / cajaH);
+        if ((frameW & 1) == 1) frameW++;
+
+        int nCeldas = cols * filas;
+        int nFrames = nCeldas + nQuieto;
+        int tiraW = frameW * nFrames;
+        int dStride = tiraW * 4;
+        byte[] dst = new byte[dStride * frameH];
+
+        for (int f = 0; f < nCeldas; f++) {
+            int ox = (f % cols) * cw + minX;
+            int oy = (f / cols) * ch + minY;
+            EscalarBloque(px, stride, w, h, ox, oy, cajaW, cajaH,
+                          dst, dStride, f * frameW, 0, frameW, frameH);
+        }
+
+        // Reposo: copias del fotograma elegido, la segunda desplazada un pixel.
+        int origen = Math.Max(0, Math.Min(nCeldas - 1, idle)) * frameW;
+        for (int k = 0; k < nQuieto; k++) {
+            int destino = (nCeldas + k) * frameW;
+            int desvio = k;                       // 0, 1, 2... pixeles hacia abajo
+            for (int y = 0; y < frameH; y++) {
+                int sy = y - desvio;
+                if (sy < 0) continue;
+                Array.Copy(dst, sy*dStride + origen*4,
+                           dst, y*dStride + destino*4, frameW*4);
+            }
+        }
+
+        using (Bitmap sal = new Bitmap(tiraW, frameH, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0,0,tiraW,frameH),
+                                         ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < frameH; y++)
+                Marshal.Copy(dst, y*dStride, (IntPtr)(dd.Scan0.ToInt64() + y*dd.Stride), dStride);
+            sal.UnlockBits(dd);
+            sal.Save(salida, ImageFormat.Png);
+        }
+        return frameW + "|" + frameH + "|" + nFrames;
+    }
+
+    // Reduccion por media de area con alfa premultiplicado. Premultiplicar no es
+    // un detalle: sin ello, los pixeles transparentes aportan su color (a menudo
+    // negro) a la media y el sprite sale con un halo oscuro en todo el contorno.
+    static void EscalarBloque(byte[] px, int stride, int w, int h,
+                              int sx0, int sy0, int sw, int sh,
+                              byte[] dst, int dStride, int dx0, int dy0, int dw, int dh) {
+        for (int y = 0; y < dh; y++) {
+            int ay0 = sy0 + (int)((long)y * sh / dh);
+            int ay1 = sy0 + (int)((long)(y+1) * sh / dh);
+            if (ay1 <= ay0) ay1 = ay0 + 1;
+            for (int x = 0; x < dw; x++) {
+                int ax0 = sx0 + (int)((long)x * sw / dw);
+                int ax1 = sx0 + (int)((long)(x+1) * sw / dw);
+                if (ax1 <= ax0) ax1 = ax0 + 1;
+
+                long sA=0, sR=0, sG=0, sB=0; int n=0;
+                for (int sy = ay0; sy < ay1; sy++) {
+                    if (sy < 0 || sy >= h) { n++; continue; }
+                    for (int sx = ax0; sx < ax1; sx++) {
+                        if (sx < 0 || sx >= w) { n++; continue; }
+                        int p = sy*stride + sx*4;
+                        int a = px[p+3];
+                        sA += a;
+                        sB += px[p]*a; sG += px[p+1]*a; sR += px[p+2]*a;
+                        n++;
+                    }
+                }
+                int q = (dy0+y)*dStride + (dx0+x)*4;
+                if (sA == 0) { dst[q]=0; dst[q+1]=0; dst[q+2]=0; dst[q+3]=0; }
+                else {
+                    dst[q]   = (byte)(sB / sA);
+                    dst[q+1] = (byte)(sG / sA);
+                    dst[q+2] = (byte)(sR / sA);
+                    dst[q+3] = (byte)(sA / n);
+                }
+            }
+        }
+    }
 }
 "@
 
@@ -794,34 +927,66 @@ $TOL     = 30
 # placeholder = la fuente no es recuperable automaticamente; se emite entrada de
 # atlas sin archivo para que recursos.js genere su silueta. Ninguna lo necesita
 # ahora: los cuatro personajes se re-exportaron con alfa real.
+#
+# --- TODO EL CATALOGO SE REDUJO AL 70% ---------------------------------------
+#
+# Se veia poco campo. El jugador medida 32 de alto sobre una pantalla de 270, o
+# sea 8,4 alturas de personaje en vertical: con cuatro jugadores y varios
+# cientos de bichos, no cabe la informacion que hace falta para decidir por
+# donde salir. A 22 son 12,3 alturas, un 46% mas de campo util.
+#
+# Se reduce el ARTE y no se amplia el lienzo, y la diferencia importa. El lienzo
+# fisico son 960x540 justamente porque en un monitor de 1080p entra por un
+# factor entero exacto (x2); subirlo a 1280x720 dejaria el factor en 1 y el
+# juego saldria en una ventana mas pequena rodeada de negro — mas campo, si,
+# pero todo mas chico en pantalla, que es lo contrario de lo que se busca.
+#
+# Solo encogen los CUERPOS. Velocidades, alcances de arma y radio de recogida
+# siguen en las mismas unidades logicas, asi que cruzar la pantalla cuesta lo
+# mismo que antes y no se siente lento: lo que cambia es que ahora cabe mas
+# alrededor. Los radios de colision de datos/enemigos.js bajan en la misma
+# proporcion.
 $CATALOGO = @(
-    @{ src='enemies\snake.png';            dst='enemigos\serpiente.png'; id='serpiente'; alto=20;  anchoFijo=0;  tol=0 }
+    @{ src='enemies\snake.png';            dst='enemigos\serpiente.png'; id='serpiente'; alto=14;  anchoFijo=0;  tol=0 }
     # GIF animado de 7 fotogramas, pixel art nativo de 48x48 ampliado 8x.
     # voltear porque el original mira a la izquierda y el motor asume derecha.
-    @{ src='enemies\gargoyle_new.gif';     dst='enemigos\gargola.png';   id='gargola';   alto=20;  anchoFijo=0;  tol=0; gif=$true; voltear=$true }
-    @{ src='enemies\legionario.png';       dst='enemigos\legionario.png';id='legionario';alto=26;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\gladiator.png';        dst='enemigos\gladiador.png'; id='gladiador'; alto=24;  anchoFijo=0;  tol=38 }
-    @{ src='enemies\arpia.png';            dst='enemigos\arpia.png';     id='arpia';     alto=22;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\medusa.png';           dst='enemigos\medusa.png';    id='medusa';    alto=28;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\minotauro.png';        dst='enemigos\minotauro.png'; id='minotauro'; alto=36;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\ciclope.png';          dst='enemigos\ciclope.png';   id='ciclope';   alto=42;  anchoFijo=0;  tol=45 }
-    @{ src='enemies\masticore.png';        dst='enemigos\manticora.png'; id='manticora'; alto=52;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\cerberus.png';         dst='enemigos\cerbero.png';   id='cerbero';   alto=86;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\hidra_final_boss.png'; dst='enemigos\hidra.png';     id='hidra';     alto=112; anchoFijo=0;  tol=0 }
-    # Personajes: MISMO ALTO logico (32), ancho derivado de su silueta. Encajar
+    @{ src='enemies\gargoyle_new.gif';     dst='enemigos\gargola.png';   id='gargola';   alto=14;  anchoFijo=0;  tol=0; gif=$true; voltear=$true }
+    @{ src='enemies\legionario.png';       dst='enemigos\legionario.png';id='legionario';alto=18;  anchoFijo=0;  tol=0 }
+    @{ src='enemies\gladiator.png';        dst='enemigos\gladiador.png'; id='gladiador'; alto=17;  anchoFijo=0;  tol=38 }
+    @{ src='enemies\arpia.png';            dst='enemigos\arpia.png';     id='arpia';     alto=15;  anchoFijo=0;  tol=0 }
+    @{ src='enemies\medusa.png';           dst='enemigos\medusa.png';    id='medusa';    alto=20;  anchoFijo=0;  tol=0 }
+    @{ src='enemies\minotauro.png';        dst='enemigos\minotauro.png'; id='minotauro'; alto=25;  anchoFijo=0;  tol=0 }
+    @{ src='enemies\ciclope.png';          dst='enemigos\ciclope.png';   id='ciclope';   alto=29;  anchoFijo=0;  tol=45 }
+    @{ src='enemies\masticore.png';        dst='enemigos\manticora.png'; id='manticora'; alto=36;  anchoFijo=0;  tol=0 }
+    @{ src='enemies\cerberus.png';         dst='enemigos\cerbero.png';   id='cerbero';   alto=60;  anchoFijo=0;  tol=0 }
+    @{ src='enemies\hidra_final_boss.png'; dst='enemigos\hidra.png';     id='hidra';     alto=78;  anchoFijo=0;  tol=0 }
+    # Personajes: MISMO ALTO logico (22), ancho derivado de su silueta. Encajar
     # la figura dentro de un cuadrado comun hacia que las poses anchas salieran
     # mas bajas: a Vicky, con ratio 1.43, la limitaba el ancho y se quedaba en 22
     # de alto frente a los 32 de Eric.
-    # Los personajes se animan al vuelo desde su unica pose (ver
-    # AnimarPersonaje). `cadera` es la fraccion del alto a la que empiezan las
-    # piernas de verdad, medida sobre el sprite: no es el 52% generico que usaba
-    # el motor, ahi todavia hay pantalon. Lucy va en modo falda porque su vestido
-    # llega al tobillo y no hay piernas que separar.
-    @{ src='characters\Eric.png';  dst='personajes\eric.png';  id='eric';  alto=32; anchoFijo=0; tol=0; cadera=0.68; ampPierna=4; ampEscora=4 }
-    @{ src='characters\Lucy.png';  dst='personajes\lucy.png';  id='lucy';  alto=32; anchoFijo=0; tol=0; cadera=0.55; ampPierna=3; falda=$true; ampEscora=3 }
-    @{ src='characters\Sara.png';  dst='personajes\sara.png';  id='sara';  alto=32; anchoFijo=0; tol=0; cadera=0.62; ampPierna=4; ampEscora=4 }
-    @{ src='characters\Vicky.png'; dst='personajes\vicky.png'; id='vicky'; alto=32; anchoFijo=0; tol=0; cadera=0.62; ampPierna=4; ampEscora=4 }
+    #
+    # `hojaDer`/`hojaIzq`: hojas de animacion DIBUJADAS A MANO en rejilla. Quien
+    # las tiene se salta la animacion procedural entera. Quien no, sigue
+    # animandose al vuelo desde su unica pose (ver AnimarPersonaje): `cadera` es
+    # la fraccion del alto a la que empiezan las piernas de verdad, medida sobre
+    # el sprite. Lucy va en modo falda porque su vestido llega al tobillo y no
+    # hay piernas que separar.
+    #
+    # `src` sigue apuntando a la ilustracion grande aunque haya hojas: el retrato
+    # de la ficha se recorta de ahi, a resolucion completa, no de un sprite de 44
+    # pixeles de alto.
+    @{ src='characters\Eric.png';  dst='personajes\eric.png';  id='eric';  alto=22; anchoFijo=0; tol=0; cadera=0.68; ampPierna=4; ampEscora=4
+       hojaDer='characters\Eric-der.png'; hojaIzq='characters\Eric-izq.png'; cols=4; filas=3; idle=2; fpsAndar=12 }
+    @{ src='characters\Lucy.png';  dst='personajes\lucy.png';  id='lucy';  alto=22; anchoFijo=0; tol=0; cadera=0.55; ampPierna=3; falda=$true; ampEscora=3 }
+    @{ src='characters\Sara.png';  dst='personajes\sara.png';  id='sara';  alto=22; anchoFijo=0; tol=0; cadera=0.62; ampPierna=4; ampEscora=4 }
+    @{ src='characters\Vicky.png'; dst='personajes\vicky.png'; id='vicky'; alto=22; anchoFijo=0; tol=0; cadera=0.62; ampPierna=4; ampEscora=4 }
 )
+
+# Retrato de la ficha de jugador. Alto y estrecho porque la ficha le reserva una
+# columna de 44x73 unidades y la capa de interfaz dibuja a la resolucion real del
+# monitor: con zoom 3x y densidad 2x eso son 264x438 pixeles de verdad.
+$CARA_W = 264
+$CARA_H = 438
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'enemigos')   | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'personajes') | Out-Null
@@ -860,7 +1025,14 @@ foreach ($e in $CATALOGO) {
     # recorte por color de las ilustraciones estaticas.
     if ($e.gif) {
         try {
-            $r = [Procesador]::ProcesarGif($rutaSrc, $rutaDst, $ESCALA, $e.alto * 3, [bool]$e.voltear)
+            # Tope = el alto logico pedido, en pixeles fisicos. Antes era el
+            # triple, para respetar la rejilla nativa del GIF aunque saliera mas
+            # grande de lo declarado. Con el catalogo reducido al 70% eso dejaba
+            # a la gargola en 18,5 unidades frente a las 14 de la serpiente: mas
+            # de un tercio mas grande que el otro enemigo de su mismo rol, que se
+            # lee como que pega mas fuerte. Vale mas un remuestreo algo blando
+            # que un bestiario que miente sobre lo que tienes delante.
+            $r = [Procesador]::ProcesarGif($rutaSrc, $rutaDst, $ESCALA, $e.alto, [bool]$e.voltear)
         } catch {
             $informe += [PSCustomObject]@{ Id=$e.id; Silueta='-'; Ratio='-'; Sprite='-'; Quitado='-'; Estado='ERROR GIF' }
             continue
@@ -903,23 +1075,19 @@ foreach ($e in $CATALOGO) {
     $quitado = 100 - $opaco
     $estado = if ($quitado -lt 5) { 'FALLO' } elseif ($quitado -lt 15) { 'DUDOSO' } else { 'OK' }
 
-    # Retrato para el panel de informacion, recortado del ORIGINAL.
+    # Retrato para el panel de informacion, recortado del ORIGINAL a resolucion
+    # completa. Ver el comentario de RecortarCabeza: es un busto, no una cabeza
+    # en cuadrado, porque la ficha le reserva una columna alta y estrecha.
     if ($null -ne $e.cadera) {
         $rutaCara = Join-Path $DESTINO ("personajes\" + $e.id + "-cara.png")
         try {
-            # 192 y no 72. El retrato NO es pixel art: se dibuja en la capa de
-            # interfaz, que va a la resolucion real del monitor. Con zoom de
-            # pantalla 3x y densidad 2x, la capa trabaja a 6 pixeles de
-            # dispositivo por unidad, asi que un retrato de 30 unidades pide 180
-            # pixeles reales. A 72 habia que AMPLIARLO dos veces y media y se
-            # veia blando, que es justo lo contrario de lo que busca recortar
-            # desde el original a resolucion completa. A 192 sobra en cualquier
-            # combinacion razonable de zoom y densidad, y son cuatro PNG de unos
-            # 40 KB: no hay nada que optimizar aqui.
-            [Procesador]::RecortarCabeza($rutaSrc, $rutaCara, 192, 0.30, 0.22) | Out-Null
+            # fraccionAlto 0.30 sigue siendo la franja que se usa para ENCUADRAR
+            # (centroide y ancho de la cabeza); el alto de la caja sale despues
+            # de la proporcion pedida y baja hasta el pecho.
+            [Procesador]::RecortarCabeza($rutaSrc, $rutaCara, $CARA_W, $CARA_H, 0.30, 0.22) | Out-Null
             $atlas[$e.id + 'Cara'] = [ordered]@{
                 archivo = "personajes/$($e.id)-cara.png"
-                w = 192; h = 192; anclaX = 96; anclaY = 192; frames = 1
+                w = $CARA_W; h = $CARA_H; anclaX = [int]($CARA_W/2); anclaY = $CARA_H; frames = 1
             }
         } catch {
             Write-Host "  aviso: no se pudo recortar la cabeza de $($e.id)"
@@ -928,8 +1096,48 @@ foreach ($e in $CATALOGO) {
 
     $nFrames = 1
     $clips = $null
-    # Personajes: expandir la pose unica a una tira de 6 (2 quieto + 4 andar).
-    if ($null -ne $e.cadera) {
+
+    # --- Hojas dibujadas a mano --------------------------------------------
+    # Mandan sobre la animacion procedural: si el artista ha dibujado el ciclo,
+    # deformar una pose por codigo solo puede empeorarlo.
+    #
+    # La caja de recorte se mide sobre las DOS hojas y se unen: con una caja por
+    # hoja, la figura quedaria centrada de forma distinta a cada lado y el
+    # personaje daria un salto lateral cada vez que gira, que es justo lo que
+    # mas se hace en este juego.
+    if ($null -ne $e.hojaDer) {
+        $rd = Join-Path $ORIGEN $e.hojaDer
+        $ri = Join-Path $ORIGEN $e.hojaIzq
+        $md = [Procesador]::MedirHoja($rd, $e.cols, $e.filas) -split '\|'
+        $mi = [Procesador]::MedirHoja($ri, $e.cols, $e.filas) -split '\|'
+        $bx0 = [Math]::Min([int]$md[0], [int]$mi[0]); $by0 = [Math]::Min([int]$md[1], [int]$mi[1])
+        $bx1 = [Math]::Max([int]$md[2], [int]$mi[2]); $by1 = [Math]::Max([int]$md[3], [int]$mi[3])
+
+        $rutaIzq = Join-Path $DESTINO ("personajes\" + $e.id + "-izq.png")
+        $altoFis = $e.alto * $ESCALA
+        $hd = [Procesador]::RecortarHoja($rd, $rutaDst, $e.cols, $e.filas,
+                                         $bx0, $by0, $bx1, $by1, $altoFis, $e.idle, 2) -split '\|'
+        [Procesador]::RecortarHoja($ri, $rutaIzq, $e.cols, $e.filas,
+                                   $bx0, $by0, $bx1, $by1, $altoFis, $e.idle, 2) | Out-Null
+
+        $fw = [int]$hd[0]; $fh = [int]$hd[1]; $nFrames = [int]$hd[2]
+        $ax = [int]($fw/2); $ay = $fh
+        $andar = $e.cols * $e.filas
+        # `andar_lateral` NO se declara: la hoja no trae un ciclo escorado y
+        # jugador.js cae solo en `andar` si no existe. Inventarlo apuntando al
+        # mismo tramo solo anadiria un nombre que no significa nada.
+        $clips = [ordered]@{
+            andar  = [ordered]@{ desde = 0;      n = $andar; fps = $e.fpsAndar }
+            quieto = [ordered]@{ desde = $andar; n = 2;      fps = 2 }
+        }
+        $atlas[$e.id + 'Izq'] = [ordered]@{
+            archivo = "personajes/$($e.id)-izq.png"
+            w = $fw; h = $fh; anclaX = $ax; anclaY = $ay; frames = $nFrames
+            clips = $clips
+        }
+    }
+    # Personajes sin hoja: expandir la pose unica a una tira de 10.
+    elseif ($null -ne $e.cadera) {
         $ra = [Procesador]::AnimarPersonaje($rutaDst, [double]$e.cadera,
                                             [int]$e.ampPierna, [bool]$e.falda,
                                             [int]$e.ampEscora)

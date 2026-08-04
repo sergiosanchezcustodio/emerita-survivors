@@ -36,38 +36,45 @@ import { FUENTE, textoBorde } from './capa.js';
 // dibujarIcono: el resto del panel no se entera.
 
 // --- Medidas -----------------------------------------------------------------
-// La ficha entera se redujo alrededor de un 20%, y las ranuras algo MÁS que el
-// resto: seguían repartiendo el ancho completo, pero con un hueco mayor entre
-// ellas quedan más pequeñas sin dejar de cuadrar con los bordes de la ficha.
-// Ocupar el ancho entero era el requisito; ser gruesas, no.
-const ANCHO = 122;         // ancho de la columna de contenido (antes 152)
+//
+// EL RETRATO OCUPA TODA LA ALTURA DE LA FICHA, en una columna propia, y el resto
+// —nombre, vida, experiencia y las ocho ranuras— va en la columna de al lado.
+//
+// Antes el retrato era un cuadrado arriba y las dos filas de ranuras cruzaban la
+// ficha entera por debajo, así que ocho casillas ocupaban dos tercios de la
+// pieza y el jugador quedaba reducido a una miniatura encima de sus barras. Está
+// al revés de lo que la ficha tiene que decir: lo que importa de un vistazo es
+// QUIÉN eres y CÓMO estás; el inventario es consulta.
+//
+// Repartiéndolo en dos columnas, el retrato pasa a ser lo más grande de la
+// ficha, las barras ganan grosor, y las ranuras se quedan en el ancho de su
+// propia columna —que siguen repartiéndose entero— en vez del de la ficha.
+const ANCHO = 138;
 const MARGEN = 9;
-const CABEZA = 28;         // lado del retrato (antes 40)
-const HUECO_CABEZA = 6;    // separación entre retrato y columna de texto
-const HUECO_RANURA = 7;    // entre ranuras de la misma fila
-const HUECO_FILA = 5;      // entre la fila de armas y la de pasivos
+const CABEZA_ANCHO = 44;   // el alto es el de la ficha entera
+const HUECO_CABEZA = 6;
+const COLUMNA = ANCHO - CABEZA_ANCHO - HUECO_CABEZA;
+const HUECO_RANURA = 5;    // entre ranuras de la misma fila
+const HUECO_FILA = 4;      // entre la fila de armas y la de pasivos
 
 // SIEMPRE cuatro ranuras por fila, llenas o vacías, y reparten el ancho entero
-// del panel. Las vacías no son decoración: MAX_ARMAS y MAX_PASIVOS son 4, así
-// que el hueco vacío dice cuánto te queda por elegir, que es una decisión que
-// se toma cada subida de nivel. Con las ranuras apareciendo según se llenan, la
-// fila cambiaba de tamaño y no se sabía si cabía algo más.
+// de SU columna. Las vacías no son decoración: MAX_ARMAS y MAX_PASIVOS son 4,
+// así que el hueco vacío dice cuánto te queda por elegir, que es una decisión
+// que se toma cada subida de nivel. Con las ranuras apareciendo según se
+// llenan, la fila cambiaba de tamaño y no se sabía si cabía algo más.
 const RANURAS = 4;
-const RANURA = (ANCHO - (RANURAS - 1) * HUECO_RANURA) / RANURAS;
+const RANURA = (COLUMNA - (RANURAS - 1) * HUECO_RANURA) / RANURAS;
 
-// --- Alturas de la banda superior --------------------------------------------
-// El retrato termina EXACTAMENTE donde termina la barra de experiencia, y las
-// filas de ranuras arrancan justo debajo de las dos. Antes la cabeza colgaba por
-// debajo del bloque de texto y dejaba una franja muerta a su derecha; subirla y
-// cerrarla contra la barra de experiencia es lo que permite recortar la ficha
-// sin quitarle nada.
-const Y_VIDA = 13, ALTO_VIDA = 7;
-const Y_XP = 24, ALTO_XP = 4;          // 24 + 4 = 28 = CABEZA
+// --- Alturas dentro de la columna de texto -----------------------------------
+const Y_VIDA = 15, ALTO_VIDA = 8;
+const Y_XP = 26, ALTO_XP = 4;
+const Y_FILA_ARMAS = 34;
+const Y_FILA_PASIVOS = Y_FILA_ARMAS + RANURA + HUECO_FILA;
 
 // Alto total de la ficha, y su margen. Los exporta para que el menú de subida de
 // nivel pueda colocarse por detrás sin repetir la aritmética: cuando la ficha
 // cambiaba de tamaño, el menú se quedaba con el número viejo y se solapaban.
-export const ALTO_FICHA = CABEZA + 2 * (RANURA + HUECO_FILA);
+export const ALTO_FICHA = Y_FILA_PASIVOS + RANURA;
 export const MARGEN_FICHA = MARGEN;
 
 const COLOR_JUGADOR = ['#5aa9e6', '#e8b73a', '#8fbf5a', '#d64b8f'];
@@ -239,45 +246,57 @@ function glifoPasivo(ctx, campo, r) {
   }
 }
 
-// Retrato del personaje, recortado de la ILUSTRACIÓN ORIGINAL por la herramienta
-// (ver RecortarCabeza en procesar-assets.ps1) y guardado en el atlas como
-// `<id>Cara` a 192x192.
+// Retrato del personaje: un BUSTO —cabeza, hombros y pecho— recortado de la
+// ILUSTRACIÓN ORIGINAL por la herramienta (ver RecortarCabeza en
+// procesar-assets.ps1) y guardado en el atlas como `<id>Cara` a 264x438.
 //
-// 192 y no 72, que es lo que había: esta capa dibuja a la resolución real del
-// monitor, así que con zoom de pantalla 3x y densidad 2x un retrato de 28
-// unidades pide 168 píxeles de verdad. Desde una fuente de 72 había que
-// AMPLIARLO, y por eso se veía blando pese a venir de una ilustración enorme.
+// Alto y estrecho porque el hueco lo es. Con una imagen cuadrada en una columna
+// vertical había que elegir entre dejar aire o recortar media cara; encuadrando
+// el busto desde el original, llena su sitio tal cual. Y se lee mejor: una
+// cabeza flotando sin cuello parece un icono, un busto parece una ficha.
+//
+// 264x438 y no 192x192, que es lo que había: esta capa dibuja a la resolución
+// real del monitor, así que con zoom de pantalla 3x y densidad 2x un retrato de
+// 44 unidades de ancho pide 264 píxeles de verdad. Con la fuente más pequeña
+// había que AMPLIARLO, y por eso se veía blando pese a venir de una ilustración
+// de 650x1492.
 //
 // Se dibuja CON suavizado, al revés que el mundo. El juego es pixel art y va a
 // vecino más próximo; el retrato es interfaz y puede permitirse todo el detalle
-// que tenga la ilustración. Ahora además se resuelve a la resolución real de la
-// pantalla, así que en un monitor denso se ve la pincelada.
+// que tenga la ilustración.
 //
 // Sin marco: se desvanece por abajo con un degradado en vez de cortarse contra
 // un borde. Un recorte duro sin caja que lo justifique parece un error.
-function dibujarCabeza(ctx, x, y, jugador) {
+function dibujarCabeza(ctx, x, y, alto, jugador) {
   const img = Recursos.imagen(jugador.id + 'Cara');
   if (!img) return;
 
   ctx.save();
   ctx.beginPath();
-  ctx.rect(x, y, CABEZA, CABEZA);
+  ctx.rect(x, y, CABEZA_ANCHO, alto);
   ctx.clip();
 
+  // Encaje "cubrir": se escala por el lado que se quede corto y se centra, así
+  // que el hueco queda lleno pase lo que pase con la proporción de la fuente.
+  // Recortar unas décimas por los lados es invisible; una banda vacía, no.
+  const escala = Math.max(CABEZA_ANCHO / img.width, alto / img.height);
+  const w = img.width * escala;
+  const h = img.height * escala;
   sombraDura(ctx);
-  ctx.drawImage(img, x, y, CABEZA, CABEZA);
+  ctx.drawImage(img, x + (CABEZA_ANCHO - w) / 2, y + (alto - h) / 2, w, h);
   sinSombra(ctx);
 
   // Desvanecido por abajo. Se BORRA con 'destination-out' en vez de pintar un
   // degradado del color del fondo, porque aquí no hay fondo: debajo está el
   // juego, y un degradado a un color concreto se vería como una mancha.
-  const desde = y + CABEZA * 0.70;
-  const grad = ctx.createLinearGradient(0, desde, 0, y + CABEZA);
+  const franja = alto * 0.22;
+  const desde = y + alto - franja;
+  const grad = ctx.createLinearGradient(0, desde, 0, y + alto);
   grad.addColorStop(0, 'rgba(0,0,0,0)');
   grad.addColorStop(1, 'rgba(0,0,0,1)');
   ctx.globalCompositeOperation = 'destination-out';
   ctx.fillStyle = grad;
-  ctx.fillRect(x, desde, CABEZA, CABEZA * 0.30);
+  ctx.fillRect(x, desde, CABEZA_ANCHO, franja);
   ctx.restore();
 }
 
@@ -333,13 +352,13 @@ export function dibujarPaneles(ctx, jugadores) {
     const x = derecha ? ANCHO_FISICO - ANCHO - MARGEN : MARGEN;
     const y = abajo ? ALTO_FISICO - ALTO_FICHA - MARGEN : MARGEN;
 
-    // --- Retrato --------------------------------------------------------
-    const xCabeza = derecha ? x + ANCHO - CABEZA : x;
-    dibujarCabeza(ctx, xCabeza, y, j);
+    // --- Retrato, a toda la altura de la ficha ---------------------------
+    const xCabeza = derecha ? x + ANCHO - CABEZA_ANCHO : x;
+    dibujarCabeza(ctx, xCabeza, y, ALTO_FICHA, j);
 
-    // --- Nombre, nivel, vida y experiencia ------------------------------
-    const bx = derecha ? x : x + CABEZA + HUECO_CABEZA;
-    const anchoBarra = ANCHO - CABEZA - HUECO_CABEZA;
+    // --- Columna de datos: nombre, nivel, vida, experiencia y ranuras ----
+    const bx = derecha ? x : x + CABEZA_ANCHO + HUECO_CABEZA;
+    const anchoBarra = COLUMNA;
     const xFin = bx + anchoBarra;
 
     ctx.font = `600 11px ${FUENTE}`;
@@ -381,17 +400,17 @@ export function dibujarPaneles(ctx, jugadores) {
     ctx.fillRect(bx, y + Y_XP, anchoBarra * fracXp, ALTO_XP);
 
     // --- Filas de ranuras -----------------------------------------------
-    // Arrancan justo debajo del retrato, que ahora termina a la altura de la
-    // barra de experiencia. Se colocan de fuera hacia dentro: en los paneles
-    // espejados, la primera ranura queda pegada al borde derecho, que es el
-    // borde "de casa".
-    const filaArmas = y + CABEZA + HUECO_FILA;
-    const filaPasivos = filaArmas + RANURA + HUECO_FILA;
+    // Dentro de la columna de datos, no cruzando la ficha entera. Se colocan de
+    // fuera hacia dentro: en los paneles espejados, la primera ranura queda
+    // pegada al borde derecho, que es el borde "de casa".
+    const filaArmas = y + Y_FILA_ARMAS;
+    const filaPasivos = y + Y_FILA_PASIVOS;
     const vacia = BORDE_VACIA[indice];
     const llena = BORDE_LLENA[indice];
+    const paso = RANURA + HUECO_RANURA;
     const colocar = (k) => derecha
-      ? x + ANCHO - RANURA - k * (RANURA + HUECO_RANURA)
-      : x + k * (RANURA + HUECO_RANURA);
+      ? bx + COLUMNA - RANURA - k * paso
+      : bx + k * paso;
 
     for (let k = 0; k < RANURAS; k++) {
       const a = armas[k];
