@@ -1,4 +1,6 @@
+import { ANCHO_LOGICO, ALTO_LOGICO } from '../core/constantes.js';
 import { ARMAS } from '../datos/armas.js';
+import { MAX_NIVEL } from './progresion.js';
 import { enemigoMasCercano, enemigosEnRadio } from './colisiones.js';
 import { Particulas, COLOR_CHISPA } from './particulas.js';
 
@@ -15,6 +17,25 @@ import { Particulas, COLOR_CHISPA } from './particulas.js';
 
 const GRADOS = Math.PI / 180;
 
+// --- Estadísticas efectivas --------------------------------------------------
+// Los pasivos del jugador se aplican AQUÍ, al usar el arma, no al calcular sus
+// stats. El motivo es que las stats del arma se recalculan solo al subir de
+// nivel, mientras que los pasivos cambian por su cuenta: si se hornearan juntos
+// habría que recorrer todas las armas de todos los jugadores cada vez que
+// alguien coge un anillo.
+function danyoDe(s, j) { return Math.round(s.danyo * (1 + j.bonusDanyo)); }
+function areaDe(v, j)  { return v * (1 + j.bonusArea); }
+function recargaDe(s, j) {
+  const r = s.recarga * (1 - j.reduccionRecarga);
+  return r < 0.08 ? 0.08 : r;
+}
+
+// ¿Existe ese comportamiento? Lo consulta la generación de ofertas para no
+// ofrecer un arma que todavía no hace nada.
+export function comportamientoImplementado(nombre) {
+  return typeof COMPORTAMIENTOS[nombre] === 'function';
+}
+
 // Tope de enemigos que un solo golpe en área puede tocar. Preasignado: sin él
 // haría falta un array nuevo por tajo.
 const MAX_ALCANZADOS = 256;
@@ -22,6 +43,10 @@ const MAX_ALCANZADOS = 256;
 // Tajos visibles a la vez. Es efecto, no lógica: si se pierde uno con la
 // pantalla ardiendo, no lo nota nadie.
 const MAX_TAJOS = 12;
+
+// Cada cuánto puede un mismo escudo orbital volver a golpear al mismo enemigo.
+const ORBITAL_CADENCIA = 0.35;
+let contadorSelloOrbital = 0;
 
 // --- Comportamientos ---------------------------------------------------------
 // Firma común: (arma, sis, ctx). `sis` es el sistema (para sus buffers), `ctx`
@@ -47,7 +72,7 @@ const COMPORTAMIENTOS = {
       // Abanico centrado: con 1 sale recto, con 3 uno recto y dos abiertos.
       const desvio = (i - (n - 1) / 2) * s.dispersion * GRADOS;
       const a = base + desvio;
-      sis.defProyectil.danyo = s.danyo;
+      sis.defProyectil.danyo = danyoDe(s, ctx.jugador);
       sis.defProyectil.empuje = s.empuje;
       sis.defProyectil.radio = s.radio;
       sis.defProyectil.perforacion = s.perforacion;
@@ -74,7 +99,245 @@ const COMPORTAMIENTOS = {
     arma.golpesPendientes = arma.stats.golpes - 1;
     arma.demoraGolpe = arma.def.demoraGolpe;
     return true;
+  },
+
+  // Escopeta: muchos proyectiles, muy abiertos, de alcance corto.
+  //
+  // No es el proyectil dirigido con más dispersión. La diferencia está en que
+  // aquí el abanico se reparte al AZAR dentro del cono en vez de en posiciones
+  // fijas, y los perdigones llevan vida distinta entre sí: eso es lo que hace
+  // que el disparo se sienta sucio y no como una formación de tres jabalinas.
+  conoCorto(arma, sis, ctx) {
+    const s = arma.stats;
+    const j = ctx.jugador;
+    const objetivo = enemigoMasCercano(ctx.enemigos, j.x, j.y, s.alcance);
+
+    let base;
+    if (objetivo) {
+      base = Math.atan2(objetivo.y - j.y, objetivo.x - j.x);
+    } else {
+      // Sin blanco dispara igual, hacia donde mira: una escopeta a bocajarro no
+      // espera a tener puntería.
+      base = j.mirandoDerecha ? 0 : Math.PI;
+    }
+
+    const semi = s.angulo * 0.5 * GRADOS;
+    const danyo = danyoDe(s, j);
+    for (let i = 0; i < s.proyectiles; i++) {
+      const a = base + (ctx.rng() * 2 - 1) * semi;
+      const v = s.velocidad * (0.82 + ctx.rng() * 0.36);
+      sis.defProyectil.danyo = danyo;
+      sis.defProyectil.empuje = s.empuje;
+      sis.defProyectil.radio = s.radio;
+      sis.defProyectil.perforacion = s.perforacion;
+      sis.defProyectil.vida = (s.alcance / v) * (0.8 + ctx.rng() * 0.4);
+      sis.defProyectil.color = arma.def.color;
+      sis.defProyectil.estela = arma.def.estela;
+      sis.defProyectil.largo = 5;
+      ctx.proyectiles.lanzar(j.x, j.y - 8, Math.cos(a) * v, Math.sin(a) * v,
+                             sis.defProyectil);
+    }
+    return true;
+  },
+
+  // --- Patrones que NO apuntan -------------------------------------------
+  //
+  // Todo lo de aquí abajo dispara sin buscar blanco, y esa es la gracia: el
+  // jugador no apunta, se COLOCA. Un arma que barre en horizontal te pide
+  // alinearte con la horda; una que suelta bombas al azar te pide quedarte en
+  // el centro del enjambre. Con seis armas a la vez, la posición correcta es la
+  // que satisface a la mayoría, y ahí está la decisión.
+  //
+  // `patron` decide las direcciones. Se recorren TODAS en cada disparo: un arma
+  // de cruz dispara cuatro, no una al azar entre cuatro.
+  direccionFija(arma, sis, ctx) {
+    const s = arma.stats;
+    const j = ctx.jugador;
+    const dirs = PATRONES[arma.def.patron] || PATRONES.horizontal;
+    const danyo = danyoDe(s, j);
+
+    for (let d = 0; d < dirs.length; d++) {
+      const base = dirs[d];
+      for (let i = 0; i < s.proyectiles; i++) {
+        const desvio = (i - (s.proyectiles - 1) / 2) * s.dispersion * GRADOS;
+        sis._rellenarProyectil(arma, s, danyo);
+        sis.defProyectil.vida = s.alcance / s.velocidad;
+        const a = base + desvio;
+        ctx.proyectiles.lanzar(j.x, j.y - 8,
+          Math.cos(a) * s.velocidad, Math.sin(a) * s.velocidad, sis.defProyectil);
+      }
+    }
+    return true;
+  },
+
+  // Dirección al azar en cada disparo. Cubre el mapa a la larga y no pide nada
+  // al jugador salvo estar rodeado, que es donde quiere estar de todas formas.
+  direccionAleatoria(arma, sis, ctx) {
+    const s = arma.stats;
+    const j = ctx.jugador;
+    const danyo = danyoDe(s, j);
+    for (let i = 0; i < s.proyectiles; i++) {
+      const a = ctx.rng() * Math.PI * 2;
+      sis._rellenarProyectil(arma, s, danyo);
+      sis.defProyectil.vida = s.alcance / s.velocidad;
+      ctx.proyectiles.lanzar(j.x, j.y - 8,
+        Math.cos(a) * s.velocidad, Math.sin(a) * s.velocidad, sis.defProyectil);
+    }
+    return true;
+  },
+
+  // Lanzagranadas: sale en una dirección y REVIENTA al tocar a alguien, o al
+  // agotar su vuelo. El daño de impacto es pequeño; el gordo va en la onda.
+  proyectilExplosivo(arma, sis, ctx) {
+    const s = arma.stats;
+    const j = ctx.jugador;
+    const danyo = danyoDe(s, j);
+
+    let base;
+    if (arma.def.patron) {
+      const dirs = PATRONES[arma.def.patron];
+      base = dirs[(ctx.rng() * dirs.length) | 0];
+    } else {
+      const obj = enemigoMasCercano(ctx.enemigos, j.x, j.y, s.alcance);
+      base = obj ? Math.atan2(obj.y - j.y, obj.x - j.x) : ctx.rng() * Math.PI * 2;
+    }
+
+    for (let i = 0; i < s.proyectiles; i++) {
+      const a = base + (i - (s.proyectiles - 1) / 2) * s.dispersion * GRADOS;
+      sis._rellenarProyectil(arma, s, danyo);
+      sis.defProyectil.vida = s.alcance / s.velocidad;
+      sis.defProyectil.radioExplosion = areaDe(s.radioExplosion, j);
+      sis.defProyectil.danyoExplosion = Math.round(s.danyoExplosion * (1 + j.bonusDanyo));
+      sis.defProyectil.estallaAlExpirar = true;
+      ctx.proyectiles.lanzar(j.x, j.y - 8,
+        Math.cos(a) * s.velocidad, Math.sin(a) * s.velocidad, sis.defProyectil);
+    }
+    return true;
+  },
+
+  // Bombardeo: las bombas caen en puntos AL AZAR de la pantalla visible. No hay
+  // nada que apuntar y llega a sitios donde el jugador no está.
+  bombardeoAleatorio(arma, sis, ctx) {
+    const s = arma.stats;
+    const j = ctx.jugador;
+    const danyo = Math.round(s.danyoExplosion * (1 + j.bonusDanyo));
+    const radio = areaDe(s.radioExplosion, j);
+
+    for (let i = 0; i < s.proyectiles; i++) {
+      // Dentro del viewport, centrado en el jugador: caer fuera de cámara sería
+      // regalar daño que nadie ve.
+      const x = j.x + (ctx.rng() - 0.5) * ANCHO_LOGICO * 0.9;
+      const y = j.y + (ctx.rng() - 0.5) * ALTO_LOGICO * 0.9;
+      ctx.zonas.crear({
+        x, y, radio, radioIni: radio * 0.15, duracion: s.duracion,
+        danyo, empuje: s.empuje, modo: 'onda', color: arma.def.color,
+        relleno: 0.3
+      });
+    }
+    return true;
+  },
+
+  // Onda circular que sale del jugador y se expande. Barre los 360 grados, así
+  // que premia estar rodeado en vez de buscar un flanco.
+  ondaCircular(arma, sis, ctx) {
+    const s = arma.stats;
+    const j = ctx.jugador;
+    ctx.zonas.crear({
+      x: j.x, y: j.y - 6,
+      radio: areaDe(s.radio, j), radioIni: 6,
+      duracion: s.duracion,
+      danyo: danyoDe(s, j), empuje: s.empuje,
+      modo: 'onda', color: arma.def.color, relleno: 0.08
+    });
+    return true;
+  },
+
+  // Charco o red que se queda en el suelo dañando por tics. `ralentiza` la
+  // convierte en arma de control en vez de de daño.
+  zonaPersistente(arma, sis, ctx) {
+    const s = arma.stats;
+    const j = ctx.jugador;
+    for (let i = 0; i < s.charcos; i++) {
+      const a = ctx.rng() * Math.PI * 2;
+      const d = i === 0 ? 0 : 20 + ctx.rng() * 45;
+      ctx.zonas.crear({
+        x: j.x + Math.cos(a) * d, y: j.y + Math.sin(a) * d,
+        radio: areaDe(s.radio, j), duracion: s.duracion,
+        danyo: danyoDe(s, j), intervalo: s.intervalo,
+        empuje: s.empuje, ralentiza: s.ralentiza || 0,
+        modo: 'zona', color: arma.def.color, relleno: 0.22
+      });
+    }
+    return true;
+  },
+
+  // Aura pegada al jugador. No se recrea cada ciclo: se refresca la que hay, o
+  // el pool se llenaría de auras muertas.
+  auraPasiva(arma, sis, ctx) {
+    const s = arma.stats;
+    const j = ctx.jugador;
+    if (arma.zona && arma.zona.vida > 0 && arma.zona.seguir === j) {
+      arma.zona.vida = arma.zona.vidaMax;
+      arma.zona.radio = areaDe(s.radio, j);
+      arma.zona.danyo = danyoDe(s, j);
+      return true;
+    }
+    arma.zona = ctx.zonas.crear({
+      x: j.x, y: j.y - 6,
+      radio: areaDe(s.radio, j), duracion: 1.0,
+      danyo: danyoDe(s, j), intervalo: s.intervalo,
+      empuje: s.empuje, modo: 'zona', seguir: j,
+      color: arma.def.color, relleno: 0.10
+    });
+    return true;
+  },
+
+  // Rayo que atraviesa. Es instantáneo: no hay proyectil que seguir, se resuelve
+  // la línea y se deja el trazo dibujado. Perfora sin límite por definición.
+  rayoPerforante(arma, sis, ctx) {
+    const s = arma.stats;
+    const j = ctx.jugador;
+    const dirs = PATRONES[arma.def.patron] || PATRONES.horizontal;
+    const danyo = danyoDe(s, j);
+    const items = ctx.enemigos.pool.items;
+
+    for (let d = 0; d < dirs.length; d++) {
+      const a = dirs[d];
+      const ux = Math.cos(a), uy = Math.sin(a);
+      // Se busca en un radio igual al alcance y se filtra por distancia a la
+      // recta: mucho más barato que marchar el rayo paso a paso.
+      const n = enemigosEnRadio(ctx.enemigos, j.x, j.y, s.alcance, sis._alcanzados);
+      for (let i = 0; i < n; i++) {
+        const e = items[sis._alcanzados[i]];
+        const dx = e.x - j.x, dy = e.y - (j.y - 8);
+        const proy = dx * ux + dy * uy;
+        if (proy < 0) continue;                       // detrás del jugador
+        const perp = Math.abs(dx * uy - dy * ux);     // distancia a la recta
+        if (perp > s.grosor + e.radioCuerpo) continue;
+        ctx.enemigos.danyar(e, danyo, ux, uy, s.empuje);
+      }
+      sis._anotarRayo(j.x, j.y - 8, a, s.alcance, s.grosor, arma.def.color);
+    }
+    return true;
+  },
+
+  // Escudos que orbitan. No usan proyectil: su posición sale del ángulo, y el
+  // daño se resuelve por contacto en cada paso con su propio sello para no
+  // machacar al mismo enemigo sesenta veces por segundo.
+  orbital(arma, sis, ctx) {
+    // Se "dispara" una vez y luego vive en actualizarOrbitales.
+    arma.orbitalActivo = true;
+    return true;
   }
+};
+
+// Direcciones de cada patrón, en radianes. Y crece hacia ABAJO en pantalla.
+const PATRONES = {
+  horizontal: [0, Math.PI],
+  vertical: [-Math.PI / 2, Math.PI / 2],
+  cruz: [0, Math.PI / 2, Math.PI, -Math.PI / 2],
+  diagonal: [Math.PI / 4, 3 * Math.PI / 4, -3 * Math.PI / 4, -Math.PI / 4],
+  adelante: [0]
 };
 
 export class Armas {
@@ -97,6 +360,95 @@ export class Armas {
       this.tajos[i] = { x: 0, y: 0, ang: 0, semi: 0, alcance: 0, vida: 0, vidaMax: 1, color: '#fff' };
     }
     this.nTajos = 0;
+
+    // Rayos dibujados, mismo esquema de buffer circular que los tajos.
+    this.rayos = new Array(MAX_TAJOS);
+    for (let i = 0; i < MAX_TAJOS; i++) {
+      this.rayos[i] = { x: 0, y: 0, ang: 0, largo: 0, grosor: 0, vida: 0, vidaMax: 1, color: '#fff' };
+    }
+    this.nRayos = 0;
+  }
+
+  // Rellena el descriptor de proyectil con lo común a todos los comportamientos.
+  // Cada uno ajusta después lo suyo (vida, explosión).
+  _rellenarProyectil(arma, s, danyo) {
+    const d = this.defProyectil;
+    d.danyo = danyo;
+    d.empuje = s.empuje;
+    d.radio = s.radio;
+    d.perforacion = s.perforacion;
+    d.color = arma.def.color;
+    d.estela = arma.def.estela;
+    d.largo = arma.def.largoTrazo || 8;
+    d.radioExplosion = 0;
+    d.danyoExplosion = 0;
+    d.estallaAlExpirar = false;
+  }
+
+  _anotarRayo(x, y, ang, largo, grosor, color) {
+    const r = this.rayos[this.nRayos % MAX_TAJOS];
+    this.nRayos++;
+    r.x = x; r.y = y; r.ang = ang; r.largo = largo;
+    r.grosor = grosor; r.vida = r.vidaMax = 0.12; r.color = color;
+  }
+
+  // Los orbitales no "disparan": existen. Se actualizan aparte, cada paso, y
+  // dañan por contacto. El sello se renueva cada ORBITAL_CADENCIA segundos para
+  // que un escudo pegado a un enemigo no le pegue sesenta veces por segundo.
+  actualizarOrbitales(dt, ctx) {
+    for (let i = 0; i < this.equipadas.length; i++) {
+      const arma = this.equipadas[i];
+      if (!arma.orbitalActivo) continue;
+      const s = arma.stats;
+      const j = ctx.jugador;
+
+      arma.anguloOrbital += dt * s.velocidadAngular;
+      arma.relojOrbital -= dt;
+      if (arma.relojOrbital <= 0) {
+        arma.relojOrbital = ORBITAL_CADENCIA;
+        arma.selloOrbital = -(++contadorSelloOrbital);   // negativo: no choca
+      }                                                   // con los proyectiles
+
+      const radio = areaDe(s.radioOrbita, j);
+      const danyo = danyoDe(s, j);
+      const items = ctx.enemigos.pool.items;
+
+      for (let k = 0; k < s.escudos; k++) {
+        const a = arma.anguloOrbital + (k / s.escudos) * Math.PI * 2;
+        const ox = j.x + Math.cos(a) * radio;
+        const oy = j.y - 6 + Math.sin(a) * radio;
+        const n = enemigosEnRadio(ctx.enemigos, ox, oy, s.radioEscudo, this._alcanzados);
+        for (let q = 0; q < n; q++) {
+          const e = items[this._alcanzados[q]];
+          if (e.ultimoSello === arma.selloOrbital) continue;
+          e.ultimoSello = arma.selloOrbital;
+          const dx = e.x - j.x, dy = e.y - j.y;
+          const d = Math.hypot(dx, dy) || 1;
+          ctx.enemigos.danyar(e, danyo, dx / d, dy / d, s.empuje);
+        }
+      }
+    }
+  }
+
+  dibujarOrbitales(ctx, jugador) {
+    for (let i = 0; i < this.equipadas.length; i++) {
+      const arma = this.equipadas[i];
+      if (!arma.orbitalActivo) continue;
+      const s = arma.stats;
+      const radio = areaDe(s.radioOrbita, jugador);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = arma.def.color;
+      for (let k = 0; k < s.escudos; k++) {
+        const a = arma.anguloOrbital + (k / s.escudos) * Math.PI * 2;
+        const ox = jugador.x + Math.cos(a) * radio;
+        const oy = jugador.y - 6 + Math.sin(a) * radio;
+        ctx.beginPath();
+        ctx.arc(ox, oy, s.radioEscudo, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
   }
 
   equipar(id) {
@@ -107,6 +459,9 @@ export class Armas {
       temporizador: 0,
       golpesPendientes: 0,
       demoraGolpe: 0,
+      // Estado propio de los comportamientos que lo necesitan.
+      orbitalActivo: false, anguloOrbital: 0, relojOrbital: 0, selloOrbital: 0,
+      zona: null,
       stats: {}
     };
     this._recalcular(arma);
@@ -116,7 +471,7 @@ export class Armas {
 
   subirNivel(id) {
     const arma = this.equipadas.find((a) => a.id === id);
-    if (!arma || arma.nivel >= 8) return false;
+    if (!arma || arma.nivel >= MAX_NIVEL) return false;
     arma.nivel++;
     this._recalcular(arma);
     return true;
@@ -171,7 +526,9 @@ export class Armas {
       // Si el comportamiento no encuentra a quién pegar, se reintenta pronto en
       // vez de gastar la recarga entera: el arma no debe "perder" un ciclo por
       // haber disparado al vacío.
-      arma.temporizador = fn(arma, this, ctx) ? arma.stats.recarga : 0.1;
+      arma.temporizador = fn(arma, this, ctx)
+        ? recargaDe(arma.stats, ctx.jugador)
+        : 0.1;
     }
   }
 
@@ -188,8 +545,10 @@ export class Armas {
     }
     const ang = Math.atan2(ay, ax);
     const semi = s.angulo * 0.5 * GRADOS;
+    const alcance = areaDe(s.alcance, j);
+    const danyo = danyoDe(s, j);
 
-    const n = enemigosEnRadio(ctx.enemigos, j.x, j.y, s.alcance, this._alcanzados);
+    const n = enemigosEnRadio(ctx.enemigos, j.x, j.y, alcance, this._alcanzados);
     const items = ctx.enemigos.pool.items;
     for (let i = 0; i < n; i++) {
       const e = items[this._alcanzados[i]];
@@ -202,12 +561,12 @@ export class Armas {
       if (Math.abs(d) > semi) continue;
 
       const m = Math.hypot(dx, dy) || 1;
-      ctx.enemigos.danyar(e, s.danyo, dx / m, dy / m, s.empuje);
+      ctx.enemigos.danyar(e, danyo, dx / m, dy / m, s.empuje);
     }
 
-    this._anotarTajo(j.x, j.y - 6, ang, semi, s.alcance, arma.def.color);
-    Particulas.estallido(j.x + Math.cos(ang) * s.alcance * 0.6,
-                         j.y - 6 + Math.sin(ang) * s.alcance * 0.6,
+    this._anotarTajo(j.x, j.y - 6, ang, semi, alcance, arma.def.color);
+    Particulas.estallido(j.x + Math.cos(ang) * alcance * 0.6,
+                         j.y - 6 + Math.sin(ang) * alcance * 0.6,
                          3, 55, 0.18, 1, COLOR_CHISPA, 0.3, this._rng);
   }
 
@@ -223,7 +582,34 @@ export class Armas {
     for (let i = 0; i < MAX_TAJOS; i++) {
       const t = this.tajos[i];
       if (t.vida > 0) t.vida -= dt;
+      const r = this.rayos[i];
+      if (r.vida > 0) r.vida -= dt;
     }
+  }
+
+  // Trazo del rayo: un haz que se abre y se apaga. Como el resto de efectos, en
+  // 'lighter' y por código.
+  dibujarRayos(ctx) {
+    let hay = false;
+    for (let i = 0; i < MAX_TAJOS; i++) if (this.rayos[i].vida > 0) { hay = true; break; }
+    if (!hay) return;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    for (let i = 0; i < MAX_TAJOS; i++) {
+      const r = this.rayos[i];
+      if (r.vida <= 0) continue;
+      const k = r.vida / r.vidaMax;
+      ctx.globalAlpha = k;
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = r.grosor * (0.6 + k * 1.6);
+      ctx.beginPath();
+      ctx.moveTo(r.x, r.y);
+      ctx.lineTo(r.x + Math.cos(r.ang) * r.largo, r.y + Math.sin(r.ang) * r.largo);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // El arco se dibuja por código, como el resto de efectos: un sector con el

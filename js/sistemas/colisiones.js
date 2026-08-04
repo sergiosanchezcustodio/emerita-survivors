@@ -527,7 +527,7 @@ export function enemigosEnRadio(enemigos, x, y, radio, salida) {
 // proyectil lleva una marca única y el enemigo guarda la del último que le dio,
 // así que atravesar a alguien nunca cuenta dos veces aunque sigan solapados
 // varios frames seguidos.
-export function impactosProyectiles(proyectiles, enemigos) {
+export function impactosProyectiles(proyectiles, enemigos, alEstallar) {
   const rejilla = enemigos.rejilla;
   const items = enemigos.pool.items;
   const inicio = rejilla.inicio;
@@ -569,7 +569,12 @@ export function impactosProyectiles(proyectiles, enemigos) {
       }
     }
 
-    if (agotado) proyectiles.liberarEn(k);   // sin avanzar k: ver Pool
-    else k++;
+    if (agotado) {
+      // Al gastarse deja su onda expansiva, si la lleva. El daño de la
+      // explosión NO es el del impacto: un lanzagranadas reparte poco en el
+      // punto y mucho alrededor.
+      if (p.radioExplosion > 0 && alEstallar) alEstallar(p);
+      proyectiles.liberarEn(k);              // sin avanzar k: ver Pool
+    } else k++;
   }
 }

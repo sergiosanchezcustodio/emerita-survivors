@@ -4,7 +4,7 @@ import { ANCHO_FISICO, ESCALA_ARTE } from '../core/constantes.js';
 // arte: es interfaz de desarrollo, no pixel art, y tiene que leerse.
 const LINEAS = [];
 
-const AYUDA = 'F3 · ESC · C personaje · J/H mas/menos jugadores · 1/2/3/4 enemigos · X vaciar · G inmortal · R revivir · K +Gladius · L subir armas'
+const AYUDA = 'F3 · ESC · C personaje · J/H mas/menos jugadores · 1/2/3/4 enemigos · X vaciar · G inmortal · R revivir · M/, cambiar de arma · K +Gladius · L subir nivel'
             + '   ||   APAGAR: Y suelo · P particulas · N numeros · O efectos · T destello';
 
 export function dibujarDepuracion(ctx, datos) {

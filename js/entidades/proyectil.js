@@ -23,6 +23,9 @@ function crearProyectil() {
     radio: 0,
     perforacion: 0,          // enemigos que aún puede atravesar
     sello: 0,                // marca para no golpear dos veces al mismo
+    // Al agotarse deja una onda expansiva de este radio. 0 = no estalla.
+    radioExplosion: 0, danyoExplosion: 0,
+    estallaAlExpirar: false, // las granadas revientan aunque no den a nadie
     color: '#fff', estela: null,
     largo: 8                 // longitud del trazo al dibujar
   };
@@ -60,11 +63,16 @@ export class Proyectiles {
     p.color = def.color;
     p.estela = def.estela || null;
     p.largo = def.largo || 8;
+    p.radioExplosion = def.radioExplosion || 0;
+    p.danyoExplosion = def.danyoExplosion || 0;
+    p.estallaAlExpirar = !!def.estallaAlExpirar;
     p.sello = contadorSello++;
     return p;
   }
 
-  mover(dt) {
+  // `alEstallar` es una referencia de función, no una closure: la fija main.js
+  // una vez. Se llama con el proyectil que acaba de expirar y que debe reventar.
+  mover(dt, alEstallar) {
     const items = this.pool.items;
     let k = 0;
     while (k < this.pool.activos) {
@@ -74,8 +82,12 @@ export class Proyectiles {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.vida -= dt;
-      if (p.vida <= 0) this.pool.liberarEn(k);   // sin avanzar k: ver Pool
-      else k++;
+      if (p.vida <= 0) {
+        // Una granada que no acierta a nadie tiene que estallar igual: caer al
+        // suelo y desaparecer sin más sería lo contrario de lo que promete.
+        if (p.estallaAlExpirar && p.radioExplosion > 0 && alEstallar) alEstallar(p);
+        this.pool.liberarEn(k);                  // sin avanzar k: ver Pool
+      } else k++;
     }
   }
 

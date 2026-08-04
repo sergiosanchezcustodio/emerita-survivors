@@ -110,6 +110,7 @@ function crearEnemigo() {
     vida: 0, vidaMaxima: 0, velocidad: 0,
     sepX: 0, sepY: 0, contactos: 0,
     empujeX: 0, empujeY: 0,
+    frenado: 0,              // 0..1, cuánto le ralentiza una red o un charco
     destello: 0,             // segundos que queda blanqueado tras un impacto
     ultimoSello: 0,          // marca del último proyectil que le golpeó
     radio: 0, radioCuerpo: 0, radioSep: 0, invMasa: 1, vuela: false,
@@ -141,6 +142,7 @@ export class Enemigos {
     this.dibujados = 0;
     this.reciclados = 0;
     this.bajas = 0;
+    this.recogibles = null;    // lo enchufa main.js
   }
 
   get activos() { return this.pool.activos; }
@@ -161,6 +163,7 @@ export class Enemigos {
     e.velocidad = def.velocidad * ESCALA_VELOCIDAD;
     e.sepX = 0; e.sepY = 0;
     e.empujeX = 0; e.empujeY = 0;
+    e.frenado = 0;
     e.destello = 0;
     e.ultimoSello = 0;
     e.radio = def.radio;
@@ -230,7 +233,15 @@ export class Enemigos {
         dx = 0; dy = 0;
       }
 
-      const v = e.velocidad;
+      // El frenado lo imponen las redes y los charcos, y se desvanece solo. Es
+      // un valor máximo, no acumulativo: dos redes solapadas frenan lo mismo
+      // que una, o bastaría con apilar armas de control para dejar el mapa
+      // congelado.
+      const v = e.velocidad * (1 - e.frenado);
+      if (e.frenado > 0) {
+        e.frenado -= dt * 1.6;
+        if (e.frenado < 0) e.frenado = 0;
+      }
       e.x += dx * v * dt;
       e.y += dy * v * dt;
 
@@ -292,6 +303,11 @@ export class Enemigos {
       // Con la matanza en marcha se recorta el estallido: cuando mueren cien a
       // la vez, nadie distingue siete partículas de tres, pero el coste sí se
       // nota. La muerte SIEMPRE deja algo, o el enemigo se esfumaría sin más.
+      // Suelta su gema de experiencia. El gestor de recogibles se enchufa desde
+      // fuera para que enemigo.js no dependa de él: si algún día un enemigo no
+      // debe soltar nada, basta con no ponerlo.
+      if (this.recogibles) this.recogibles.soltar(e.x, e.y, e.def.xp || 1);
+
       const apretado = Particulas.saturado();
       Particulas.estallido(e.x, e.y - 4, apretado ? 3 : 7, 70, 0.45, 2,
                            COLOR_SANGRE, 1, this._rng);

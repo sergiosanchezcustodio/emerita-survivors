@@ -39,7 +39,9 @@ export const ARMAS = {
       { recarga: -0.15 },
       { proyectiles: 1 },
       { danyo: 6, perforacion: 1 },
-      { danyo: 8, recarga: -0.15 }
+      { danyo: 8, recarga: -0.15 },
+      { danyo: 6 },
+      { danyo: 9, recarga: -0.15 }
     ]
   },
 
@@ -63,62 +65,245 @@ export const ARMAS = {
       { golpes: 1 },
       { angulo: 25, alcance: 8 },
       { danyo: 9 },
-      { danyo: 12, alcance: 10 }
+      { danyo: 12, alcance: 10 },
+      { danyo: 6 },
+      { danyo: 9, recarga: -0.15 }
     ]
   },
 
-  // --- Catálogo completo, pendiente de comportamiento (Fase 4) ------------
-  // Las entradas existen ya porque son datos del plan y no cuesta nada
-  // tenerlas. Sus comportamientos todavía no están implementados: el motor
-  // avisa por consola una vez y las ignora, en vez de reventar.
-  scutum: {
-    nombre: 'Scutum', descripcion: 'Escudos que orbitan.',
-    comportamiento: 'orbital',
-    danyo: 15, recarga: 0, escudos: 1, radioOrbita: 40, velocidadAngular: 2.2,
-    empuje: 120, color: '#c9b07a',
-    niveles: [{}, { escudos: 1 }, { radioOrbita: 8 }, { danyo: 6 },
-              { escudos: 1 }, { velocidadAngular: 0.6 }, { escudos: 1 }, { danyo: 10 }]
+  pistola: {
+    nombre: 'Pistola',
+    descripcion: 'Tiro certero al más cercano. Rápida y de largo alcance.',
+    comportamiento: 'proyectilDirigido',
+    danyo: 7,
+    recarga: 0.55,
+    proyectiles: 1,
+    velocidad: 400,
+    alcance: 340,
+    radio: 3,
+    perforacion: 0,
+    dispersion: 4,
+    empuje: 40,
+    color: '#ffe9b0',
+    estela: '#8f7a4a',
+    niveles: [
+      {},
+      { danyo: 2 },
+      { recarga: -0.08 },
+      { danyo: 3, perforacion: 1 },
+      { proyectiles: 1 },
+      { recarga: -0.08 },
+      { danyo: 5 },
+      { proyectiles: 1, danyo: 5 },
+      { danyo: 6 },
+      { danyo: 9, recarga: -0.15 }
+    ]
   },
-  tribulus: {
-    nombre: 'Tribulus', descripcion: 'Abrojos que quedan en el suelo.',
-    comportamiento: 'trampaSuelo',
-    danyo: 8, recarga: 3.0, cantidad: 3, duracion: 5, radio: 10,
-    empuje: 40, color: '#8f8271',
-    niveles: [{}, { cantidad: 1 }, { danyo: 3 }, { duracion: 2 },
-              { cantidad: 2 }, { danyo: 4 }, { duracion: 2 }, { cantidad: 2 }]
+
+  escopeta: {
+    nombre: 'Escopeta',
+    descripcion: 'Abanico de perdigones. Poco alcance, mucho destrozo.',
+    comportamiento: 'conoCorto',
+    danyo: 6,
+    recarga: 1.1,
+    proyectiles: 6,
+    velocidad: 260,
+    alcance: 110,
+    angulo: 55,
+    radio: 3,
+    perforacion: 0,
+    empuje: 130,
+    color: '#ffd9a0',
+    estela: '#a05a2a',
+    niveles: [
+      {},
+      { proyectiles: 2 },
+      { danyo: 2 },
+      { alcance: 25, angulo: 8 },
+      { proyectiles: 2 },
+      { danyo: 3, perforacion: 1 },
+      { recarga: -0.2 },
+      { proyectiles: 3, danyo: 4 },
+      { danyo: 6 },
+      { danyo: 9, recarga: -0.15 }
+    ]
   },
-  fuegoGriego: {
-    nombre: 'Fuego griego', descripcion: 'Charco incendiario.',
-    comportamiento: 'zonaPersistente',
-    danyo: 5, intervalo: 0.4, recarga: 4.0, charcos: 1, duracion: 4, radio: 26,
-    empuje: 0, color: '#ff8a3c',
-    niveles: [{}, { radio: 5 }, { duracion: 1.5 }, { danyo: 2 },
-              { charcos: 1 }, { radio: 6 }, { duracion: 2 }, { charcos: 1 }]
+
+  // --- Patrones fijos: no apuntan, barren -------------------------------
+  lanzasGemelas: {
+    nombre: 'Lanzas gemelas',
+    descripcion: 'Barre a izquierda y derecha. No apunta: alíneate.',
+    comportamiento: 'direccionFija', patron: 'horizontal',
+    danyo: 14, recarga: 1.0, proyectiles: 1, velocidad: 250, alcance: 260,
+    radio: 4, perforacion: 1, dispersion: 0, empuje: 90,
+    color: '#e6dcc0', estela: '#8a7d5f', largoTrazo: 10,
+    niveles: [{}, { danyo: 5 }, { perforacion: 1 }, { proyectiles: 1, dispersion: 9 },
+              { recarga: -0.15 }, { danyo: 8 }, { perforacion: 2 }, { proyectiles: 1, danyo: 10 },
+              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
   },
-  ballista: {
-    nombre: 'Ballista', descripcion: 'Virote horizontal perforante.',
-    comportamiento: 'proyectilLineal',
-    danyo: 18, recarga: 2.5, proyectiles: 1, velocidad: 340, alcance: 480,
-    radio: 5, perforacion: 3, empuje: 200, color: '#e8e2d0', estela: '#9aa7b5',
-    niveles: [{}, { perforacion: 2 }, { danyo: 6 }, { velocidad: 60 },
-              { proyectiles: 1 }, { danyo: 8 }, { perforacion: 3 }, { proyectiles: 1 }]
+  columnaDoble: {
+    nombre: 'Columna doble',
+    descripcion: 'Dispara arriba y abajo a la vez.',
+    comportamiento: 'direccionFija', patron: 'vertical',
+    danyo: 15, recarga: 1.1, proyectiles: 1, velocidad: 240, alcance: 230,
+    radio: 4, perforacion: 1, dispersion: 0, empuje: 90,
+    color: '#cfe3f0', estela: '#5f7d8a', largoTrazo: 10,
+    niveles: [{}, { danyo: 5 }, { perforacion: 1 }, { proyectiles: 1, dispersion: 9 },
+              { recarga: -0.15 }, { danyo: 8 }, { perforacion: 2 }, { proyectiles: 1, danyo: 10 },
+              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+  },
+  rosaDeVientos: {
+    nombre: 'Rosa de los vientos',
+    descripcion: 'Cuatro disparos en cruz. Cubre, pero pega flojo.',
+    comportamiento: 'direccionFija', patron: 'cruz',
+    danyo: 8, recarga: 1.3, proyectiles: 1, velocidad: 210, alcance: 200,
+    radio: 3, perforacion: 0, dispersion: 0, empuje: 60,
+    color: '#d8c8f0', estela: '#6a5a8a', largoTrazo: 7,
+    niveles: [{}, { danyo: 3 }, { perforacion: 1 }, { recarga: -0.2 },
+              { danyo: 4 }, { proyectiles: 1, dispersion: 11 }, { perforacion: 1 }, { danyo: 6 },
+              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+  },
+  metralla: {
+    nombre: 'Metralla',
+    descripcion: 'Escupe en direcciones al azar. Caos barato.',
+    comportamiento: 'direccionAleatoria',
+    danyo: 6, recarga: 0.45, proyectiles: 2, velocidad: 200, alcance: 150,
+    radio: 3, perforacion: 0, empuje: 40,
+    color: '#ffcf8a', estela: '#8a5a2a', largoTrazo: 6,
+    niveles: [{}, { proyectiles: 1 }, { danyo: 2 }, { recarga: -0.08 },
+              { proyectiles: 1 }, { danyo: 3 }, { alcance: 50 }, { proyectiles: 2 },
+              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+  },
+
+  // --- Explosivos: mucha área, poco daño directo ------------------------
+  lanzagranadas: {
+    nombre: 'Lanzagranadas',
+    descripcion: 'Sale disparada y revienta al tocar. Área amplia.',
+    comportamiento: 'proyectilExplosivo',
+    danyo: 4, danyoExplosion: 22, radioExplosion: 42,
+    recarga: 2.0, proyectiles: 1, velocidad: 170, alcance: 200,
+    radio: 4, perforacion: 0, dispersion: 12, empuje: 150,
+    color: '#ff9a4a', estela: '#8a3a10', largoTrazo: 7,
+    niveles: [{}, { danyoExplosion: 7 }, { radioExplosion: 8 }, { proyectiles: 1 },
+              { danyoExplosion: 9 }, { radioExplosion: 10 }, { recarga: -0.4 },
+              { proyectiles: 1, danyoExplosion: 12 },
+              { danyoExplosion: 6 }, { danyoExplosion: 9, recarga: -0.15 }]
+  },
+  bombardeo: {
+    nombre: 'Bombardeo',
+    descripcion: 'Bombas al azar por toda la pantalla. No hay que apuntar.',
+    comportamiento: 'bombardeoAleatorio',
+    danyo: 0, danyoExplosion: 26, radioExplosion: 38, duracion: 0.35,
+    recarga: 2.6, proyectiles: 2, empuje: 120,
+    color: '#ffb14a',
+    niveles: [{}, { proyectiles: 1 }, { danyoExplosion: 8 }, { radioExplosion: 8 },
+              { proyectiles: 1 }, { danyoExplosion: 10 }, { recarga: -0.5 },
+              { proyectiles: 2, radioExplosion: 10 },
+              { danyoExplosion: 6 }, { danyoExplosion: 9, recarga: -0.15 }]
+  },
+
+  // --- Ondas y auras: área grande, daño bajo ----------------------------
+  ondaExpansiva: {
+    nombre: 'Onda expansiva',
+    descripcion: 'Anillo que se abre desde ti en todas direcciones.',
+    comportamiento: 'ondaCircular',
+    danyo: 12, radio: 92, duracion: 0.45, recarga: 2.4, empuje: 200,
+    color: '#9adfff',
+    niveles: [{}, { radio: 14 }, { danyo: 4 }, { recarga: -0.3 },
+              { radio: 16 }, { danyo: 6 }, { recarga: -0.3 }, { radio: 22, danyo: 8 },
+              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
   },
   aquila: {
-    nombre: 'Aquila', descripcion: 'Aura de daño constante.',
+    nombre: 'Aquila',
+    descripcion: 'Aura constante a tu alrededor. Poco daño, sin descanso.',
     comportamiento: 'auraPasiva',
-    danyo: 3, intervalo: 0.4, recarga: 0, radio: 44, empuje: 60, color: '#ffd98a',
-    niveles: [{}, { radio: 6 }, { danyo: 1 }, { radio: 6 },
-              { danyo: 2 }, { empuje: 40 }, { radio: 8 }, { danyo: 3 }]
+    danyo: 3, intervalo: 0.4, recarga: 0.5, radio: 46, empuje: 50,
+    color: '#ffd98a',
+    niveles: [{}, { radio: 7 }, { danyo: 1 }, { radio: 7 },
+              { danyo: 2 }, { empuje: 40 }, { radio: 9 }, { danyo: 3 },
+              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+  },
+
+  // --- Suelo: control de zona -------------------------------------------
+  fuegoGriego: {
+    nombre: 'Fuego griego',
+    descripcion: 'Charco incendiario que quema a quien lo pisa.',
+    comportamiento: 'zonaPersistente',
+    danyo: 4, intervalo: 0.35, recarga: 3.4, charcos: 1, duracion: 4.5, radio: 30,
+    ralentiza: 0, empuje: 0, color: '#ff7a2a',
+    niveles: [{}, { radio: 6 }, { duracion: 1.5 }, { danyo: 2 },
+              { charcos: 1 }, { radio: 7 }, { duracion: 2 }, { charcos: 1, danyo: 3 },
+              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
   },
   rete: {
-    nombre: 'Rete', descripcion: 'Red que frena y daña en área.',
+    nombre: 'Rete',
+    descripcion: 'Red que frena a la mitad. Control, no matanza.',
     comportamiento: 'zonaPersistente',
-    danyo: 14, intervalo: 0.5, recarga: 3.5, charcos: 1, duracion: 3, radio: 34,
+    danyo: 3, intervalo: 0.5, recarga: 3.0, charcos: 1, duracion: 3.5, radio: 40,
     ralentiza: 0.5, empuje: 0, color: '#b9c7d6',
-    niveles: [{}, { radio: 6 }, { duracion: 1 }, { danyo: 5 },
-              { radio: 6 }, { duracion: 1 }, { danyo: 7 }, { charcos: 1 }]
+    niveles: [{}, { radio: 8 }, { duracion: 1 }, { danyo: 2 },
+              { charcos: 1 }, { duracion: 1.5 }, { radio: 10 }, { charcos: 1 },
+              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+  },
+
+  // --- Rayos: alcance largo, daño contenido ------------------------------
+  rayoHorizontal: {
+    nombre: 'Rayo de Júpiter',
+    descripcion: 'Haz que atraviesa a todos, de lado a lado.',
+    comportamiento: 'rayoPerforante', patron: 'horizontal',
+    danyo: 11, recarga: 1.8, alcance: 300, grosor: 5, empuje: 70,
+    color: '#bfe4ff',
+    niveles: [{}, { danyo: 4 }, { grosor: 2 }, { recarga: -0.25 },
+              { danyo: 6 }, { alcance: 60 }, { grosor: 3 }, { danyo: 9, recarga: -0.25 },
+              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+  },
+  rayoCruzado: {
+    nombre: 'Rayo cruzado',
+    descripcion: 'Cuatro haces en cruz. Mucho alcance, poco daño.',
+    comportamiento: 'rayoPerforante', patron: 'cruz',
+    danyo: 6, recarga: 2.2, alcance: 260, grosor: 4, empuje: 50,
+    color: '#e0c8ff',
+    niveles: [{}, { danyo: 2 }, { grosor: 2 }, { recarga: -0.3 },
+              { danyo: 3 }, { alcance: 50 }, { grosor: 2 }, { danyo: 5 },
+              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+  },
+
+  // --- Orbitales: daño medio, cobertura pegada a ti ----------------------
+  scutum: {
+    nombre: 'Scutum',
+    descripcion: 'Escudos que giran a tu alrededor y arrollan.',
+    comportamiento: 'orbital',
+    danyo: 13, recarga: 1.0, escudos: 2, radioOrbita: 40, radioEscudo: 8,
+    velocidadAngular: 2.2, empuje: 120, color: '#e0c88a',
+    niveles: [{}, { escudos: 1 }, { radioOrbita: 8 }, { danyo: 5 },
+              { escudos: 1 }, { velocidadAngular: 0.7 }, { escudos: 1 }, { danyo: 9 },
+              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+  },
+
+  // --- Proyectil lineal perforante --------------------------------------
+  ballista: {
+    nombre: 'Ballista',
+    descripcion: 'Virote pesado que atraviesa una fila entera.',
+    comportamiento: 'direccionFija', patron: 'horizontal',
+    danyo: 24, recarga: 2.3, proyectiles: 1, velocidad: 380, alcance: 460,
+    radio: 5, perforacion: 4, dispersion: 0, empuje: 210,
+    color: '#f0eada', estela: '#9aa7b5', largoTrazo: 14,
+    niveles: [{}, { perforacion: 2 }, { danyo: 8 }, { velocidad: 60 },
+              { perforacion: 3 }, { danyo: 10 }, { recarga: -0.4 }, { danyo: 14, perforacion: 4 },
+              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+  },
+  tribulus: {
+    nombre: 'Tribulus',
+    descripcion: 'Abrojos que quedan clavados donde pisas.',
+    comportamiento: 'zonaPersistente',
+    danyo: 6, intervalo: 0.45, recarga: 2.8, charcos: 3, duracion: 5, radio: 14,
+    ralentiza: 0.25, empuje: 30, color: '#c9bda0',
+    niveles: [{}, { charcos: 1 }, { danyo: 2 }, { duracion: 2 },
+              { charcos: 2 }, { danyo: 3 }, { duracion: 2 }, { charcos: 2, danyo: 4 },
+              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
   }
 };
 
-// Con qué arranca la partida. En la Fase 4 lo elegirá el personaje.
+// Con qué arranca cada personaje está en datos/personajes.js. Esto solo queda
+// como repliegue por si alguien pide un arma que no existe.
 export const ARMA_INICIAL = 'pilum';

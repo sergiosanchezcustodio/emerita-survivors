@@ -203,6 +203,119 @@ public class Procesador {
     }
 
     // ---------------------------------------------------------------------
+    // Retrato: recorte de la cabeza desde la ILUSTRACION ORIGINAL
+    // ---------------------------------------------------------------------
+    //
+    // Del original, no del sprite del juego. El sprite mide 28x64 y su cabeza
+    // son 20 pixeles: ampliarla para el panel daria una mancha. Aqui se recorta
+    // de la fuente a resolucion completa (650x1492 en Eric) y se reduce una sola
+    // vez al tamano final, asi que el retrato sale nitido y con detalle.
+    //
+    // Y NO se endurece el alfa ni se cuantiza: el panel de informacion es
+    // interfaz, no pixel art. El juego va pixelado y las ventanas no tienen por
+    // que; un retrato suave al lado de un mundo crujiente no desentona, se lee
+    // como una ficha de personaje.
+    //
+    // Encuadre: se toma la franja superior de la silueta y se centra en el
+    // centroide horizontal de ESA franja, no en el de la figura entera. Importa
+    // porque un brazo estirado desplaza el centro del cuerpo pero no el de la
+    // cabeza, y el retrato saldria descentrado.
+    public static string RecortarCabeza(string entrada, string salida, int lado,
+                                        double fraccionAlto, double margen) {
+        int w, h, stride;
+        byte[] px;
+        using (Bitmap orig = new Bitmap(entrada)) {
+            w = orig.Width; h = orig.Height;
+            using (Bitmap src = new Bitmap(w, h, PixelFormat.Format32bppArgb)) {
+                using (Graphics g = Graphics.FromImage(src)) { g.DrawImage(orig, 0, 0, w, h); }
+                BitmapData d = src.LockBits(new Rectangle(0,0,w,h), ImageLockMode.ReadOnly,
+                                            PixelFormat.Format32bppArgb);
+                stride = d.Stride;
+                px = new byte[stride*h];
+                Marshal.Copy(d.Scan0, px, 0, px.Length);
+                src.UnlockBits(d);
+            }
+        }
+
+        // Silueta completa
+        int minY = h, maxY = -1, minX = w, maxX = -1;
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                if (px[y*stride + x*4 + 3] > 40) {
+                    if (y < minY) minY = y; if (y > maxY) maxY = y;
+                    if (x < minX) minX = x; if (x > maxX) maxX = x;
+                }
+        if (maxY < 0) return "VACIA";
+
+        int altoSil = maxY - minY + 1;
+        int yFin = minY + (int)(altoSil * fraccionAlto);
+
+        // Centroide horizontal SOLO de la franja de la cabeza
+        long suma = 0; int cuenta = 0;
+        int hMinX = w, hMaxX = -1;
+        for (int y = minY; y <= yFin; y++)
+            for (int x = minX; x <= maxX; x++)
+                if (px[y*stride + x*4 + 3] > 40) {
+                    suma += x; cuenta++;
+                    if (x < hMinX) hMinX = x; if (x > hMaxX) hMaxX = x;
+                }
+        if (cuenta == 0) return "VACIA";
+        int cx = (int)(suma / cuenta);
+
+        // Caja cuadrada que cubra la cabeza con holgura
+        int altoCabeza = yFin - minY + 1;
+        int anchoCabeza = hMaxX - hMinX + 1;
+        int ladoCaja = (int)(Math.Max(altoCabeza, anchoCabeza) * (1.0 + margen));
+        int x0 = cx - ladoCaja / 2;
+        int y0 = minY - (int)(altoCabeza * margen * 0.5);
+
+        // --- Reduccion por media de area con alfa premultiplicado ----------
+        byte[] dst = new byte[lado * 4 * lado];
+        int dStride = lado * 4;
+        for (int y = 0; y < lado; y++) {
+            int sy0 = y0 + (int)((long)y * ladoCaja / lado);
+            int sy1 = y0 + (int)((long)(y+1) * ladoCaja / lado);
+            if (sy1 <= sy0) sy1 = sy0 + 1;
+            for (int x = 0; x < lado; x++) {
+                int sx0 = x0 + (int)((long)x * ladoCaja / lado);
+                int sx1 = x0 + (int)((long)(x+1) * ladoCaja / lado);
+                if (sx1 <= sx0) sx1 = sx0 + 1;
+
+                long sA=0, sR=0, sG=0, sB=0; int n=0;
+                for (int sy = sy0; sy < sy1; sy++) {
+                    if (sy < 0 || sy >= h) { n++; continue; }
+                    for (int sx = sx0; sx < sx1; sx++) {
+                        if (sx < 0 || sx >= w) { n++; continue; }
+                        int p = sy*stride + sx*4;
+                        int a = px[p+3];
+                        sA += a;
+                        sB += px[p]*a; sG += px[p+1]*a; sR += px[p+2]*a;
+                        n++;
+                    }
+                }
+                int q = y*dStride + x*4;
+                if (sA == 0) { dst[q]=0; dst[q+1]=0; dst[q+2]=0; dst[q+3]=0; }
+                else {
+                    dst[q]   = (byte)(sB / sA);
+                    dst[q+1] = (byte)(sG / sA);
+                    dst[q+2] = (byte)(sR / sA);
+                    dst[q+3] = (byte)(sA / n);
+                }
+            }
+        }
+
+        using (Bitmap sal = new Bitmap(lado, lado, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0,0,lado,lado), ImageLockMode.WriteOnly,
+                                         PixelFormat.Format32bppArgb);
+            for (int y = 0; y < lado; y++)
+                Marshal.Copy(dst, y*dStride, (IntPtr)(dd.Scan0.ToInt64() + y*dd.Stride), dStride);
+            sal.UnlockBits(dd);
+            sal.Save(salida, ImageFormat.Png);
+        }
+        return lado + "|" + lado + "|1";
+    }
+
+    // ---------------------------------------------------------------------
     // Animacion horneada de personajes
     // ---------------------------------------------------------------------
     //
@@ -789,6 +902,20 @@ foreach ($e in $CATALOGO) {
     # silueta puede tocar los cuatro bordes y estar perfectamente recortada.
     $quitado = 100 - $opaco
     $estado = if ($quitado -lt 5) { 'FALLO' } elseif ($quitado -lt 15) { 'DUDOSO' } else { 'OK' }
+
+    # Retrato para el panel de informacion, recortado del ORIGINAL.
+    if ($null -ne $e.cadera) {
+        $rutaCara = Join-Path $DESTINO ("personajes\" + $e.id + "-cara.png")
+        try {
+            [Procesador]::RecortarCabeza($rutaSrc, $rutaCara, 72, 0.30, 0.22) | Out-Null
+            $atlas[$e.id + 'Cara'] = [ordered]@{
+                archivo = "personajes/$($e.id)-cara.png"
+                w = 72; h = 72; anclaX = 36; anclaY = 72; frames = 1
+            }
+        } catch {
+            Write-Host "  aviso: no se pudo recortar la cabeza de $($e.id)"
+        }
+    }
 
     $nFrames = 1
     $clips = $null

@@ -20,6 +20,12 @@ const ABAJO     = ['KeyS', 'ArrowDown'];
 // Cruceta en el mapeo estándar del navegador. NO son ejes, son botones.
 const CRUZ_ARRIBA = 12, CRUZ_ABAJO = 13, CRUZ_IZQ = 14, CRUZ_DER = 15;
 
+// Umbrales del stick cuando se usa como cruceta en los menús. Dos, no uno:
+// hace falta histéresis o el temblor del stick en el límite dispara flancos sin
+// parar. Ver Control.flancoEje.
+const UMBRAL_MENU = 0.65;
+const UMBRAL_SUELTA = 0.4;
+
 // El vector de movimiento de un jugador y el flanco de sus botones. Uno por
 // jugador, preasignados: no se crean ni se destruyen durante la partida.
 export class Control {
@@ -31,12 +37,37 @@ export class Control {
     this.conectado = false;       // ¿tiene mando propio enchufado?
     this._botonesPrev = 0;
     this._flancoBotones = 0;
+    this._ejeXFlanco = 0;
+    this._ejeYFlanco = 0;
   }
 
   consumirBoton(boton) {
     const bit = 1 << boton;
     if (this._flancoBotones & bit) { this._flancoBotones &= ~bit; return true; }
     return false;
+  }
+
+  // Flanco del STICK tratado como si fuera una cruceta.
+  //
+  // Hace falta porque en los menús el stick no servía: la cruceta son botones y
+  // tiene flanco, pero el stick es un eje continuo, así que "moverlo a la
+  // derecha" no es un evento, es un estado. Sin esto, el jugador que use stick
+  // se queda mirando el menú sin poder cambiar de opción.
+  //
+  // El umbral de vuelta (0.4) es MENOR que el de ida (0.65) a propósito: con un
+  // solo umbral, un stick temblando en el límite dispararía una ristra de
+  // flancos. Es la misma histéresis de un termostato.
+  flancoEje(horizontal) {
+    const v = horizontal ? this.ejeX : this.ejeY;
+    const prev = horizontal ? this._ejeXFlanco : this._ejeYFlanco;
+    let signo = 0;
+    if (v > UMBRAL_MENU) signo = 1;
+    else if (v < -UMBRAL_MENU) signo = -1;
+    else if (Math.abs(v) < UMBRAL_SUELTA) signo = 0;
+    else signo = prev;                    // en tierra de nadie, no cambia
+
+    if (horizontal) this._ejeXFlanco = signo; else this._ejeYFlanco = signo;
+    return signo !== prev ? signo : 0;    // solo el instante del cruce
   }
 }
 
