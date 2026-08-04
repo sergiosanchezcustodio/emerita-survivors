@@ -15,12 +15,14 @@ import { FUENTE, textoBorde } from './capa.js';
 // pantalla. Las coordenadas siguen siendo las de 960x540, pero el texto se
 // rasteriza a la resolución real del monitor.
 //
-// SIN MARCO Y SIN FONDO. No hay rectángulo detrás: los elementos flotan sobre
-// el juego y se sostienen con un reborde oscuro. Con caja, el panel tapaba una
-// esquina entera del anfiteatro y, con cuatro jugadores, cuatro esquinas — que
-// en un juego donde lo que mata es quedar rodeado significa cuatro sitios por
-// los que te llegan sin verlos venir. El reborde da la misma legibilidad y no
-// cuesta ni un píxel de campo de visión.
+// CAJA TRANSLÚCIDA, no opaca, y ese es el punto entero. La ficha vuelve a tener
+// marco y fondo —dan cohesión y evitan que ocho elementos sueltos floten sobre
+// la arena— pero se ve el juego a través de ella. Con la caja opaca, cuatro
+// jugadores tapaban cuatro esquinas del anfiteatro, y en un juego donde lo que
+// mata es quedar rodeado eso son cuatro sitios por los que te llegan sin verlos
+// venir. Todos los rellenos van por debajo del 40% de alfa y los textos llevan
+// además reborde oscuro, que es lo que les permite leerse sobre lo que sea que
+// pase por debajo.
 //
 // LOS ICONOS SON PROCEDURALES, dibujados por código a partir del comportamiento
 // del arma y del color que trae en sus datos. No hay ni un PNG de icono, y es
@@ -37,25 +39,26 @@ import { FUENTE, textoBorde } from './capa.js';
 
 // --- Medidas -----------------------------------------------------------------
 //
-// EL RETRATO OCUPA TODA LA ALTURA DE LA FICHA, en una columna propia, y el resto
-// —nombre, vida, experiencia y las ocho ranuras— va en la columna de al lado.
+// DOS BLOQUES separados por una línea vertical: a un lado la TARJETA DE
+// IDENTIDAD (retrato, nombre y nivel), al otro el ESTADO (vida, experiencia y
+// las ocho ranuras). Sigue el diseño de referencia que pasó Sergio.
 //
-// Antes el retrato era un cuadrado arriba y las dos filas de ranuras cruzaban la
-// ficha entera por debajo, así que ocho casillas ocupaban dos tercios de la
-// pieza y el jugador quedaba reducido a una miniatura encima de sus barras. Está
-// al revés de lo que la ficha tiene que decir: lo que importa de un vistazo es
-// QUIÉN eres y CÓMO estás; el inventario es consulta.
-//
-// Repartiéndolo en dos columnas, el retrato pasa a ser lo más grande de la
-// ficha, las barras ganan grosor, y las ranuras se quedan en el ancho de su
-// propia columna —que siguen repartiéndose entero— en vez del de la ficha.
-const ANCHO = 138;
-const MARGEN = 9;
-const CABEZA_ANCHO = 44;   // el alto es el de la ficha entera
-const HUECO_CABEZA = 6;
-const COLUMNA = ANCHO - CABEZA_ANCHO - HUECO_CABEZA;
-const HUECO_RANURA = 5;    // entre ranuras de la misma fila
-const HUECO_FILA = 4;      // entre la fila de armas y la de pasivos
+// La separación no es decorativa: son dos cosas que se consultan en momentos
+// distintos. Quién eres se mira una vez al empezar y luego solo de reojo para
+// localizar tu esquina; cuánta vida te queda se mira cada pocos segundos. Con
+// todo mezclado en una sola columna, el ojo tenía que recorrer la ficha entera
+// para encontrar la barra.
+const ANCHO = 162;
+const MARGEN = 9;              // separación al borde de la pantalla
+const RELLENO_H = 5;           // margen interior horizontal
+const RELLENO_V = 4;           // margen interior vertical
+
+const TARJETA_ANCHO = 42;      // bloque de identidad
+const HUECO_SEP = 4;           // aire a cada lado de la línea separadora
+const COLUMNA = ANCHO - RELLENO_H * 2 - TARJETA_ANCHO - HUECO_SEP * 2;
+
+const HUECO_RANURA = 5;        // entre ranuras de la misma fila
+const HUECO_FILA = 4;          // entre la fila de armas y la de pasivos
 
 // SIEMPRE cuatro ranuras por fila, llenas o vacías, y reparten el ancho entero
 // de SU columna. Las vacías no son decoración: MAX_ARMAS y MAX_PASIVOS son 4,
@@ -63,34 +66,66 @@ const HUECO_FILA = 4;      // entre la fila de armas y la de pasivos
 // que se toma cada subida de nivel. Con las ranuras apareciendo según se
 // llenan, la fila cambiaba de tamaño y no se sabía si cabía algo más.
 const RANURAS = 4;
-const RANURA = (COLUMNA - (RANURAS - 1) * HUECO_RANURA) / RANURAS;
+const RANURA_W = (COLUMNA - (RANURAS - 1) * HUECO_RANURA) / RANURAS;
+const RANURA_H = 17.5;         // algo más anchas que altas, como la referencia
 
-// --- Alturas dentro de la columna de texto -----------------------------------
-const Y_VIDA = 15, ALTO_VIDA = 8;
-const Y_XP = 26, ALTO_XP = 4;
-const Y_FILA_ARMAS = 34;
-const Y_FILA_PASIVOS = Y_FILA_ARMAS + RANURA + HUECO_FILA;
+// --- Alturas, medidas desde el borde superior de la ficha --------------------
+const Y_VIDA = RELLENO_V, ALTO_VIDA = 9;
+const Y_XP = 15, ALTO_XP = 6;
+const Y_ARMAS = 24.5;
+const Y_PASIVOS = Y_ARMAS + RANURA_H + HUECO_FILA;
 
 // Alto total de la ficha, y su margen. Los exporta para que el menú de subida de
 // nivel pueda colocarse por detrás sin repetir la aritmética: cuando la ficha
 // cambiaba de tamaño, el menú se quedaba con el número viejo y se solapaban.
-export const ALTO_FICHA = Y_FILA_PASIVOS + RANURA;
+export const ALTO_FICHA = Y_PASIVOS + RANURA_H + RELLENO_V;
 export const MARGEN_FICHA = MARGEN;
+
+// Dentro de la tarjeta de identidad.
+const TARJETA_ALTO = ALTO_FICHA - RELLENO_V * 2;
+const RETRATO_INSET = 3;
+const RETRATO_ANCHO = TARJETA_ANCHO - RETRATO_INSET * 2;
+const Y_RETRATO = RELLENO_V + 2;
+const ALTO_RETRATO = 36;
+const Y_NOMBRE = 49.5;
+const Y_NIVEL = 58.5;
+
+// Radios de esquina. Todo redondeado y en cascada: la ficha más que la tarjeta,
+// la tarjeta más que las ranuras. Es lo que hace que las piezas pequeñas se lean
+// como contenidas dentro de las grandes y no como pegatinas encima.
+const R_FICHA = 5;
+const R_TARJETA = 3;
+const R_RANURA = 2.5;
+const R_BARRA = 1.5;
 
 const COLOR_JUGADOR = ['#5aa9e6', '#e8b73a', '#8fbf5a', '#d64b8f'];
 const COLOR_PASIVO = '#9fd0e8';
 
-// La experiencia es IGUAL para los cuatro. Es la única barra que mide lo mismo
-// para todo el mundo —cuánto falta para la siguiente elección— y teñirla del
-// color de cada jugador la convertía en otra marca de identidad más, compitiendo
-// con el nombre y con las ranuras. Marfil, que además es el material del nivel.
-const COLOR_XP = '#e9d9a4';
+// --- Colores -----------------------------------------------------------------
+// TODOS los rellenos son translúcidos. La ficha tiene caja, pero se ve el juego
+// a través de ella: con cuatro jugadores, cuatro cajas opacas taparían las
+// cuatro esquinas del anfiteatro.
+const PANEL_FONDO   = 'rgba(18,13,10,.34)';
+const PANEL_BORDE   = 'rgba(236,226,206,.30)';
+const HUECO_FONDO   = 'rgba(10,7,6,.26)';   // tarjeta y ranuras
+const SEPARADOR     = 'rgba(236,226,206,.28)';
+const CARRIL        = 'rgba(8,6,5,.52)';    // fondo de las barras
+const CARRIL_BORDE  = 'rgba(236,226,206,.22)';
 
-// Marco de la ranura: suave, translúcido y TEÑIDO DEL COLOR DEL JUGADOR. Lleva
-// relleno oscuro Y borde claro porque el panel no tiene fondo: contra la arena
-// del anfiteatro solo el borde de color desaparecería, y contra una zona de
-// fuego solo el relleno oscuro.
-const RANURA_FONDO = 'rgba(10,8,16,.30)';
+// Vida ROJA, siempre, sin cambiar de color al bajar. El semáforo verde-ámbar-
+// rojo daba la misma información dos veces —la longitud de la barra ya dice
+// cuánto queda— y a cambio hacía que la barra llena y la barra crítica fueran
+// dos objetos distintos en pantalla, que es justo lo que no quieres cuando
+// buscas tu propia ficha entre cuatro.
+const COLOR_VIDA = '#c8443c';
+const COLOR_VIDA_ALTO = 'rgba(255,196,186,.40)';   // filo superior, da volumen
+
+// Experiencia en azul oscuro e IGUAL para los cuatro: es la única barra que mide
+// lo mismo para todo el mundo —cuánto falta para la siguiente elección— y
+// teñirla del color de cada jugador la convertía en otra marca de identidad
+// más, compitiendo con el nombre y con las ranuras.
+const COLOR_XP = '#2f5aa8';
+const COLOR_XP_ALTO = 'rgba(150,190,255,.35)';
 
 function rgba(hex, a) {
   const n = parseInt(hex.slice(1), 16);
@@ -98,22 +133,21 @@ function rgba(hex, a) {
 }
 // Precalculadas al cargar el módulo. Componer estas cadenas dentro del bucle de
 // dibujado serían ocho por jugador y frame tiradas a la basura.
-const BORDE_VACIA = COLOR_JUGADOR.map((c) => rgba(c, 0.24));
-const BORDE_LLENA = COLOR_JUGADOR.map((c) => rgba(c, 0.46));
+const BORDE_VACIA = COLOR_JUGADOR.map((c) => rgba(c, 0.26));
+const BORDE_LLENA = COLOR_JUGADOR.map((c) => rgba(c, 0.55));
 
 // Sombra de las formas. Para el texto se usa textoBorde, que da un contorno más
 // duro; para los glifos basta con esto y no hay que pelearse con los grosores de
 // línea que cada uno se pone por su cuenta.
+//
+// No hace falta apagarla a mano: la sombra sí entra en la pila de save/restore
+// del canvas —al contrario que letterSpacing, ver ui/capa.js— y todos los sitios
+// que la ponen están dentro de un save.
 function sombraDura(ctx) {
   ctx.shadowColor = 'rgba(5,4,9,.95)';
   ctx.shadowBlur = 2.5;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 1;
-}
-function sinSombra(ctx) {
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetY = 0;
 }
 
 // --- Iconos -----------------------------------------------------------------
@@ -250,87 +284,97 @@ function glifoPasivo(ctx, campo, r) {
 // ILUSTRACIÓN ORIGINAL por la herramienta (ver RecortarCabeza en
 // procesar-assets.ps1) y guardado en el atlas como `<id>Cara` a 264x438.
 //
-// Alto y estrecho porque el hueco lo es. Con una imagen cuadrada en una columna
-// vertical había que elegir entre dejar aire o recortar media cara; encuadrando
-// el busto desde el original, llena su sitio tal cual. Y se lee mejor: una
-// cabeza flotando sin cuello parece un icono, un busto parece una ficha.
+// CUADRADO: de los hombros a la cabeza y nada más. El busto largo que llegaba al
+// pecho encajaba en la columna vertical del diseño anterior, pero aquí el
+// retrato va en un recuadro casi cuadrado dentro de su tarjeta, y ahí un busto
+// obliga a alejar la cámara: la cara —lo único que identifica al jugador de un
+// vistazo— se quedaba pequeña para dejar sitio a una camiseta que no dice nada.
 //
-// 264x438 y no 192x192, que es lo que había: esta capa dibuja a la resolución
+// 288x288 y no 192x192, que es lo que había: esta capa dibuja a la resolución
 // real del monitor, así que con zoom de pantalla 3x y densidad 2x un retrato de
-// 44 unidades de ancho pide 264 píxeles de verdad. Con la fuente más pequeña
-// había que AMPLIARLO, y por eso se veía blando pese a venir de una ilustración
-// de 650x1492.
+// 36 unidades pide 216 píxeles de verdad. Desde 192 había que AMPLIARLO, y por
+// eso se veía blando pese a venir de una ilustración de 650x1492.
 //
 // Se dibuja CON suavizado, al revés que el mundo. El juego es pixel art y va a
 // vecino más próximo; el retrato es interfaz y puede permitirse todo el detalle
 // que tenga la ilustración.
-//
-// Sin marco: se desvanece por abajo con un degradado en vez de cortarse contra
-// un borde. Un recorte duro sin caja que lo justifique parece un error.
-function dibujarCabeza(ctx, x, y, alto, jugador) {
+function dibujarCabeza(ctx, x, y, ancho, alto, jugador) {
   const img = Recursos.imagen(jugador.id + 'Cara');
   if (!img) return;
 
   ctx.save();
   ctx.beginPath();
-  ctx.rect(x, y, CABEZA_ANCHO, alto);
+  ctx.roundRect(x, y, ancho, alto, R_TARJETA);
   ctx.clip();
 
   // Encaje "cubrir": se escala por el lado que se quede corto y se centra, así
   // que el hueco queda lleno pase lo que pase con la proporción de la fuente.
   // Recortar unas décimas por los lados es invisible; una banda vacía, no.
-  const escala = Math.max(CABEZA_ANCHO / img.width, alto / img.height);
+  const escala = Math.max(ancho / img.width, alto / img.height);
   const w = img.width * escala;
   const h = img.height * escala;
-  sombraDura(ctx);
-  ctx.drawImage(img, x + (CABEZA_ANCHO - w) / 2, y + (alto - h) / 2, w, h);
-  sinSombra(ctx);
+  ctx.drawImage(img, x + (ancho - w) / 2, y + (alto - h) / 2, w, h);
+  ctx.restore();
+}
 
-  // Desvanecido por abajo. Se BORRA con 'destination-out' en vez de pintar un
-  // degradado del color del fondo, porque aquí no hay fondo: debajo está el
-  // juego, y un degradado a un color concreto se vería como una mancha.
-  const franja = alto * 0.22;
-  const desde = y + alto - franja;
-  const grad = ctx.createLinearGradient(0, desde, 0, y + alto);
-  grad.addColorStop(0, 'rgba(0,0,0,0)');
-  grad.addColorStop(1, 'rgba(0,0,0,1)');
-  ctx.globalCompositeOperation = 'destination-out';
-  ctx.fillStyle = grad;
-  ctx.fillRect(x, desde, CABEZA_ANCHO, franja);
+// Rectángulo redondeado, relleno y/o con borde. Se repite en la ficha, la
+// tarjeta, las ranuras y las barras, y siempre con las mismas tres decisiones.
+function caja(ctx, x, y, w, h, r, relleno, borde, grosor = 1) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  if (relleno) { ctx.fillStyle = relleno; ctx.fill(); }
+  if (borde) { ctx.lineWidth = grosor; ctx.strokeStyle = borde; ctx.stroke(); }
+}
+
+// Barra con carril, relleno redondeado y un filo claro arriba que le da volumen.
+// El carril oscuro no es "fondo del panel": es parte de la barra, y sin él no se
+// distingue lo que falta de lo que directamente no hay.
+function dibujarBarra(ctx, x, y, w, h, frac, color, filo) {
+  caja(ctx, x, y, w, h, R_BARRA, CARRIL, CARRIL_BORDE);
+  if (frac <= 0) return;
+
+  // El relleno se recorta contra el carril, así que a fracciones bajas conserva
+  // la esquina redondeada de la izquierda y no se convierte en una astilla.
+  const w2 = Math.max(h * 0.5, w * frac);
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, R_BARRA);
+  ctx.clip();
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w2, h, R_BARRA);
+  ctx.fill();
+  ctx.fillStyle = filo;
+  ctx.fillRect(x, y + 0.5, w2, 1);
   ctx.restore();
 }
 
 // Ranura: marco suave siempre, y dentro el glifo y el nivel si está ocupada.
 // `marco` es el borde ya teñido con el color del jugador.
 function dibujarRanura(ctx, x, y, marco, color, nivel, pintarGlifo) {
-  ctx.save();
-  ctx.beginPath();
-  ctx.roundRect(x + 0.5, y + 0.5, RANURA - 1, RANURA - 1, 3);
-  ctx.fillStyle = RANURA_FONDO;
-  ctx.fill();
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = marco;
-  ctx.stroke();
-  ctx.restore();
+  caja(ctx, x + 0.5, y + 0.5, RANURA_W - 1, RANURA_H - 1, R_RANURA,
+       HUECO_FONDO, marco);
 
   if (pintarGlifo === null) return;
 
   ctx.save();
-  ctx.translate(x + RANURA / 2, y + RANURA / 2);
+  ctx.translate(x + RANURA_W / 2, y + RANURA_H / 2 - 1);
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
   ctx.lineWidth = 1.5;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   sombraDura(ctx);
-  pintarGlifo(ctx, RANURA * 0.31);
+  pintarGlifo(ctx, RANURA_H * 0.34);
   ctx.restore();
 
-  // El nivel es un dato de apoyo, no un titular: pequeño y en la esquina.
-  ctx.font = `600 6px ${FUENTE}`;
+  // El nivel va en la esquina inferior derecha, PISANDO el borde de la ranura.
+  // Dentro tendría que competir con el glifo por el mismo hueco; encima del
+  // borde, con su propio reborde oscuro, se lee sin quitarle sitio a nada.
+  ctx.font = `700 7px ${FUENTE}`;
   ctx.textAlign = 'right';
-  ctx.textBaseline = 'bottom';
-  textoBorde(ctx, String(nivel), x + RANURA - 1.5, y + RANURA - 1, '#ffffff', 1.8);
+  ctx.textBaseline = 'alphabetic';
+  textoBorde(ctx, String(nivel), x + RANURA_W - 0.5, y + RANURA_H, '#ffffff', 2.4);
 }
 
 export function dibujarPaneles(ctx, jugadores) {
@@ -344,77 +388,79 @@ export function dibujarPaneles(ctx, jugadores) {
     const color = COLOR_JUGADOR[indice];
 
     // Esquinas: 0 arriba-izq, 1 arriba-der, 2 abajo-izq, 3 abajo-der. Los de la
-    // derecha van ESPEJADOS —retrato a la derecha, texto e iconos alineados a
-    // la derecha— porque sin caja que los encuadre, un bloque alineado a la
-    // izquierda pegado al borde derecho se lee como descolgado.
+    // derecha van ESPEJADOS —tarjeta de identidad hacia el borde de pantalla—
+    // para que las dos fichas de arriba se lean como un par simétrico y no como
+    // la misma pieza repetida y descolgada.
     const derecha = (i % 2) === 1;
     const abajo = i >= 2;
     const x = derecha ? ANCHO_FISICO - ANCHO - MARGEN : MARGEN;
     const y = abajo ? ALTO_FISICO - ALTO_FICHA - MARGEN : MARGEN;
 
-    // --- Retrato, a toda la altura de la ficha ---------------------------
-    const xCabeza = derecha ? x + ANCHO - CABEZA_ANCHO : x;
-    dibujarCabeza(ctx, xCabeza, y, ALTO_FICHA, j);
+    // --- Caja de la ficha -------------------------------------------------
+    caja(ctx, x + 0.5, y + 0.5, ANCHO - 1, ALTO_FICHA - 1, R_FICHA,
+         PANEL_FONDO, PANEL_BORDE);
 
-    // --- Columna de datos: nombre, nivel, vida, experiencia y ranuras ----
-    const bx = derecha ? x : x + CABEZA_ANCHO + HUECO_CABEZA;
-    const anchoBarra = COLUMNA;
-    const xFin = bx + anchoBarra;
+    // --- Tarjeta de identidad: retrato, nombre y nivel --------------------
+    const xTarjeta = derecha ? x + ANCHO - RELLENO_H - TARJETA_ANCHO
+                             : x + RELLENO_H;
+    caja(ctx, xTarjeta, y + RELLENO_V, TARJETA_ANCHO, TARJETA_ALTO, R_TARJETA,
+         HUECO_FONDO, null);
+    dibujarCabeza(ctx, xTarjeta + RETRATO_INSET, y + Y_RETRATO,
+                  RETRATO_ANCHO, ALTO_RETRATO, j);
 
-    ctx.font = `600 11px ${FUENTE}`;
-    ctx.textBaseline = 'top';
-    ctx.textAlign = derecha ? 'right' : 'left';
-    const xNombre = derecha ? xFin : bx;
-    textoBorde(ctx, `P${i + 1}  ${j.def.nombre}`, xNombre, y,
+    const cxTarjeta = xTarjeta + TARJETA_ANCHO / 2;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `700 9px ${FUENTE}`;
+    textoBorde(ctx, `P${i + 1} ${j.def.nombre}`, cxTarjeta, y + Y_NOMBRE,
                j.abatido ? '#c0453f' : color, 2.6);
+    ctx.font = `700 8.5px ${FUENTE}`;
+    textoBorde(ctx, `LV ${j.nivel}`, cxTarjeta, y + Y_NIVEL, '#f0e8d8', 2.6);
 
-    ctx.textAlign = derecha ? 'left' : 'right';
-    ctx.font = `500 8.5px ${FUENTE}`;
-    textoBorde(ctx, `LV ${j.nivel}`, derecha ? bx : xFin, y + 2, '#cdc5b6', 2.6);
+    // --- Línea separadora -------------------------------------------------
+    // Marca que a un lado está QUIÉN eres y al otro CÓMO estás. Son dos cosas
+    // que se consultan en momentos distintos.
+    const xSep = derecha ? xTarjeta - HUECO_SEP : xTarjeta + TARJETA_ANCHO + HUECO_SEP;
+    ctx.beginPath();
+    ctx.moveTo(xSep, y + RELLENO_V + 1);
+    ctx.lineTo(xSep, y + ALTO_FICHA - RELLENO_V - 1);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = SEPARADOR;
+    ctx.stroke();
 
-    // Barra de vida. El carril oscuro no es "fondo del panel": es parte de la
-    // barra, y sin él no se distingue lo que falta de lo que no hay.
+    // --- Columna de estado -------------------------------------------------
+    const bx = derecha ? x + RELLENO_H : xSep + HUECO_SEP;
+
     const fracVida = Math.max(0, j.vida / j.vidaMaxima);
-    sombraDura(ctx);
-    ctx.fillStyle = 'rgba(10,8,14,.8)';
-    ctx.fillRect(bx, y + Y_VIDA, anchoBarra, ALTO_VIDA);
-    sinSombra(ctx);
-    ctx.fillStyle = fracVida > 0.5 ? '#8fbf5a' : (fracVida > 0.25 ? '#d8a13c' : '#c0453f');
-    ctx.fillRect(bx, y + Y_VIDA, anchoBarra * fracVida, ALTO_VIDA);
+    dibujarBarra(ctx, bx, y + Y_VIDA, COLUMNA, ALTO_VIDA, fracVida,
+                 COLOR_VIDA, COLOR_VIDA_ALTO);
 
-    // La cifra exacta es de consulta, no de vistazo: lo que se lee de un golpe
-    // es cuánto queda de barra verde. Pequeña y discreta.
-    ctx.font = `600 6.5px ${FUENTE}`;
+    // La cifra va DENTRO de la barra y centrada, como en la referencia: es el
+    // mismo dato que la longitud, así que ponerla aparte sería gastar una línea
+    // de ficha en repetir algo que ya se está diciendo.
+    ctx.font = `700 7.5px ${FUENTE}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     textoBorde(ctx, `${Math.ceil(j.vida)} / ${Math.round(j.vidaMaxima)}`,
-               bx + anchoBarra / 2, y + Y_VIDA + ALTO_VIDA / 2, '#ffffff', 1.8);
+               bx + COLUMNA / 2, y + Y_VIDA + ALTO_VIDA / 2 + 0.5, '#ffffff', 2.4);
 
-    // Experiencia: fina, pegada debajo y del MISMO color para los cuatro.
     const fracXp = j.xpNecesaria > 0 ? Math.min(1, j.xp / j.xpNecesaria) : 0;
-    sombraDura(ctx);
-    ctx.fillStyle = 'rgba(10,8,14,.8)';
-    ctx.fillRect(bx, y + Y_XP, anchoBarra, ALTO_XP);
-    sinSombra(ctx);
-    ctx.fillStyle = COLOR_XP;
-    ctx.fillRect(bx, y + Y_XP, anchoBarra * fracXp, ALTO_XP);
+    dibujarBarra(ctx, bx, y + Y_XP, COLUMNA, ALTO_XP, fracXp,
+                 COLOR_XP, COLOR_XP_ALTO);
 
     // --- Filas de ranuras -----------------------------------------------
-    // Dentro de la columna de datos, no cruzando la ficha entera. Se colocan de
-    // fuera hacia dentro: en los paneles espejados, la primera ranura queda
-    // pegada al borde derecho, que es el borde "de casa".
-    const filaArmas = y + Y_FILA_ARMAS;
-    const filaPasivos = y + Y_FILA_PASIVOS;
+    // Se colocan de fuera hacia dentro: en las fichas espejadas, la primera
+    // ranura queda pegada al borde de pantalla, que es el borde "de casa".
     const vacia = BORDE_VACIA[indice];
     const llena = BORDE_LLENA[indice];
-    const paso = RANURA + HUECO_RANURA;
+    const paso = RANURA_W + HUECO_RANURA;
     const colocar = (k) => derecha
-      ? bx + COLUMNA - RANURA - k * paso
+      ? bx + COLUMNA - RANURA_W - k * paso
       : bx + k * paso;
 
     for (let k = 0; k < RANURAS; k++) {
       const a = armas[k];
-      dibujarRanura(ctx, colocar(k), filaArmas, a ? llena : vacia,
+      dibujarRanura(ctx, colocar(k), y + Y_ARMAS, a ? llena : vacia,
         a ? a.def.color : null, a ? a.nivel : 0,
         a ? ((c, r) => glifoArma(c, a.def.comportamiento, r)) : null);
     }
@@ -422,7 +468,7 @@ export function dibujarPaneles(ctx, jugadores) {
     for (let k = 0; k < RANURAS; k++) {
       const id = idsPasivos[k];
       const def = id ? PASIVOS[id] : null;
-      dibujarRanura(ctx, colocar(k), filaPasivos, def ? llena : vacia,
+      dibujarRanura(ctx, colocar(k), y + Y_PASIVOS, def ? llena : vacia,
         def ? COLOR_PASIVO : null, def ? j.pasivos[id] : 0,
         def ? ((c, r) => glifoPasivo(c, def.campo, r)) : null);
     }

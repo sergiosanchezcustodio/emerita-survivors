@@ -982,11 +982,18 @@ $CATALOGO = @(
     @{ src='characters\Vicky.png'; dst='personajes\vicky.png'; id='vicky'; alto=22; anchoFijo=0; tol=0; cadera=0.62; ampPierna=4; ampEscora=4 }
 )
 
-# Retrato de la ficha de jugador. Alto y estrecho porque la ficha le reserva una
-# columna de 44x73 unidades y la capa de interfaz dibuja a la resolucion real del
-# monitor: con zoom 3x y densidad 2x eso son 264x438 pixeles de verdad.
-$CARA_W = 264
-$CARA_H = 438
+# Retrato de la ficha de jugador. CUADRADO: de los hombros a la cabeza y nada
+# mas. El busto largo que llegaba al pecho encajaba en la columna vertical del
+# diseno anterior, pero en el de ahora el retrato va en un recuadro casi
+# cuadrado dentro de su tarjeta, y ahi un busto obliga a alejar la camara: la
+# cara, que es lo unico que identifica al jugador de un vistazo, se quedaba
+# pequena para dejar sitio a una camiseta que no dice nada.
+#
+# 288 y no 192 porque esta imagen se dibuja en la capa de interfaz, a la
+# resolucion real del monitor: 36 unidades de ancho con zoom 3x y densidad 2x
+# son 216 pixeles de verdad, y de 192 habria que ampliar.
+$CARA_W = 288
+$CARA_H = 288
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'enemigos')   | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'personajes') | Out-Null
