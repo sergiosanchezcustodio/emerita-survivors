@@ -1,8 +1,13 @@
 // Los cuatro personajes jugables. DATOS PUROS, cero lógica.
 //
-// `sprite` es el id del atlas. `arma` es con la que empieza: en cooperativo eso
-// ya garantiza que los cuatro arrancan con arsenales distintos, y el sorteo de
-// subida de nivel se encarga de que sigan sin repetirse.
+// `sprite` es el id del atlas. `arma` es SU arma, la que lleva siempre y la que
+// nadie más puede llevar: en cooperativo eso garantiza que los cuatro arrancan
+// distintos, y el sorteo de subida de nivel se encarga de que sigan sin
+// repetirse ni las armas ni los objetos.
+//
+// Elegidas por Sergio, y cada una define una forma de jugar distinta: Eric va
+// pegado con los escudos girando, Vicky tiene que meterse en el montón para
+// barrer con la katana, Lucy dispara desde lejos y Sara no apunta a nada.
 //
 // `mods` son multiplicadores sobre las estadísticas base de la sección 6 del
 // plan (vida 100, velocidad 85, recogida 40). Se aplican al crear el personaje,
@@ -15,7 +20,7 @@ export const PERSONAJES = {
     nombre: 'Eric',
     sprite: 'eric',
     descripcion: 'Aguanta el tipo en primera línea.',
-    arma: 'pilum',
+    arma: 'scutum',
     mods: { vidaMaxima: 1.15, velocidad: 0.95, radioRecogida: 1.0 }
   },
   lucy: {
@@ -29,14 +34,14 @@ export const PERSONAJES = {
     nombre: 'Sara',
     sprite: 'sara',
     descripcion: 'Recoge el botín desde lejos.',
-    arma: 'escopeta',
+    arma: 'campoElectrico',
     mods: { vidaMaxima: 1.0, velocidad: 1.0, radioRecogida: 1.45 }
   },
   vicky: {
     nombre: 'Vicky',
     sprite: 'vicky',
     descripcion: 'Pega primero y pregunta después.',
-    arma: 'gladius',
+    arma: 'katana',
     mods: { vidaMaxima: 0.95, velocidad: 1.05, radioRecogida: 1.0 }
   }
 };

@@ -3,11 +3,11 @@
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
-                                        "w":  20,
-                                        "h":  28,
-                                        "anclaX":  10,
-                                        "anclaY":  28,
-                                        "frames":  1
+                                        "w":  16,
+                                        "h":  14,
+                                        "anclaX":  8,
+                                        "anclaY":  14,
+                                        "frames":  10
                                     },
                       "gargola":  {
                                       "archivo":  "enemigos/gargola.png",
@@ -19,19 +19,19 @@
                                   },
                       "legionario":  {
                                          "archivo":  "enemigos/legionario.png",
-                                         "w":  20,
-                                         "h":  36,
-                                         "anclaX":  10,
-                                         "anclaY":  36,
-                                         "frames":  1
+                                         "w":  50,
+                                         "h":  50,
+                                         "anclaX":  25,
+                                         "anclaY":  50,
+                                         "frames":  8
                                      },
                       "gladiador":  {
                                         "archivo":  "enemigos/gladiador.png",
-                                        "w":  36,
-                                        "h":  34,
-                                        "anclaX":  18,
-                                        "anclaY":  34,
-                                        "frames":  1
+                                        "w":  48,
+                                        "h":  48,
+                                        "anclaX":  24,
+                                        "anclaY":  48,
+                                        "frames":  10
                                     },
                       "arpia":  {
                                     "archivo":  "enemigos/arpia.png",
@@ -43,52 +43,68 @@
                                 },
                       "medusa":  {
                                      "archivo":  "enemigos/medusa.png",
-                                     "w":  28,
+                                     "w":  32,
                                      "h":  40,
-                                     "anclaX":  14,
+                                     "anclaX":  16,
                                      "anclaY":  40,
                                      "frames":  1
                                  },
                       "minotauro":  {
                                         "archivo":  "enemigos/minotauro.png",
-                                        "w":  56,
+                                        "w":  47,
                                         "h":  50,
-                                        "anclaX":  28,
+                                        "anclaX":  24,
                                         "anclaY":  50,
-                                        "frames":  1
+                                        "frames":  10
                                     },
                       "ciclope":  {
                                       "archivo":  "enemigos/ciclope.png",
-                                      "w":  44,
+                                      "w":  68,
                                       "h":  58,
-                                      "anclaX":  22,
+                                      "anclaX":  34,
                                       "anclaY":  58,
                                       "frames":  1
                                   },
                       "manticora":  {
                                         "archivo":  "enemigos/manticora.png",
-                                        "w":  60,
+                                        "w":  84,
                                         "h":  72,
-                                        "anclaX":  30,
+                                        "anclaX":  42,
                                         "anclaY":  72,
                                         "frames":  1
                                     },
                       "cerbero":  {
                                       "archivo":  "enemigos/cerbero.png",
-                                      "w":  124,
+                                      "w":  134,
                                       "h":  120,
-                                      "anclaX":  62,
+                                      "anclaX":  67,
                                       "anclaY":  120,
-                                      "frames":  1
+                                      "frames":  10
                                   },
                       "hidra":  {
                                     "archivo":  "enemigos/hidra.png",
-                                    "w":  156,
+                                    "w":  176,
                                     "h":  156,
-                                    "anclaX":  78,
+                                    "anclaX":  88,
                                     "anclaY":  156,
                                     "frames":  1
                                 },
+                      "loba":  {
+                                   "archivo":  "enemigos/loba.png",
+                                   "w":  188,
+                                   "h":  156,
+                                   "anclaX":  94,
+                                   "anclaY":  156,
+                                   "frames":  1
+                               },
+                      "gemelo":  {
+                                     "archivo":  "enemigos/gemelo.png",
+                                     "w":  44,
+                                     "h":  44,
+                                     "anclaX":  22,
+                                     "anclaY":  44,
+                                     "frames":  1
+                                 },
                       "ericCara":  {
                                        "archivo":  "personajes/eric-cara.png",
                                        "w":  288,
@@ -97,6 +113,14 @@
                                        "anclaY":  288,
                                        "frames":  1
                                    },
+                      "ericCuerpo":  {
+                                         "archivo":  "personajes/eric-cuerpo.png",
+                                         "w":  340,
+                                         "h":  760,
+                                         "anclaX":  170,
+                                         "anclaY":  760,
+                                         "frames":  1
+                                     },
                       "ericIzq":  {
                                       "archivo":  "personajes/eric-izq.png",
                                       "w":  22,
@@ -145,6 +169,14 @@
                                        "anclaY":  288,
                                        "frames":  1
                                    },
+                      "lucyCuerpo":  {
+                                         "archivo":  "personajes/lucy-cuerpo.png",
+                                         "w":  340,
+                                         "h":  760,
+                                         "anclaX":  170,
+                                         "anclaY":  760,
+                                         "frames":  1
+                                     },
                       "lucy":  {
                                    "archivo":  "personajes/lucy.png",
                                    "w":  20,
@@ -178,6 +210,14 @@
                                        "anclaY":  288,
                                        "frames":  1
                                    },
+                      "saraCuerpo":  {
+                                         "archivo":  "personajes/sara-cuerpo.png",
+                                         "w":  340,
+                                         "h":  760,
+                                         "anclaX":  170,
+                                         "anclaY":  760,
+                                         "frames":  1
+                                     },
                       "sara":  {
                                    "archivo":  "personajes/sara.png",
                                    "w":  24,
@@ -211,6 +251,14 @@
                                         "anclaY":  288,
                                         "frames":  1
                                     },
+                      "vickyCuerpo":  {
+                                          "archivo":  "personajes/vicky-cuerpo.png",
+                                          "w":  340,
+                                          "h":  760,
+                                          "anclaX":  170,
+                                          "anclaY":  760,
+                                          "frames":  1
+                                      },
                       "vicky":  {
                                     "archivo":  "personajes/vicky.png",
                                     "w":  20,

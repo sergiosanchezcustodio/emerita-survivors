@@ -20,6 +20,32 @@ export const GEMAS = [
 // dibujado se hunde por acumulación, no por dificultad.
 const TOPE_ANTES_DE_FUSIONAR = 150;
 
+// --- Por qué esto se ha tenido que arreglar ---------------------------------
+//
+// La fusión solo tocaba gemas a más de 400 unidades del grupo. La pantalla mide
+// 480x270, así que ese radio es casi toda la vista: en la práctica no se fusionaba
+// casi nada, el pool de 600 se llenaba, y a partir de ahí `soltar` DESCARTABA la
+// gema. Medido con la curva nueva y un jugador quieto: 98 gemas recogidas, 1003
+// tiradas a la basura en cuatro minutos. O sea, la mayoría de los enemigos que
+// matabas no daban absolutamente nada y el nivel se quedaba clavado.
+//
+// Lo peor es que no se veía: no hay error, no hay aviso, solo una progresión que
+// se atasca sin motivo aparente. Se descubrió al medir por qué subir de nivel se
+// había vuelto lento después de subir la densidad de la curva.
+//
+// Dos cambios y una garantía:
+//   - El radio protegido baja a 90: solo se libran las gemas que el jugador
+//     tiene encima y está a punto de recoger. El resto se agrupa.
+//   - La fusión se acota por frame. Antes podía intentar cientos de fusiones en
+//     un paso, cada una escaneando el pool entero: eso es N² justo cuando la
+//     pantalla está llena, que es cuando menos se puede pagar.
+//   - Y si aun así el pool se llena, el valor NO se pierde: se le suma a una
+//     gema que ya existe. La experiencia total de la partida es siempre la que
+//     han soltado los enemigos, pase lo que pase.
+const RADIO_PROTEGIDO = 90;
+const FUSIONES_POR_PASO = 24;
+const BUSQUEDA_PAREJA = 48;
+
 // Imán: dentro del radio de recogida vuela hacia el jugador ACELERANDO. Que
 // acelere es lo que hace que recoger se sienta bien; a velocidad constante
 // parecen limaduras arrastrándose.
@@ -42,6 +68,8 @@ export class Recogibles {
     this.pool = new Pool(crearGema, capacidad);
     this._rng = rng;
     this.recogidas = 0;
+    this.absorbidas = 0;     // gemas que llegaron con el pool lleno
+    this._cursor = 0;        // turno rotatorio de _absorber
   }
 
   get activas() { return this.pool.activos; }
@@ -55,7 +83,7 @@ export class Recogibles {
       if (xp >= GEMAS[i].valor) { tipo = i; break; }
     }
     const g = this.pool.obtener();
-    if (!g) return null;
+    if (!g) { this._absorber(xp); return null; }
     g.x = g.xPrev = x + (this._rng() - 0.5) * 6;
     g.y = g.yPrev = y + (this._rng() - 0.5) * 4;
     g.vx = 0; g.vy = 0;
@@ -123,11 +151,36 @@ export class Recogibles {
     if (this.pool.activos > TOPE_ANTES_DE_FUSIONAR) this._fusionar(jugadores);
   }
 
+  // Última red: el pool está lleno y hay que colocar `xp` en algún sitio. Se le
+  // suma a una gema ya existente, elegida por turno rotatorio para no cargarlo
+  // todo sobre la misma. Sube de escalón si con lo sumado le corresponde otro,
+  // así que el jugador ve una gema más valiosa, no una gema que miente.
+  //
+  // Cargar sobre una que ya va volando hacia el jugador es correcto y además es
+  // lo mejor que puede pasar: ese valor llega enseguida.
+  _absorber(xp) {
+    const n = this.pool.activos;
+    if (n === 0) return;                 // no hay dónde ponerlo: caso imposible
+    this._cursor = (this._cursor + 1) % n;
+    const g = this.pool.items[this._cursor];
+    g.valor += xp;
+    let tipo = g.tipo;
+    while (tipo < GEMAS.length - 1 && GEMAS[tipo + 1].valor <= g.valor) tipo++;
+    g.tipo = tipo;
+    this.absorbidas++;
+  }
+
   // Fusiona las más lejanas al grupo en gemas de mayor valor. Se conserva el
   // valor total: no se regala ni se roba experiencia, solo se agrupa.
+  //
+  // El trabajo está acotado por paso —tantas fusiones como mucho, y la pareja se
+  // busca en una ventana corta— porque esto corre con la pantalla llena. Quedarse
+  // corto en un frame no importa: el sobrante se fusiona en el siguiente, y
+  // mientras tanto ninguna experiencia se pierde.
   _fusionar(jugadores) {
     const items = this.pool.items;
-    const sobran = this.pool.activos - TOPE_ANTES_DE_FUSIONAR;
+    const sobran = Math.min(FUSIONES_POR_PASO,
+                            this.pool.activos - TOPE_ANTES_DE_FUSIONAR);
     let hechas = 0;
 
     // Centro del grupo, para saber qué es "lejos".
@@ -143,14 +196,18 @@ export class Recogibles {
     while (k < this.pool.activos && hechas < sobran) {
       const g = items[k];
       const dx = g.x - cx, dy = g.y - cy;
-      // Solo las que están de verdad lejos y no se están recogiendo ya.
-      if (g.atraidaPor || dx * dx + dy * dy < 400 * 400 || g.tipo >= GEMAS.length - 1) {
+      // Se libran las que el jugador tiene encima y las que ya vuelan hacia él:
+      // fusionar una gema bajo los pies la haría desaparecer en la cara del
+      // jugador y parecería que se le ha quitado algo.
+      if (g.atraidaPor || dx * dx + dy * dy < RADIO_PROTEGIDO * RADIO_PROTEGIDO ||
+          g.tipo >= GEMAS.length - 1) {
         k++;
         continue;
       }
-      // Busca otra lejana del mismo escalón con la que juntarse.
+      // Busca otra del mismo escalón con la que juntarse, en una ventana corta.
       let pareja = -1;
-      for (let q = k + 1; q < this.pool.activos; q++) {
+      const hasta = Math.min(this.pool.activos, k + 1 + BUSQUEDA_PAREJA);
+      for (let q = k + 1; q < hasta; q++) {
         const o = items[q];
         if (o.tipo === g.tipo && !o.atraidaPor) { pareja = q; break; }
       }
@@ -164,6 +221,25 @@ export class Recogibles {
       this.pool.liberarEn(pareja);
       hechas++;
     }
+  }
+
+  // Súper imán: TODAS las gemas del mapa vuelan hacia un jugador. No las recoge
+  // en el sitio, las engancha: siguen su vuelo normal con su aceleración, así
+  // que el efecto se ve —una lluvia de gemas cruzando la pantalla— en vez de
+  // aparecer un número de golpe. La mitad del premio es mirarlo.
+  atraerTodas(jugador) {
+    const items = this.pool.items;
+    for (let k = 0; k < this.pool.activos; k++) {
+      const g = items[k];
+      if (g.atraidaPor) continue;
+      g.atraidaPor = jugador;
+      const dx = jugador.x - g.x;
+      const dy = jugador.y - g.y;
+      const d = Math.hypot(dx, dy) || 1;
+      g.vx = (dx / d) * VELOCIDAD_INICIAL;
+      g.vy = (dy / d) * VELOCIDAD_INICIAL;
+    }
+    return this.pool.activos;
   }
 
   vaciar() { this.pool.vaciar(); }

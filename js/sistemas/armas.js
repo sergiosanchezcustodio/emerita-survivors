@@ -328,6 +328,20 @@ const COMPORTAMIENTOS = {
     // Se "dispara" una vez y luego vive en actualizarOrbitales.
     arma.orbitalActivo = true;
     return true;
+  },
+
+  // Orbital INTERMITENTE: sale, gira unos segundos y se retira hasta la próxima
+  // recarga. El orbital normal, una vez encendido, ya no se apaga nunca.
+  //
+  // La diferencia no es cosmética, es de juego. Un orbital permanente es una
+  // defensa: mientras lo lleves, nadie te toca por ese anillo, y eso vuelve
+  // pasiva la posición del jugador. Uno que aparece y desaparece te obliga a
+  // llevar la cuenta y a decidir cuándo te metes en el montón y cuándo esperas
+  // fuera. A cambio de esa ventana pega mucho más que el permanente.
+  orbitalPulsante(arma, sis, ctx) {
+    arma.orbitalActivo = true;
+    arma.restanteOrbital = arma.stats.duracion;
+    return true;
   }
 };
 
@@ -401,6 +415,15 @@ export class Armas {
       if (!arma.orbitalActivo) continue;
       const s = arma.stats;
       const j = ctx.jugador;
+
+      // Los intermitentes traen `duracion` y se retiran al agotarla. Los
+      // permanentes no la tienen, así que ni se compara: es la misma rama para
+      // los dos y no hay que preguntar por el nombre del comportamiento en el
+      // bucle.
+      if (s.duracion > 0) {
+        arma.restanteOrbital -= dt;
+        if (arma.restanteOrbital <= 0) { arma.orbitalActivo = false; continue; }
+      }
 
       arma.anguloOrbital += dt * s.velocidadAngular;
       arma.relojOrbital -= dt;
@@ -508,6 +531,7 @@ export class Armas {
       demoraGolpe: 0,
       // Estado propio de los comportamientos que lo necesitan.
       orbitalActivo: false, anguloOrbital: 0, relojOrbital: 0, selloOrbital: 0,
+      restanteOrbital: 0,      // solo el orbital intermitente
       zona: null,
       stats: {}
     };
@@ -522,6 +546,44 @@ export class Armas {
     arma.nivel++;
     this._recalcular(arma);
     return true;
+  }
+
+  // Sustituye un arma por su evolución (sección 9 del plan). Solo lo llama
+  // sistemas/progresion.js al abrir un cofre, tras comprobar los requisitos.
+  //
+  // EN SU SITIO, conservando la posición en `equipadas`: esa posición es la
+  // ranura que ocupa en la ficha del jugador, y verla saltar al final de la fila
+  // haría parecer que se ha perdido un arma y ganado otra distinta.
+  //
+  // Se reinicia todo el estado vivo. El comportamiento cambia —un arco de melé
+  // pasa a ser una onda, un orbital cambia de número de escudos— y arrastrar el
+  // temporizador o el ángulo del anterior deja el primer disparo descolocado.
+  //
+  // `stats` se cambia por un objeto nuevo en vez de vaciarlo: borrar claves con
+  // `delete` mete el objeto en modo diccionario en V8 y este objeto se lee en
+  // cada disparo durante el resto de la partida. Es la única asignación, y pasa
+  // como mucho cinco veces por partida y siempre con el juego parado en el menú
+  // del cofre, nunca dentro del bucle.
+  evolucionar(id, idEvo) {
+    const arma = this.equipadas.find((a) => a.id === id);
+    const def = ARMAS[idEvo];
+    if (!arma || !def) return null;
+
+    arma.id = idEvo;
+    arma.def = def;
+    arma.nivel = 1;
+    arma.temporizador = 0;
+    arma.golpesPendientes = 0;
+    arma.demoraGolpe = 0;
+    arma.orbitalActivo = false;
+    arma.anguloOrbital = 0;
+    arma.relojOrbital = 0;
+    arma.selloOrbital = 0;
+    arma.restanteOrbital = 0;
+    arma.zona = null;          // el charco que hubiera sigue su vida y expira
+    arma.stats = {};
+    this._recalcular(arma);
+    return arma;
   }
 
   // Aplana la entrada base más los incrementos acumulados hasta el nivel

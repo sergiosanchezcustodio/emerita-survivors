@@ -17,15 +17,16 @@
 
 export const TEMA_POR_DEFECTO = {
   ornamento: 'ninguno',
-  fondo:        '#191521',   // arriba del panel
-  fondoBajo:    '#120f19',   // abajo: el degradado da volumen de piedra
-  fondoCarta:   '#221d2e',
-  cartaElegida: '#342c4a',
-  borde:        '#0a0810',   // línea exterior, despega el panel del juego
-  filo:         '#8d8496',   // marco interior y ornamentos
-  titulo:       '#e8dfc8',
-  texto:        '#a29c90',
-  apagado:      '#7d766a'
+  fondo:        '#26282d',   // arriba del panel
+  fondoBajo:    '#16181b',   // abajo: el degradado da volumen de piedra
+  fondoCarta:   '#2f3238',
+  cartaElegida: '#41454d',
+  fondoClaro:   '#8b9099',   // huecos claros (el retrato de la ficha)
+  borde:        '#0a0b0d',   // línea exterior, despega el panel del juego
+  filo:         '#8d8c96',   // marco interior y ornamentos
+  titulo:       '#eef0f3',
+  texto:        '#a8adb5',
+  apagado:      '#787d85'
 };
 
 export const Tema = {

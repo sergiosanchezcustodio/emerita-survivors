@@ -38,9 +38,13 @@ export const PASIVOS = {
     campo: 'reduccionRecarga', tipo: 'suma', valor: 0.04, maxNivel: 10
   },
   coronaLaurel: {
+    // 0.1/s eran 2 puntos de vida por cada veinte segundos: literalmente no se
+    // notaba, y el pasivo se descartaba siempre. A 0.9/s por nivel, al máximo
+    // recupera 9 por segundo, que es una barra entera cada trece segundos y
+    // convierte "aguantar" en una estrategia de verdad.
     nombre: 'Corona de laurel',
-    descripcion: '+0.1 de vida por segundo',
-    campo: 'regeneracion', tipo: 'suma', valor: 0.1, maxNivel: 10
+    descripcion: '+0.9 de vida por segundo',
+    campo: 'regeneracion', tipo: 'suma', valor: 0.9, maxNivel: 10
   },
   antorcha: {
     nombre: 'Antorcha votiva',

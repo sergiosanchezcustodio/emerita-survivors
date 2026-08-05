@@ -230,6 +230,63 @@ export const Recursos = {
     }
   },
 
+  // --- Variantes de color -----------------------------------------------
+  //
+  // Registra una copia TEÑIDA de un sprite ya cargado con un id propio. A partir
+  // de ahí la variante es un sprite más: comparte meta con su base y tiene su
+  // espejo y su destello de impacto, así que quien la dibuja no se entera de que
+  // no es un PNG.
+  //
+  // Existe para la serpiente dorada de la sección 11 del plan, que es la misma
+  // serpiente en otro color, y sirve para cualquier variante futura (un cíclope
+  // de élite, una gárgola de invierno) sin encargar un dibujo nuevo.
+  //
+  // El teñido va con la operación 'color', que conserva la LUMINANCIA del
+  // original y solo cambia tono y saturación: el sombreado, la luz de borde y el
+  // volumen del dibujo siguen ahí, y la serpiente se lee como la misma serpiente
+  // bañada en oro. Rellenar con el color a pelo daría una silueta plana.
+  //
+  // El rectángulo del relleno pinta también fuera de la silueta, así que después
+  // se recorta con 'destination-in' contra la fuente para recuperar el alfa.
+  variante(id, idBase, color) {
+    const meta = this.atlas.entidades[idBase];
+    const fuente = this.imagenes.get(idBase);
+    if (!meta || !fuente) {
+      console.warn(`[recursos] variante ${id}: falta la base ${idBase}`);
+      return false;
+    }
+    if (this.imagenes.has(id)) return true;      // ya registrada
+
+    const frames = meta.frames || 1;
+    const c = document.createElement('canvas');
+    c.width = meta.w * frames;
+    c.height = meta.h;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+
+    g.drawImage(fuente, 0, 0, c.width, c.height);
+    g.globalCompositeOperation = 'color';
+    g.fillStyle = color;
+    g.fillRect(0, 0, c.width, c.height);
+    // Un velo cálido por encima, solo dentro de la silueta: sube el brillo lo
+    // justo para que la variante destaque entre veinte iguales sin quemarla.
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = 'rgba(255,236,170,.16)';
+    g.fillRect(0, 0, c.width, c.height);
+    g.globalCompositeOperation = 'destination-in';
+    g.drawImage(fuente, 0, 0, c.width, c.height);
+
+    // Comparte la ENTRADA del atlas con su base: mismo tamaño, mismo ancla,
+    // mismos fotogramas. Copiarla dejaría dos verdades que se pueden desincronizar.
+    this.atlas.entidades[id] = meta;
+    this.imagenes.set(id, c);
+    const espejo = this._espejo(c, meta);
+    this.espejos.set(id, espejo);
+    this.tintes.set(id, this._tinte(c, meta));
+    this.tintesEspejo.set(id, this._tinte(espejo, meta));
+    return true;
+  },
+
   meta(id) { return this.atlas.entidades[id]; },
   imagen(id) { return this.imagenes.get(id); },
   espejo(id) { return this.espejos.get(id); },

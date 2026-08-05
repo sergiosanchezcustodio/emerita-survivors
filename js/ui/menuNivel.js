@@ -2,7 +2,11 @@ import { ANCHO_FISICO, ALTO_FISICO } from '../core/constantes.js';
 import { Progresion } from '../sistemas/progresion.js';
 import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
 import { Tema, panel, cenefa } from './tema.js';
-import { ALTO_FICHA, MARGEN_FICHA } from './hud.js';
+import {
+  ALTO_FICHA, MARGEN_FICHA, glifoArma, glifoPasivo, COLOR_PASIVO
+} from './hud.js';
+import { ARMAS } from '../datos/armas.js';
+import { PASIVOS } from '../datos/pasivos.js';
 
 // Pantalla de subida de nivel. Va en la CAPA DE INTERFAZ (ui/capa.js), a
 // resolución de pantalla: aquí hay que leer, y leer deprisa, porque el juego
@@ -27,7 +31,15 @@ import { ALTO_FICHA, MARGEN_FICHA } from './hud.js';
 // elección se lee de un vistazo y no interrumpe tanto el ritmo.
 
 const ANCHO_CARTA = 132;
-const ALTO_CARTA = 94;
+const ALTO_CARTA = 112;      // 18 más que antes: el icono pide su sitio
+
+// Medallón del icono. Va entre la etiqueta y el nombre, centrado, y es lo
+// primero que se ve de la carta: la forma dice de qué familia es el arma —flecha
+// para proyectil, anillo para orbital, charco para zona— y eso se lee de un
+// vistazo, antes que el nombre. Con tres cartas y el mundo parado esperando, esa
+// décima de segundo es la diferencia entre elegir y leer.
+const ICONO_R = 15;          // radio del medallón
+const Y_ICONO = 36;
 const HUECO = 8;
 const RELLENO = 12;         // margen interior del panel
 const CABECERA = 36;        // titular + cenefa
@@ -44,6 +56,8 @@ const COLOR_ARMA_MEJORA   = '#cbbfa4';
 const COLOR_PASIVO_NUEVO  = '#7fc4e8';
 const COLOR_PASIVO_MEJORA = '#9fb0bd';
 const COLOR_CURACION      = '#8fbf5a';
+const COLOR_COFRE         = '#ffd45a';   // bronce del cofre, en el titular
+const COLOR_AUTO          = '#7fd68a';   // interruptor de subida automática
 const COLOR_JUGADOR = ['#5aa9e6', '#e8b73a', '#8fbf5a', '#d64b8f'];
 
 function colorDe(o) {
@@ -71,6 +85,58 @@ function partir(texto) {
   }
   if (corte < 0) return [texto, ''];
   return [texto.slice(0, corte), texto.slice(corte + 1)];
+}
+
+// Medallón con el icono de la oferta: disco oscuro, aro del color de la carta y
+// el glifo dentro. Los glifos son los MISMOS que la ficha del jugador dibuja en
+// sus ranuras (ui/hud.js) y eso es medio propósito de esto: el icono que eliges
+// aquí es el que vas a buscar luego en tu ficha, y si no fueran el mismo dibujo
+// habría que aprenderse dos.
+function dibujarMedallon(ctx, cx, cy, o, color, elegida) {
+  ctx.save();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, ICONO_R, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(10,7,6,.45)';
+  ctx.fill();
+  ctx.lineWidth = elegida ? 1.6 : 1;
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = elegida ? 1 : 0.6;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  ctx.translate(cx, cy);
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 1.6;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+
+  if (o.clase === 'arma') {
+    const def = ARMAS[o.id];
+    if (def) glifoArma(ctx, def.comportamiento, ICONO_R * 0.62);
+  } else if (o.clase === 'pasivo') {
+    const def = PASIVOS[o.id];
+    ctx.strokeStyle = COLOR_PASIVO;
+    ctx.fillStyle = COLOR_PASIVO;
+    if (def) glifoPasivo(ctx, def.campo, ICONO_R * 0.62);
+  } else {
+    // Curación: una copa. No tiene comportamiento ni campo del que sacar glifo,
+    // y dejarla con el círculo por defecto la haría parecer un arma sin icono.
+    const r = ICONO_R * 0.6;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.7, -r * 0.7);
+    ctx.lineTo(r * 0.7, -r * 0.7);
+    ctx.lineTo(r * 0.35, r * 0.2);
+    ctx.lineTo(-r * 0.35, r * 0.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, r * 0.2); ctx.lineTo(0, r * 0.75);
+    ctx.moveTo(-r * 0.5, r * 0.85); ctx.lineTo(r * 0.5, r * 0.85);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 // Esquina del panel. Con un solo jugador va centrado; con más, a la esquina de
@@ -119,10 +185,17 @@ export function dibujarMenuNivel(ctx, jugadores) {
   ctx.fillText(unSolo ? j.def.nombre : `P${indice + 1}  ${j.def.nombre}`,
                px + RELLENO, yCabecera);
 
+  // El mismo menú sirve para la subida de nivel y para el cofre de un élite; lo
+  // único que cambia es el titular y su color. Son dos momentos distintos y hay
+  // que saber cuál es sin pensarlo —de un cofre se espera otra cosa—, pero la
+  // navegación es idéntica y duplicar la pantalla para cambiar una palabra
+  // habría sido mantener dos veces las mismas cartas y el mismo mando.
+  const deCofre = Progresion.origen === 'cofre';
   ctx.textAlign = 'right';
   ctx.font = `17px ${FUENTE_TITULO}`;
-  ctx.fillStyle = t.titulo;
-  textoEspaciado(ctx, `NIVEL ${j.nivel}`, px + ancho - RELLENO, yCabecera, 2.5);
+  ctx.fillStyle = deCofre ? COLOR_COFRE : t.titulo;
+  textoEspaciado(ctx, deCofre ? 'COFRE' : `NIVEL ${j.nivel}`,
+                 px + ancho - RELLENO, yCabecera, 2.5);
 
   // Cenefa de separación: es el ornamento del nivel, no una raya cualquiera.
   cenefa(ctx, px + RELLENO, py + RELLENO + 14, ancho - RELLENO * 2);
@@ -156,20 +229,22 @@ export function dibujarMenuNivel(ctx, jugadores) {
 
     ctx.font = `600 8px ${FUENTE}`;
     ctx.fillStyle = color;
-    textoEspaciado(ctx, etiquetaDe(o), centro, y0 + 17, 1);
+    textoEspaciado(ctx, etiquetaDe(o), centro, y0 + 15, 1);
+
+    dibujarMedallon(ctx, centro, y0 + Y_ICONO, o, color, elegida);
 
     ctx.font = `600 14px ${FUENTE}`;
     ctx.fillStyle = elegida ? '#ffffff' : t.titulo;
-    ctx.fillText(o.nombre, centro, y0 + 40);
+    ctx.fillText(o.nombre, centro, y0 + 68);
 
     ctx.font = `400 9.5px ${FUENTE}`;
     ctx.fillStyle = t.texto;
     const [l1, l2] = partir(o.descripcion || '');
     if (l2) {
-      ctx.fillText(l1, centro, y0 + 62);
-      ctx.fillText(l2, centro, y0 + 76);
+      ctx.fillText(l1, centro, y0 + 85);
+      ctx.fillText(l2, centro, y0 + 98);
     } else {
-      ctx.fillText(l1, centro, y0 + 69);
+      ctx.fillText(l1, centro, y0 + 91);
     }
   }
 
@@ -181,11 +256,22 @@ export function dibujarMenuNivel(ctx, jugadores) {
   const yPie = y0 + ALTO_CARTA + 9;
   ctx.textBaseline = 'middle';
 
+  ctx.textAlign = 'left';
+  ctx.font = `500 9px ${FUENTE}`;
+  ctx.fillStyle = t.apagado;
+  let xPie = px + RELLENO;
   if (j.rerolls > 0) {
-    ctx.textAlign = 'left';
-    ctx.font = `500 9px ${FUENTE}`;
-    ctx.fillStyle = t.apagado;
-    ctx.fillText(`R  ×${j.rerolls}`, px + RELLENO, yPie);
+    ctx.fillText(`R  ×${j.rerolls}`, xPie, yPie);
+    xPie += 42;
+  }
+
+  // El interruptor de subida automática solo aparece cuando ya se puede usar:
+  // con ranuras libres cada elección todavía decide la partida y ofrecer
+  // delegarla sería ofrecer perderse el juego. Con las ocho llenas, en cambio,
+  // esto son cincuenta menús menos.
+  if (Progresion.puedeAutomatizar(j)) {
+    ctx.fillStyle = j.autoNivel ? COLOR_AUTO : t.apagado;
+    ctx.fillText(`F  automático: ${j.autoNivel ? 'sí' : 'no'}`, xPie, yPie);
   }
 
   if (Progresion.cola.length > 0) {

@@ -2,6 +2,8 @@ import { ANCHO_FISICO, ALTO_FISICO } from '../core/constantes.js';
 import { PASIVOS } from '../datos/pasivos.js';
 import { Recursos } from '../core/recursos.js';
 import { FUENTE, textoBorde } from './capa.js';
+import { Tema } from './tema.js';
+import { Director } from '../sistemas/director.js';
 
 // Panel de información por jugador, siempre visible. Una esquina cada uno:
 // P1 arriba izquierda, P2 arriba derecha, P3 abajo izquierda, P4 abajo derecha.
@@ -98,8 +100,8 @@ const R_TARJETA = 3;
 const R_RANURA = 2.5;
 const R_BARRA = 1.5;
 
-const COLOR_JUGADOR = ['#5aa9e6', '#e8b73a', '#8fbf5a', '#d64b8f'];
-const COLOR_PASIVO = '#9fd0e8';
+export const COLOR_JUGADOR = ['#5aa9e6', '#e8b73a', '#8fbf5a', '#d64b8f'];
+export const COLOR_PASIVO = '#9fd0e8';
 
 // --- Colores -----------------------------------------------------------------
 // TODOS los rellenos son translúcidos. La ficha tiene caja, pero se ve el juego
@@ -153,7 +155,7 @@ function sombraDura(ctx) {
 // --- Iconos -----------------------------------------------------------------
 // Cada comportamiento tiene su glifo. Todos caben en una casilla de 15x15 y se
 // dibujan centrados en (0,0) tras trasladar, para no repetir la aritmética.
-function glifoArma(ctx, comportamiento, r) {
+export function glifoArma(ctx, comportamiento, r) {
   ctx.beginPath();
   switch (comportamiento) {
     case 'proyectilDirigido':          // punta de flecha: busca blanco
@@ -231,6 +233,18 @@ function glifoArma(ctx, comportamiento, r) {
       ctx.arc(-r * 0.7, 0, r * 0.28, 0, Math.PI * 2);
       ctx.fill();
       break;
+    case 'orbitalPulsante':            // la misma órbita, pero a trazos: va y viene
+      for (let i = 0; i < 4; i++) {
+        const a0 = i * (Math.PI / 2) + 0.35;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.7, a0, a0 + 0.8);
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.arc(r * 0.7, 0, r * 0.28, 0, Math.PI * 2);
+      ctx.arc(-r * 0.7, 0, r * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+      break;
     default:
       ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2); ctx.stroke();
   }
@@ -238,7 +252,7 @@ function glifoArma(ctx, comportamiento, r) {
 
 // Los pasivos se distinguen por el campo que tocan, no por su nombre: así un
 // pasivo nuevo que suba la velocidad hereda el glifo de velocidad sin tocar nada.
-function glifoPasivo(ctx, campo, r) {
+export function glifoPasivo(ctx, campo, r) {
   ctx.beginPath();
   switch (campo) {
     case 'velocidad':                  // ala
@@ -351,8 +365,13 @@ function dibujarBarra(ctx, x, y, w, h, frac, color, filo) {
 
 // Ranura: marco suave siempre, y dentro el glifo y el nivel si está ocupada.
 // `marco` es el borde ya teñido con el color del jugador.
-function dibujarRanura(ctx, x, y, marco, color, nivel, pintarGlifo) {
-  caja(ctx, x + 0.5, y + 0.5, RANURA_W - 1, RANURA_H - 1, R_RANURA,
+// `redonda` distingue objetos de armas también aquí, con la misma regla que la
+// ficha de jugador: cuadrado el arma, redondo el objeto. Que las dos pantallas
+// usen la misma forma para la misma cosa es la mitad de lo que hace que se
+// puedan leer de reojo.
+function dibujarRanura(ctx, x, y, marco, color, nivel, pintarGlifo, redonda) {
+  const r = redonda ? RANURA_H / 2 : R_RANURA;
+  caja(ctx, x + 0.5, y + 0.5, RANURA_W - 1, RANURA_H - 1, r,
        HUECO_FONDO, marco);
 
   if (pintarGlifo === null) return;
@@ -375,6 +394,43 @@ function dibujarRanura(ctx, x, y, marco, color, nivel, pintarGlifo) {
   ctx.textAlign = 'right';
   ctx.textBaseline = 'alphabetic';
   textoBorde(ctx, String(nivel), x + RANURA_W - 0.5, y + RANURA_H, '#ffffff', 2.4);
+}
+
+// --- Reloj de partida --------------------------------------------------------
+// El tiempo que llevas es el dato más importante que hay en pantalla después de
+// tu vida: la curva de dificultad está escrita contra el reloj, así que saber
+// que quedan dos minutos para el minuto 10 es saber lo que viene.
+//
+// Arriba en el centro, la única franja que ni las fichas ni los menús usan. Sin
+// caja: solo reborde oscuro, como manda la interfaz en capa nítida.
+//
+// Debajo van los AVISOS del director —élites y hitos de jefe—, que duran unos
+// segundos y desaparecen. Es lo único de la interfaz que aparece y se va, y por
+// eso puede permitirse el amarillo: no compite con nada porque no está casi
+// nunca.
+const COLOR_AVISO = '#ffd45a';
+
+export function dibujarReloj(ctx) {
+  if (!Director.nivel) return;
+  const t = Tema.actual;
+  const cx = ANCHO_FISICO / 2;
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  ctx.font = `600 16px ${FUENTE}`;
+  textoBorde(ctx, Director.reloj, cx, 6, Director.activo ? t.titulo : t.apagado, 3);
+
+  if (Director.avisoRestante > 0) {
+    // Se desvanece al final en vez de cortarse en seco: un texto que se apaga
+    // no roba la vista, y en este juego la vista hace falta en otro sitio.
+    ctx.globalAlpha = Math.min(1, Director.avisoRestante / 1.2);
+    ctx.font = `600 11px ${FUENTE}`;
+    textoBorde(ctx, Director.aviso, cx, 26, COLOR_AVISO, 3);
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
 }
 
 export function dibujarPaneles(ctx, jugadores) {
@@ -435,15 +491,11 @@ export function dibujarPaneles(ctx, jugadores) {
     dibujarBarra(ctx, bx, y + Y_VIDA, COLUMNA, ALTO_VIDA, fracVida,
                  COLOR_VIDA, COLOR_VIDA_ALTO);
 
-    // La cifra va DENTRO de la barra y centrada, como en la referencia: es el
-    // mismo dato que la longitud, así que ponerla aparte sería gastar una línea
-    // de ficha en repetir algo que ya se está diciendo.
-    ctx.font = `700 7.5px ${FUENTE}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    textoBorde(ctx, `${Math.ceil(j.vida)} / ${Math.round(j.vidaMaxima)}`,
-               bx + COLUMNA / 2, y + Y_VIDA + ALTO_VIDA / 2 + 0.5, '#ffffff', 2.4);
-
+    // SIN CIFRAS. La barra dice cuánta vida queda con su longitud y eso es todo
+    // lo que hace falta mientras esquivas; el "83 / 115" encima obligaba a leer
+    // un número en el peor momento posible para leer nada. Las cifras exactas
+    // están en la ficha de jugador (ui/ficha.js), que se abre a propósito y con
+    // el mundo parado, que es cuando de verdad se quieren mirar.
     const fracXp = j.xpNecesaria > 0 ? Math.min(1, j.xp / j.xpNecesaria) : 0;
     dibujarBarra(ctx, bx, y + Y_XP, COLUMNA, ALTO_XP, fracXp,
                  COLOR_XP, COLOR_XP_ALTO);
@@ -462,7 +514,7 @@ export function dibujarPaneles(ctx, jugadores) {
       const a = armas[k];
       dibujarRanura(ctx, colocar(k), y + Y_ARMAS, a ? llena : vacia,
         a ? a.def.color : null, a ? a.nivel : 0,
-        a ? ((c, r) => glifoArma(c, a.def.comportamiento, r)) : null);
+        a ? ((c, r) => glifoArma(c, a.def.comportamiento, r)) : null, false);
     }
 
     for (let k = 0; k < RANURAS; k++) {
@@ -470,7 +522,7 @@ export function dibujarPaneles(ctx, jugadores) {
       const def = id ? PASIVOS[id] : null;
       dibujarRanura(ctx, colocar(k), y + Y_PASIVOS, def ? llena : vacia,
         def ? COLOR_PASIVO : null, def ? j.pasivos[id] : 0,
-        def ? ((c, r) => glifoPasivo(c, def.campo, r)) : null);
+        def ? ((c, r) => glifoPasivo(c, def.campo, r)) : null, true);
     }
   }
 

@@ -296,6 +296,73 @@ public class Procesador {
     }
 
     // ---------------------------------------------------------------------
+    // Retrato de CUERPO ENTERO, para la ficha de jugador
+    // ---------------------------------------------------------------------
+    //
+    // Misma idea que RecortarCabeza y por los mismos motivos —se reduce UNA vez
+    // desde la ilustracion original, sin endurecer alfa ni cuantizar— pero aqui
+    // entra la figura completa: la ficha que se abre con Select ensena al
+    // personaje de arriba abajo.
+    //
+    // La imagen sale AJUSTADA A LA SILUETA y centrada en su caja, con relleno
+    // transparente por donde sobra. Asi la interfaz puede dibujarla sin mas: no
+    // tiene que adivinar donde empieza la figura dentro del PNG ni recortar
+    // margenes al vuelo, y todos los personajes ocupan su hueco igual aunque uno
+    // sea mas ancho que otro.
+    public static string RecortarCuerpo(string entrada, string salida,
+                                        int anchoSal, int altoSal) {
+        int w, h, stride;
+        byte[] px;
+        using (Bitmap orig = new Bitmap(entrada)) {
+            w = orig.Width; h = orig.Height;
+            using (Bitmap src = new Bitmap(w, h, PixelFormat.Format32bppArgb)) {
+                using (Graphics g = Graphics.FromImage(src)) { g.DrawImage(orig, 0, 0, w, h); }
+                BitmapData d = src.LockBits(new Rectangle(0,0,w,h), ImageLockMode.ReadOnly,
+                                            PixelFormat.Format32bppArgb);
+                stride = d.Stride;
+                px = new byte[stride*h];
+                Marshal.Copy(d.Scan0, px, 0, px.Length);
+                src.UnlockBits(d);
+            }
+        }
+
+        int minY = h, maxY = -1, minX = w, maxX = -1;
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                if (px[y*stride + x*4 + 3] > 40) {
+                    if (y < minY) minY = y; if (y > maxY) maxY = y;
+                    if (x < minX) minX = x; if (x > maxX) maxX = x;
+                }
+        if (maxY < 0) return "VACIA";
+
+        int silW = maxX - minX + 1;
+        int silH = maxY - minY + 1;
+
+        // Encaje "contener": manda el lado que se quede corto, para que no se
+        // recorte nada. Un personaje no puede salir sin pies en su propia ficha.
+        double escala = Math.Min((double)anchoSal / silW, (double)altoSal / silH);
+        int dw = Math.Max(1, (int)(silW * escala));
+        int dh = Math.Max(1, (int)(silH * escala));
+        int dx0 = (anchoSal - dw) / 2;
+        int dy0 = altoSal - dh;          // apoyado abajo: los pies en el suelo
+
+        int dStride = anchoSal * 4;
+        byte[] dst = new byte[dStride * altoSal];
+        EscalarBloque(px, stride, w, h, minX, minY, silW, silH,
+                      dst, dStride, dx0, dy0, dw, dh);
+
+        using (Bitmap sal = new Bitmap(anchoSal, altoSal, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0,0,anchoSal,altoSal),
+                                         ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < altoSal; y++)
+                Marshal.Copy(dst, y*dStride, (IntPtr)(dd.Scan0.ToInt64() + y*dd.Stride), dStride);
+            sal.UnlockBits(dd);
+            sal.Save(salida, ImageFormat.Png);
+        }
+        return anchoSal + "|" + altoSal + "|1";
+    }
+
+    // ---------------------------------------------------------------------
     // Animacion horneada de personajes
     // ---------------------------------------------------------------------
     //
@@ -947,19 +1014,44 @@ $TOL     = 30
 # alrededor. Los radios de colision de datos/enemigos.js bajan en la misma
 # proporcion.
 $CATALOGO = @(
-    @{ src='enemies\snake.png';            dst='enemigos\serpiente.png'; id='serpiente'; alto=14;  anchoFijo=0;  tol=0 }
+    # LA SERPIENTE A LA MITAD (14 -> 7 de alto logico) por peticion de Sergio: la
+    # anterior era casi tan alta como un legionario y una carne de canon no puede
+    # ocupar lo mismo que un guardian. Su radio de colision baja igual en
+    # datos/enemigos.js: si no, golpearia desde fuera de su propia silueta.
+    @{ src='enemies\serpiente.gif';         dst='enemigos\serpiente.png'; id='serpiente'; alto=7;   anchoFijo=0;  tol=0; gif=$true }
     # GIF animado de 7 fotogramas, pixel art nativo de 48x48 ampliado 8x.
     # voltear porque el original mira a la izquierda y el motor asume derecha.
-    @{ src='enemies\gargoyle_new.gif';     dst='enemigos\gargola.png';   id='gargola';   alto=14;  anchoFijo=0;  tol=0; gif=$true; voltear=$true }
-    @{ src='enemies\legionario.png';       dst='enemigos\legionario.png';id='legionario';alto=18;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\gladiator.png';        dst='enemigos\gladiador.png'; id='gladiador'; alto=17;  anchoFijo=0;  tol=38 }
+    @{ src='enemies\gargoyle.gif';         dst='enemigos\gargola.png';   id='gargola';   alto=14;  anchoFijo=0;  tol=0; gif=$true; voltear=$true }
+    # El legionario tambien pasa a GIF ANIMADO: el esqueleto de legionario.gif
+    # sustituye a la ilustracion estatica. No lleva voltear porque ya mira a la
+    # derecha, que es lo que asume el motor.
+    # Esqueleto y gladiador un 40% mas altos: son guardianes humanos y tienen que
+    # imponerse a la masa. 18 -> 25 y 17 -> 24.
+    @{ src='enemies\legionario.gif';       dst='enemigos\legionario.png';id='legionario';alto=25;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\gladiador.gif';        dst='enemigos\gladiador.png'; id='gladiador'; alto=24;  anchoFijo=0;  tol=0; gif=$true }
     @{ src='enemies\arpia.png';            dst='enemigos\arpia.png';     id='arpia';     alto=15;  anchoFijo=0;  tol=0 }
     @{ src='enemies\medusa.png';           dst='enemigos\medusa.png';    id='medusa';    alto=20;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\minotauro.png';        dst='enemigos\minotauro.png'; id='minotauro'; alto=25;  anchoFijo=0;  tol=0 }
+    @{ src='enemies\minotauro.gif';        dst='enemigos\minotauro.png'; id='minotauro'; alto=25;  anchoFijo=0;  tol=0; gif=$true }
     @{ src='enemies\ciclope.png';          dst='enemigos\ciclope.png';   id='ciclope';   alto=29;  anchoFijo=0;  tol=45 }
     @{ src='enemies\masticore.png';        dst='enemigos\manticora.png'; id='manticora'; alto=36;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\cerberus.png';         dst='enemigos\cerbero.png';   id='cerbero';   alto=60;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\hidra_final_boss.png'; dst='enemigos\hidra.png';     id='hidra';     alto=78;  anchoFijo=0;  tol=0 }
+    @{ src='enemies\cerberus.gif';         dst='enemigos\cerbero.png';   id='cerbero';   alto=60;  anchoFijo=0;  tol=0; gif=$true }
+    # La hidra ya no es el jefe final del nivel 1 (la sustituye la loba), pero se
+    # sigue procesando: el sprite es bueno y hay tres niveles más por escribir.
+    @{ src='enemies\hidra.png';            dst='enemigos\hidra.png';     id='hidra';     alto=78;  anchoFijo=0;  tol=0 }
+    # JEFE FINAL DEL NIVEL 1: la loba capitolina y los gemelos, en version
+    # monstruosa. Sustituyen a la hidra por decision de Sergio (ver el bloque de
+    # jefes en datos/enemigos.js).
+    #
+    # Las ilustraciones TODAVIA NO EXISTEN. Quedan declaradas aqui para que el
+    # dia que aparezcan en resources\enemies\ con estos nombres se procesen
+    # solas, sin tocar nada. Hasta entonces la herramienta las marca NO EXISTE,
+    # el atlas no las incluye y el motor se niega a invocarlas.
+    #
+    # La loba mide como la hidra (es el jefe final y tiene que imponer). Los
+    # gemelos, algo mas que un gladiador: son criaturas, no adultos, pero tienen
+    # que verse desde lejos porque hay que ir a por ellos.
+    @{ src='enemies\loba_capitolina.png';  dst='enemigos\loba.png';      id='loba';      alto=78;  anchoFijo=0;  tol=0 }
+    @{ src='enemies\gemelo.png';           dst='enemigos\gemelo.png';    id='gemelo';    alto=22;  anchoFijo=0;  tol=0 }
     # Personajes: MISMO ALTO logico (22), ancho derivado de su silueta. Encajar
     # la figura dentro de un cuadrado comun hacia que las poses anchas salieran
     # mas bajas: a Vicky, con ratio 1.43, la limitaba el ancho y se quedaba en 22
@@ -994,6 +1086,11 @@ $CATALOGO = @(
 # son 216 pixeles de verdad, y de 192 habria que ampliar.
 $CARA_W = 288
 $CARA_H = 288
+# Cuerpo entero para la ficha de jugador (Select / Tab). Alto y estrecho, como
+# las ilustraciones: Eric es 650x1492. Se pide GRANDE porque la ficha se dibuja
+# en la capa de interfaz, que va a la resolucion real del monitor.
+$CUERPO_W = 340
+$CUERPO_H = 760
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'enemigos')   | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'personajes') | Out-Null
@@ -1098,6 +1195,18 @@ foreach ($e in $CATALOGO) {
             }
         } catch {
             Write-Host "  aviso: no se pudo recortar la cabeza de $($e.id)"
+        }
+
+        # Cuerpo entero para la ficha de jugador.
+        $rutaCuerpo = Join-Path $DESTINO ("personajes\" + $e.id + "-cuerpo.png")
+        try {
+            [Procesador]::RecortarCuerpo($rutaSrc, $rutaCuerpo, $CUERPO_W, $CUERPO_H) | Out-Null
+            $atlas[$e.id + 'Cuerpo'] = [ordered]@{
+                archivo = "personajes/$($e.id)-cuerpo.png"
+                w = $CUERPO_W; h = $CUERPO_H; anclaX = [int]($CUERPO_W/2); anclaY = $CUERPO_H; frames = 1
+            }
+        } catch {
+            Write-Host "  aviso: no se pudo recortar el cuerpo de $($e.id)"
         }
     }
 

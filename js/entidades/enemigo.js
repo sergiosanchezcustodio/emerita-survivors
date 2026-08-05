@@ -78,14 +78,46 @@ const MOV_ZIGZAG = 1;
 const MOV_REVOLOTEO = 2;
 const MOV_ORBITA = 3;
 const MOV_ACECHO = 4;
+const MOV_HUIDA = 5;
+const MOV_TRAVESIA = 6;
 const CODIGO_MOV = {
   directo: MOV_DIRECTO, zigzag: MOV_ZIGZAG, revoloteo: MOV_REVOLOTEO,
-  orbita: MOV_ORBITA, acecho: MOV_ACECHO
+  orbita: MOV_ORBITA, acecho: MOV_ACECHO, huida: MOV_HUIDA,
+  travesia: MOV_TRAVESIA
 };
 // Frecuencia base de cada patrón, en radianes por segundo. Cada individuo la
 // multiplica por un factor propio: si todas las serpientes culebrearan al mismo
 // ritmo, el enjambre volvería a leerse como un solo organismo.
-const CADENCIA_MOV = [0, 3.2, 1.9, 1.25, 1.5];
+const CADENCIA_MOV = [0, 3.2, 1.9, 1.25, 1.5, 2.4, 0];
+
+// --- EL REBAÑO, Y POR QUÉ SE FORMA ------------------------------------------
+//
+// Con todos los enemigos persiguiendo AL JUGADOR, todos convergen en el mismo
+// punto. Da igual que uno culebree y otro revolotee: el destino es el mismo, así
+// que en cuanto llevan unos segundos avanzando se apelotonan detrás y la horda
+// se convierte en una mancha que te sigue. Los patrones de movimiento adornan el
+// camino, pero no cambian a dónde va cada uno.
+//
+// La corrección es no perseguir al jugador, sino UN PUESTO ALREDEDOR de él. Cada
+// enemigo se reserva al aparecer un ángulo propio y una distancia, y persigue ese
+// punto. Como los ángulos están repartidos, la horda RODEA en vez de apilarse: te
+// llegan por todos los lados, se ve el hueco por el que escapar y cerrar ese
+// hueco vuelve a ser una decisión del jugador. Es la misma idea que usan los
+// juegos del género y cuesta dos números por entidad.
+//
+// El puesto DERIVA despacio, cada uno a su ritmo y sentido, para que el anillo no
+// quede congelado como una formación militar.
+const DERIVA_ACOSO = 0.55;          // radianes por segundo, máximo
+// El puesto se mide en múltiplos del radio de separación del propio bicho: un
+// cíclope necesita más sitio para rodear que una serpiente, y con una distancia
+// fija en unidades los grandes se pisaban igual que antes.
+const ACOSO_MIN = 1.4;
+const ACOSO_MAX = 4.2;
+
+// Distancia a la que la presa deja de huir y empieza a rondar. Sin este tope, la
+// serpiente dorada se va en línea recta, sale de pantalla y el culling se la
+// lleva con su cofre dentro: el premio existiría solo sobre el papel.
+const DIST_HUIDA = 150;
 
 // Amplitud del desvío lateral, como fracción del avance.
 const AMP_ZIGZAG = 0.80;
@@ -142,6 +174,25 @@ export function masCercano(jugadores, x, y) {
   return mejor;
 }
 
+// Genera las variantes de COLOR del bestiario (la serpiente dorada de la sección
+// 11, y las que vengan). Se llama UNA vez, después de cargar el atlas y antes del
+// primer frame: teñir un sprite en caliente sería un canvas nuevo por enemigo.
+//
+// Vive aquí y no en core/recursos.js porque el catálogo de enemigos es un dato de
+// juego: recursos sabe teñir, pero no tiene por qué saber qué hay que teñir.
+export function prepararVariantes() {
+  for (const id in ENEMIGOS) {
+    const def = ENEMIGOS[id];
+    if (!def.spriteBase || !def.tinte) continue;
+    // Si el teñido no sale (falta la base), la variante se queda con el sprite
+    // de su base y se juega igual, sin el color. Misma regla que los
+    // placeholders del atlas: que falte arte nunca puede tumbar la partida.
+    if (!Recursos.variante(def.sprite, def.spriteBase, def.tinte)) {
+      def.sprite = def.spriteBase;
+    }
+  }
+}
+
 // Forma única para todos los enemigos: un solo tipo oculto en V8. Si unos
 // enemigos tuvieran campos que otros no, cada acceso pasaría a ser polimórfico.
 function crearEnemigo() {
@@ -159,6 +210,14 @@ function crearEnemigo() {
     // Personalidad de movimiento. Todo se sortea al aparecer y no cambia: es lo
     // que hace que dos bichos del mismo tipo no vayan nunca sincronizados.
     mov: 0, faseMov: 0, cadenciaMov: 0, giro: 1, radioOrbita: 0,
+    // Puesto de acoso: su sitio en el anillo alrededor del jugador.
+    anguloAcoso: 0, radioAcoso: 0, derivaAcoso: 0,
+    // Recarga del ataque a distancia. 0 en los que no disparan.
+    relojAtaque: 0,
+    // Huida SIN vuelta: la de los que se largan cuando entra el jefe final.
+    huidaTotal: false,
+    // Dirección fija de los que cruzan sin perseguir (MOV_TRAVESIA).
+    dirX: 0, dirY: 0,
     frames: 1, frame: 0, relojAnim: 0,
     // Referencias resueltas al aparecer: dibujar 800 entidades no puede pagar
     // dos búsquedas en Map por entidad y frame.
@@ -187,12 +246,20 @@ export class Enemigos {
     this.reciclados = 0;
     this.bajas = 0;
     this.recogibles = null;    // lo enchufa main.js
+    this.cofres = null;        // ídem: solo los élites lo usan
+    this.disparos = null;      // ídem: solo los que llevan `ataque`
+    this._sinArte = new Set(); // tipos ya avisados por no tener sprite
+    // Élites vivos ahora mismo (los que sueltan cofre). Lo consulta el director
+    // para no encadenar dos: recorrer el pool entero cada paso solo para contar
+    // dos bichos sería pagar 800 comprobaciones por una respuesta que cabe en un
+    // entero.
+    this.elitesVivos = 0;
   }
 
   get activos() { return this.pool.activos; }
 
   // `escalaVida` y `escalaDanyo` son el escalado por minuto de la curva de
-  // oleadas (ver datos/niveles/merida.js y sistemas/simulacro.js). Se aplican
+  // oleadas (ver datos/niveles/merida.js y sistemas/director.js). Se aplican
   // AQUÍ, al aparecer, y quedan congelados en la entidad: un enemigo del minuto
   // 15 conserva su vida aunque el reloj siga corriendo mientras esté vivo, que
   // es lo que hace que matarlo cueste lo que costaba cuando salió.
@@ -200,11 +267,25 @@ export class Enemigos {
   // La velocidad NO escala a propósito. Un bestiario en el que todo acelera con
   // el reloj deja de poder leerse: la serpiente ya no es "la lenta", y la única
   // información fiable que da un enemigo a distancia es cómo se mueve.
-  aparecer(tipo, x, y, escalaVida = 1, escalaDanyo = 1) {
+  aparecer(tipo, x, y, escalaVida = 1, escalaDanyo = 1, movimiento = null) {
+    const def = ENEMIGOS[tipo];
+
+    // Sin sprite en el atlas no aparece. Pasa con los que están declarados en
+    // el bestiario a la espera de su ilustración —hoy la loba y los gemelos— y
+    // sin esta puerta el primero que se invocara reventaría la partida en el
+    // primer golpe, al buscar el alto del sprite para colocar el número de daño.
+    // Se avisa UNA vez por tipo: un aviso por enemigo llenaría la consola.
+    if (!def || !Recursos.meta(def.sprite)) {
+      if (def && !this._sinArte.has(tipo)) {
+        this._sinArte.add(tipo);
+        console.warn(`[enemigos] ${tipo} no tiene sprite todavía: no aparece`);
+      }
+      return null;
+    }
+
     const e = this.pool.obtener();
     if (!e) return null;                     // pool lleno: se ignora, sin asignar
 
-    const def = ENEMIGOS[tipo];
     e.def = def;
     e.tipo = tipo;
     e.x = e.xPrev = e.xVista = x;
@@ -222,7 +303,12 @@ export class Enemigos {
     const varianza = 0.86 + this._rng() * 0.28;
     e.velocidad = def.velocidad * ESCALA_VELOCIDAD * varianza;
 
-    e.mov = CODIGO_MOV[def.movimiento] || MOV_DIRECTO;
+    // El movimiento puede venir impuesto por la OLEADA en vez de por el tipo:
+    // así la misma serpiente entra persiguiendo en una oleada y cruzando de
+    // largo en otra, y dos oleadas del mismo bicho se leen distintas. Lo usa
+    // sistemas/director.js con el campo `movimiento` del evento.
+    e.mov = CODIGO_MOV[movimiento || def.movimiento] || MOV_DIRECTO;
+    e.dirX = 0; e.dirY = 0;          // la travesía la fija en su primer paso
     e.faseMov = this._rng() * TAU;
     e.cadenciaMov = CADENCIA_MOV[e.mov] * (0.8 + this._rng() * 0.5);
     e.giro = this._rng() < 0.5 ? -1 : 1;      // sentido del culebreo o del giro
@@ -243,6 +329,20 @@ export class Enemigos {
     const anchoLogico = e.meta ? e.meta.w / ESCALA_ARTE : def.radio * 2;
     e.radioCuerpo = Math.max(def.radio, anchoLogico * FACTOR_CUERPO);
     e.radioSep = e.radioCuerpo * FACTOR_SEPARACION;
+
+    // Puesto en el anillo de acoso. El ángulo va al azar en la circunferencia
+    // completa: es lo que reparte a la horda alrededor del jugador en vez de
+    // dejarla en fila detrás.
+    e.anguloAcoso = this._rng() * TAU;
+    e.radioAcoso = e.radioSep * (ACOSO_MIN + this._rng() * (ACOSO_MAX - ACOSO_MIN));
+    e.derivaAcoso = (this._rng() * 2 - 1) * DERIVA_ACOSO;
+
+    // Primera recarga al azar dentro de su ciclo: si todas las medusas de una
+    // oleada dispararan a la vez, no serían seis enemigos, sería un solo evento.
+    e.relojAtaque = def.ataque ? this._rng() * def.ataque.cadencia : 0;
+    e.huidaTotal = false;
+
+    if (def.cofre) this.elitesVivos++;
 
     // Fase inicial aleatoria: si todos botaran sincronizados el enjambre
     // parecería un solo organismo latiendo.
@@ -289,8 +389,109 @@ export class Enemigos {
       e.objetivo = objetivo;
       if (!objetivo) { if (e.destello > 0) e.destello -= dt; continue; }
 
-      let dx = objetivo.x - e.x;
-      let dy = objetivo.y - e.y;
+      // --- Ataque a distancia -------------------------------------------
+      // Solo lo tienen los poderosos (ver `ataque` en datos/enemigos.js). Se
+      // resuelve antes de mover para que el disparo salga de donde se ve al
+      // enemigo, no de donde acabará este paso.
+      //
+      // El disparo sale hacia el jugador REAL, no hacia el puesto de acoso: el
+      // puesto es para colocarse, y disparar a un punto vacío al lado del
+      // jugador se leería como un fallo del juego.
+      if (e.def.ataque && this.disparos) {
+        e.relojAtaque -= dt;
+        if (e.relojAtaque <= 0) {
+          const at = e.def.ataque;
+          let dxa = objetivo.x - e.x;
+          let dya = objetivo.y - e.y;
+          const d2a = dxa * dxa + dya * dya;
+          if (d2a < at.alcance * at.alcance && d2a > 1) {
+            e.relojAtaque = at.cadencia;
+
+            // SISMO: no vuela nada. Se marca un círculo en el suelo donde está
+            // el jugador AHORA, se avisa, y revienta. Por eso no se puede
+            // destruir como un proyectil: la respuesta no es limpiarlo, es
+            // salirse del círculo.
+            //
+            // Se apunta a donde estás, no a donde estarás: adivinar el futuro
+            // haría imposible esquivarlo moviéndose, que es justo lo que este
+            // ataque tiene que enseñar.
+            if (at.tipo === 'sismo') {
+              this.disparos.sismo(objetivo.x, objetivo.y, at);
+            } else {
+
+            const inv = 1 / Math.sqrt(d2a);
+            const base = Math.atan2(dya * inv, dxa * inv);
+            const paso = at.dispersion * Math.PI / 180;
+            const inicio = base - paso * (at.proyectiles - 1) * 0.5;
+            for (let q = 0; q < at.proyectiles; q++) {
+              const a = inicio + paso * q;
+              this.disparos.lanzar(e.x, e.y - 6, Math.cos(a), Math.sin(a), at);
+            }
+            }
+          } else {
+            // Fuera de alcance: se reintenta pronto en vez de gastar la recarga
+            // entera, igual que hacen las armas del jugador.
+            e.relojAtaque = 0.25;
+          }
+        }
+      }
+
+      // --- Los que CRUZAN, aparte --------------------------------------
+      // No persiguen. Fijan la dirección la primera vez que se mueven —hacia
+      // donde estabas cuando entraron— y siguen recto hasta salir de la región
+      // activa, donde el culling los recoge.
+      //
+      // Es la otra mitad de la solución al rebaño, y la más visible: por muchos
+      // puestos de acoso que se repartan, si TODO lo que hay en pantalla te
+      // persigue, todo acaba yendo en la misma dirección. Con una parte de la
+      // horda cruzando, hay tráfico en dos direcciones, se ve moverse el campo
+      // de batalla y esquivar vuelve a significar algo.
+      if (e.mov === MOV_TRAVESIA) {
+        if (e.dirX === 0 && e.dirY === 0) {
+          const ang = Math.atan2(objetivo.y - e.y, objetivo.x - e.x) +
+                      (this._rng() - 0.5) * 0.5;
+          e.dirX = Math.cos(ang);
+          e.dirY = Math.sin(ang);
+        }
+        const v = e.velocidad * (1 - e.frenado);
+        if (e.frenado > 0) {
+          e.frenado -= dt * 1.6;
+          if (e.frenado < 0) e.frenado = 0;
+        }
+        e.x += e.dirX * v * dt;
+        e.y += e.dirY * v * dt;
+        if (e.empujeX !== 0 || e.empujeY !== 0) {
+          e.x += e.empujeX * dt;
+          e.y += e.empujeY * dt;
+          const fr = Math.exp(-DECAIMIENTO_EMPUJE * dt);
+          e.empujeX *= fr; e.empujeY *= fr;
+          if (Math.abs(e.empujeX) < 1 && Math.abs(e.empujeY) < 1) { e.empujeX = 0; e.empujeY = 0; }
+        }
+        if (e.destello > 0) e.destello -= dt;
+        if (e.dirX > 0.08) e.mirandoDerecha = true;
+        else if (e.dirX < -0.08) e.mirandoDerecha = false;
+        if (e.frames > 1) {
+          e.relojAnim += dt;
+          while (e.relojAnim >= SEG_POR_FRAME) {
+            e.relojAnim -= SEG_POR_FRAME;
+            e.frame = (e.frame + 1) % e.frames;
+          }
+        } else {
+          e.fase += dt * e.cadencia;
+        }
+        continue;
+      }
+
+      // --- Puesto de acoso ---------------------------------------------
+      // No se persigue al jugador: se persigue el sitio que a este bicho le toca
+      // alrededor del jugador. Ver el comentario de DERIVA_ACOSO arriba: es lo
+      // que convierte la cola que te sigue en un cerco que se cierra.
+      e.anguloAcoso += dt * e.derivaAcoso;
+      const metaX = objetivo.x + Math.cos(e.anguloAcoso) * e.radioAcoso;
+      const metaY = objetivo.y + Math.sin(e.anguloAcoso) * e.radioAcoso;
+
+      let dx = metaX - e.x;
+      let dy = metaY - e.y;
       const d2 = dx * dx + dy * dy;
       let dist = 0;
       if (d2 > 0.0001) {
@@ -338,6 +539,28 @@ export class Enemigos {
         } else if (e.mov === MOV_ACECHO) {
           // Ni desvío ni curva: solo el ritmo. Se para, mira, y embiste.
           vFactor = seno(e.faseMov) > 0.15 ? 1.85 : 0.16;
+        } else if (e.mov === MOV_HUIDA) {
+          // El único que NO quiere alcanzarte. Dos componentes:
+          //
+          //   radial     — negativo mientras estás cerca (se aleja) y ligeramente
+          //                positivo pasado DIST_HUIDA (vuelve a acercarse). Ese
+          //                cambio de signo es lo que la mantiene rondando a media
+          //                pantalla en vez de largarse en línea recta.
+          //   tangencial — le da la vuelta al jugador. Sin esto, huir es alejarse
+          //                por una recta y basta con acorralarla contra el borde.
+          //
+          // El resultado es una presa que se escurre pero sigue en pantalla:
+          // alcanzable si dejas de matar oleada un momento, que es exactamente el
+          // dilema que el cofre tiene que plantear.
+          // `huidaTotal` la ponen los que salen por patas al entrar el jefe: esos
+          // no rondan a media pantalla, se van y no vuelven.
+          const radial = (e.huidaTotal || dist < DIST_HUIDA) ? -1 : 0.4;
+          const rodeo = 0.85 * e.giro;
+          nx = dx * radial - dy * rodeo;
+          ny = dy * radial + dx * rodeo;
+          // Acelerones cortos: se escapa a tirones, como algo que sabe que lo
+          // persiguen. Además hace que perseguirla no sea mantener una tecla.
+          vFactor = 0.88 + 0.34 * seno(e.faseMov);
         }
 
         const m2 = nx * nx + ny * ny;
@@ -413,6 +636,7 @@ export class Enemigos {
     if (e.vida <= 0) {
       e.vida = 0;
       this.bajas++;
+      if (e.def.cofre) this.elitesVivos--;
       if (e.vidaMaxima >= VIDA_HITSTOP) VFX.congelar(0.045);
       // Con la matanza en marcha se recorta el estallido: cuando mueren cien a
       // la vez, nadie distingue siete partículas de tres, pero el coste sí se
@@ -421,6 +645,11 @@ export class Enemigos {
       // fuera para que enemigo.js no dependa de él: si algún día un enemigo no
       // debe soltar nada, basta con no ponerlo.
       if (this.recogibles) this.recogibles.soltar(e.x, e.y, e.def.xp || 1);
+
+      // Cofre de élite. Va APARTE de la gema y no en lugar de ella: la gema es
+      // el pago por matarlo y el cofre es el premio por haberlo elegido a él
+      // entre toda la horda.
+      if (e.def.cofre && this.cofres) this.cofres.soltar(e.x, e.y);
 
       const apretado = Particulas.saturado();
       Particulas.estallido(e.x, e.y - 4, apretado ? 3 : 7, 70, 0.45, 2,
@@ -455,12 +684,26 @@ export class Enemigos {
   // Devuelve al pool todo lo que ha quedado fuera de la región activa.
   // OJO: libera intercambiando con el último, así que k NO avanza cuando hay
   // baja; el que acaba de caer en la posición k todavía no se ha mirado.
+  //
+  // Los élites (`persistente`) aguantan el DOBLE de distancia. La mantícora
+  // orbita y la serpiente dorada huye: los dos se alejan por diseño, y con el
+  // margen normal se reciclaban en mitad de la persecución llevándose el cofre.
+  // Son uno o dos a la vez, así que la IA extra no se nota en ningún sitio.
+  //
+  // Uno de estos puede quedar fuera de la rejilla espacial, que solo cubre la
+  // región de culling normal. No pasa nada: la pinza de core/rejilla.js lo mete
+  // en la celda del borde y las comprobaciones de distancia siguen siendo
+  // exactas. Lo único que se pierde es afinidad de celda para un par de bichos
+  // que además están fuera de pantalla.
   reciclarLejanos(centroX, centroY) {
     const items = this.pool.items;
     let k = 0;
     while (k < this.pool.activos) {
       const e = items[k];
-      if (Math.abs(e.x - centroX) > CULL_X || Math.abs(e.y - centroY) > CULL_Y) {
+      const margen = e.def.persistente ? 2 : 1;
+      if (Math.abs(e.x - centroX) > CULL_X * margen ||
+          Math.abs(e.y - centroY) > CULL_Y * margen) {
+        if (e.def.cofre) this.elitesVivos--;
         this.pool.liberarEn(k);
         this.reciclados++;
       } else {
@@ -469,7 +712,27 @@ export class Enemigos {
     }
   }
 
-  vaciar() { this.pool.vaciar(); }
+  // Todos los que estén vivos salen huyendo, menos los jefes. Lo llama el
+  // director cuando entra el jefe final.
+  //
+  // No se les mata ni se les borra: se les cambia el movimiento. Ver desaparecer
+  // la horda de golpe se leería como un fallo del juego; verla dar media vuelta
+  // y largarse dice quién acaba de llegar mejor que cualquier cartel.
+  huidaGeneral() {
+    const items = this.pool.items;
+    for (let k = 0; k < this.pool.activos; k++) {
+      const e = items[k];
+      if (e.def.rol === 'jefe') continue;
+      e.mov = MOV_HUIDA;
+      e.cadenciaMov = CADENCIA_MOV[MOV_HUIDA];
+      e.huidaTotal = true;
+      // Sin tope de huida: estos no rondan, se van. El culling los recoge.
+      e.radioAcoso = 0;
+      e.derivaAcoso = 0;
+    }
+  }
+
+  vaciar() { this.pool.vaciar(); this.elitesVivos = 0; }
 
   // Ordenación por profundidad (eje Y) mediante ordenación por CONTEO sobre
   // arrays tipados preasignados. Nada de Array.sort con una closure de

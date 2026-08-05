@@ -25,7 +25,11 @@ const CLIP_LATERAL = 'andar_lateral';
 // Estadísticas base de la sección 6 del plan.
 const BASE = {
   vidaMaxima: 100,
-  velocidad: 85,          // px lógicos por segundo
+  // 64 y no los 85 del plan: TODO el juego baja un 25% de velocidad, jugador y
+  // bestiario a la vez (ver la cabecera de datos/enemigos.js). La proporción
+  // entre ambos no cambia —huir sigue funcionando igual de bien— pero el ritmo
+  // general afloja y da tiempo a leer la pantalla antes de decidir.
+  velocidad: 64,          // px lógicos por segundo
   armadura: 0,
   regeneracion: 0,
   radioRecogida: 40,
@@ -58,6 +62,15 @@ export class Jugador {
     this.xpNecesaria = xpNecesaria(1);
     this.pasivos = {};            // id -> nivel
     this.rerolls = REROLLS;
+    // Subida de nivel automática. Solo surte efecto con las ocho ranuras llenas
+    // (ver Progresion.puedeAutomatizar); se enciende desde la ficha o desde el
+    // propio menú de subida de nivel.
+    this.autoNivel = false;
+    // Lanzallamas prestado por un consumible: segundos que le quedan y su
+    // propia recarga. Vive en el jugador y no en el arsenal porque no ocupa
+    // ranura ni sube de nivel: es una ayuda temporal, no un arma.
+    this.llamarada = 0;
+    this.relojLlamarada = 0;
 
     this.x = 0; this.y = 0;
     this.xPrev = 0; this.yPrev = 0;

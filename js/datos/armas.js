@@ -31,6 +31,8 @@ export const ARMAS = {
     empuje: 90,
     color: '#f0e2b6',
     estela: '#c89a4a',
+    // Sección 9: nivel 8 + este pasivo a 1 o más, y un COFRE de élite.
+    evolucion: { pasivo: 'anilloAugusto', arma: 'pilumJupiter' },
     niveles: [
       {},
       { danyo: 3 },
@@ -57,6 +59,7 @@ export const ARMAS = {
     demoraGolpe: 0.12,       // segundos entre tajos encadenados
     empuje: 150,
     color: '#dfe6ef',
+    evolucion: { pasivo: 'lorica', arma: 'gladiusHispaniensis' },
     niveles: [
       {},
       { danyo: 4 },
@@ -180,7 +183,7 @@ export const ARMAS = {
     nombre: 'Lanzagranadas',
     descripcion: 'Sale disparada y revienta al tocar. Área amplia.',
     comportamiento: 'proyectilExplosivo',
-    danyo: 4, danyoExplosion: 22, radioExplosion: 42,
+    danyo: 4, danyoExplosion: 22, radioExplosion: 27,
     recarga: 2.0, proyectiles: 1, velocidad: 170, alcance: 200,
     radio: 4, perforacion: 0, dispersion: 12, empuje: 150,
     color: '#ff9a4a', estela: '#8a3a10', largoTrazo: 7,
@@ -193,7 +196,7 @@ export const ARMAS = {
     nombre: 'Bombardeo',
     descripcion: 'Bombas al azar por toda la pantalla. No hay que apuntar.',
     comportamiento: 'bombardeoAleatorio',
-    danyo: 0, danyoExplosion: 26, radioExplosion: 38, duracion: 0.35,
+    danyo: 0, danyoExplosion: 26, radioExplosion: 24, duracion: 0.35,
     recarga: 2.6, proyectiles: 2, empuje: 120,
     color: '#ffb14a',
     niveles: [{}, { proyectiles: 1 }, { danyoExplosion: 8 }, { radioExplosion: 8 },
@@ -207,21 +210,25 @@ export const ARMAS = {
     nombre: 'Onda expansiva',
     descripcion: 'Anillo que se abre desde ti en todas direcciones.',
     comportamiento: 'ondaCircular',
-    danyo: 12, radio: 92, duracion: 0.45, recarga: 2.4, empuje: 200,
+    danyo: 12, radio: 58, duracion: 0.45, recarga: 2.4, empuje: 200,
     color: '#9adfff',
-    niveles: [{}, { radio: 14 }, { danyo: 4 }, { recarga: -0.3 },
-              { radio: 16 }, { danyo: 6 }, { recarga: -0.3 }, { radio: 22, danyo: 8 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { radio: 12 }, { danyo: 4, radio: 8 }, { recarga: -0.3 },
+              { radio: 14 }, { danyo: 6, radio: 8 }, { recarga: -0.3 }, { radio: 18, danyo: 8 },
+              { danyo: 6, radio: 8 }, { danyo: 9, radio: 10, recarga: -0.15 }]
   },
   aquila: {
     nombre: 'Aquila',
     descripcion: 'Aura constante a tu alrededor. Poco daño, sin descanso.',
     comportamiento: 'auraPasiva',
-    danyo: 3, intervalo: 0.4, recarga: 0.5, radio: 46, empuje: 50,
+    // El AURA arranca pegada al cuerpo (24) y llega a 71 al nivel 10. Antes
+    // salía ya a 46 —media pantalla de radio en el minuto 1— y con eso el
+    // arma se jugaba sola desde el principio y luego no cambiaba en nada al
+    // subirla. Ahora el crecimiento ES la mejora: cada nivel se ve.
+    danyo: 3, intervalo: 0.4, recarga: 0.5, radio: 24, empuje: 50,
     color: '#ffd98a',
-    niveles: [{}, { radio: 7 }, { danyo: 1 }, { radio: 7 },
-              { danyo: 2 }, { empuje: 40 }, { radio: 9 }, { danyo: 3 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { radio: 5 }, { danyo: 1, radio: 4 }, { radio: 6 },
+              { danyo: 2, radio: 5 }, { empuje: 40, radio: 5 }, { radio: 7 }, { danyo: 3, radio: 6 },
+              { danyo: 6, radio: 4 }, { danyo: 9, radio: 5, recarga: -0.15 }]
   },
 
   // --- Suelo: control de zona -------------------------------------------
@@ -229,17 +236,18 @@ export const ARMAS = {
     nombre: 'Fuego griego',
     descripcion: 'Charco incendiario que quema a quien lo pisa.',
     comportamiento: 'zonaPersistente',
-    danyo: 4, intervalo: 0.35, recarga: 3.4, charcos: 1, duracion: 4.5, radio: 30,
+    danyo: 4, intervalo: 0.35, recarga: 3.4, charcos: 1, duracion: 4.5, radio: 19,
     ralentiza: 0, empuje: 0, color: '#ff7a2a',
-    niveles: [{}, { radio: 6 }, { duracion: 1.5 }, { danyo: 2 },
-              { charcos: 1 }, { radio: 7 }, { duracion: 2 }, { charcos: 1, danyo: 3 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    evolucion: { pasivo: 'antorcha', arma: 'incendioEmerita' },
+    niveles: [{}, { radio: 5 }, { duracion: 1.5, radio: 4 }, { danyo: 2 },
+              { charcos: 1, radio: 4 }, { radio: 6 }, { duracion: 2, radio: 4 }, { charcos: 1, danyo: 3, radio: 5 },
+              { danyo: 6, radio: 4 }, { danyo: 9, radio: 5, recarga: -0.15 }]
   },
   rete: {
     nombre: 'Rete',
     descripcion: 'Red que frena a la mitad. Control, no matanza.',
     comportamiento: 'zonaPersistente',
-    danyo: 3, intervalo: 0.5, recarga: 3.0, charcos: 1, duracion: 3.5, radio: 40,
+    danyo: 3, intervalo: 0.5, recarga: 3.0, charcos: 1, duracion: 3.5, radio: 25,
     ralentiza: 0.5, empuje: 0, color: '#b9c7d6',
     niveles: [{}, { radio: 8 }, { duracion: 1 }, { danyo: 2 },
               { charcos: 1 }, { duracion: 1.5 }, { radio: 10 }, { charcos: 1 },
@@ -275,6 +283,7 @@ export const ARMAS = {
     comportamiento: 'orbital',
     danyo: 13, recarga: 1.0, escudos: 2, radioOrbita: 40, radioEscudo: 8,
     velocidadAngular: 2.2, empuje: 120, color: '#e0c88a',
+    evolucion: { pasivo: 'coronaLaurel', arma: 'testudo' },
     niveles: [{}, { escudos: 1 }, { radioOrbita: 8 }, { danyo: 5 },
               { escudos: 1 }, { velocidadAngular: 0.7 }, { escudos: 1 }, { danyo: 9 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -288,6 +297,7 @@ export const ARMAS = {
     danyo: 24, recarga: 2.3, proyectiles: 1, velocidad: 380, alcance: 460,
     radio: 5, perforacion: 4, dispersion: 0, empuje: 210,
     color: '#f0eada', estela: '#9aa7b5', largoTrazo: 14,
+    evolucion: { pasivo: 'clepsidra', arma: 'escorpion' },
     niveles: [{}, { perforacion: 2 }, { danyo: 8 }, { velocidad: 60 },
               { perforacion: 3 }, { danyo: 10 }, { recarga: -0.4 }, { danyo: 14, perforacion: 4 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -296,7 +306,7 @@ export const ARMAS = {
     nombre: 'Tribulus',
     descripcion: 'Abrojos que quedan clavados donde pisas.',
     comportamiento: 'zonaPersistente',
-    danyo: 6, intervalo: 0.45, recarga: 2.8, charcos: 3, duracion: 5, radio: 14,
+    danyo: 6, intervalo: 0.45, recarga: 2.8, charcos: 3, duracion: 5, radio: 10,
     ralentiza: 0.25, empuje: 30, color: '#c9bda0',
     niveles: [{}, { charcos: 1 }, { danyo: 2 }, { duracion: 2 },
               { charcos: 2 }, { danyo: 3 }, { duracion: 2 }, { charcos: 2, danyo: 4 },
@@ -536,14 +546,19 @@ export const ARMAS = {
     nombre: 'Lanzacohetes',
     descripcion: 'Un cohete cada mucho. Se lleva media pantalla.',
     comportamiento: 'proyectilExplosivo',
-    danyo: 6, danyoExplosion: 46, radioExplosion: 68,
-    recarga: 3.4, proyectiles: 1, velocidad: 210, alcance: 300,
+    // CADENCIA A LA MITAD (3.4 -> 6.8 de recarga). Disparaba casi tan a menudo
+    // como el lanzagranadas llevándose media pantalla por disparo, así que no
+    // había ningún motivo para llevar otra cosa. Ahora es lo que dice su nombre:
+    // un cohete cada mucho, y hay que elegir el momento. El área también baja,
+    // como en el resto de la familia.
+    danyo: 6, danyoExplosion: 46, radioExplosion: 44,
+    recarga: 6.8, proyectiles: 1, velocidad: 210, alcance: 300,
     radio: 5, perforacion: 0, dispersion: 0, empuje: 260,
     color: '#ff7a5a', estela: '#8a2a10', largoTrazo: 12,
-    niveles: [{}, { danyoExplosion: 14 }, { radioExplosion: 10 }, { recarga: -0.5 },
-              { danyoExplosion: 16 }, { radioExplosion: 12 }, { proyectiles: 1 },
-              { danyoExplosion: 22, recarga: -0.5 },
-              { danyoExplosion: 6 }, { danyoExplosion: 9, recarga: -0.15 }]
+    niveles: [{}, { danyoExplosion: 14 }, { radioExplosion: 8 }, { recarga: -0.6 },
+              { danyoExplosion: 16 }, { radioExplosion: 9 }, { proyectiles: 1 },
+              { danyoExplosion: 22, recarga: -0.6 },
+              { danyoExplosion: 6 }, { danyoExplosion: 9, recarga: -0.4 }]
   },
   artilleria: {
     nombre: 'Artillería',
@@ -676,6 +691,122 @@ export const ARMAS = {
     niveles: [{}, { danyo: 5 }, { escudos: 1 }, { velocidadAngular: 0.8 },
               { danyo: 7 }, { escudos: 1 }, { radioEscudo: 3 }, { danyo: 11, escudos: 1 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+  },
+
+  // --- Barrido completo: la katana --------------------------------------
+  // Pedida por Sergio. Es un arcoMelee con la apertura al máximo: 360 grados,
+  // así que no hay que orientarse ni acercarse por un lado concreto — barre todo
+  // lo que te rodea y empuja.
+  //
+  // Lo que la hace distinta del Gladius no es el arco, es el ALCANCE. Corto (38
+  // frente a 46) y con dos tajos encadenados: te obliga a estar DENTRO del
+  // montón, no en su borde. Un barrido de 360 con alcance largo sería
+  // sencillamente el arma buena, y aquí lo que se paga por cubrir todo el
+  // círculo es tener que meterse.
+  //
+  // Su hueco en el catálogo lo justifica la ambientación mezclada, igual que el
+  // revólver o la artillería.
+  katana: {
+    nombre: 'Katana',
+    descripcion: 'Barrido de 360° a tu alrededor. Hay que estar dentro.',
+    comportamiento: 'arcoMelee',
+    danyo: 15,
+    recarga: 1.35,
+    alcance: 38,
+    angulo: 360,
+    golpes: 2,
+    demoraGolpe: 0.16,
+    empuje: 130,
+    color: '#e8f0ff',
+    niveles: [
+      {}, { danyo: 5 }, { alcance: 5 }, { danyo: 7 },
+      { golpes: 1 }, { alcance: 6, danyo: 6 }, { recarga: -0.2 }, { danyo: 12, alcance: 6 },
+      { danyo: 6 }, { danyo: 9, recarga: -0.15 }
+    ]
+  },
+
+  // --- Orbital intermitente ----------------------------------------------
+  // También de Sergio: escudos de sierra que orbitan y se ACTIVAN cada cierto
+  // tiempo. Los tres orbitales que ya había (Scutum, Satélites, Discos de
+  // sierra) giran para siempre en cuanto se equipan; este sale, da vueltas seis
+  // segundos y se retira hasta la próxima recarga.
+  //
+  // Por eso pega casi el triple que los discos permanentes: lo que compras con
+  // ese daño es tener que mirar el reloj.
+  sierrasVotivas: {
+    nombre: 'Sierras votivas',
+    descripcion: 'Cuatro sierras que salen a girar unos segundos y vuelven.',
+    comportamiento: 'orbitalPulsante',
+    danyo: 42, recarga: 6.5, duracion: 6, escudos: 4, radioOrbita: 38, radioEscudo: 10,
+    velocidadAngular: 5.0, empuje: 140, color: '#ffb14a',
+    niveles: [{}, { danyo: 10 }, { duracion: 1 }, { escudos: 1 },
+              { recarga: -0.8 }, { danyo: 14 }, { escudos: 1, radioOrbita: 6 },
+              { duracion: 1.5, danyo: 18 },
+              { danyo: 10 }, { danyo: 14, recarga: -0.7 }]
+  },
+
+  // === EVOLUCIONES (sección 9 del plan) ==================================
+  //
+  // NO SALEN EN EL SORTEO DE SUBIDA DE NIVEL. `esEvolucion` las saca del sorteo
+  // de sistemas/progresion.js: la única forma de conseguirlas es abrir un COFRE
+  // de élite llevando el arma base a nivel 8 y el pasivo requerido a 1 o más.
+  //
+  // Tampoco suben de nivel: llegan con sus números finales, que es lo que las
+  // convierte en el techo de una rama y no en un escalón más. Por eso no llevan
+  // `niveles`.
+  //
+  // Reutilizan comportamientos ya implementados, como manda el criterio 8 del
+  // plan. Tres de las cinco quedan a falta de un matiz que depende de sistemas
+  // que todavía no existen, y está marcado en cada una: el arma es jugable y
+  // está equilibrada, pero el detalle fino llegará con su sistema.
+  pilumJupiter: {
+    nombre: 'Pilum de Júpiter',
+    descripcion: 'La jabalina revienta en rayo al clavarse.',
+    comportamiento: 'proyectilExplosivo',
+    esEvolucion: true,
+    danyo: 26, danyoExplosion: 40, radioExplosion: 46,
+    recarga: 0.85, proyectiles: 3, velocidad: 300, alcance: 340,
+    radio: 5, perforacion: 2, dispersion: 9, empuje: 190,
+    color: '#dff0ff', estela: '#7fa8ff', largoTrazo: 9
+    // Pendiente: el rayo de verdad (columna vertical que cae en el impacto) pide
+    // un efecto vertical que no existe; de momento el estallido hace su papel.
+  },
+  gladiusHispaniensis: {
+    nombre: 'Gladius Hispaniensis',
+    descripcion: 'Corte de 360° que barre y empuja.',
+    comportamiento: 'ondaCircular',
+    esEvolucion: true,
+    danyo: 62, radio: 108, duracion: 0.34, recarga: 1.15, empuje: 320,
+    color: '#ffffff'
+  },
+  testudo: {
+    nombre: 'Testudo',
+    descripcion: 'Seis escudos en formación cerrada.',
+    comportamiento: 'orbital',
+    esEvolucion: true,
+    danyo: 44, recarga: 1.0, escudos: 6, radioOrbita: 46, radioEscudo: 10,
+    velocidadAngular: 3.0, empuje: 200, color: '#f0dca8'
+    // Pendiente: destruir proyectiles enemigos. No hay proyectiles enemigos hasta
+    // la Fase 6, así que hoy no habría nada que destruir.
+  },
+  incendioEmerita: {
+    nombre: 'Incendio de Emerita',
+    descripcion: 'El fuego cubre el suelo y no se apaga.',
+    comportamiento: 'zonaPersistente',
+    esEvolucion: true,
+    danyo: 16, intervalo: 0.25, recarga: 1.6, charcos: 4, duracion: 7, radio: 52,
+    ralentiza: 0.2, empuje: 0, color: '#ff5a1a'
+    // Pendiente: la propagación al morir un enemigo dentro del charco. Necesita
+    // un aviso de muerte con posición desde el sistema de zonas.
+  },
+  escorpion: {
+    nombre: 'Escorpión',
+    descripcion: 'Disparo continuo que atraviesa la fila entera.',
+    comportamiento: 'direccionFija', patron: 'horizontal',
+    esEvolucion: true,
+    danyo: 40, recarga: 0.3, proyectiles: 2, velocidad: 460, alcance: 620,
+    radio: 6, perforacion: 999, dispersion: 4, empuje: 240,
+    color: '#fff4d8', estela: '#c08a3a', largoTrazo: 18
   }
 };
 

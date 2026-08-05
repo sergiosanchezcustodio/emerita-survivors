@@ -95,8 +95,11 @@ export class Entrada {
       if (e.repeat) { this._teclas.add(e.code); return; }
       this._teclas.add(e.code);
       this._flanco.add(e.code);
-      // F3 y las flechas las reclama el navegador; aquí mandamos nosotros.
-      if (e.code === 'F3' || e.code === 'Escape' || e.code.startsWith('Arrow')) {
+      // F3, Tab y las flechas las reclama el navegador; aquí mandamos nosotros.
+      // Tab sobre todo: sin esto, abrir la ficha de jugador mueve además el foco
+      // fuera del lienzo y la siguiente tecla ya no llega al juego.
+      if (e.code === 'F3' || e.code === 'Escape' || e.code === 'Tab' ||
+          e.code.startsWith('Arrow')) {
         e.preventDefault();
       }
     });
@@ -239,6 +242,18 @@ export class Entrada {
   }
 
   limpiarFlanco() { this._flanco.clear(); }
+
+  // ¿Se ha pulsado ALGO en este paso? Teclado o cualquier botón de cualquier
+  // mando. Lo usa la pantalla del cofre, que no pide una decisión sino un
+  // "vale": obligar a buscar la tecla correcta para cerrar un aviso es fricción
+  // por nada, y en cooperativo además nadie sabría a quién le toca pulsarla.
+  algunFlanco() {
+    if (this._flanco.size > 0) return true;
+    for (let i = 0; i < this.controles.length; i++) {
+      if (this.controles[i]._flancoBotones !== 0) return true;
+    }
+    return false;
+  }
 
   _algunaTecla(lista) {
     for (let i = 0; i < lista.length; i++) {

@@ -7,7 +7,7 @@ import { Camara } from './core/camara.js';
 import { Recursos } from './core/recursos.js';
 import { crearRng, hash2 } from './core/rng.js';
 import { Jugador } from './entidades/jugador.js';
-import { Enemigos } from './entidades/enemigo.js';
+import { Enemigos, prepararVariantes } from './entidades/enemigo.js';
 import { Proyectiles } from './entidades/proyectil.js';
 import { Armas } from './sistemas/armas.js';
 import { Particulas } from './sistemas/particulas.js';
@@ -16,16 +16,20 @@ import {
   separacion, contactoJugadores, impactosProyectiles, separarJugadores, ajustes
 } from './sistemas/colisiones.js';
 import { Recogibles } from './entidades/recogible.js';
+import { Cofres, COFRE, LLAMARADA, IMAN, COMIDA } from './entidades/cofre.js';
+import { Disparos } from './entidades/disparo.js';
 import { Zonas } from './entidades/zonaDanyo.js';
 import { Progresion } from './sistemas/progresion.js';
 import { dibujarMenuNivel } from './ui/menuNivel.js';
-import { dibujarPaneles } from './ui/hud.js';
+import { dibujarCofre } from './ui/cofre.js';
+import { dibujarFicha } from './ui/ficha.js';
+import { dibujarPaneles, dibujarReloj } from './ui/hud.js';
 import { Capa } from './ui/capa.js';
 import { Tema, olvidarDegradados } from './ui/tema.js';
 import {
-  dibujarDepuracion, dibujarPausa, dibujarAbatido, dibujarSimulacro
+  dibujarDepuracion, dibujarPausa, dibujarAbatido
 } from './ui/depuracion.js';
-import { Simulacro, aparecerTanda } from './sistemas/simulacro.js';
+import { Director, aparecerTanda } from './sistemas/director.js';
 import { NIVEL } from './datos/niveles/merida.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from './datos/personajes.js';
 import { ARMAS } from './datos/armas.js';
@@ -47,6 +51,17 @@ const CAPACIDAD_NUMEROS = 160;
 // Gemas: con la fusión por encima de 150 no puede desbordarse, pero se deja
 // margen para el pico entre que caen y se fusionan.
 const CAPACIDAD_GEMAS = 600;
+// Cofres. En veinte minutos caen cuatro mantícoras y nueve serpientes doradas:
+// trece en total, y un cofre no caduca ni se recicla por lejanía.
+//
+// Dieciséis y no trece: el techo tiene que estar por encima del peor caso, que
+// es el jugador que mata élites y no va a por ninguno de sus cofres. Medido con
+// la curva entera y un jugador quieto, el pico fueron diez cofres a la vez.
+const CAPACIDAD_COFRES = 16;
+// Disparos enemigos. Con las medusas del minuto 8 y una mantícora escupiendo
+// abanicos de tres, rara vez pasan de veinte en el aire; 120 es holgado y son
+// objetos diminutos.
+const CAPACIDAD_DISPAROS = 120;
 // Zonas: charcos, trampas, auras, ondas y explosiones comparten pool.
 const CAPACIDAD_ZONAS = 220;
 
@@ -58,9 +73,10 @@ const SEMILLA = 0xE3E21A;
 // aparecen 500 serpientes a la vez, así que no dice nada sobre el ritmo.
 //
 // Para juzgar el daño, la experiencia y el movimiento contra la presión real
-// está el SIMULACRO DE OLEADAS (tecla 5), que recorre los veinte minutos de
-// datos/niveles/merida.js. Las dos cosas conviven porque responden preguntas
-// distintas.
+// está el DIRECTOR, que va soltando la curva de veinte minutos de
+// datos/niveles/merida.js y corre siempre. Las dos cosas conviven porque
+// responden preguntas distintas: los atajos preguntan si el motor aguanta, el
+// director pregunta si el juego está bien calibrado.
 //
 // Hay DOS mezclas porque una sola mentía sobre el juego. Metiendo todo el
 // bestiario desde el segundo cero aparecían arpías, que a 92 px/s son más
@@ -85,7 +101,7 @@ const MEZCLA_TARDIA = [
   'ciclope', 'minotauro'
 ];
 // La geometría de aparición (perímetro, dispersión y los cinco patrones) vive en
-// sistemas/simulacro.js y la comparten los atajos y la curva de verdad: si la
+// sistemas/director.js y la comparten los atajos y la curva de verdad: si la
 // aparición de prueba y la de la partida usaran códigos distintos, probar una no
 // diría nada de la otra.
 
@@ -115,6 +131,8 @@ const arsenales = [];
 let enemigos = null;
 let proyectiles = null;
 let recogibles = null;
+let cofres = null;
+let disparos = null;
 let zonas = null;
 let bucle = null;
 
@@ -124,6 +142,11 @@ let bucle = null;
 const ctxArmas = { jugador: null, enemigos: null, proyectiles: null, zonas: null, rng: null };
 
 let pausado = false;
+// Índice del jugador cuya ficha está abierta, o -1. Se abre con Select en el
+// mando de ese jugador o con Tab en el teclado, y congela el mundo: es una
+// pantalla para mirar números con calma, y mirarlos mientras te rodean no es
+// mirarlos con calma.
+let fichaAbierta = -1;
 let verDepuracion = false;
 let zoomPantalla = 1;
 let tilesDibujados = 0;
@@ -219,6 +242,76 @@ function vigilarDensidad() {
                       { once: true });
 }
 
+// --- Consumibles del suelo ---------------------------------------------------
+// Cuánto cura la comida y cuánto dura el lanzallamas prestado.
+const CURA_COMIDA = 20;
+const DURACION_LLAMARADA = 8;
+const CADENCIA_LLAMARADA = 0.16;
+const DANYO_LLAMARADA = 26;
+
+// Efecto INSTANTÁNEO al recogerlos: no se eligen, no ocupan ranura y no abren
+// ninguna pantalla. Lo único que deciden es si merece la pena desviarse a por
+// ellos ahora, y esa decisión se toma corriendo.
+function usarConsumible(jugador, tipo) {
+  if (tipo === IMAN) {
+    // Todas las gemas del mapa vuelan hacia quien lo recoge. Con el campo de
+    // gemas que deja una partida avanzada, esto son varios niveles de golpe.
+    recogibles.atraerTodas(jugador);
+    VFX.congelar(0.05);
+    return;
+  }
+
+  if (tipo === COMIDA) {
+    jugador.vida = Math.min(jugador.vidaMaxima, jugador.vida + CURA_COMIDA);
+    return;
+  }
+
+  // LLAMARADA: no es un efecto y ya, es un ARMA PRESTADA durante ocho segundos.
+  // Mientras dura, el jugador escupe fuego hacia donde mira, y como el fuego
+  // sale en la dirección en que se avanza, apuntarlo es moverse. Esos ocho
+  // segundos cambian cómo juegas: se pasa de esquivar a barrer.
+  jugador.llamarada = DURACION_LLAMARADA;
+  VFX.sacudir(2.5);
+}
+
+// Un chorro de fuego por delante del jugador mientras le dure la llamarada. Se
+// resuelve como zonas cortas encadenadas, que es lo que ya sabe hacer daño en
+// área: tres por disparo, cada vez más anchas, y una cadencia rápida para que se
+// lea como un chorro continuo y no como tres bombas.
+function actualizarLlamarada(dt) {
+  for (let i = 0; i < jugadores.length; i++) {
+    const j = jugadores[i];
+    if (j.llamarada <= 0) continue;
+    j.llamarada -= dt;
+    j.relojLlamarada -= dt;
+    if (j.relojLlamarada > 0) continue;
+    j.relojLlamarada = CADENCIA_LLAMARADA;
+
+    // Dirección: hacia donde se mueve; si está parado, hacia donde mira. Igual
+    // que el arco de melé, para que las dos cosas se apunten igual.
+    let ax = j.x - j.xPrev;
+    let ay = j.y - j.yPrev;
+    if (Math.abs(ax) < 0.0001 && Math.abs(ay) < 0.0001) {
+      ax = j.mirandoDerecha ? 1 : -1;
+      ay = 0;
+    }
+    const m = Math.hypot(ax, ay) || 1;
+    ax /= m; ay /= m;
+
+    for (let k = 0; k < 3; k++) {
+      const avance = 22 + k * 26;
+      zonas.crear({
+        x: j.x + ax * avance,
+        y: j.y - 4 + ay * avance,
+        radio: 20 + k * 6, radioIni: 6,
+        duracion: 0.3,
+        danyo: DANYO_LLAMARADA, empuje: 120,
+        modo: 'onda', color: '#ff7a2a', relleno: 0.4
+      });
+    }
+  }
+}
+
 // Aparecen alrededor de la CÁMARA, no de un jugador concreto: con el grupo
 // repartido por la pantalla, anclarlo a uno dejaría el borde opuesto vacío.
 function tanda(cantidad, mezcla) {
@@ -228,6 +321,30 @@ function tanda(cantidad, mezcla) {
 // --- Lógica -----------------------------------------------------------------
 function actualizar(dt) {
   entrada.actualizar();
+
+  // El cofre se atiende ANTES que nada, incluidos los atajos de depuración. Se
+  // cierra con cualquier tecla, así que si los atajos fueran antes, cerrarlo con
+  // el 2 soltaría además quinientas serpientes.
+  if (Progresion.cofreAbierto) {
+    if (entrada.algunFlanco()) Progresion.cerrarCofre();
+    entrada.limpiarFlanco();
+    return;
+  }
+
+  // Ficha de jugador. Cada uno abre LA SUYA con el Select de su mando (botón 8
+  // del mapeo estándar); el teclado abre la del jugador 1. La misma tecla la
+  // cierra, que es lo que se intenta por instinto.
+  if (entrada.consumirFlanco('Tab')) fichaAbierta = fichaAbierta === 0 ? -1 : 0;
+  for (let i = 0; i < jugadores.length; i++) {
+    const c = entrada.controles[i];
+    if (c && c.consumirBoton(8)) fichaAbierta = fichaAbierta === i ? -1 : i;
+  }
+  if (fichaAbierta >= 0) {
+    if (fichaAbierta >= jugadores.length) fichaAbierta = -1;   // se fue ese jugador
+    else alternarAutomatico(jugadores[fichaAbierta]);
+    entrada.limpiarFlanco();
+    return;
+  }
 
   if (entrada.consumirFlanco('F3')) verDepuracion = !verDepuracion;
   if (entrada.consumirFlanco('Escape', 9)) pausado = !pausado;
@@ -242,17 +359,25 @@ function actualizar(dt) {
   if (entrada.consumirFlanco('Digit2')) tanda(500, MEZCLA_TEMPRANA);
   if (entrada.consumirFlanco('Digit3')) tanda(800, MEZCLA_TEMPRANA);
   if (entrada.consumirFlanco('Digit4')) tanda(300, MEZCLA_TARDIA);
-  // Simulacro de oleadas: la curva de veinte minutos del nivel, con su escalado
-  // y su techo de densidad. Al encenderlo se limpia la pantalla porque lo que se
-  // mide es la curva, y arrastrar ochocientas serpientes de la tecla 3 falsea el
-  // minuto 0 entero. 6 y 7 mueven el reloj un minuto: probar el minuto 16
-  // esperando dieciséis minutos no es probar, es esperar.
+  // El DIRECTOR corre siempre: es la partida. La tecla 5 lo apaga para poder
+  // juzgar un arma sin oleada encima, y al volver a encenderlo arranca del
+  // minuto 0 y limpia la pantalla, porque lo que se mide entonces es la curva y
+  // arrastrar ochocientas serpientes de la tecla 3 falsea el minuto 0 entero.
+  //
+  // 6 y 7 mueven el reloj un minuto: probar el minuto 16 esperando dieciséis
+  // minutos no es probar, es esperar.
   if (entrada.consumirFlanco('Digit5')) {
-    if (Simulacro.alternar()) { enemigos.vaciar(); proyectiles.vaciar(); zonas.vaciar(); }
+    if (Director.alternar()) { enemigos.vaciar(); proyectiles.vaciar(); zonas.vaciar(); }
   }
-  if (entrada.consumirFlanco('Digit6')) Simulacro.saltar(60);
-  if (entrada.consumirFlanco('Digit7')) Simulacro.saltar(-60);
-  if (entrada.consumirFlanco('KeyX')) { enemigos.vaciar(); proyectiles.vaciar(); zonas.vaciar(); }
+  if (entrada.consumirFlanco('Digit6')) Director.saltar(60);
+  if (entrada.consumirFlanco('Digit7')) Director.saltar(-60);
+  // Cofre a los pies del jugador 1. Esperar a que caiga una mantícora para
+  // comprobar una evolución son cinco minutos de partida por intento.
+  if (entrada.consumirFlanco('Digit8')) cofres.soltar(jugadores[0].x, jugadores[0].y);
+  if (entrada.consumirFlanco('KeyX')) {
+    enemigos.vaciar(); proyectiles.vaciar(); zonas.vaciar(); cofres.vaciar();
+    disparos.vaciar();
+  }
   if (entrada.consumirFlanco('KeyG')) {
     const nuevo = !jugadores[0].inmortal;
     for (let i = 0; i < jugadores.length; i++) jugadores[i].inmortal = nuevo;
@@ -338,6 +463,17 @@ function actualizar(dt) {
   zonas.actualizar(dt, enemigos);
   enemigos.retirarMuertos();
   recogibles.actualizar(dt, jugadores);
+  // Los cofres van DESPUÉS de retirar a los muertos: el que suelta un élite al
+  // caer tiene que existir ya cuando se comprueba quién lo pisa, o se perdería
+  // el caso de morir justo encima del jugador.
+  cofres.actualizar(dt, jugadores);
+  actualizarLlamarada(dt);
+  // Los disparos enemigos van DESPUÉS de las armas: primero se limpia el aire
+  // con lo que el jugador haya lanzado este paso, y lo que sobreviva avanza. Al
+  // revés, un disparo podría atravesar una explosión que ocurre en el mismo
+  // instante y eso se lee como un fallo.
+  disparos.barrer(proyectiles, zonas, arsenales, jugadores);
+  disparos.actualizar(dt, jugadores, camara);
   Particulas.actualizar(dt);
   VFX.actualizar(dt);
 
@@ -354,11 +490,24 @@ function actualizar(dt) {
   // separarlos o el tope los dejaría uno dentro del otro.
   separarJugadores(jugadores);
 
-  // El simulacro aparece DESPUÉS de mover la cámara: si lo hiciera antes, con la
+  // El director aparece DESPUÉS de mover la cámara: si lo hiciera antes, con la
   // cámara corriendo detrás del grupo los enemigos entrarían medio metidos en
   // pantalla por el lado hacia el que se avanza.
-  Simulacro.actualizar(dt, enemigos, camara);
+  Director.actualizar(dt, enemigos, camara);
   entrada.limpiarFlanco();
+}
+
+// Interruptor de subida automática. Se atiende en dos sitios —la ficha y el menú
+// de subida de nivel— porque son los dos momentos en que uno se acuerda de que
+// existe: mirando la ficha, o harto de que se abra el menú.
+//
+// El botón 2 del mando es X en el mapeo estándar.
+function alternarAutomatico(j) {
+  if (!j) return;
+  const c = entrada.controles[jugadores.indexOf(j)] || entrada.controles[0];
+  if (entrada.consumirFlanco('KeyF') || c.consumirBoton(2)) {
+    if (Progresion.puedeAutomatizar(j)) j.autoNivel = !j.autoNivel;
+  }
 }
 
 // Entrada del menú de nivel. Elige el jugador al que le toca —con su propio
@@ -385,6 +534,7 @@ function menuNivelEntrada() {
     Progresion.rerollar(jugadores);
     return;
   }
+  alternarAutomatico(j);
   // Botón 0 = A en el mapeo estándar.
   if (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space') ||
       c.consumirBoton(0)) {
@@ -423,7 +573,28 @@ function equiparGladius() {
 }
 
 // --- Render -----------------------------------------------------------------
+// ¿Está el mundo parado? Lo están la pausa, la ficha, el menú de subida de
+// nivel, el aviso de evolución y el hitstop. Todos comparten la misma vía: en
+// `actualizar` se sale antes de tocar la simulación.
+function mundoCongelado() {
+  return pausado || fichaAbierta >= 0 || Progresion.abierto ||
+         Progresion.cofreAbierto || VFX.congelado > 0;
+}
+
 function dibujar(alpha) {
+  // EL TEMBLOR DE LAS PANTALLAS PARADAS.
+  //
+  // Con el mundo congelado, la lógica no corre pero el RENDER sí, y el bucle le
+  // sigue pasando un alpha que oscila entre 0 y 1 cada frame. Como al congelar
+  // se sale de `actualizar` ANTES de que las entidades copien su posición a
+  // xPrev, cada una conserva el desplazamiento del último paso y la
+  // interpolación las mueve adelante y atrás sesenta veces por segundo. De ahí
+  // el temblor al abrir el menú, el cofre, la ficha o la pausa: pequeño, pero
+  // constante y justo cuando hay que leer.
+  //
+  // Congelado, alpha vale 1: se dibuja el estado final del último paso, quieto.
+  if (mundoCongelado()) alpha = 1;
+
   for (let i = 0; i < jugadores.length; i++) jugadores[i].interpolar(alpha);
   camara.interpolar(alpha);
 
@@ -446,8 +617,10 @@ function dibujar(alpha) {
 
   t = performance.now();
   // Las gemas van bajo las entidades: son suelo, y taparlas con un cuerpo es
-  // información correcta, no un fallo.
+  // información correcta, no un fallo. El cofre también, pero su halo lo delata
+  // por debajo de la horda, que es justo para lo que está.
   recogibles.dibujar(ctx, alpha);
+  cofres.dibujar(ctx, alpha);
   enemigos.dibujar(ctx, camara, alpha, jugadores);
   perfil.entidades = performance.now() - t;
 
@@ -463,6 +636,9 @@ function dibujar(alpha) {
       arsenales[i].dibujarOrbitales(ctx, jugadores[i]);
     }
   }
+  // Los disparos enemigos, por encima de todo lo del mundo: uno que viene tiene
+  // que verse aunque cruce por detrás de un cíclope.
+  disparos.dibujar(ctx, alpha);
   if (activo.particulas) Particulas.dibujar(ctx, alpha);
   perfil.efectos = performance.now() - t;
 
@@ -506,16 +682,24 @@ function dibujar(alpha) {
       fuente: entrada.controles[0].fuente,
       mandos: entrada.mandosConectados,
       zoom: zoomPantalla,
+      cofres: cofres.activos,
+      disparos: disparos.activos,
       sustituidos: Recursos.sustituidos.length
     });
   }
   dibujarPaneles(ctxUi, jugadores);
-  dibujarSimulacro(ctxUi);
+  dibujarReloj(ctxUi);
 
   // Solo se pierde cuando caen TODOS. Con un compañero en pie la partida sigue,
   // que es lo que hace que el cooperativo tenga sentido.
+  //
+  // El cofre manda sobre todo lo demás: es el único que aparece sin haberlo
+  // pedido, y si una subida de nivel simultánea se pintara encima nadie sabría
+  // qué le acaba de tocar.
   if (jugadores.every((j) => j.abatido)) dibujarAbatido(ctxUi, ALTO_FISICO);
-  if (Progresion.abierto) dibujarMenuNivel(ctxUi, jugadores);
+  if (fichaAbierta >= 0) dibujarFicha(ctxUi, jugadores, fichaAbierta);
+  else if (Progresion.cofreAbierto) dibujarCofre(ctxUi, jugadores);
+  else if (Progresion.abierto) dibujarMenuNivel(ctxUi, jugadores);
   else if (pausado) dibujarPausa(ctxUi, ALTO_FISICO);
   perfil.interfaz = performance.now() - t;
 }
@@ -547,6 +731,10 @@ function dibujarSuelo(izq, arr) {
 // --- Arranque ---------------------------------------------------------------
 async function arrancar() {
   await Recursos.cargar(NIVEL);
+  // Variantes de color del bestiario (la serpiente dorada). Después de cargar el
+  // atlas y antes del primer frame: teñir un sprite en caliente sería un canvas
+  // nuevo por enemigo.
+  prepararVariantes();
 
   // El aspecto de pausa, derrota y subida de nivel lo pone el NIVEL. Se inyecta
   // en vez de importarlo desde ui/: si la interfaz importara merida.js, añadir
@@ -560,13 +748,29 @@ async function arrancar() {
   Particulas.iniciar(CAPACIDAD_PARTICULAS);
   VFX.iniciar(CAPACIDAD_NUMEROS);
   recogibles = new Recogibles(CAPACIDAD_GEMAS, rng);
+  cofres = new Cofres(CAPACIDAD_COFRES, rng);
+  disparos = new Disparos(CAPACIDAD_DISPAROS, rng);
   zonas = new Zonas(CAPACIDAD_ZONAS);
   enemigos.recogibles = recogibles;
+  enemigos.cofres = cofres;
+  enemigos.disparos = disparos;
   Progresion.iniciar(rng);
+
+  // Quién abre el cofre y qué pasa entonces se decide aquí, no en la entidad:
+  // así el cofre no sabe nada de la progresión y la progresión no sabe nada de
+  // que existan cofres tirados por el suelo.
+  cofres.alRecoger = (jugador, tipo) => {
+    if (tipo === COFRE) Progresion.abrirCofre(jugador, jugadores);
+    else usarConsumible(jugador, tipo);
+  };
+
   // Comparte el RNG con todo lo demás, así que con la misma semilla salen las
   // mismas oleadas: es el criterio 10 del plan y sin él no se puede comparar un
   // ajuste de balance con el anterior.
-  Simulacro.iniciar(NIVEL, rng);
+  Director.iniciar(NIVEL, rng);
+  // El director decide cuándo cae un consumible; los objetos del suelo saben
+  // dibujarse y dejarse recoger. Ninguno de los dos sabe del otro más que esto.
+  Director.objetos = cofres;
 
   ctxArmas.enemigos = enemigos;
   ctxArmas.proyectiles = proyectiles;
@@ -591,8 +795,8 @@ async function arrancar() {
   // reproducir una situación exacta (misma semilla, mismos pasos) al ajustar el
   // balance, que es de lo que va el criterio 10.
   window.EMERITA = {
-    jugadores, arsenales, enemigos, proyectiles, recogibles, zonas, camara, entrada, bucle,
-    particulas: Particulas, vfx: VFX, progresion: Progresion, simulacro: Simulacro,
+    jugadores, arsenales, enemigos, proyectiles, recogibles, cofres, disparos, zonas, camara, entrada, bucle,
+    particulas: Particulas, vfx: VFX, progresion: Progresion, director: Director,
     ajustes, activo, perfil,
     anyadirJugador, quitarJugador,
     get jugador() { return jugadores[0]; },   // atajo para el caso de uno solo
