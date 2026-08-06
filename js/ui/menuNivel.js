@@ -113,11 +113,9 @@ function dibujarMedallon(ctx, cx, cy, o, color, elegida) {
   ctx.lineCap = 'round';
 
   if (o.clase === 'arma') {
-    const def = ARMAS[o.id];
-    if (def) dibujarIconoArma(ctx, 0, 0, ICONO_R * 0.62, def.comportamiento, color);
+    if (ARMAS[o.id]) dibujarIconoArma(ctx, 0, 0, ICONO_R * 0.62, o.id, color);
   } else if (o.clase === 'pasivo') {
-    const def = PASIVOS[o.id];
-    if (def) dibujarIconoPasivo(ctx, 0, 0, ICONO_R * 0.62, def.campo, COLOR_PASIVO);
+    if (PASIVOS[o.id]) dibujarIconoPasivo(ctx, 0, 0, ICONO_R * 0.62, o.id, COLOR_PASIVO);
   } else {
     // Curación: una copa. No tiene comportamiento ni campo del que sacar glifo,
     // y dejarla con el círculo por defecto la haría parecer un arma sin icono.

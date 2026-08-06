@@ -1,5 +1,6 @@
 import { ANCHO_UI, ALTO_UI } from '../core/constantes.js';
 import { PASIVOS } from '../datos/pasivos.js';
+import { ARMAS } from '../datos/armas.js';
 import { Recursos } from '../core/recursos.js';
 import { FUENTE, textoBorde } from './capa.js';
 import { Tema } from './tema.js';
@@ -26,18 +27,17 @@ import { Director } from '../sistemas/director.js';
 // además reborde oscuro, que es lo que les permite leerse sobre lo que sea que
 // pase por debajo.
 //
-// LOS ICONOS SON PROCEDURALES, dibujados por código a partir del comportamiento
-// del arma y del color que trae en sus datos. No hay ni un PNG de icono, y es
-// deliberado: son 50 armas y 8 pasivos, y encargar 58 iconos para descubrir
-// después que la mitad de las armas cambian sería tirar el trabajo. La forma
-// dice qué HACE el arma —flecha para proyectil, anillo para orbital, ráfaga
-// para explosivo—, que es justo lo que hay que leer de un vistazo. Con 50 armas
-// repartidas en 12 comportamientos, el glifo agrupa por familia y eso es más
-// útil que 50 dibujos distintos: lo que necesitas saber en mitad de una horda
-// es si eso que llevas apunta solo o hay que colocarse.
+// LOS ICONOS YA SON DIBUJO DE VERDAD. Sergio ha entregado las dos hojas —52
+// armas y 8 objetos, cada una en su hueco— y están en el atlas como
+// `iconosArmas` e `iconosObjetos`. Pasó exactamente lo que decía este
+// comentario cuando eran procedurales: metidos en el atlas, el resto del panel
+// no se ha enterado.
 //
-// Cuando existan iconos de verdad, basta con meterlos en el atlas y sustituir
-// dibujarIcono: el resto del panel no se entera.
+// Los glifos vectoriales SE QUEDAN, y no por nostalgia. Son el repliegue si
+// falta una hoja o si aparece un arma sin icono dibujado, y en ese caso siguen
+// diciendo lo que decían: la forma agrupa por COMPORTAMIENTO —flecha para
+// proyectil, anillo para orbital— así que un arma nueva sin arte se lee por su
+// familia en vez de salir en blanco. Ver dibujarIconoArma.
 
 // --- Medidas -----------------------------------------------------------------
 //
@@ -341,18 +341,78 @@ function blitIcono(ctx, canvasIcono, x, y, r) {
   ctx.imageSmoothingEnabled = suavizado;
 }
 
-// Dibuja el glifo de un arma en pixel art real, centrado en (x,y) con radio
-// r. `ctx.shadowBlur`/`shadowColor` puestos por quien llama SÍ afectan al
-// blit (drawImage respeta la sombra del contexto igual que fill/stroke), así
-// que el resplandor de "al máximo" de ui/ficha.js sigue funcionando igual.
-export function dibujarIconoArma(ctx, x, y, r, comportamiento, color) {
+// --- Reparto de las hojas de iconos --------------------------------------
+//
+// Cada hoja es una tira horizontal de fotogramas cuadrados y trae en el atlas
+// su propio `orden`: la lista de ids, hueco por hueco, tal como la escribió
+// herramientas/procesar-assets.ps1. Se le da la vuelta UNA vez, la primera vez
+// que hace falta un icono, y a partir de ahí buscar el hueco de un arma es
+// mirar un Map. Se hace tarde y no al cargar el módulo porque en ese momento
+// el atlas todavía no existe: lo llena Recursos.cargar() antes del primer
+// frame, y este archivo se importa mucho antes.
+const _huecos = new Map();          // 'iconosArmas' -> Map(id -> fotograma)
+
+function repartoDe(idHoja) {
+  let mapa = _huecos.get(idHoja);
+  if (mapa) return mapa;
+
+  mapa = new Map();
+  _huecos.set(idHoja, mapa);
+  const meta = Recursos.meta(idHoja);
+  // Sin imagen no hay reparto: el mapa se queda vacío y todo cae al glifo.
+  if (!meta || !meta.orden || !Recursos.imagen(idHoja)) return mapa;
+  for (let i = 0; i < meta.orden.length; i++) mapa.set(meta.orden[i], i);
+
+  // Las EVOLUCIONES no llevan icono propio en la hoja: heredan el del arma de
+  // la que salen. Quién evoluciona en qué ya está en datos/armas.js, así que
+  // pedir cinco dibujos más habría sido duplicar en el arte algo que los datos
+  // ya dicen. Además se lee bien en la ficha: el Pilum de Júpiter enseña el
+  // pilum, que es de donde viene.
+  if (idHoja === 'iconosArmas') {
+    for (const id of Object.keys(ARMAS)) {
+      const evo = ARMAS[id].evolucion;
+      if (evo && mapa.has(id) && !mapa.has(evo.arma)) mapa.set(evo.arma, mapa.get(id));
+    }
+  }
+  return mapa;
+}
+
+// Un fotograma de la hoja, centrado en (x,y) con radio r y sin suavizado.
+// `ctx.shadowBlur`/`shadowColor` puestos por quien llama SÍ afectan al blit
+// —drawImage respeta la sombra del contexto igual que fill/stroke— así que el
+// resplandor de "al máximo" de ui/ficha.js sigue funcionando igual.
+function blitHoja(ctx, idHoja, hueco, x, y, r) {
+  const img = Recursos.imagen(idHoja);
+  const meta = Recursos.meta(idHoja);
+  const suavizado = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  const d = r * 2;
+  ctx.drawImage(img, hueco * meta.w, 0, meta.w, meta.h, x - r, y - r, d, d);
+  ctx.imageSmoothingEnabled = suavizado;
+}
+
+// Icono de un arma, centrado en (x,y) con radio r.
+//
+// `color` es el del arma en sus datos y ya SOLO se usa en el repliegue: los
+// iconos dibujados traen su propia paleta y teñirlos sería taparla.
+export function dibujarIconoArma(ctx, x, y, r, idArma, color) {
+  const hueco = repartoDe('iconosArmas').get(idArma);
+  if (hueco !== undefined) return blitHoja(ctx, 'iconosArmas', hueco, x, y, r);
+
+  const def = ARMAS[idArma];
+  const comportamiento = def ? def.comportamiento : '';
   const llave = 'a:' + comportamiento + '|' + color;
   let c = _cacheIconos.get(llave);
   if (!c) { c = rasterizarIcono((cx, rr) => glifoArma(cx, comportamiento, rr), color); _cacheIconos.set(llave, c); }
   blitIcono(ctx, c, x, y, r);
 }
 
-export function dibujarIconoPasivo(ctx, x, y, r, campo, color) {
+export function dibujarIconoPasivo(ctx, x, y, r, idPasivo, color) {
+  const hueco = repartoDe('iconosObjetos').get(idPasivo);
+  if (hueco !== undefined) return blitHoja(ctx, 'iconosObjetos', hueco, x, y, r);
+
+  const def = PASIVOS[idPasivo];
+  const campo = def ? def.campo : '';
   const llave = 'p:' + campo + '|' + color;
   let c = _cacheIconos.get(llave);
   if (!c) { c = rasterizarIcono((cx, rr) => glifoPasivo(cx, campo, rr), color); _cacheIconos.set(llave, c); }
@@ -579,7 +639,7 @@ export function dibujarPaneles(ctx, jugadores) {
       const a = armas[k];
       dibujarRanura(ctx, colocar(k), y + Y_ARMAS, a ? llena : vacia,
         a ? a.def.color : null, a ? a.nivel : 0,
-        a ? ((c, r) => dibujarIconoArma(c, 0, 0, r, a.def.comportamiento, a.def.color)) : null, false);
+        a ? ((c, r) => dibujarIconoArma(c, 0, 0, r, a.id, a.def.color)) : null, false);
     }
 
     for (let k = 0; k < RANURAS; k++) {
@@ -587,7 +647,7 @@ export function dibujarPaneles(ctx, jugadores) {
       const def = id ? PASIVOS[id] : null;
       dibujarRanura(ctx, colocar(k), y + Y_PASIVOS, def ? llena : vacia,
         def ? COLOR_PASIVO : null, def ? j.pasivos[id] : 0,
-        def ? ((c, r) => dibujarIconoPasivo(c, 0, 0, r, def.campo, COLOR_PASIVO)) : null, true);
+        def ? ((c, r) => dibujarIconoPasivo(c, 0, 0, r, id, COLOR_PASIVO)) : null, true);
     }
   }
 

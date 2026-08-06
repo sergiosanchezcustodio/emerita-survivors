@@ -19,27 +19,27 @@
                                   },
                       "legionario":  {
                                          "archivo":  "enemigos/legionario.png",
-                                         "w":  112,
+                                         "w":  105,
                                          "h":  112,
-                                         "anclaX":  56,
+                                         "anclaX":  52,
                                          "anclaY":  112,
-                                         "frames":  8
+                                         "frames":  10
                                      },
                       "gladiador":  {
                                         "archivo":  "enemigos/gladiador.png",
-                                        "w":  108,
+                                        "w":  103,
                                         "h":  108,
-                                        "anclaX":  54,
+                                        "anclaX":  52,
                                         "anclaY":  108,
-                                        "frames":  10
+                                        "frames":  12
                                     },
                       "arpia":  {
                                     "archivo":  "enemigos/arpia.png",
-                                    "w":  96,
+                                    "w":  93,
                                     "h":  76,
-                                    "anclaX":  48,
+                                    "anclaX":  46,
                                     "anclaY":  76,
-                                    "frames":  1
+                                    "frames":  12
                                 },
                       "medusa":  {
                                      "archivo":  "enemigos/medusa.png",
@@ -75,35 +75,35 @@
                                     },
                       "cerbero":  {
                                       "archivo":  "enemigos/cerbero.png",
-                                      "w":  247,
-                                      "h":  222,
-                                      "anclaX":  124,
-                                      "anclaY":  222,
-                                      "frames":  10
+                                      "w":  310,
+                                      "h":  280,
+                                      "anclaX":  155,
+                                      "anclaY":  280,
+                                      "frames":  16
                                   },
                       "hidra":  {
                                     "archivo":  "enemigos/hidra.png",
-                                    "w":  360,
+                                    "w":  365,
                                     "h":  320,
-                                    "anclaX":  180,
+                                    "anclaX":  182,
                                     "anclaY":  320,
-                                    "frames":  1
+                                    "frames":  16
                                 },
                       "loba":  {
                                    "archivo":  "enemigos/loba.png",
-                                   "w":  432,
+                                   "w":  320,
                                    "h":  360,
-                                   "anclaX":  216,
+                                   "anclaX":  160,
                                    "anclaY":  360,
-                                   "frames":  1
+                                   "frames":  16
                                },
                       "gemelo":  {
                                      "archivo":  "enemigos/gemelo.png",
-                                     "w":  112,
+                                     "w":  101,
                                      "h":  104,
-                                     "anclaX":  56,
+                                     "anclaX":  50,
                                      "anclaY":  104,
-                                     "frames":  1
+                                     "frames":  8
                                  },
                       "ericCara":  {
                                        "archivo":  "personajes/eric-cara.png",
@@ -283,6 +283,88 @@
                                                                         "fps":  8
                                                                     }
                                               }
-                                }
+                                },
+                      "iconosObjetos":  {
+                                            "archivo":  "iconos/objetos.png",
+                                            "w":  32,
+                                            "h":  32,
+                                            "anclaX":  16,
+                                            "anclaY":  16,
+                                            "frames":  8,
+                                            "plano":  true,
+                                            "orden":  [
+                                                          "sandalias",
+                                                          "lorica",
+                                                          "anilloAugusto",
+                                                          "clepsidra",
+                                                          "coronaLaurel",
+                                                          "antorcha",
+                                                          "piedraIman",
+                                                          "anfora"
+                                                      ]
+                                        },
+                      "iconosArmas":  {
+                                          "archivo":  "iconos/armas.png",
+                                          "w":  32,
+                                          "h":  32,
+                                          "anclaX":  16,
+                                          "anclaY":  16,
+                                          "frames":  52,
+                                          "plano":  true,
+                                          "orden":  [
+                                                        "pilum",
+                                                        "gladius",
+                                                        "pistola",
+                                                        "escopeta",
+                                                        "lanzasGemelas",
+                                                        "columnaDoble",
+                                                        "rosaDeVientos",
+                                                        "metralla",
+                                                        "lanzagranadas",
+                                                        "bombardeo",
+                                                        "ondaExpansiva",
+                                                        "aquila",
+                                                        "fuegoGriego",
+                                                        "rete",
+                                                        "rayoHorizontal",
+                                                        "rayoCruzado",
+                                                        "scutum",
+                                                        "ballista",
+                                                        "tribulus",
+                                                        "arcoCorto",
+                                                        "honda",
+                                                        "fusil",
+                                                        "subfusil",
+                                                        "revolver",
+                                                        "hacha",
+                                                        "maza",
+                                                        "latigo",
+                                                        "motosierra",
+                                                        "guadanya",
+                                                        "lanzallamas",
+                                                        "recortada",
+                                                        "aspa",
+                                                        "enfilada",
+                                                        "agujas",
+                                                        "muroDeLanzas",
+                                                        "enjambre",
+                                                        "molotov",
+                                                        "lanzacohetes",
+                                                        "artilleria",
+                                                        "lluviaDeFlechas",
+                                                        "gritoDeGuerra",
+                                                        "sismo",
+                                                        "aceiteHirviendo",
+                                                        "minas",
+                                                        "alquitran",
+                                                        "campoElectrico",
+                                                        "laser",
+                                                        "aspaDeLuz",
+                                                        "satelites",
+                                                        "discosDeSierra",
+                                                        "katana",
+                                                        "sierrasVotivas"
+                                                    ]
+                                      }
                   }
 }

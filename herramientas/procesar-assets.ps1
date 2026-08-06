@@ -589,9 +589,26 @@ public class Procesador {
                 // respecto al alto pedido (la gargola, con su rejilla de 8x a
                 // 37px) se quedaba SIEMPRE en su tamano nativo pasara lo que
                 // pasara con `alto`: la red de seguridad solo sabia reducir.
+                //
+                // PERO el bloque entero solo vale si cae CERCA del alto pedido.
+                // La regla se penso para pixel art diminuto, donde el multiplo
+                // es 2 o 3 y redondear cuesta poco. Con los GIF de los jefes la
+                // rejilla nativa ya es casi tan grande como el sprite final, y
+                // ahi redondear a un entero es un disparate: la hidra pedia 320
+                // y el bloque x2 la dejaba en 408, la loba pedia 360 y el x1 la
+                // dejaba en 249. El jefe FINAL salia mas pequeno que el
+                // intermedio, que es exactamente lo contrario de lo que el
+                // catalogo dice. Manda el alto pedido; el bloque entero es una
+                // optimizacion, no la verdad.
                 int mul = Math.Max(1, (int)Math.Round((double)topeH / frameH));
-                frameH *= mul;
-                frameW *= mul;
+                int conBloques = frameH * mul;
+                if (Math.Abs(conBloques - topeH) * 100 <= topeH * 8) {
+                    frameH = conBloques;
+                    frameW *= mul;
+                } else {
+                    frameW = Math.Max(1, (int)Math.Round((double)frameW * topeH / frameH));
+                    frameH = topeH;
+                }
             }
 
             // --- Componer la tira ------------------------------------------
@@ -951,6 +968,419 @@ public class Procesador {
         return frameW + "|" + frameH + "|" + nFrames;
     }
 
+    // ---------------------------------------------------------------------
+    // Suelo del nivel: hacer teselable un mapa que no lo es
+    // ---------------------------------------------------------------------
+    //
+    // El mundo de este juego es INFINITO y con scroll toroidal (ver
+    // dibujarSuelo en main.js): no hay bordes de mapa, así que cualquier
+    // imagen de suelo se repite, y si sus lados no casan se ve una rejilla de
+    // costuras por toda la pantalla. Medido en el mapa de Emerita que ha
+    // dibujado Sergio, el salto de color en la costura es de 35 sobre 255,
+    // contra 7-12 entre dos píxeles vecinos cualesquiera del interior: tres
+    // veces lo normal, o sea perfectamente visible.
+    //
+    // Se arregla RECORTANDO un margen y fundiéndolo en el arranque, que es la
+    // forma que no inventa contenido:
+    //
+    //   salida[x] = mezcla(origen[x + w - m], origen[x])  para x < m
+    //   salida[x] = origen[x]                             para el resto
+    //
+    // La imagen se queda en w-m de ancho, y ahora su última columna
+    // (origen[w-m-1]) y la primera (origen[w-m]) eran VECINAS en el original,
+    // así que al repetirse encajan exactamente. No es un truco de suavizado:
+    // es cerrar el bucle por donde ya estaba cerrado.
+    //
+    // Con la avenida cruzando de arriba abajo esto sale especialmente bien: el
+    // borde superior y el inferior son los dos empedrado, así que la fusión
+    // vertical mezcla losa con losa y la calzada sigue de largo.
+    public static string HacerTeselable(string entrada, string salida, int margen, int escala) {
+        byte[] px; int w, h, stride;
+        CargarPx(entrada, out px, out w, out h, out stride);
+        if (margen * 3 > w || margen * 3 > h) return "MARGEN";
+
+        // El tile tiene que medir un multiplo EXACTO de ESCALA_ARTE, porque el
+        // motor lo dibuja en unidades logicas y la transformacion lo multiplica
+        // por esa escala. Si no divide, el blit deja de ir a 1:1 y el suelo
+        // entero pasa por un remuestreo cada frame — que es justo el cuello de
+        // botella que se corrigio en la Fase 3. El margen se agranda lo justo
+        // para cuadrarlo; son unos pocos pixeles.
+        int mx = margen, my = margen;
+        while ((w - mx) % escala != 0) mx++;
+        while ((h - my) % escala != 0) my++;
+
+        int w2 = w - mx, h2 = h - my;
+
+        // --- Paso en X: de w a w2, fundiendo la banda derecha en la izquierda
+        int tStride = w2 * 4;
+        byte[] tmp = new byte[tStride * h];
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w2; x++) {
+                int q = y * tStride + x * 4;
+                int p = y * stride + x * 4;
+                if (x < mx) {
+                    int p2 = y * stride + (x + w - mx) * 4;
+                    double t = (double)x / mx;
+                    for (int c = 0; c < 3; c++)
+                        tmp[q + c] = (byte)(px[p2 + c] * (1 - t) + px[p + c] * t);
+                } else {
+                    tmp[q] = px[p]; tmp[q + 1] = px[p + 1]; tmp[q + 2] = px[p + 2];
+                }
+                tmp[q + 3] = 255;
+            }
+        }
+
+        // --- Paso en Y: lo mismo con las filas
+        int dStride = w2 * 4;
+        byte[] dst = new byte[dStride * h2];
+        for (int y = 0; y < h2; y++) {
+            for (int x = 0; x < w2; x++) {
+                int q = y * dStride + x * 4;
+                int p = y * tStride + x * 4;
+                if (y < my) {
+                    int p2 = (y + h - my) * tStride + x * 4;
+                    double t = (double)y / my;
+                    for (int c = 0; c < 3; c++)
+                        dst[q + c] = (byte)(tmp[p2 + c] * (1 - t) + tmp[p + c] * t);
+                } else {
+                    dst[q] = tmp[p]; dst[q + 1] = tmp[p + 1]; dst[q + 2] = tmp[p + 2];
+                }
+                dst[q + 3] = 255;
+            }
+        }
+
+        using (Bitmap sal = new Bitmap(w2, h2, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0, 0, w2, h2),
+                                         ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < h2; y++)
+                Marshal.Copy(dst, y * dStride, (IntPtr)(dd.Scan0.ToInt64() + y * dd.Stride), dStride);
+            sal.UnlockBits(dd);
+            sal.Save(salida, ImageFormat.Png);
+        }
+
+        // Costura medida sobre el RESULTADO, para no fiarse de la teoría.
+        // Se compara el salto al repetir contra el salto entre dos columnas
+        // (o filas) del interior: si el primero no es mayor, no hay costura.
+        return w2 + "|" + h2 + "|" +
+               Salto(dst, dStride, w2, h2, true) + "|" + Salto(dst, dStride, w2, h2, false);
+    }
+
+    // Salto medio al repetir menos el salto medio del interior, por canal.
+    static string Salto(byte[] px, int stride, int w, int h, bool enX) {
+        long costura = 0, interior = 0;
+        int n = enX ? h : w;
+        for (int i = 0; i < n; i++) {
+            int a, b, c, d;
+            if (enX) { a = i * stride + (w - 1) * 4; b = i * stride; c = i * stride + (w / 2) * 4; d = c + 4; }
+            else     { a = (h - 1) * stride + i * 4; b = i * 4; c = (h / 2) * stride + i * 4; d = c + stride; }
+            for (int k = 0; k < 3; k++) {
+                costura  += Math.Abs(px[a + k] - px[b + k]);
+                interior += Math.Abs(px[c + k] - px[d + k]);
+            }
+        }
+        return Math.Round((double)costura / n / 3, 1) + " vs " + Math.Round((double)interior / n / 3, 1);
+    }
+
+    // ---------------------------------------------------------------------
+    // Hojas de ICONOS: armas y objetos
+    // ---------------------------------------------------------------------
+    //
+    // Dos hojas con formatos distintos y un solo recortador, porque el trabajo
+    // de fondo es el mismo: encontrar N siluetas EN ORDEN DE LECTURA y meter
+    // cada una centrada en su celda cuadrada de una tira horizontal.
+    //
+    // El orden de lectura es el CONTRATO con datos/armas.js y datos/pasivos.js
+    // — ver $ICONOS_ARMAS más abajo, que es donde se declara qué id ocupa cada
+    // hueco. Aquí solo se garantiza que la fila manda sobre la columna.
+    //
+    // Dos modos, porque las dos hojas que ha dibujado Sergio no se parecen:
+    //
+    //   "rejilla" (objetos.png) — trae ALFA de verdad y los ocho objetos caen
+    //     limpiamente en 4x2 celdas iguales. Se parte la imagen y se mide la
+    //     silueta dentro de cada celda. Nada más.
+    //
+    //   "marco" (armas.png) — viene OPACA, sin un solo píxel transparente: 52
+    //     iconos enmarcados sobre negro, cada marco con su reborde gris. Y la
+    //     rejilla NO es regular: medida, la separación entre filas va de 132 a
+    //     140 píxeles y acumula deriva, así que partir en 8x7 iguales recorta
+    //     media fila por abajo. Hay que encontrar los marcos.
+    //
+    // Cómo se encuentran los marcos, que es lo único no obvio de todo esto: el
+    // hueco ENTRE marcos es negro puro y está conectado con el borde de la
+    // imagen, mientras que el negro de DENTRO de cada marco está encerrado por
+    // su reborde gris. Inundando el negro desde el borde se pinta el hueco y
+    // solo el hueco; lo que queda sin pintar son 52 islas, una por marco. No
+    // hace falta saber ni cuántas columnas hay ni dónde empieza cada una.
+
+    // Luminancia por debajo de la cual un pixel cuenta como fondo.
+    //
+    // 28 y no 12, que era el valor obvio para "negro puro". El reborde inferior
+    // de cada marco no acaba en seco: derrama una sombra tenue que cruza el
+    // hueco hasta el marco de al lado. Medida, esa sombra deja el hueco entre
+    // 13 y 22 de luminancia en siete filas de toda la hoja — suficiente para
+    // que la inundacion no pase y dos marcos vecinos salgan como una sola
+    // celda. Pasaba en siete sitios y se llevaba ocho iconos por delante.
+    //
+    // Se puede subir tanto sin comerse dibujo porque el reborde del marco esta
+    // en 84 y el negro de dentro en 0-5: entre el fondo y lo que hay que
+    // conservar no hay nada, es un salto limpio.
+    const int NEGRO = 28;
+
+    static int Lum(byte[] px, int p) { return (px[p] + px[p+1] + px[p+2]) / 3; }
+
+    // Inunda `marca` a partir de las semillas ya encoladas, avanzando solo por
+    // píxeles que cumplan "es negro".
+    static void InundarNegro(byte[] px, int stride, int w, int h,
+                             bool[] marca, Queue<int> cola,
+                             int x0, int y0, int x1, int y1) {
+        int[] dx = { 1, -1, 0, 0 };
+        int[] dy = { 0, 0, 1, -1 };
+        while (cola.Count > 0) {
+            int i = cola.Dequeue();
+            int x = i % w, y = i / w;
+            for (int k = 0; k < 4; k++) {
+                int nx = x + dx[k], ny = y + dy[k];
+                if (nx < x0 || ny < y0 || nx > x1 || ny > y1) continue;
+                int ni = ny * w + nx;
+                if (marca[ni]) continue;
+                if (Lum(px, ny * stride + nx * 4) > NEGRO) continue;
+                marca[ni] = true;
+                cola.Enqueue(ni);
+            }
+        }
+    }
+
+    // Inunda por todo lo que NO este ya marcado, sin mirar el color. Sirve para
+    // barrer el reborde del marco: ver el comentario de RecortarIconos.
+    static void InundarLibre(bool[] marca, Queue<int> cola, int w,
+                             int x0, int y0, int x1, int y1) {
+        int[] dx = { 1, -1, 0, 0 };
+        int[] dy = { 0, 0, 1, -1 };
+        while (cola.Count > 0) {
+            int i = cola.Dequeue();
+            int x = i % w, y = i / w;
+            for (int k = 0; k < 4; k++) {
+                int nx = x + dx[k], ny = y + dy[k];
+                if (nx < x0 || ny < y0 || nx > x1 || ny > y1) continue;
+                int ni = ny * w + nx;
+                if (marca[ni]) continue;
+                marca[ni] = true;
+                cola.Enqueue(ni);
+            }
+        }
+    }
+
+    static void Semilla(byte[] px, int stride, int w, bool[] marca, Queue<int> cola, int x, int y) {
+        int i = y * w + x;
+        if (marca[i]) return;
+        if (Lum(px, y * stride + x * 4) > NEGRO) return;
+        marca[i] = true;
+        cola.Enqueue(i);
+    }
+
+    // Cajas de los 52 marcos, sin suponer nada sobre la rejilla.
+    static List<int[]> CajasDeMarco(byte[] px, int stride, int w, int h) {
+        bool[] hueco = new bool[w * h];
+        Queue<int> cola = new Queue<int>();
+        for (int x = 0; x < w; x++) { Semilla(px, stride, w, hueco, cola, x, 0);
+                                      Semilla(px, stride, w, hueco, cola, x, h - 1); }
+        for (int y = 0; y < h; y++) { Semilla(px, stride, w, hueco, cola, 0, y);
+                                      Semilla(px, stride, w, hueco, cola, w - 1, y); }
+        InundarNegro(px, stride, w, h, hueco, cola, 0, 0, w - 1, h - 1);
+
+        // Componentes de lo que NO es hueco: cada una es un marco entero
+        // (reborde gris + negro de dentro + icono).
+        bool[] visto = new bool[w * h];
+        List<int[]> cajas = new List<int[]>();
+        Queue<int> q = new Queue<int>();
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int i = y * w + x;
+                if (visto[i] || hueco[i]) continue;
+                int ax = x, bx = x, ay = y, by = y, n = 0;
+                visto[i] = true; q.Enqueue(i);
+                while (q.Count > 0) {
+                    int k = q.Dequeue(); int kx = k % w, ky = k / w; n++;
+                    if (kx < ax) ax = kx; if (kx > bx) bx = kx;
+                    if (ky < ay) ay = ky; if (ky > by) by = ky;
+                    for (int dy = -1; dy <= 1; dy++)
+                        for (int dx = -1; dx <= 1; dx++) {
+                            int nx = kx + dx, ny = ky + dy;
+                            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                            int ni = ny * w + nx;
+                            if (visto[ni] || hueco[ni]) continue;
+                            visto[ni] = true; q.Enqueue(ni);
+                        }
+                }
+                // Un marco ocupa miles de píxeles; lo que baje de ahí es una
+                // mota del fondo, no una celda.
+                if (n > 2000) cajas.Add(new int[] { ax, ay, bx, by });
+            }
+        }
+        return cajas;
+    }
+
+    // Orden de lectura con filas que no están alineadas al píxel. Se agrupa por
+    // BANDAS: se recorre por centro vertical y se abre banda nueva cuando el
+    // salto pasa de media altura de celda. Ordenar por `y` a secas mezclaría
+    // columnas de filas contiguas, porque la hoja está dibujada a mano y dentro
+    // de una misma fila los marcos bailan varios píxeles.
+    static void OrdenarLectura(List<int[]> cajas) {
+        if (cajas.Count == 0) return;
+        int altoMedio = 0;
+        foreach (int[] c in cajas) altoMedio += c[3] - c[1] + 1;
+        altoMedio /= cajas.Count;
+        int umbral = altoMedio / 2;
+
+        cajas.Sort(delegate (int[] a, int[] b) {
+            int ca = (a[1] + a[3]) / 2, cb = (b[1] + b[3]) / 2;
+            if (Math.Abs(ca - cb) > umbral) return ca.CompareTo(cb);
+            return a[0].CompareTo(b[0]);
+        });
+    }
+
+    // Caja de la silueta dentro de una región, con el fondo ya resuelto.
+    // Devuelve null si la región está vacía.
+    static int[] CajaSilueta(bool[] fondo, int w, int x0, int y0, int x1, int y1) {
+        int ax = x1 + 1, ay = y1 + 1, bx = x0 - 1, by = y0 - 1;
+        for (int y = y0; y <= y1; y++)
+            for (int x = x0; x <= x1; x++) {
+                if (fondo[y * w + x]) continue;
+                if (x < ax) ax = x; if (x > bx) bx = x;
+                if (y < ay) ay = y; if (y > by) by = y;
+            }
+        if (bx < ax) return null;
+        return new int[] { ax, ay, bx, by };
+    }
+
+    // Devuelve: n|lado|informe por icono
+    public static string RecortarIconos(string entrada, string salida, int n,
+                                        int lado, string modo, int cols, int filas) {
+        byte[] px; int w, h, stride;
+        CargarPx(entrada, out px, out w, out h, out stride);
+
+        bool[] fondo = new bool[w * h];
+        List<int[]> regiones = new List<int[]>();
+
+        if (modo == "rejilla") {
+            // La hoja ya trae alfa: el fondo es, literalmente, lo transparente.
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    if (px[y * stride + x * 4 + 3] < 128) fondo[y * w + x] = true;
+
+            int cw = w / cols, ch = h / filas;
+            for (int r = 0; r < filas; r++)
+                for (int c = 0; c < cols; c++)
+                    regiones.Add(new int[] { c * cw, r * ch, c * cw + cw - 1, r * ch + ch - 1 });
+        } else {
+            List<int[]> marcos = CajasDeMarco(px, stride, w, h);
+            OrdenarLectura(marcos);
+
+            foreach (int[] m in marcos) {
+                // Dentro del marco, el reborde gris envuelve un rectángulo de
+                // negro. Se busca por dónde empieza ese negro entrando desde
+                // cada lado por la mitad de la celda: eso da el rectángulo
+                // interior sin tener que medir el grosor del reborde, que no es
+                // el mismo en todos.
+                int my = (m[1] + m[3]) / 2, mx = (m[0] + m[2]) / 2;
+                int ix0 = m[0], ix1 = m[2], iy0 = m[1], iy1 = m[3];
+                while (ix0 < mx && Lum(px, my * stride + ix0 * 4) > NEGRO) ix0++;
+                while (ix1 > mx && Lum(px, my * stride + ix1 * 4) > NEGRO) ix1--;
+                while (iy0 < my && Lum(px, iy0 * stride + mx * 4) > NEGRO) iy0++;
+                while (iy1 > my && Lum(px, iy1 * stride + mx * 4) > NEGRO) iy1--;
+
+                // Inundar el negro DE DENTRO, sembrando por el borde interior.
+                Queue<int> cola = new Queue<int>();
+                for (int x = ix0; x <= ix1; x++) { Semilla(px, stride, w, fondo, cola, x, iy0);
+                                                   Semilla(px, stride, w, fondo, cola, x, iy1); }
+                for (int y = iy0; y <= iy1; y++) { Semilla(px, stride, w, fondo, cola, ix0, y);
+                                                   Semilla(px, stride, w, fondo, cola, ix1, y); }
+                InundarNegro(px, stride, w, h, fondo, cola, ix0, iy0, ix1, iy1);
+
+                // Y ahora el REBORDE, que es lo único que queda por tirar.
+                //
+                // Con un rectángulo no vale: el marco está dibujado a mano y su
+                // reborde ondula un par de píxeles, así que recortar por la
+                // recta que se midió en la fila central deja tramos de gris
+                // dentro. Y esos tramos no solo se ven: al entrar en la caja de
+                // la silueta ensanchan el icono y lo encogen al encajarlo, que
+                // es de lo que salían los iconos pequeños y descentrados.
+                //
+                // Se tira por INUNDACIÓN desde el borde de la celda, avanzando
+                // por lo que aún no sea fondo y sin mirar el color. El negro de
+                // dentro ya está marcado del paso anterior, así que la
+                // inundación recorre el anillo del reborde entero —ondas
+                // incluidas— y se para en seco contra ese negro. Al icono no
+                // llega: lo rodea el negro por los cuatro lados.
+                cola.Clear();
+                for (int x = m[0]; x <= m[2]; x++) {
+                    if (!fondo[m[1] * w + x]) { fondo[m[1] * w + x] = true; cola.Enqueue(m[1] * w + x); }
+                    if (!fondo[m[3] * w + x]) { fondo[m[3] * w + x] = true; cola.Enqueue(m[3] * w + x); }
+                }
+                for (int y = m[1]; y <= m[3]; y++) {
+                    if (!fondo[y * w + m[0]]) { fondo[y * w + m[0]] = true; cola.Enqueue(y * w + m[0]); }
+                    if (!fondo[y * w + m[2]]) { fondo[y * w + m[2]] = true; cola.Enqueue(y * w + m[2]); }
+                }
+                InundarLibre(fondo, cola, w, m[0], m[1], m[2], m[3]);
+
+                regiones.Add(new int[] { m[0], m[1], m[2], m[3] });
+            }
+        }
+
+        // --- Componer la tira -------------------------------------------------
+        int tiraW = lado * n;
+        int dStride = tiraW * 4;
+        byte[] dst = new byte[dStride * lado];
+        System.Text.StringBuilder informe = new System.Text.StringBuilder();
+
+        for (int i = 0; i < n; i++) {
+            if (i >= regiones.Count) { informe.Append(i + ":FALTA "); continue; }
+            int[] r = regiones[i];
+            int[] caja = CajaSilueta(fondo, w, r[0], r[1], r[2], r[3]);
+            if (caja == null) { informe.Append(i + ":VACIA "); continue; }
+
+            int silW = caja[2] - caja[0] + 1, silH = caja[3] - caja[1] + 1;
+            // Encaje "contener" y CENTRADO en los dos ejes: un icono no se apoya
+            // en ningún suelo, al revés que un sprite del mundo.
+            double esc = Math.Min((double)lado / silW, (double)lado / silH);
+            int dw = Math.Max(1, (int)Math.Round(silW * esc));
+            int dh = Math.Max(1, (int)Math.Round(silH * esc));
+
+            // Se escala desde un búfer donde el fondo va con alfa 0, para que la
+            // media de área no arrastre el negro del marco al borde del icono.
+            byte[] recorte = new byte[silW * 4 * silH];
+            int rStride = silW * 4;
+            for (int y = 0; y < silH; y++)
+                for (int x = 0; x < silW; x++) {
+                    int p = (caja[1] + y) * stride + (caja[0] + x) * 4;
+                    int q = y * rStride + x * 4;
+                    bool esFondo = fondo[(caja[1] + y) * w + (caja[0] + x)];
+                    recorte[q]     = px[p];
+                    recorte[q + 1] = px[p + 1];
+                    recorte[q + 2] = px[p + 2];
+                    recorte[q + 3] = esFondo ? (byte)0 : px[p + 3];
+                }
+
+            EscalarBloque(recorte, rStride, silW, silH, 0, 0, silW, silH,
+                          dst, dStride, i * lado + (lado - dw) / 2, (lado - dh) / 2, dw, dh);
+            informe.Append(i + ":" + silW + "x" + silH + " ");
+        }
+
+        // Mismo remate que los sprites del mundo: alfa dura y agujeros tapados.
+        // Un icono de 32 píxeles con el borde a medio gas se lee como sucio.
+        Rematar(dst, tiraW, lado, dStride);
+
+        using (Bitmap sal = new Bitmap(tiraW, lado, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0, 0, tiraW, lado),
+                                         ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < lado; y++)
+                Marshal.Copy(dst, y * dStride, (IntPtr)(dd.Scan0.ToInt64() + y * dd.Stride), dStride);
+            sal.UnlockBits(dd);
+            sal.Save(salida, ImageFormat.Png);
+        }
+        return regiones.Count + "|" + lado + "|" + informe.ToString();
+    }
+
     // Reduccion por media de area con alfa premultiplicado. Premultiplicar no es
     // un detalle: sin ello, los pixeles transparentes aportan su color (a menudo
     // negro) a la media y el sprite sale con un halo oscuro en todo el contorno.
@@ -1045,7 +1475,10 @@ $CATALOGO = @(
     # derecha, que es lo que asume el motor.
     @{ src='enemies\legionario.gif';       dst='enemigos\legionario.png';id='legionario';alto=28;  anchoFijo=0;  tol=0; gif=$true }
     @{ src='enemies\gladiador.gif';        dst='enemigos\gladiador.png'; id='gladiador'; alto=27;  anchoFijo=0;  tol=0; gif=$true }
-    @{ src='enemies\arpia.png';            dst='enemigos\arpia.png';     id='arpia';     alto=19;  anchoFijo=0;  tol=0 }
+    # La arpía pasa a GIF ANIMADO: bate las alas, que es lo único que hacía falta
+    # para que el rol "rápido" se lea desde lejos. No lleva voltear: la pose es
+    # frontal con las dos alas abiertas y no mira a ningún lado.
+    @{ src='enemies\arpia.gif';            dst='enemigos\arpia.png';     id='arpia';     alto=19;  anchoFijo=0;  tol=0; gif=$true }
     @{ src='enemies\medusa.png';           dst='enemigos\medusa.png';    id='medusa';    alto=24;  anchoFijo=0;  tol=0 }
     @{ src='enemies\minotauro.gif';        dst='enemigos\minotauro.png'; id='minotauro'; alto=30;  anchoFijo=0;  tol=0; gif=$true }
     @{ src='enemies\ciclope.png';          dst='enemigos\ciclope.png';   id='ciclope';   alto=35;  anchoFijo=0;  tol=45 }
@@ -1054,14 +1487,18 @@ $CATALOGO = @(
     # La hidra deja de ser un sprite huérfano: recupera su papel de jefe, ahora
     # como el segundo de tres (minuto 20), entre Cerbero y la Loba. Ver el
     # bloque de jefes en datos/enemigos.js y datos/jefes.js.
-    @{ src='enemies\hidra.png';            dst='enemigos\hidra.png';     id='hidra';     alto=80;  anchoFijo=0;  tol=0 }
+    # Ya en GIF: las cabezas se mueven por su cuenta. Sin voltear, las bocas
+    # miran a la derecha en el original.
+    @{ src='enemies\hidra.gif';            dst='enemigos\hidra.png';     id='hidra';     alto=80;  anchoFijo=0;  tol=0; gif=$true }
     # JEFE FINAL DEL NIVEL 1 (minuto 30): la loba capitolina y los gemelos, en
     # version monstruosa. La loba mide más que la hidra (es el jefe final y
     # tiene que imponer más que el segundo). Los gemelos, algo más que un
     # gladiador: son criaturas, no adultos, pero tienen que verse desde lejos
     # porque hay que ir a por ellos.
-    @{ src='enemies\loba_capitolina.png';  dst='enemigos\loba.png';      id='loba';      alto=90;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\gemelo.png';           dst='enemigos\gemelo.png';    id='gemelo';    alto=26;  anchoFijo=0;  tol=0 }
+    # Los dos en GIF. La loba va de frente —encarada al jugador, que es como
+    # tiene que verse un jefe final— así que voltearla no cambiaría nada.
+    @{ src='enemies\loba_capitolina.gif';  dst='enemigos\loba.png';      id='loba';      alto=90;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\gemelo.gif';           dst='enemigos\gemelo.png';    id='gemelo';    alto=26;  anchoFijo=0;  tol=0; gif=$true }
     # Personajes: MISMO ALTO logico, ancho derivado de su silueta. Encajar
     # la figura dentro de un cuadrado comun hacia que las poses anchas salieran
     # mas bajas: a Vicky, con ratio 1.43, la limitaba el ancho y se quedaba más
@@ -1292,6 +1729,196 @@ foreach ($e in $CATALOGO) {
 }
 
 $informe | Format-Table -AutoSize
+
+# ---------------------------------------------------------------------------
+# HOJAS DE ICONOS
+# ---------------------------------------------------------------------------
+#
+# Sergio ha dibujado las dos hojas de golpe, una con las 52 armas y otra con los
+# 8 objetos, cada icono en su hueco y en el mismo orden en que están declarados
+# en datos/. Estas listas son ESE contrato, escrito donde se puede comprobar: el
+# hueco `i` de la hoja es el id `i` de la lista.
+#
+# Sí, los ids están dos veces —aquí y en datos/armas.js—. Es a propósito y es lo
+# mismo que ya hace $CATALOGO con los enemigos: mapear un archivo de arte a un id
+# del juego es justo el trabajo de esta herramienta. La alternativa era que el
+# motor dedujera el hueco por la posición en ARMAS, y entonces meter un arma
+# nueva EN MEDIO del catálogo correría en silencio el icono de las treinta que
+# vienen detrás. Así, lo peor que pasa es que a un arma nueva le falte su icono y
+# salga con el glifo de siempre, que es un fallo que se ve.
+#
+# Las EVOLUCIONES no están: no salen en el sorteo y heredan en ui/hud.js el icono
+# del arma de la que salen, así que dibujarlas era trabajo de más.
+$ICONOS_ARMAS = @(
+    'pilum','gladius','pistola','escopeta','lanzasGemelas','columnaDoble','rosaDeVientos','metralla',
+    'lanzagranadas','bombardeo','ondaExpansiva','aquila','fuegoGriego','rete','rayoHorizontal','rayoCruzado',
+    'scutum','ballista','tribulus','arcoCorto','honda','fusil','subfusil','revolver',
+    'hacha','maza','latigo','motosierra','guadanya','lanzallamas','recortada','aspa',
+    'enfilada','agujas','muroDeLanzas','enjambre','molotov','lanzacohetes','artilleria','lluviaDeFlechas',
+    'gritoDeGuerra','sismo','aceiteHirviendo','minas','alquitran','campoElectrico','laser','aspaDeLuz',
+    'satelites','discosDeSierra','katana','sierrasVotivas'
+)
+$ICONOS_OBJETOS = @(
+    'sandalias','lorica','anilloAugusto','clepsidra',
+    'coronaLaurel','antorcha','piedraIman','anfora'
+)
+
+# 32 y no 20 —la rejilla a la que se rasterizaban los glifos vectoriales— porque
+# ahora hay dibujo de verdad que perder. Y no más de 32: el sitio más pequeño
+# donde se ve un icono es la ranura del panel de la esquina, que a zoom 1 son
+# unos 24 píxeles de pantalla. Una hoja más fina que eso obligaría a REDUCIR con
+# el suavizado apagado, o sea a tirar filas enteras de píxeles, que es lo que
+# de verdad ensucia un icono.
+$LADO_ICONO = 32
+
+$HOJAS_ICONOS = @(
+    # `modo` rejilla: la hoja trae alfa y los iconos caen en celdas iguales.
+    @{ src='objetos\objetos.png'; dst='iconos\objetos.png'; id='iconosObjetos'
+       ids=$ICONOS_OBJETOS; modo='rejilla'; cols=4; filas=2 }
+    # `modo` marco: opaca, con los iconos enmarcados sobre negro y la rejilla
+    # irregular. Ver CajasDeMarco.
+    @{ src='armas\armas.png';    dst='iconos\armas.png';    id='iconosArmas'
+       ids=$ICONOS_ARMAS;   modo='marco';   cols=0; filas=0 }
+)
+
+New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'iconos') | Out-Null
+
+$informeIconos = @()
+foreach ($hoja in $HOJAS_ICONOS) {
+    $rutaSrc = Join-Path $ORIGEN $hoja.src
+    $rutaDst = Join-Path $DESTINO $hoja.dst
+    $n = $hoja.ids.Count
+    if (-not (Test-Path $rutaSrc)) {
+        $informeIconos += [PSCustomObject]@{ Hoja=$hoja.id; Pedidos=$n; Hallados='-'; Tira='-'; Estado='NO EXISTE' }
+        continue
+    }
+    try {
+        $r = [Procesador]::RecortarIconos($rutaSrc, $rutaDst, $n, $LADO_ICONO,
+                                          $hoja.modo, $hoja.cols, $hoja.filas)
+    } catch {
+        $informeIconos += [PSCustomObject]@{ Hoja=$hoja.id; Pedidos=$n; Hallados='-'; Tira='-'; Estado='ERROR' }
+        continue
+    }
+    $p = $r -split '\|'
+    $hallados = [int]$p[0]
+
+    # `plano`: esta entrada NO es un sprite del mundo. Le dice a core/recursos.js
+    # que no genere ni la copia espejada ni la del destello de impacto — un icono
+    # ni mira a un lado ni recibe golpes, y son dos lienzos de 1664x32 por hoja
+    # que no iba a usar nadie.
+    $atlas[$hoja.id] = [ordered]@{
+        archivo = $hoja.dst.Replace('\', '/')
+        w = $LADO_ICONO; h = $LADO_ICONO
+        anclaX = [int]($LADO_ICONO / 2); anclaY = [int]($LADO_ICONO / 2)
+        frames = $n
+        plano = $true
+        orden = $hoja.ids
+    }
+
+    $informeIconos += [PSCustomObject]@{
+        Hoja    = $hoja.id
+        Pedidos = $n
+        Hallados= $hallados
+        Tira    = "$($LADO_ICONO * $n)x$LADO_ICONO"
+        Estado  = if ($hallados -eq $n) { 'OK' } else { 'DESCUADRE' }
+    }
+    # Con la cuenta descuadrada el número solo dice que algo falla; lo que hace
+    # falta para arreglarlo es VER qué silueta cayó en cada hueco, porque un
+    # recorte que junta dos celdas se delata por el tamaño.
+    if ($hallados -ne $n) { "  detalle $($hoja.id): $($p[2])" }
+}
+$informeIconos | Format-Table -AutoSize
+"DESCUADRE = la hoja no tiene tantos iconos como ids declarados; revisar el recorte."
+
+# ---------------------------------------------------------------------------
+# SUELO DE NIVEL
+# ---------------------------------------------------------------------------
+#
+# Un mapa por nivel, en resources/stages/<n>/. Sale a assets/niveles/ y lo
+# declara el propio nivel en `suelo.imagen` (datos/niveles/merida.js), que es
+# lo que mantiene el contrato: un nivel nuevo sigue siendo copiar un archivo de
+# datos y dejar su mapa, sin tocar el motor.
+#
+# El margen de fusión es el 6% del lado corto: bastante para que la mezcla no
+# se note como una banda, poco para no tirar arte. En el mapa de Emerita son 64
+# píxeles de 1024, y deja el tile en 960x1472 —240x368 unidades lógicas—, o sea
+# media pantalla de ancho y una pantalla y media de alto.
+$SUELOS = @(
+    @{ src='stages\1\mapa_emerita_survivor.png'; dst='niveles\merida-suelo.png'; margen=64 }
+)
+
+New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'niveles') | Out-Null
+
+$informeSuelo = @()
+foreach ($s in $SUELOS) {
+    $rutaSrc = Join-Path $ORIGEN $s.src
+    $rutaDst = Join-Path $DESTINO $s.dst
+    if (-not (Test-Path $rutaSrc)) {
+        $informeSuelo += [PSCustomObject]@{ Mapa=$s.dst; Tile='-'; CosturaX='-'; CosturaY='-'; Estado='NO EXISTE' }
+        continue
+    }
+    try {
+        $r = [Procesador]::HacerTeselable($rutaSrc, $rutaDst, $s.margen, $ESCALA)
+    } catch {
+        $informeSuelo += [PSCustomObject]@{ Mapa=$s.dst; Tile='-'; CosturaX='-'; CosturaY='-'; Estado='ERROR' }
+        continue
+    }
+    $p = $r -split '\|'
+    if ($p.Count -ne 4) {
+        $informeSuelo += [PSCustomObject]@{ Mapa=$s.dst; Tile='-'; CosturaX='-'; CosturaY='-'; Estado=$r }
+        continue
+    }
+    $informeSuelo += [PSCustomObject]@{
+        Mapa     = $s.dst
+        Tile     = "$($p[0])x$($p[1])  ($([int]$p[0]/$ESCALA)x$([int]$p[1]/$ESCALA) logicas)"
+        CosturaX = $p[2]
+        CosturaY = $p[3]
+        Estado   = 'OK'
+    }
+}
+$informeSuelo | Format-Table -AutoSize
+"Costura = salto medio al repetir VS salto entre dos pixeles del interior."
+"Si el primer numero no supera al segundo, la union no se ve."
+
+# ---------------------------------------------------------------------------
+# ILUSTRACIONES DE MENU
+# ---------------------------------------------------------------------------
+#
+# Titulo y seleccion de personaje. Estas NO se procesan: se copian tal cual y
+# solo se les cambia el nombre a algo que el motor pueda escribir sin comillas.
+#
+# No se recortan porque no hay nada que recortar —son pantallas completas, sin
+# silueta ni fondo que quitar— y no se reducen porque el juego las AMPLIA: la
+# del titulo mide 1536 de ancho y el lienzo 1920. Reducirlas aqui seria tirar
+# detalle para volver a estirarlo despues.
+#
+# La copia existe igualmente para que se mantenga la regla del proyecto: el
+# juego lee de assets/ y de ningun otro sitio, y resources/ es solo la fuente.
+$MENUS = @(
+    @{ src='menus\Pantalla_Start.png';    dst='menus\titulo.png' }
+    @{ src='menus\seleccion_jugador.png'; dst='menus\seleccion.png' }
+)
+
+New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'menus') | Out-Null
+
+$informeMenus = @()
+foreach ($m in $MENUS) {
+    $rutaSrc = Join-Path $ORIGEN $m.src
+    $rutaDst = Join-Path $DESTINO $m.dst
+    if (-not (Test-Path $rutaSrc)) {
+        $informeMenus += [PSCustomObject]@{ Menu=$m.dst; Tamano='-'; Estado='NO EXISTE' }
+        continue
+    }
+    Copy-Item $rutaSrc $rutaDst -Force
+    $img = [System.Drawing.Image]::FromFile($rutaDst)
+    $informeMenus += [PSCustomObject]@{
+        Menu   = $m.dst
+        Tamano = "$($img.Width)x$($img.Height)"
+        Estado = 'COPIADA'
+    }
+    $img.Dispose()
+}
+$informeMenus | Format-Table -AutoSize
 
 $json = [ordered]@{ escalaArte = $ESCALA; entidades = $atlas } | ConvertTo-Json -Depth 5
 # UTF-8 SIN BOM: Set-Content -Encoding utf8 lo añade en PowerShell 5.1 y deja un

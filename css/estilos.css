@@ -107,3 +107,9 @@ body {
   color: #4a4450;
   pointer-events: none;
 }
+
+/* La chuleta de atajos es para JUGAR. En el título y en la selección estorba:
+   son pantallas ilustradas de borde a borde y tres líneas de teclas de
+   depuración por encima las convierten en una pantalla de pruebas. main.js
+   pone y quita esta clase al cambiar de pantalla. */
+body.enMenu #pie { display: none; }

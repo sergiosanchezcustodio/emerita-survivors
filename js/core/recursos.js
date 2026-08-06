@@ -28,7 +28,12 @@ export const Recursos = {
   espejos: new Map(),       // id -> canvas volteado en horizontal
   tintes: new Map(),        // id -> canvas blanqueado (destello de impacto)
   tintesEspejo: new Map(),  // id -> el mismo, volteado
-  tilesSuelo: [],           // canvas de 64x64 físicos
+  tilesSuelo: [],           // canvas o imágenes del suelo, todas del mismo tamaño
+  // Lado del tile de suelo en unidades LÓGICAS. Con suelo procedural es TILE en
+  // los dos ejes; con un mapa pintado sale del tamaño de la imagen, que no tiene
+  // por qué ser cuadrada — el de Emerita es una avenida vertical de 240x368.
+  anchoSuelo: TILE,
+  altoSuelo: TILE,
   sustituidos: [],          // ids que acabaron con placeholder
   paleta: null,
 
@@ -50,20 +55,44 @@ export const Recursos = {
     }
     await Promise.all(cargas);
 
-    this._generarSuelo(nivel);
+    await this._generarSuelo(nivel);
+  },
+
+  // Carga suelta, fuera del atlas. La usan el suelo del nivel y las pantallas
+  // de título y selección: son imágenes de UNA pieza, sin fotogramas ni ancla,
+  // y meterlas en el atlas solo les habría inventado metadatos que nadie mira.
+  // Devuelve null si no carga, y todo lo que la usa sabe seguir sin ella.
+  cargarSuelta(ruta) {
+    return new Promise((resolver) => {
+      const img = new Image();
+      img.onload = () => resolver(img);
+      img.onerror = () => { console.warn(`[recursos] no carga ${ruta}`); resolver(null); };
+      img.src = ruta;
+    });
   },
 
   _cargarEntidad(id) {
     const meta = this.atlas.entidades[id];
     return new Promise((resolver) => {
       const registrar = (fuente) => {
-        const espejo = this._espejo(fuente, meta);
         this.imagenes.set(id, fuente);
+        // `plano`: la entrada no es un sprite del mundo, es una hoja de iconos
+        // de interfaz. No mira a ningún lado y no recibe golpes, así que ni
+        // espejo ni destello — serían dos lienzos de 1664x32 que no usa nadie.
+        if (meta.plano) return;
+        const espejo = this._espejo(fuente, meta);
         this.espejos.set(id, espejo);
         this.tintes.set(id, this._tinte(fuente, meta));
         this.tintesEspejo.set(id, this._tinte(espejo, meta));
       };
       const conPlaceholder = () => {
+        // Una hoja de iconos que no carga se queda SIN registrar, a propósito.
+        // La silueta de repuesto tiene sentido para un bicho —el juego sigue
+        // siendo jugable con un rectángulo persiguiéndote— pero como icono
+        // sería el mismo rectángulo repetido cincuenta veces. Sin imagen,
+        // ui/hud.js lo detecta y vuelve a sus glifos vectoriales, que sí dicen
+        // algo. Ver el repliegue de dibujarIconoArma.
+        if (meta.plano) { this.sustituidos.push(id); return resolver(); }
         registrar(this._placeholder(id, meta));
         this.sustituidos.push(id);
         resolver();
@@ -171,16 +200,42 @@ export const Recursos = {
     return c;
   },
 
-  // Tiles de suelo procedurales. El mapa es infinito con scroll toroidal, así
-  // que el tile tiene que casar consigo mismo: cada mota se dibuja también en
-  // su posición envuelta, y por eso no aparecen costuras.
-  _generarSuelo(nivel) {
+  // Suelo del nivel. Dos vías, y el resto del motor no distingue cuál se ha
+  // usado: acaba habiendo tiles en `tilesSuelo` y un tamaño en `anchoSuelo` /
+  // `altoSuelo`, y main.js los repite igual.
+  //
+  //   1. MAPA PINTADO, si el nivel declara `suelo.imagen`. Es una sola pieza,
+  //      ya hecha teselable por la herramienta (ver HacerTeselable), y se
+  //      dibuja a 1:1 porque su tamaño en píxeles es múltiplo exacto de
+  //      ESCALA_ARTE.
+  //   2. TILES PROCEDURALES, si no hay imagen o si falla. El juego tiene que
+  //      seguir siendo jugable sin un solo PNG, así que esto no es un
+  //      apaño: es la misma red de seguridad que los placeholders del atlas.
+  //
+  // En las dos, el mapa del juego es INFINITO con scroll toroidal, así que el
+  // tile tiene que casar consigo mismo. En el procedural eso se consigue
+  // dibujando cada mota también en su posición envuelta; en el pintado, en la
+  // herramienta.
+  async _generarSuelo(nivel) {
     const cfg = nivel.suelo;
+
+    this.tilesSuelo.length = 0;
+    if (cfg.imagen) {
+      const img = await this.cargarSuelta('assets/' + cfg.imagen);
+      if (img) {
+        this.tilesSuelo.push(img);
+        this.anchoSuelo = img.width / ESCALA_ARTE;
+        this.altoSuelo = img.height / ESCALA_ARTE;
+        return;
+      }
+      console.warn('[recursos] sin mapa de suelo: se usan tiles generados');
+    }
+
     const pal = nivel.paleta;
     const lado = TILE * ESCALA_ARTE;
     const rng = crearRng(0xE3E21A);
+    this.anchoSuelo = this.altoSuelo = TILE;
 
-    this.tilesSuelo.length = 0;
     for (let v = 0; v < cfg.variantes; v++) {
       const c = document.createElement('canvas');
       c.width = c.height = lado;

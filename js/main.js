@@ -25,6 +25,7 @@ import { dibujarMenuNivel } from './ui/menuNivel.js';
 import { dibujarCofre } from './ui/cofre.js';
 import { dibujarFicha } from './ui/ficha.js';
 import { dibujarPaneles, dibujarReloj, dibujarBarraJefe } from './ui/hud.js';
+import { Pantallas, ocupantePersonaje } from './ui/pantallas.js';
 import { Capa } from './ui/capa.js';
 import { Tema, olvidarDegradados } from './ui/tema.js';
 import {
@@ -143,6 +144,31 @@ let bucle = null;
 // por jugador y paso de lógica sería asignar memoria en caliente.
 const ctxArmas = { jugador: null, enemigos: null, proyectiles: null, zonas: null, rng: null };
 
+// --- Estado de pantalla ------------------------------------------------------
+// El juego ya no arranca dentro de la partida: pasa por el título y por la
+// selección de personaje. Son tres estados excluyentes y el reparto es tajante
+// —`actualizar` y `dibujar` salen por otra rama en cuanto no estamos jugando—
+// porque la mitad del bucle da por hecho que existe `jugadores[0]`, y en el
+// título todavía no existe nadie.
+const PANTALLA_TITULO = 0;
+const PANTALLA_SELECCION = 1;
+const PANTALLA_JUEGO = 2;
+let pantalla = PANTALLA_TITULO;
+
+// Un hueco por control: null si ese jugador no se ha sumado, y si no
+// `{ personaje, listo }`. El índice ES el del control, así que el mando 3
+// maneja siempre el puesto 3 aunque el 2 esté vacío.
+const puestos = new Array(4).fill(null);
+
+// Cambiar de pantalla en un solo sitio. Hay dos cosas que van fuera del lienzo
+// y que hay que mover con el estado: la chuleta de atajos del pie, que en las
+// pantallas ilustradas sobra, y nada más — si algún día hay una tercera, va
+// aquí y no repartida por el bucle.
+function irA(nueva) {
+  pantalla = nueva;
+  document.body.classList.toggle('enMenu', nueva !== PANTALLA_JUEGO);
+}
+
 let pausado = false;
 // Índice del jugador cuya ficha está abierta, o -1. Se abre con Select en el
 // mando de ese jugador o con Tab en el teclado, y congela el mundo: es una
@@ -169,10 +195,13 @@ const activo = { suelo: true, particulas: true, numeros: true, efectos: true, de
 // --- Alta y baja de jugadores ------------------------------------------------
 // Un jugador entra al enchufar un mando, o a mano con J, para poder probar el
 // cooperativo sin cuatro mandos encima de la mesa.
-function anyadirJugador() {
+// `idPersonaje` lo trae la pantalla de selección. Sin él —al sumarse a mitad de
+// partida con J o al enchufar un mando— se reparte por orden, que es lo que se
+// hacía antes de que hubiera pantalla donde elegir.
+function anyadirJugador(idPersonaje) {
   if (jugadores.length >= MAX_JUGADORES) return null;
   const i = jugadores.length;
-  const j = new Jugador(ORDEN_PERSONAJES[i % ORDEN_PERSONAJES.length]);
+  const j = new Jugador(idPersonaje || ORDEN_PERSONAJES[i % ORDEN_PERSONAJES.length]);
 
   // En abanico alrededor del primero, para que no nazcan uno dentro de otro.
   const ang = (i / MAX_JUGADORES) * Math.PI * 2;
@@ -198,8 +227,11 @@ function quitarJugador() {
   arsenales.pop();
 }
 
-// Cada mando que se enchufa suma un jugador, hasta cuatro.
+// Cada mando que se enchufa suma un jugador, hasta cuatro. Solo con la partida
+// en marcha: en la pantalla de selección enchufar un mando no mete a nadie, se
+// entra pulsando A, que es donde además se elige personaje.
 addEventListener('gamepadconnected', () => {
+  if (pantalla !== PANTALLA_JUEGO) return;
   if (entrada.mandosConectados >= jugadores.length) anyadirJugador();
 });
 
@@ -342,9 +374,135 @@ function tanda(cantidad, mezcla) {
   aparecerTanda(enemigos, camara, cantidad, mezcla, rng);
 }
 
+// --- Título y selección de personaje -----------------------------------------
+
+function entradaTitulo() {
+  // Cualquier cosa vale. Es la misma decisión que la pantalla del cofre: no se
+  // pide una elección, se pide un "vamos", y obligar a buscar la tecla correcta
+  // para eso es fricción por nada.
+  if (!entrada.algunFlanco()) return;
+  puestos.fill(null);
+  puestos[0] = { personaje: 0, listo: false };
+  irA(PANTALLA_SELECCION);
+}
+
+// Siguiente personaje LIBRE en la dirección dada. Dos jugadores no pueden
+// llevar el mismo: cada personaje tiene su arma exclusiva (ver
+// datos/personajes.js), así que repetir dejaría a dos con el mismo arsenal de
+// salida y rompería lo que hace que el cooperativo se juegue distinto.
+function personajeLibre(indice, desde, paso) {
+  const n = ORDEN_PERSONAJES.length;
+  for (let k = 1; k <= n; k++) {
+    const p = (desde + paso * k + n * n) % n;
+    if (ocupantePersonaje(puestos, p) < 0) return p;
+  }
+  return desde;                       // los cuatro cogidos: no se mueve
+}
+
+function primerLibre() {
+  for (let p = 0; p < ORDEN_PERSONAJES.length; p++) {
+    if (ocupantePersonaje(puestos, p) < 0) return p;
+  }
+  return -1;
+}
+
+function entradaSeleccion() {
+  const hueco = primerLibre();
+
+  // --- Altas ---------------------------------------------------------------
+  // Un mando enchufado entra pulsando A. Con J entra uno más por teclado, que
+  // es como se prueba el cooperativo sin cuatro mandos encima de la mesa.
+  if (hueco >= 0) {
+    for (let i = 1; i < puestos.length; i++) {
+      if (puestos[i]) continue;
+      const c = entrada.controles[i];
+      if (c && c.conectado && c.consumirBoton(0)) {
+        puestos[i] = { personaje: hueco, listo: false };
+        break;
+      }
+    }
+    if (entrada.consumirFlanco('KeyJ')) {
+      for (let i = 1; i < puestos.length; i++) {
+        if (!puestos[i]) { puestos[i] = { personaje: primerLibre(), listo: false }; break; }
+      }
+    }
+  }
+
+  // H quita el último, igual que en la partida. No es solo simetría: un puesto
+  // añadido con J lo maneja el mando de ESE jugador, así que si se ha pulsado
+  // sin tener el mando enchufado no puede confirmar nunca, y como la partida no
+  // arranca hasta que están todos listos, la pantalla se quedaba muerta sin más
+  // salida que recargar. Con H se deshace.
+  if (entrada.consumirFlanco('KeyH')) {
+    for (let i = puestos.length - 1; i >= 1; i--) {
+      if (puestos[i]) { puestos[i] = null; break; }
+    }
+  }
+
+  // --- Cada puesto con SU control ------------------------------------------
+  for (let i = 0; i < puestos.length; i++) {
+    const puesto = puestos[i];
+    if (!puesto) continue;
+    const c = entrada.controles[i];
+    // El teclado es del jugador 1, igual que en la partida.
+    const teclado = i === 0;
+
+    // Atrás: deshace un paso cada vez. Confirmado -> sin confirmar; sin
+    // confirmar -> se va (o vuelve al título, si es el jugador 1, que no puede
+    // irse porque entonces no quedaría nadie).
+    if ((teclado && entrada.consumirFlanco('Escape')) || (c && c.consumirBoton(1))) {
+      if (puesto.listo) puesto.listo = false;
+      else if (i > 0) puestos[i] = null;
+      else { irA(PANTALLA_TITULO); return; }
+      continue;
+    }
+
+    if (puesto.listo) continue;
+
+    // El stick se lee UNA vez por paso: flancoEje consume estado.
+    const eje = c ? c.flancoEje(true) : 0;
+    if ((teclado && entrada.consumirFlanco('ArrowRight')) || (c && c.consumirBoton(15)) || eje > 0) {
+      puesto.personaje = personajeLibre(i, puesto.personaje, 1);
+    }
+    if ((teclado && entrada.consumirFlanco('ArrowLeft')) || (c && c.consumirBoton(14)) || eje < 0) {
+      puesto.personaje = personajeLibre(i, puesto.personaje, -1);
+    }
+    if ((teclado && (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space'))) ||
+        (c && c.consumirBoton(0))) {
+      puesto.listo = true;
+    }
+  }
+
+  // --- Salida ---------------------------------------------------------------
+  const presentes = puestos.filter(Boolean);
+  if (presentes.length > 0 && presentes.every((p) => p.listo)) empezarPartida();
+}
+
+// Crea de verdad a los jugadores elegidos y arranca. Hasta aquí no existía ni
+// uno solo: los pools y el director ya estaban montados desde `arrancar`, pero
+// `jugadores` estaba vacío a propósito, porque un jugador en pie durante el
+// título es un jugador al que ya le está corriendo el reloj.
+function empezarPartida() {
+  for (let i = 0; i < puestos.length; i++) {
+    if (puestos[i]) anyadirJugador(ORDEN_PERSONAJES[puestos[i].personaje]);
+  }
+  camara.situar(jugadores[0].x, jugadores[0].y);
+  Director.reiniciar();
+  irA(PANTALLA_JUEGO);
+}
+
 // --- Lógica -----------------------------------------------------------------
 function actualizar(dt) {
   entrada.actualizar();
+
+  // Título y selección salen por aquí, antes de tocar nada de la simulación:
+  // todo lo que viene debajo da por hecho que hay al menos un jugador vivo.
+  if (pantalla !== PANTALLA_JUEGO) {
+    if (pantalla === PANTALLA_TITULO) entradaTitulo();
+    else entradaSeleccion();
+    entrada.limpiarFlanco();
+    return;
+  }
 
   // El cofre se atiende ANTES que nada, incluidos los atajos de depuración. Se
   // cierra con cualquier tecla, así que si los atajos fueran antes, cerrarlo con
@@ -620,6 +778,16 @@ function mundoCongelado() {
 }
 
 function dibujar(alpha) {
+  // Título y selección: no hay mundo que dibujar. La ilustración ocupa el
+  // lienzo del juego entero y los resaltados van en la capa de interfaz, así
+  // que ni se limpia el suelo ni se recorren pools que están vacíos.
+  if (pantalla !== PANTALLA_JUEGO) {
+    Capa.limpiar();
+    if (pantalla === PANTALLA_TITULO) Pantallas.titulo(ctx, Capa.ctx);
+    else Pantallas.seleccion(ctx, Capa.ctx, puestos);
+    return;
+  }
+
   // EL TEMBLOR DE LAS PANTALLAS PARADAS.
   //
   // Con el mundo congelado, la lógica no corre pero el RENDER sí, y el bucle le
@@ -748,14 +916,22 @@ function dibujar(alpha) {
 // Suelo infinito con scroll toroidal: no hay mapa en memoria, la variante de
 // cada celda sale de un hash de sus coordenadas. Se dibuja solo lo que toca el
 // viewport, con un tile de margen.
+//
+// El tamaño del tile lo pone Recursos y NO es la constante TILE: con el mapa
+// pintado de Emerita el tile mide 240x368 unidades lógicas —media pantalla de
+// ancho, una y media de alto— en vez de los 32x32 del suelo procedural. Con un
+// solo tile el hash da siempre 0 y la mezcla de variantes se queda en nada, que
+// es lo correcto: la variedad la trae ya el dibujo.
 function dibujarSuelo(izq, arr) {
   const tiles = Recursos.tilesSuelo;
   if (tiles.length === 0) return;
 
-  const tx0 = Math.floor(izq / TILE);
-  const ty0 = Math.floor(arr / TILE);
-  const columnas = Math.ceil(ANCHO_LOGICO / TILE) + 1;
-  const filas    = Math.ceil(ALTO_LOGICO  / TILE) + 1;
+  const anchoTile = Recursos.anchoSuelo;
+  const altoTile = Recursos.altoSuelo;
+  const tx0 = Math.floor(izq / anchoTile);
+  const ty0 = Math.floor(arr / altoTile);
+  const columnas = Math.ceil(ANCHO_LOGICO / anchoTile) + 1;
+  const filas    = Math.ceil(ALTO_LOGICO  / altoTile) + 1;
 
   tilesDibujados = 0;
   for (let fy = 0; fy < filas; fy++) {
@@ -763,7 +939,7 @@ function dibujarSuelo(izq, arr) {
     for (let fx = 0; fx < columnas; fx++) {
       const gx = tx0 + fx;
       const variante = hash2(gx, gy) % tiles.length;
-      ctx.drawImage(tiles[variante], gx * TILE, gy * TILE, TILE, TILE);
+      ctx.drawImage(tiles[variante], gx * anchoTile, gy * altoTile, anchoTile, altoTile);
       tilesDibujados++;
     }
   }
@@ -819,10 +995,11 @@ async function arrancar() {
   ctxArmas.zonas = zonas;
   ctxArmas.rng = rng;
 
-  // Siempre arranca al menos el jugador 1. Los demás entran al enchufar mando
-  // o pulsando J.
-  anyadirJugador();
-  camara.situar(jugadores[0].x, jugadores[0].y);
+  // Los jugadores NO se crean aquí: los crea empezarPartida() con lo que se
+  // haya elegido en la pantalla de selección. Todo lo de arriba —pools,
+  // director, recursos— sí se monta ya, para que al pulsar START no haya que
+  // esperar a nada.
+  await Pantallas.cargar();
 
   redimensionar();
   vigilarDensidad();
@@ -841,6 +1018,9 @@ async function arrancar() {
     particulas: Particulas, vfx: VFX, progresion: Progresion, director: Director, jefes: Jefes,
     ajustes, activo, perfil,
     anyadirJugador, quitarJugador,
+    // Estado de las pantallas previas. Sirve para lo mismo que `avanzar`:
+    // reproducir una situación sin depender de que llegue la pulsación.
+    puestos, get pantalla() { return pantalla; },
     get jugador() { return jugadores[0]; },   // atajo para el caso de uno solo
     avanzar(n) { for (let i = 0; i < n; i++) actualizar(DT); return enemigos.activos; }
   };

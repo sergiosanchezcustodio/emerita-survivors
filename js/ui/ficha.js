@@ -499,7 +499,7 @@ export function dibujarFicha(ctx, jugadores, indice) {
     const a = armas[k];
     const def = a ? ARMAS[a.id] : null;
     ranura(ctx, xDer + pasoArmas * (k + 0.5), yMedallon, r, a ? def.color : null,
-           def ? ((c, rr, col) => dibujarIconoArma(c, 0, 0, rr, def.comportamiento, col)) : null,
+           def ? ((c, rr, col) => dibujarIconoArma(c, 0, 0, rr, a.id, col)) : null,
            a ? a.nivel : 0, def && def.esEvolucion ? 1 : MAX_NIVEL, true);
   }
 
@@ -510,7 +510,7 @@ export function dibujarFicha(ctx, jugadores, indice) {
     const id = idsPasivos[k];
     const def = id ? PASIVOS[id] : null;
     ranura(ctx, xObjetos + pasoObjetos * (k + 0.5), yMedallon, r, COLOR_PASIVO,
-           def ? ((c, rr, col) => dibujarIconoPasivo(c, 0, 0, rr, def.campo, col)) : null,
+           def ? ((c, rr, col) => dibujarIconoPasivo(c, 0, 0, rr, id, col)) : null,
            def ? j.pasivos[id] : 0, def ? def.maxNivel : 10, false);
   }
 

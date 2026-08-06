@@ -52,9 +52,20 @@ export const NIVEL = {
     apagado:      '#7c828b'
   },
 
-  // Configuración del suelo toroidal. Mientras no haya tiles pintados,
-  // recursos.js los genera con estos parámetros (ver sistema de placeholders).
+  // Configuración del suelo toroidal.
+  //
+  // `imagen` es el mapa pintado del nivel, ya hecho teselable por
+  // herramientas/procesar-assets.ps1 a partir de resources/stages/1/. Es UNA
+  // pieza de 240x368 unidades lógicas que se repite en las dos direcciones: la
+  // avenida sigue de largo hacia arriba y hacia abajo, y a los lados salen
+  // avenidas paralelas con sus templos, arcos y fuentes.
+  //
+  // El resto de parámetros NO sobran: recursos.js vuelve a ellos si la imagen
+  // no carga, y con eso el nivel sigue siendo jugable sin un solo PNG, que es
+  // el requisito 7 del plan. Un nivel nuevo que no traiga mapa se queda con su
+  // suelo generado y no hay que tocar nada.
   suelo: {
+    imagen: 'niveles/merida-suelo.png',
     variantes: 4,
     base: 'arena',
     motas: ['arenaOscura', 'piedra', 'caliza'],
