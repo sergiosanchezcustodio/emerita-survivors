@@ -2,6 +2,7 @@ import { ANCHO_LOGICO, ALTO_LOGICO } from '../core/constantes.js';
 import {
   LLAMARADA as TIPO_LLAMARADA, IMAN as TIPO_IMAN, COMIDA as TIPO_COMIDA
 } from '../entidades/cofre.js';
+import { Jefes } from './jefes.js';
 
 // EL DIRECTOR DE OLEADAS (Fase 5, sección 11 del plan).
 //
@@ -240,12 +241,20 @@ function patronCerco(enemigos, cx, cy, n, tipos, rng, eV, eD, mov) {
   return puestos;
 }
 
+// Última entidad que ha conseguido aparecer con este patrón. Lo consulta
+// SOLO el spawn de jefes, justo después de llamar a PATRONES.individual con
+// n=1: es lo que le permite registrarla en sistemas/jefes.js sin que este
+// archivo tenga que saber nada de fases ni de ataques.
+let ultimoIndividual = null;
+
 function patronIndividual(enemigos, cx, cy, n, tipos, rng, eV, eD, mov) {
   let puestos = 0;
   for (let i = 0; i < n; i++) {
     perimetro(rng(), SEMI_X, SEMI_Y);
     const tipo = tipos[(rng() * tipos.length) | 0];
-    if (!enemigos.aparecer(tipo, cx + punto.x, cy + punto.y, eV, eD, mov)) break;
+    const e = enemigos.aparecer(tipo, cx + punto.x, cy + punto.y, eV, eD, mov);
+    if (!e) break;
+    ultimoIndividual = e;
     puestos++;
   }
   return puestos;
@@ -283,6 +292,7 @@ export const Director = {
   relojes: null,           // acumulador por evento, preasignado en iniciar()
   pendientes: null,        // élites que faltan por salir, por evento
   servidos: null,          // ventanas de élite ya apuntadas (0/1)
+  hitosInvocados: null,    // hitos de jefe ya invocados (0/1), preasignado en iniciar()
   tope: 0,
   // Rumbo suavizado de la cámara, para sesgar la aparición hacia donde se avanza.
   // Suavizado y no instantáneo: el desplazamiento de un solo paso es ruido —la
@@ -308,6 +318,8 @@ export const Director = {
     this.relojes = new Float32Array(n);
     this.pendientes = new Int32Array(n);
     this.servidos = new Uint8Array(n);
+    const nHitos = (nivel.hitos && nivel.hitos.length) || 0;
+    this.hitosInvocados = new Uint8Array(nHitos);
     this.reiniciar();
   },
 
@@ -324,6 +336,7 @@ export const Director = {
     if (this.relojes) this.relojes.fill(0);
     if (this.pendientes) this.pendientes.fill(0);
     if (this.servidos) this.servidos.fill(0);
+    if (this.hitosInvocados) this.hitosInvocados.fill(0);
   },
 
   // Apagar y encender el director. Al encender arranca SIEMPRE desde el minuto
@@ -347,6 +360,17 @@ export const Director = {
     // a ver la mantícora del minuto 5, que es justo lo que se va a probar.
     if (this.servidos) this.servidos.fill(0);
     this.jefeInvocado = this.t >= this.nivel.duracion - MARGEN_JEFE_FINAL;
+
+    // Hitos de jefe: igual que jefeInvocado, se recalculan según dónde ha caído
+    // el salto. Saltando hacia delante de un hito se da por invocado —no vale
+    // la pena reconstruir un Cerbero a medio jugar—; saltando hacia atrás se
+    // rearma, que es justo lo que se quiere para poder volver a probarlo.
+    const hitos = this.nivel.hitos;
+    if (this.hitosInvocados && hitos) {
+      for (let i = 0; i < hitos.length; i++) {
+        if (hitos[i].jefe) this.hitosInvocados[i] = this.t >= hitos[i].t ? 1 : 0;
+      }
+    }
   },
 
   anunciar(texto) {
@@ -357,7 +381,6 @@ export const Director = {
   actualizar(dt, enemigos, camara) {
     if (!this.activo || !this.nivel) return;
 
-    const anterior = this.t;
     this.t += dt;
     if (this.avisoRestante > 0) this.avisoRestante -= dt;
 
@@ -393,15 +416,45 @@ export const Director = {
         enemigos, camara.x, camara.y, 1, [jefes.final], this.rng,
         escalaVidaDe(this.nivel, this.t), escalaDanyoDe(this.nivel, this.t));
       if (puesto > 0) {
+        const entidadJefe = ultimoIndividual;
         enemigos.huidaGeneral();
         if (jefes.escolta) {
           PATRONES.individual(enemigos, camara.x, camara.y, 2, [jefes.escolta],
                               this.rng, escalaVidaDe(this.nivel, this.t),
                               escalaDanyoDe(this.nivel, this.t));
         }
+        // Se registra DESPUÉS de soltar la escolta: sistemas/jefes.js toma el
+        // número de gemelos vivos en ese instante como referencia para saber,
+        // más tarde, cuándo ha caído el primero.
+        Jefes.registrar(entidadJefe, jefes.avisoFinal || 'EL JEFE FINAL');
         this.anunciar(jefes.avisoFinal || 'EL JEFE FINAL');
       } else {
         this.jefeInvocado = false;      // sin sprite todavía: se reintenta
+      }
+    }
+
+    // --- JEFE INTERMEDIO (y cualquier otro hito de jefe) --------------------
+    // Mismo trato que el final —huidaGeneral, reintento hasta que hay hueco—
+    // pero sin acabar la partida: entra, la horda huye un instante, y la
+    // curva sigue por debajo de él como con cualquier otro enemigo.
+    const hitosJefe = this.nivel.hitos;
+    if (hitosJefe && this.hitosInvocados) {
+      for (let i = 0; i < hitosJefe.length; i++) {
+        const h = hitosJefe[i];
+        if (!h.jefe || this.hitosInvocados[i] === 1 || this.t < h.t) continue;
+        this.hitosInvocados[i] = 1;
+        const tipoJefe = this.nivel.jefes && this.nivel.jefes[h.jefe];
+        if (!tipoJefe) continue;
+        const puestoH = PATRONES.individual(
+          enemigos, camara.x, camara.y, 1, [tipoJefe], this.rng,
+          escalaVidaDe(this.nivel, this.t), escalaDanyoDe(this.nivel, this.t));
+        if (puestoH > 0) {
+          enemigos.huidaGeneral();
+          Jefes.registrar(ultimoIndividual, h.texto);
+          this.anunciar(h.texto);
+        } else {
+          this.hitosInvocados[i] = 0;   // sin sprite todavía: se reintenta
+        }
       }
     }
 
@@ -410,18 +463,6 @@ export const Director = {
     // único que hace esta marca es dejar de contar.
     if (!this.terminado && this.t >= this.nivel.duracion) {
       this.terminado = true;
-    }
-
-    // Hitos de la línea temporal: por ahora, los dos jefes. El director NO los
-    // invoca —sin sus fases de patrón serían un saco de vida ambulante que
-    // estropea justo la lectura que se está midiendo— pero sí dice cuándo toca.
-    const hitos = this.nivel.hitos;
-    if (hitos) {
-      for (let i = 0; i < hitos.length; i++) {
-        if (anterior < hitos[i].t && this.t >= hitos[i].t) {
-          this.anunciar(`AQUI ENTRARIA: ${hitos[i].texto.toUpperCase()}`);
-        }
-      }
     }
 
     // --- Consumibles por el mapa ------------------------------------------

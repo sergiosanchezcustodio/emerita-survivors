@@ -1,4 +1,4 @@
-import { ANCHO_FISICO, ALTO_FISICO } from '../core/constantes.js';
+import { ANCHO_UI, ALTO_UI } from '../core/constantes.js';
 import { PASIVOS } from '../datos/pasivos.js';
 import { Recursos } from '../core/recursos.js';
 import { FUENTE, textoBorde } from './capa.js';
@@ -294,6 +294,71 @@ export function glifoPasivo(ctx, campo, r) {
   }
 }
 
+// --- Iconos en PIXEL ART real -------------------------------------------
+//
+// Los glifos de arriba son trazos vectoriales: limpios a cualquier tamaño,
+// pero lisos, y este juego es pixel art en todo lo demás (sección 13 del
+// plan). Sin encargar 58 ilustraciones —una por arma y por pasivo—, la forma
+// de que el icono hable el mismo idioma que el resto del arte es rasterizar
+// cada glifo UNA VEZ a una rejilla pequeña y clavarlo luego a cualquier
+// tamaño sin suavizado, igual que ESCALA_ARTE hace con el mundo: se ven los
+// bloques de píxel en vez de una curva perfecta reducida.
+//
+// SE CACHEA POR (tipo, color). Con doce comportamientos de arma y ocho
+// campos de pasivo, y bastantes colores repetidos entre armas del catálogo
+// de 50, son como mucho unas pocas docenas de lienzos diminutos — creados la
+// PRIMERA vez que hace falta cada combinación, nunca en el bucle de dibujado.
+// No es el "cero `new` durante la partida" de las entidades del mundo (eso es
+// para el bucle de 60 pasos por segundo con la pantalla llena); esto son unos
+// pocos lienzos de 20x20 que se crean una vez, normalmente en la primera
+// subida de nivel, y se reutilizan el resto de la partida.
+const REJILLA_ICONO = 20;
+const _cacheIconos = new Map();
+
+function rasterizarIcono(pintar, color) {
+  const c = document.createElement('canvas');
+  c.width = c.height = REJILLA_ICONO;
+  const cx = c.getContext('2d');
+  cx.translate(REJILLA_ICONO / 2, REJILLA_ICONO / 2);
+  cx.strokeStyle = color;
+  cx.fillStyle = color;
+  cx.lineWidth = 1.7;
+  cx.lineJoin = 'round';
+  cx.lineCap = 'round';
+  pintar(cx, REJILLA_ICONO * 0.34);
+  return c;
+}
+
+// Blit sin suavizado a cualquier tamaño. `imageSmoothingEnabled` se restaura
+// al valor que traía el contexto: la capa de interfaz lo deja encendido para
+// el retrato y el texto (ver ui/capa.js), y este es el único rincón que lo
+// quiere apagado un instante.
+function blitIcono(ctx, canvasIcono, x, y, r) {
+  const suavizado = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  const d = r * 2;
+  ctx.drawImage(canvasIcono, x - r, y - r, d, d);
+  ctx.imageSmoothingEnabled = suavizado;
+}
+
+// Dibuja el glifo de un arma en pixel art real, centrado en (x,y) con radio
+// r. `ctx.shadowBlur`/`shadowColor` puestos por quien llama SÍ afectan al
+// blit (drawImage respeta la sombra del contexto igual que fill/stroke), así
+// que el resplandor de "al máximo" de ui/ficha.js sigue funcionando igual.
+export function dibujarIconoArma(ctx, x, y, r, comportamiento, color) {
+  const llave = 'a:' + comportamiento + '|' + color;
+  let c = _cacheIconos.get(llave);
+  if (!c) { c = rasterizarIcono((cx, rr) => glifoArma(cx, comportamiento, rr), color); _cacheIconos.set(llave, c); }
+  blitIcono(ctx, c, x, y, r);
+}
+
+export function dibujarIconoPasivo(ctx, x, y, r, campo, color) {
+  const llave = 'p:' + campo + '|' + color;
+  let c = _cacheIconos.get(llave);
+  if (!c) { c = rasterizarIcono((cx, rr) => glifoPasivo(cx, campo, rr), color); _cacheIconos.set(llave, c); }
+  blitIcono(ctx, c, x, y, r);
+}
+
 // Retrato del personaje: un BUSTO —cabeza, hombros y pecho— recortado de la
 // ILUSTRACIÓN ORIGINAL por la herramienta (ver RecortarCabeza en
 // procesar-assets.ps1) y guardado en el atlas como `<id>Cara` a 264x438.
@@ -413,7 +478,7 @@ const COLOR_AVISO = '#ffd45a';
 export function dibujarReloj(ctx) {
   if (!Director.nivel) return;
   const t = Tema.actual;
-  const cx = ANCHO_FISICO / 2;
+  const cx = ANCHO_UI / 2;
 
   ctx.save();
   ctx.textAlign = 'center';
@@ -449,8 +514,8 @@ export function dibujarPaneles(ctx, jugadores) {
     // la misma pieza repetida y descolgada.
     const derecha = (i % 2) === 1;
     const abajo = i >= 2;
-    const x = derecha ? ANCHO_FISICO - ANCHO - MARGEN : MARGEN;
-    const y = abajo ? ALTO_FISICO - ALTO_FICHA - MARGEN : MARGEN;
+    const x = derecha ? ANCHO_UI - ANCHO - MARGEN : MARGEN;
+    const y = abajo ? ALTO_UI - ALTO_FICHA - MARGEN : MARGEN;
 
     // --- Caja de la ficha -------------------------------------------------
     caja(ctx, x + 0.5, y + 0.5, ANCHO - 1, ALTO_FICHA - 1, R_FICHA,
@@ -514,7 +579,7 @@ export function dibujarPaneles(ctx, jugadores) {
       const a = armas[k];
       dibujarRanura(ctx, colocar(k), y + Y_ARMAS, a ? llena : vacia,
         a ? a.def.color : null, a ? a.nivel : 0,
-        a ? ((c, r) => glifoArma(c, a.def.comportamiento, r)) : null, false);
+        a ? ((c, r) => dibujarIconoArma(c, 0, 0, r, a.def.comportamiento, a.def.color)) : null, false);
     }
 
     for (let k = 0; k < RANURAS; k++) {
@@ -522,9 +587,105 @@ export function dibujarPaneles(ctx, jugadores) {
       const def = id ? PASIVOS[id] : null;
       dibujarRanura(ctx, colocar(k), y + Y_PASIVOS, def ? llena : vacia,
         def ? COLOR_PASIVO : null, def ? j.pasivos[id] : 0,
-        def ? ((c, r) => glifoPasivo(c, def.campo, r)) : null, true);
+        def ? ((c, r) => dibujarIconoPasivo(c, 0, 0, r, def.campo, COLOR_PASIVO)) : null, true);
     }
   }
+
+  ctx.restore();
+}
+
+// --- Barra de jefe (Fase 6, sección 14 del plan) -----------------------------
+// A lo ancho de la parte inferior, solo mientras un jefe sigue en pie. Lo
+// alimenta sistemas/jefes.js con Jefes.info(): este archivo no sabe nada de
+// Cerbero ni de la Loba, solo pinta una fracción, un nombre y, si le llegan,
+// unas marcas de fase o un aviso de furia.
+const ANCHO_BARRA_JEFE = 300;
+const ALTO_BARRA_JEFE = 9;
+const MARGEN_BARRA_JEFE = 15;
+
+const COLOR_JEFE = '#8a2f3a';          // púrpura-sangre, distinto del rojo de vida
+const COLOR_JEFE_ALTO = 'rgba(255,180,170,.35)';
+const COLOR_JEFE_FURIA = '#ff5a3a';
+const COLOR_JEFE_FURIA_ALTO = 'rgba(255,220,180,.55)';
+const COLOR_REGEN = '#e8c23a';         // dorado: se está curando, no pierdas el tiempo en su cuerpo
+
+export function dibujarBarraJefe(ctx, info) {
+  if (!info) return;
+  const x = (ANCHO_UI - ANCHO_BARRA_JEFE) / 2;
+  const y = ALTO_UI - MARGEN_BARRA_JEFE - ALTO_BARRA_JEFE;
+  const t = Tema.actual;
+
+  ctx.save();
+
+  // Nombre encima, centrado. Reborde oscuro y ya, como el reloj: no hace
+  // falta caja propia, con la barra de abajo el conjunto ya se lee como una
+  // sola pieza.
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = `700 10px ${FUENTE}`;
+  const titulo = info.furia ? `${info.nombre} · FURIA` : info.nombre;
+  textoBorde(ctx, titulo, ANCHO_UI / 2, y - 4,
+             info.furia ? COLOR_JEFE_FURIA : t.titulo, 3);
+
+  // Pulso suave de la furia. Es puramente cosmético —no altera nada de la
+  // simulación, así que tirar de performance.now() no rompe la
+  // reproducibilidad del criterio 10— y es lo que hace que "furia" se lea
+  // como un estado activo y no como un simple cambio de color fijo.
+  const pulso = info.furia ? 0.75 + 0.25 * Math.sin(performance.now() * 0.012) : 1;
+
+  caja(ctx, x + 0.5, y + 0.5, ANCHO_BARRA_JEFE - 1, ALTO_BARRA_JEFE - 1, R_BARRA,
+       CARRIL, CARRIL_BORDE);
+
+  const color = info.furia ? COLOR_JEFE_FURIA : COLOR_JEFE;
+  const filo = info.furia ? COLOR_JEFE_FURIA_ALTO : COLOR_JEFE_ALTO;
+  const w2 = Math.max(ALTO_BARRA_JEFE * 0.5, ANCHO_BARRA_JEFE * Math.max(0, info.frac));
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(x, y, ANCHO_BARRA_JEFE, ALTO_BARRA_JEFE, R_BARRA);
+  ctx.clip();
+  ctx.globalAlpha = pulso;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w2, ALTO_BARRA_JEFE, R_BARRA);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = filo;
+  ctx.fillRect(x, y + 0.5, w2, 1);
+  ctx.restore();
+
+  // Marcas de fase (Cerbero): una raya fina en cada tercio de vida en el que
+  // cambia de comportamiento. Es la única pista de que "cuando baje de aquí,
+  // pasa algo distinto" sin tener que memorizar el plan.
+  if (info.marcas) {
+    ctx.strokeStyle = 'rgba(10,7,6,.75)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < info.marcas.length; i++) {
+      const mx = Math.round(x + ANCHO_BARRA_JEFE * info.marcas[i]) + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(mx, y + 1);
+      ctx.lineTo(mx, y + ALTO_BARRA_JEFE - 1);
+      ctx.stroke();
+    }
+  }
+
+  // Regenerando (la Loba, con algún gemelo vivo): un filo dorado en vez de
+  // dejar que la barra suba sola sin que se entienda por qué.
+  if (info.regenerando) {
+    ctx.strokeStyle = COLOR_REGEN;
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.roundRect(x + 0.75, y + 0.75, ANCHO_BARRA_JEFE - 1.5, ALTO_BARRA_JEFE - 1.5, R_BARRA);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.strokeStyle = PANEL_BORDE;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(x + 0.5, y + 0.5, ANCHO_BARRA_JEFE - 1, ALTO_BARRA_JEFE - 1, R_BARRA);
+  ctx.stroke();
 
   ctx.restore();
 }

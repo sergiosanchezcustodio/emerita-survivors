@@ -581,6 +581,17 @@ public class Procesador {
                 extra = (double)topeH / frameH;
                 frameH = topeH;
                 frameW = Math.Max(1, (int)Math.Round(frameW * extra));
+            } else if (frameH < topeH) {
+                // AMPLIAR por bloques ENTEROS: mismo principio que ESCALA_ARTE
+                // en el resto del motor -- sin interpolar, cada pixel nativo se
+                // convierte en un bloque de mul x mul. Antes esta rama no
+                // existia, y un GIF cuya rejilla nativa se quedara corta
+                // respecto al alto pedido (la gargola, con su rejilla de 8x a
+                // 37px) se quedaba SIEMPRE en su tamano nativo pasara lo que
+                // pasara con `alto`: la red de seguridad solo sabia reducir.
+                int mul = Math.Max(1, (int)Math.Round((double)topeH / frameH));
+                frameH *= mul;
+                frameW *= mul;
             }
 
             // --- Componer la tira ------------------------------------------
@@ -985,7 +996,7 @@ public class Procesador {
 $RAIZ    = Split-Path -Parent $PSScriptRoot
 $ORIGEN  = Join-Path $RAIZ 'resources'
 $DESTINO = Join-Path $RAIZ 'assets'
-$ESCALA  = 2      # ESCALA_ARTE: 1 unidad logica = 2 pixeles fisicos
+$ESCALA  = 4      # ESCALA_ARTE: 1 unidad logica = 4 pixeles fisicos
 $TOL     = 30
 
 # alto = alto LOGICO en unidades de 480x270. anchoFijo 0 => sale del ratio real.
@@ -1014,48 +1025,47 @@ $TOL     = 30
 # alrededor. Los radios de colision de datos/enemigos.js bajan en la misma
 # proporcion.
 $CATALOGO = @(
-    # LA SERPIENTE A LA MITAD (14 -> 7 de alto logico) por peticion de Sergio: la
-    # anterior era casi tan alta como un legionario y una carne de canon no puede
-    # ocupar lo mismo que un guardian. Su radio de colision baja igual en
-    # datos/enemigos.js: si no, golpearia desde fuera de su propia silueta.
-    @{ src='enemies\serpiente.gif';         dst='enemigos\serpiente.png'; id='serpiente'; alto=7;   anchoFijo=0;  tol=0; gif=$true }
+    # SEGUNDA PASADA DE TAMAÑOS, por petición de Sergio tras jugar: la primera
+    # (comentario histórico más abajo) encogió todo el bestiario al 70% del plan
+    # original para que cupiera más campo en pantalla, y la serpiente encima se
+    # cortó a la MITAD de eso (14->7) porque salía tan alta como un legionario.
+    # Jugada la partida entera, se ha ido demasiado lejos: la serpiente y la
+    # gárgola, que son lo primero que se ve en el minuto 0, casi no se
+    # distinguen. Esta pasada las sube más que al resto —proporcionalmente son
+    # las que más han crecido— y da un empujón general al resto del bestiario y
+    # a los cuatro personajes. El radio de colisión de datos/enemigos.js sube en
+    # la misma proporción que el alto de cada uno, para que la silueta y el
+    # golpe seguido coincidiendo.
+    @{ src='enemies\serpiente.gif';         dst='enemigos\serpiente.png'; id='serpiente'; alto=12;  anchoFijo=0;  tol=0; gif=$true }
     # GIF animado de 7 fotogramas, pixel art nativo de 48x48 ampliado 8x.
     # voltear porque el original mira a la izquierda y el motor asume derecha.
-    @{ src='enemies\gargoyle.gif';         dst='enemigos\gargola.png';   id='gargola';   alto=14;  anchoFijo=0;  tol=0; gif=$true; voltear=$true }
+    @{ src='enemies\gargoyle.gif';         dst='enemigos\gargola.png';   id='gargola';   alto=18;  anchoFijo=0;  tol=0; gif=$true; voltear=$true }
     # El legionario tambien pasa a GIF ANIMADO: el esqueleto de legionario.gif
     # sustituye a la ilustracion estatica. No lleva voltear porque ya mira a la
     # derecha, que es lo que asume el motor.
-    # Esqueleto y gladiador un 40% mas altos: son guardianes humanos y tienen que
-    # imponerse a la masa. 18 -> 25 y 17 -> 24.
-    @{ src='enemies\legionario.gif';       dst='enemigos\legionario.png';id='legionario';alto=25;  anchoFijo=0;  tol=0; gif=$true }
-    @{ src='enemies\gladiador.gif';        dst='enemigos\gladiador.png'; id='gladiador'; alto=24;  anchoFijo=0;  tol=0; gif=$true }
-    @{ src='enemies\arpia.png';            dst='enemigos\arpia.png';     id='arpia';     alto=15;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\medusa.png';           dst='enemigos\medusa.png';    id='medusa';    alto=20;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\minotauro.gif';        dst='enemigos\minotauro.png'; id='minotauro'; alto=25;  anchoFijo=0;  tol=0; gif=$true }
-    @{ src='enemies\ciclope.png';          dst='enemigos\ciclope.png';   id='ciclope';   alto=29;  anchoFijo=0;  tol=45 }
-    @{ src='enemies\masticore.png';        dst='enemigos\manticora.png'; id='manticora'; alto=36;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\cerberus.gif';         dst='enemigos\cerbero.png';   id='cerbero';   alto=60;  anchoFijo=0;  tol=0; gif=$true }
-    # La hidra ya no es el jefe final del nivel 1 (la sustituye la loba), pero se
-    # sigue procesando: el sprite es bueno y hay tres niveles más por escribir.
-    @{ src='enemies\hidra.png';            dst='enemigos\hidra.png';     id='hidra';     alto=78;  anchoFijo=0;  tol=0 }
-    # JEFE FINAL DEL NIVEL 1: la loba capitolina y los gemelos, en version
-    # monstruosa. Sustituyen a la hidra por decision de Sergio (ver el bloque de
-    # jefes en datos/enemigos.js).
-    #
-    # Las ilustraciones TODAVIA NO EXISTEN. Quedan declaradas aqui para que el
-    # dia que aparezcan en resources\enemies\ con estos nombres se procesen
-    # solas, sin tocar nada. Hasta entonces la herramienta las marca NO EXISTE,
-    # el atlas no las incluye y el motor se niega a invocarlas.
-    #
-    # La loba mide como la hidra (es el jefe final y tiene que imponer). Los
-    # gemelos, algo mas que un gladiador: son criaturas, no adultos, pero tienen
-    # que verse desde lejos porque hay que ir a por ellos.
-    @{ src='enemies\loba_capitolina.png';  dst='enemigos\loba.png';      id='loba';      alto=78;  anchoFijo=0;  tol=0 }
-    @{ src='enemies\gemelo.png';           dst='enemigos\gemelo.png';    id='gemelo';    alto=22;  anchoFijo=0;  tol=0 }
-    # Personajes: MISMO ALTO logico (22), ancho derivado de su silueta. Encajar
+    @{ src='enemies\legionario.gif';       dst='enemigos\legionario.png';id='legionario';alto=28;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\gladiador.gif';        dst='enemigos\gladiador.png'; id='gladiador'; alto=27;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\arpia.png';            dst='enemigos\arpia.png';     id='arpia';     alto=19;  anchoFijo=0;  tol=0 }
+    @{ src='enemies\medusa.png';           dst='enemigos\medusa.png';    id='medusa';    alto=24;  anchoFijo=0;  tol=0 }
+    @{ src='enemies\minotauro.gif';        dst='enemigos\minotauro.png'; id='minotauro'; alto=30;  anchoFijo=0;  tol=0; gif=$true }
+    @{ src='enemies\ciclope.png';          dst='enemigos\ciclope.png';   id='ciclope';   alto=35;  anchoFijo=0;  tol=45 }
+    @{ src='enemies\masticore.png';        dst='enemigos\manticora.png'; id='manticora'; alto=43;  anchoFijo=0;  tol=0 }
+    @{ src='enemies\cerberus.gif';         dst='enemigos\cerbero.png';   id='cerbero';   alto=70;  anchoFijo=0;  tol=0; gif=$true }
+    # La hidra deja de ser un sprite huérfano: recupera su papel de jefe, ahora
+    # como el segundo de tres (minuto 20), entre Cerbero y la Loba. Ver el
+    # bloque de jefes en datos/enemigos.js y datos/jefes.js.
+    @{ src='enemies\hidra.png';            dst='enemigos\hidra.png';     id='hidra';     alto=80;  anchoFijo=0;  tol=0 }
+    # JEFE FINAL DEL NIVEL 1 (minuto 30): la loba capitolina y los gemelos, en
+    # version monstruosa. La loba mide más que la hidra (es el jefe final y
+    # tiene que imponer más que el segundo). Los gemelos, algo más que un
+    # gladiador: son criaturas, no adultos, pero tienen que verse desde lejos
+    # porque hay que ir a por ellos.
+    @{ src='enemies\loba_capitolina.png';  dst='enemigos\loba.png';      id='loba';      alto=90;  anchoFijo=0;  tol=0 }
+    @{ src='enemies\gemelo.png';           dst='enemigos\gemelo.png';    id='gemelo';    alto=26;  anchoFijo=0;  tol=0 }
+    # Personajes: MISMO ALTO logico, ancho derivado de su silueta. Encajar
     # la figura dentro de un cuadrado comun hacia que las poses anchas salieran
-    # mas bajas: a Vicky, con ratio 1.43, la limitaba el ancho y se quedaba en 22
-    # de alto frente a los 32 de Eric.
+    # mas bajas: a Vicky, con ratio 1.43, la limitaba el ancho y se quedaba más
+    # baja que Eric con el mismo número.
     #
     # `hojaDer`/`hojaIzq`: hojas de animacion DIBUJADAS A MANO en rejilla. Quien
     # las tiene se salta la animacion procedural entera. Quien no, sigue
@@ -1067,11 +1077,11 @@ $CATALOGO = @(
     # `src` sigue apuntando a la ilustracion grande aunque haya hojas: el retrato
     # de la ficha se recorta de ahi, a resolucion completa, no de un sprite de 44
     # pixeles de alto.
-    @{ src='characters\Eric.png';  dst='personajes\eric.png';  id='eric';  alto=22; anchoFijo=0; tol=0; cadera=0.68; ampPierna=4; ampEscora=4
+    @{ src='characters\Eric.png';  dst='personajes\eric.png';  id='eric';  alto=26; anchoFijo=0; tol=0; cadera=0.68; ampPierna=4; ampEscora=4
        hojaDer='characters\Eric-der.png'; hojaIzq='characters\Eric-izq.png'; cols=4; filas=3; idle=2; fpsAndar=12 }
-    @{ src='characters\Lucy.png';  dst='personajes\lucy.png';  id='lucy';  alto=22; anchoFijo=0; tol=0; cadera=0.55; ampPierna=3; falda=$true; ampEscora=3 }
-    @{ src='characters\Sara.png';  dst='personajes\sara.png';  id='sara';  alto=22; anchoFijo=0; tol=0; cadera=0.62; ampPierna=4; ampEscora=4 }
-    @{ src='characters\Vicky.png'; dst='personajes\vicky.png'; id='vicky'; alto=22; anchoFijo=0; tol=0; cadera=0.62; ampPierna=4; ampEscora=4 }
+    @{ src='characters\Lucy.png';  dst='personajes\lucy.png';  id='lucy';  alto=26; anchoFijo=0; tol=0; cadera=0.55; ampPierna=3; falda=$true; ampEscora=3 }
+    @{ src='characters\Sara.png';  dst='personajes\sara.png';  id='sara';  alto=26; anchoFijo=0; tol=0; cadera=0.62; ampPierna=4; ampEscora=4 }
+    @{ src='characters\Vicky.png'; dst='personajes\vicky.png'; id='vicky'; alto=26; anchoFijo=0; tol=0; cadera=0.62; ampPierna=4; ampEscora=4 }
 )
 
 # Retrato de la ficha de jugador. CUADRADO: de los hombros a la cabeza y nada

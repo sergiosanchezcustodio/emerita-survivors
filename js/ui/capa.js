@@ -1,4 +1,4 @@
-import { ANCHO_FISICO, ALTO_FISICO } from '../core/constantes.js';
+import { ANCHO_FISICO, ALTO_FISICO, ANCHO_UI } from '../core/constantes.js';
 
 // Capa de interfaz: un lienzo APARTE del juego, a resolución de pantalla.
 //
@@ -68,7 +68,12 @@ export const Capa = {
     this.lienzo.style.height = altoCss + 'px';
     this.lienzo.width = Math.round(anchoCss * dpr);
     this.lienzo.height = Math.round(altoCss * dpr);
-    this.escala = factor * dpr;
+    // La interfaz dibuja en la rejilla FIJA de ANCHO_UI unidades (ver
+    // core/constantes.js), pero el lienzo real mide lo que mida el mundo
+    // (ANCHO_FISICO, que varía con ESCALA_ARTE). La escala tiene que cubrir el
+    // lienzo entero partiendo de esa rejilla fija, así que se corrige por la
+    // proporción entre ambas en vez de asumir que son la misma cosa.
+    this.escala = (this.lienzo.width) / ANCHO_UI;
   },
 
   // Se llama al principio de cada frame. Cambiar el tamaño de un lienzo resetea

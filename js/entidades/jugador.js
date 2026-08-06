@@ -33,14 +33,14 @@ const BASE = {
   armadura: 0,
   regeneracion: 0,
   radioRecogida: 40,
-  // Cuerpo al 70%, como todo el arte: los sprites se redujeron para que quepa
-  // más campo en pantalla (ver el catálogo de herramientas/procesar-assets.ps1)
-  // y el círculo de colisión tiene que seguir cabiendo dentro de la silueta.
+  // Subido junto con el resto del bestiario (herramientas/procesar-assets.ps1,
+  // datos/enemigos.js): los cuatro personajes crecieron de 22 a 26 de alto
+  // lógico, así que el círculo de colisión tiene que crecer con ellos o
+  // quedaría flotando dentro de una silueta más grande de lo que protege.
   //
-  // El radio de RECOGIDA no baja: es una distancia de juego, no un cuerpo. Con
-  // los bichos más pequeños las gemas caen más juntas, y encoger también el imán
-  // habría hecho la recogida más pesada justo cuando hay más que recoger.
-  radio: 7                // círculo de colisión
+  // El radio de RECOGIDA no cambia con esto: es una distancia de juego, no un
+  // cuerpo, y no tiene por qué escalar con el tamaño del personaje.
+  radio: 8                // círculo de colisión
 };
 
 // Invulnerabilidad tras golpe. Es lo que convierte el daño de contacto en tics:

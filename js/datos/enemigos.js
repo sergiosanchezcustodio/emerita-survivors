@@ -141,22 +141,22 @@ export const ENEMIGOS = {
   // Su RADIO baja a la mitad con su sprite (ver el catálogo de la herramienta):
   // el círculo de daño no puede sobrar por fuera de la silueta, o el bicho muerde
   // desde donde no está.
-  serpiente:  { sprite:'serpiente',  rol:'masa',      xp:1, vida:16,    velocidad:10, danyo:4,  radio:2.1,  masa:1.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag'    },
-  gargola:    { sprite:'gargola',    rol:'masa',      xp:2, vida:40,    velocidad:16, danyo:5,  radio:4.9,  masa:1.6,  vuela:true,  inmuneEmpuje:false, movimiento:'revoloteo' },
+  serpiente:  { sprite:'serpiente',  rol:'masa',      xp:1, vida:16,    velocidad:10, danyo:4,  radio:3.6,  masa:1.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag'    },
+  gargola:    { sprite:'gargola',    rol:'masa',      xp:2, vida:40,    velocidad:16, danyo:5,  radio:6.5,  masa:1.6,  vuela:true,  inmuneEmpuje:false, movimiento:'revoloteo' },
 
   // --- Base: los guardianes humanos ---------------------------------------
   // Casi diez veces la serpiente. Un legionario no es "otra serpiente con
   // casco": es un muro que hay que decidir si rodear o romper. Sus radios suben
   // con el sprite, que ahora es un 40% más alto.
-  legionario: { sprite:'legionario', rol:'base',      xp:6, vida:140,   velocidad:13, danyo:9,  radio:6.9,  masa:3.5,  vuela:false, inmuneEmpuje:false, movimiento:'directo'   },
-  gladiador:  { sprite:'gladiador',  rol:'base',      xp:8, vida:190,   velocidad:24, danyo:11, radio:7.8,  masa:4.5,  vuela:false, inmuneEmpuje:false, movimiento:'orbita'    },
+  legionario: { sprite:'legionario', rol:'base',      xp:6, vida:140,   velocidad:13, danyo:9,  radio:7.7,  masa:3.5,  vuela:false, inmuneEmpuje:false, movimiento:'directo'   },
+  gladiador:  { sprite:'gladiador',  rol:'base',      xp:8, vida:190,   velocidad:24, danyo:11, radio:8.8,  masa:4.5,  vuela:false, inmuneEmpuje:false, movimiento:'orbita'    },
 
   // --- Rápido: el único que te alcanza si huyes en línea recta ------------
   // Bajada EXTRA por encima del 25% general: a 50 se hacía insoportable, porque
   // vuela errática y no hay forma de anticiparla. A 32 sigue siendo la más rápida
   // del bestiario y la única que gana terreno si huyes en línea recta, pero da
   // tiempo a verla llegar.
-  arpia:      { sprite:'arpia',      rol:'rapido',    xp:5, vida:70,    velocidad:32, danyo:8,  radio:5.6,  masa:2.2,  vuela:true,  inmuneEmpuje:false, movimiento:'revoloteo' },
+  arpia:      { sprite:'arpia',      rol:'rapido',    xp:5, vida:70,    velocidad:32, danyo:8,  radio:7.1,  masa:2.2,  vuela:true,  inmuneEmpuje:false, movimiento:'revoloteo' },
 
   // --- Distancia: los que NO matan por contacto ---------------------------
   //
@@ -178,7 +178,7 @@ export const ENEMIGOS = {
   //               que no se puede ver venir no es un ataque, es un impuesto
   //   proyectiles + dispersion   abanico, en grados entre uno y otro
   //   vida        impactos que aguanta antes de romperse
-  medusa:     { sprite:'medusa',     rol:'distancia', xp:8, vida:160,   velocidad:8,  danyo:7,  radio:6.3,  masa:3.5,  vuela:false, inmuneEmpuje:false, movimiento:'acecho',
+  medusa:     { sprite:'medusa',     rol:'distancia', xp:8, vida:160,   velocidad:8,  danyo:7,  radio:7.6,  masa:3.5,  vuela:false, inmuneEmpuje:false, movimiento:'acecho',
                 ataque: { danyo:12, cadencia:2.8, alcance:190, velocidad:78, proyectiles:1, dispersion:0, radio:4.5, color:'#9ae86a', vida:1 } },
 
   // --- Tanques: cuestan de verdad, y no son jefes -------------------------
@@ -192,15 +192,15 @@ export const ENEMIGOS = {
   //
   // Es el enemigo que obliga a MOVERSE aunque le estés dando. Con daño solo por
   // contacto, un cíclope se resolvía quedándose a dos pasos y disparando.
-  ciclope:    { sprite:'ciclope',    rol:'tanque',    xp:45, vida:950,   velocidad:7,  danyo:30, radio:9.8,  masa:20.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo',
+  ciclope:    { sprite:'ciclope',    rol:'tanque',    xp:45, vida:950,   velocidad:7,  danyo:30, radio:11.8, masa:20.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo',
                 ataque: { tipo:'sismo', danyo:34, cadencia:4.2, alcance:230, aviso:0.85, radio:46, color:'#c98a3a' } },
-  minotauro:  { sprite:'minotauro',  rol:'tanque',    xp:24, vida:520,   velocidad:15, danyo:21, radio:9.1,  masa:14.0, vuela:false, inmuneEmpuje:false, movimiento:'acecho'    },
+  minotauro:  { sprite:'minotauro',  rol:'tanque',    xp:24, vida:520,   velocidad:15, danyo:21, radio:10.9, masa:14.0, vuela:false, inmuneEmpuje:false, movimiento:'acecho'    },
 
   // --- Élite: suelta cofre garantizado ------------------------------------
   // La mantícora dispara el abanico de tres púas que pedía la sección 10 del
   // plan. Desde lejos y en abanico: es lo que la convierte en un enemigo al que
   // hay que acercarse con cuidado, en vez de un saco de vida al que rodear.
-  manticora:  { sprite:'manticora',  rol:'elite',     xp:120, vida:2600,  velocidad:28, danyo:13, radio:12.6, masa:30.0, vuela:true,  inmuneEmpuje:false, movimiento:'orbita',  cofre:true, persistente:true,
+  manticora:  { sprite:'manticora',  rol:'elite',     xp:120, vida:2600,  velocidad:28, danyo:13, radio:15.0, masa:30.0, vuela:true,  inmuneEmpuje:false, movimiento:'orbita',  cofre:true, persistente:true,
                 ataque: { danyo:14, cadencia:2.5, alcance:260, velocidad:105, proyectiles:3, dispersion:16, radio:4, color:'#ffb14a', vida:1 } },
 
   // Serpiente dorada (sección 11 del plan): la SEGUNDA vía de las evoluciones.
@@ -224,7 +224,7 @@ export const ENEMIGOS = {
   // `persistente` sigue haciendo falta: aunque se aleje despacio, se aleja.
   serpienteDorada: { sprite:'serpienteDorada', spriteBase:'serpiente', tinte:'#e8b73a',
                      rol:'elite', especial:'serpiente', xp:70, vida:1400, velocidad:11, danyo:2,
-                     radio:2.1, masa:10.0,
+                     radio:3.6, masa:10.0,
                      vuela:false, inmuneEmpuje:false, movimiento:'huida', cofre:true, persistente:true },
 
   // Gárgola de bronce: el segundo especial, para que el recurso no sea "la
@@ -234,7 +234,7 @@ export const ENEMIGOS = {
   // que ir a buscarla, hay que sobrevivir a ella mientras la tumbas.
   gargolaBronce:   { sprite:'gargolaBronce', spriteBase:'gargola', tinte:'#c9822f',
                      rol:'elite', especial:'gargola', xp:90, vida:1800, velocidad:16, danyo:12,
-                     radio:4.9, masa:14.0,
+                     radio:6.5, masa:14.0,
                      vuela:true, inmuneEmpuje:false, movimiento:'revoloteo', cofre:true, persistente:true },
 
   // === DORADOS: la versión que suelta tesoro ================================
@@ -252,19 +252,19 @@ export const ENEMIGOS = {
   // donde está por su papel especial: es la única que HUYE.
   gargolaDorada:    { sprite:'gargolaDorada', spriteBase:'gargola', tinte:'#e8c23a',
                       rol:'elite', especial:'gargola', xp:110, vida:2000, velocidad:16, danyo:7,
-                      radio:4.9, masa:12.0,
+                      radio:6.5, masa:12.0,
                       vuela:true, inmuneEmpuje:false, movimiento:'revoloteo', cofre:true, persistente:true },
   legionarioDorado: { sprite:'legionarioDorado', spriteBase:'legionario', tinte:'#e8c23a',
                       rol:'elite', especial:'legionario', xp:150, vida:3200, velocidad:13, danyo:12,
-                      radio:6.9, masa:18.0,
+                      radio:7.7, masa:18.0,
                       vuela:false, inmuneEmpuje:false, movimiento:'directo', cofre:true, persistente:true },
   gladiadorDorado:  { sprite:'gladiadorDorado', spriteBase:'gladiador', tinte:'#e8c23a',
                       rol:'elite', especial:'gladiador', xp:190, vida:4000, velocidad:24, danyo:14,
-                      radio:7.8, masa:22.0,
+                      radio:8.8, masa:22.0,
                       vuela:false, inmuneEmpuje:false, movimiento:'orbita', cofre:true, persistente:true },
   minotauroDorado:  { sprite:'minotauroDorado', spriteBase:'minotauro', tinte:'#e8c23a',
                       rol:'elite', especial:'minotauro', xp:280, vida:6500, velocidad:15, danyo:22,
-                      radio:9.1, masa:40.0,
+                      radio:10.9, masa:40.0,
                       vuela:false, inmuneEmpuje:false, movimiento:'acecho', cofre:true, persistente:true },
 
   // --- Jefes --------------------------------------------------------------
@@ -286,10 +286,29 @@ export const ENEMIGOS = {
   // uno, ella se enfurece. Es el control de DPS que el plan pedía para la hidra,
   // pero contado con una imagen en vez de con una regla.
   //
+  // LA PARTIDA SE AMPLÍA A 30 MINUTOS (petición de Sergio) y hacía falta un
+  // segundo jefe intermedio para el minuto 20, entre Cerbero (10) y la Loba
+  // (30, ahora jefe final de verdad). La Hidra vuelve para ese hueco: no se
+  // sustituye a nadie, se recupera un sprite que llevaba desde la Fase 1 sin
+  // usar. Ver el diseño de sus dos rasgos (veneno constante y una furia de una
+  // sola vez a media vida) en datos/jefes.js.
+  //
+  // Los tres jefes escalan en vida, daño y radio de Cerbero a Hidra a Loba: el
+  // que entra más tarde tiene que imponer más que el anterior.
+  //
   // Sus MASAS son enormes a propósito: el empuje por daño es inverso a la masa,
   // así que un jefe apenas se inmuta y una serpiente sale despedida. Ver el
   // comentario de `danyar` en entidades/enemigo.js.
-  cerbero:    { sprite:'cerbero',    rol:'jefe',      xp:600,  vida:9000,  velocidad:18, danyo:34, radio:21,   masa:80.0,  vuela:false, inmuneEmpuje:true,  movimiento:'directo' },
-  loba:       { sprite:'loba',       rol:'jefe',      xp:1500, vida:26000, velocidad:12, danyo:38, radio:27.3, masa:120.0, vuela:false, inmuneEmpuje:true,  movimiento:'acecho'  },
-  gemelo:     { sprite:'gemelo',     rol:'jefe',      xp:200,  vida:3000,  velocidad:25, danyo:18, radio:8,    masa:16.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag'  }
+  // AJUSTADO tras jugarlo: quitaba demasiada vida por contacto y de golpe con
+  // el cono de fuego, y a la vez se sentía corto de vida para ser el primer
+  // jefe. 34->26 de daño de contacto, 9000->13000 de vida. El resto del
+  // ajuste —charcos de fuego más pequeños y con más aviso— vive en
+  // datos/jefes.js, junto a su propio comportamiento.
+  cerbero:    { sprite:'cerbero',    rol:'jefe',      xp:600,  vida:13000, velocidad:18, danyo:26, radio:21,   masa:80.0,  vuela:false, inmuneEmpuje:true,  movimiento:'directo' },
+  hidra:      { sprite:'hidra',      rol:'jefe',      xp:1000, vida:16000, velocidad:15, danyo:36, radio:28,   masa:100.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo' },
+  loba:       { sprite:'loba',       rol:'jefe',      xp:1500, vida:26000, velocidad:12, danyo:38, radio:31.5, masa:120.0, vuela:false, inmuneEmpuje:true,  movimiento:'acecho'  },
+  // `escolta` es lo que sistemas/jefes.js vigila para saber cuándo cae un
+  // gemelo: mientras alguno siga vivo, la loba regenera; cada vez que uno cae,
+  // se enfurece. Ver datos/jefes.js.
+  gemelo:     { sprite:'gemelo',     rol:'jefe',      xp:200,  vida:3000,  velocidad:25, danyo:18, radio:9.5,  masa:16.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag', escolta:true }
 };

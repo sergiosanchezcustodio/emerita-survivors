@@ -216,8 +216,15 @@ function crearEnemigo() {
     relojAtaque: 0,
     // Huida SIN vuelta: la de los que se largan cuando entra el jefe final.
     huidaTotal: false,
-    // Dirección fija de los que cruzan sin perseguir (MOV_TRAVESIA).
+    // Dirección fija de los que cruzan sin perseguir (MOV_TRAVESIA) y de los
+    // jefes en plena embestida (ver `embestida` más abajo): la reutilizan
+    // porque las dos cosas son "recto, en esta dirección, sin perseguir".
     dirX: 0, dirY: 0,
+    // Segundos que le quedan de embestida (Fase 6, sistemas/jefes.js). >0
+    // anula la persecución normal: mover() la consume en línea recta a lo
+    // que valga `velocidad` en ese momento, que quien la dispara ya ha
+    // subido. 0 en todo el bestiario salvo un jefe embistiendo.
+    embestida: 0,
     frames: 1, frame: 0, relojAnim: 0,
     // Referencias resueltas al aparecer: dibujar 800 entidades no puede pagar
     // dos búsquedas en Map por entidad y frame.
@@ -254,6 +261,10 @@ export class Enemigos {
     // dos bichos sería pagar 800 comprobaciones por una respuesta que cabe en un
     // entero.
     this.elitesVivos = 0;
+    // Escoltas de jefe vivos ahora mismo (los gemelos de la loba). Mismo motivo
+    // que elitesVivos: sistemas/jefes.js necesita saber si ha caído alguno este
+    // paso sin recorrer el pool entero para contarlo.
+    this.escoltasVivos = 0;
   }
 
   get activos() { return this.pool.activos; }
@@ -319,7 +330,16 @@ export class Enemigos {
     e.destello = 0;
     e.ultimoSello = 0;
     e.radio = def.radio;
-    e.invMasa = 1 / def.masa;
+    // 0, no 1/masa, para los inmunes al empuje: es lo que los hace de verdad
+    // INAMOVIBLES en el solucionador de separación de sistemas/colisiones.js,
+    // no solo inmunes al tirón de las armas. `inmuneEmpuje` solo tapaba el
+    // empuje por daño (ver más abajo); la separación entre bichos —la presión
+    // constante de la horda contra un jefe— es un sistema aparte y usaba la
+    // masa real igual que cualquier otro, así que un jefe rodeado sí se movía
+    // un poco cada frame aunque ningún arma pudiera empujarlo directamente.
+    // Con invMasa a 0, reparte el 100% de cualquier solape al OTRO cuerpo del
+    // par: el jefe no cede nada, la serpiente sí.
+    e.invMasa = def.inmuneEmpuje ? 0 : 1 / def.masa;
     e.vuela = def.vuela;
     e.mirandoDerecha = true;
 
@@ -343,6 +363,7 @@ export class Enemigos {
     e.huidaTotal = false;
 
     if (def.cofre) this.elitesVivos++;
+    if (def.escolta) this.escoltasVivos++;
 
     // Fase inicial aleatoria: si todos botaran sincronizados el enjambre
     // parecería un solo organismo latiendo.
@@ -384,6 +405,32 @@ export class Enemigos {
       const e = items[k];
       e.xPrev = e.x;
       e.yPrev = e.y;
+
+      // --- Embestida de jefe (Fase 6) ------------------------------------
+      // La dispara sistemas/jefes.js: fija dirX/dirY y sube `velocidad`, y
+      // aquí solo se consume el cronómetro en línea recta. Sin persecución,
+      // sin separación blanda tirando del rumbo y sin tope de acercamiento
+      // —`objetivo` se deja a null a propósito—: una carga que se desvía al
+      // chocar con la multitud deja de sentirse como una carga.
+      if (e.embestida > 0) {
+        e.objetivo = null;
+        e.embestida -= dt;
+        e.x += e.dirX * e.velocidad * dt;
+        e.y += e.dirY * e.velocidad * dt;
+        if (e.destello > 0) e.destello -= dt;
+        if (e.dirX > 0.08) e.mirandoDerecha = true;
+        else if (e.dirX < -0.08) e.mirandoDerecha = false;
+        if (e.frames > 1) {
+          e.relojAnim += dt;
+          while (e.relojAnim >= SEG_POR_FRAME) {
+            e.relojAnim -= SEG_POR_FRAME;
+            e.frame = (e.frame + 1) % e.frames;
+          }
+        } else {
+          e.fase += dt * e.cadencia;
+        }
+        continue;
+      }
 
       const objetivo = masCercano(jugadores, e.x, e.y);
       e.objetivo = objetivo;
@@ -637,6 +684,7 @@ export class Enemigos {
       e.vida = 0;
       this.bajas++;
       if (e.def.cofre) this.elitesVivos--;
+      if (e.def.escolta) this.escoltasVivos--;
       if (e.vidaMaxima >= VIDA_HITSTOP) VFX.congelar(0.045);
       // Con la matanza en marcha se recorta el estallido: cuando mueren cien a
       // la vez, nadie distingue siete partículas de tres, pero el coste sí se
@@ -704,6 +752,7 @@ export class Enemigos {
       if (Math.abs(e.x - centroX) > CULL_X * margen ||
           Math.abs(e.y - centroY) > CULL_Y * margen) {
         if (e.def.cofre) this.elitesVivos--;
+        if (e.def.escolta) this.escoltasVivos--;
         this.pool.liberarEn(k);
         this.reciclados++;
       } else {
@@ -732,7 +781,7 @@ export class Enemigos {
     }
   }
 
-  vaciar() { this.pool.vaciar(); this.elitesVivos = 0; }
+  vaciar() { this.pool.vaciar(); this.elitesVivos = 0; this.escoltasVivos = 0; }
 
   // Ordenación por profundidad (eje Y) mediante ordenación por CONTEO sobre
   // arrays tipados preasignados. Nada de Array.sort con una closure de

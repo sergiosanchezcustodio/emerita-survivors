@@ -1,4 +1,4 @@
-import { ANCHO_FISICO, ESCALA_ARTE } from '../core/constantes.js';
+import { ANCHO_UI, ESCALA_ARTE } from '../core/constantes.js';
 import { FUENTE, FUENTE_TITULO, textoBorde, textoEspaciado } from './capa.js';
 import { Tema, panel, cenefa } from './tema.js';
 import { Director } from '../sistemas/director.js';
@@ -78,6 +78,12 @@ export function dibujarDepuracion(ctx, datos) {
   if (datos.sustituidos > 0) {
     LINEAS.push(`sustituidos ${datos.sustituidos} placeholder(s)`);
   }
+  if (datos.jefe) {
+    const j = datos.jefe;
+    LINEAS.push(`jefe       ${j.nombre}  ${(j.frac * 100).toFixed(0)}%` +
+                `${j.furia ? ' [FURIA]' : ''}${j.regenerando ? ' [REGEN]' : ''}` +
+                `  escoltas ${datos.escoltas}`);
+  }
 
   ctx.save();
   ctx.font = `12px ${MONO}`;
@@ -118,7 +124,7 @@ const ANCHO_AVISO = 268;
 const ALTO_AVISO = 90;
 
 function pantallaDeAviso(ctx, alto, borde, titulo, colorTitulo, pie, colorPie) {
-  const x = (ANCHO_FISICO - ANCHO_AVISO) / 2;
+  const x = (ANCHO_UI - ANCHO_AVISO) / 2;
   const y = (alto - ALTO_AVISO) / 2;
 
   ctx.save();
@@ -129,13 +135,13 @@ function pantallaDeAviso(ctx, alto, borde, titulo, colorTitulo, pie, colorPie) {
 
   ctx.font = `24px ${FUENTE_TITULO}`;
   ctx.fillStyle = colorTitulo;
-  textoEspaciado(ctx, titulo, ANCHO_FISICO / 2, y + 30, 5);
+  textoEspaciado(ctx, titulo, ANCHO_UI / 2, y + 30, 5);
 
   cenefa(ctx, x + 34, y + 46, ANCHO_AVISO - 68);
 
   ctx.font = `400 10px ${FUENTE}`;
   ctx.fillStyle = colorPie;
-  ctx.fillText(pie, ANCHO_FISICO / 2, y + 68);
+  ctx.fillText(pie, ANCHO_UI / 2, y + 68);
   ctx.restore();
 }
 

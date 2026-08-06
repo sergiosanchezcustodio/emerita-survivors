@@ -33,6 +33,11 @@ function crearDisparo() {
     danyo: 0, radio: 0, vida: 0, restante: 0,
     // Sismo: segundos de aviso antes de estallar. 0 = proyectil normal.
     aviso: 0, sismo: false,
+    // Charco (Fase 6, los conos de fuego de Cerbero): igual que el sismo
+    // avisa y luego se activa, pero en vez de reventar una vez se queda
+    // dañando por tics durante `duracion`. Es la versión "ataca al jugador"
+    // del modo 'zona' de sistemas/zonaDanyo.js, que solo daña enemigos.
+    charco: false, duracion: 0, intervalo: 0, relojTic: 0,
     color: '#ffffff', fase: 0
   };
 }
@@ -62,6 +67,7 @@ export class Disparos {
     d.color = def.color;
     d.aviso = 0;
     d.sismo = false;
+    d.charco = false;           // por si este hueco del pool venía de un charco
     d.fase = this._rng() * Math.PI * 2;
     return d;
   }
@@ -85,6 +91,33 @@ export class Disparos {
     d.restante = def.aviso;
     d.aviso = def.aviso;
     d.sismo = true;
+    d.charco = false;           // por si este hueco del pool venía de un charco
+    d.color = def.color;
+    d.fase = 0;
+    return d;
+  }
+
+  // CHARCO: aviso y luego zona activa que daña por tics durante `duracion`, sin
+  // moverse. Es lo que dejan los conos de fuego de Cerbero (Fase 6, datos/jefes.js).
+  // Comparte pool con el proyectil y el sismo porque las tres cosas son "un
+  // enemigo hace daño al jugador desde un punto del suelo", y ya sabe dibujarse,
+  // reciclarse y quedar fuera del alcance de las armas del jugador.
+  charco(x, y, def) {
+    const d = this.pool.obtener();
+    if (!d) return null;
+    d.x = d.xPrev = x;
+    d.y = d.yPrev = y;
+    d.vx = 0; d.vy = 0;
+    d.danyo = def.danyo;
+    d.radio = def.radio;
+    d.vida = 9999;              // indestructible, como el sismo: es terreno, no un proyectil
+    d.restante = def.aviso;
+    d.aviso = def.aviso;
+    d.duracion = def.duracion;
+    d.intervalo = def.intervalo;
+    d.relojTic = 0;             // el primer tic entra en cuanto se activa
+    d.charco = true;
+    d.sismo = false;
     d.color = def.color;
     d.fase = 0;
     return d;
@@ -124,6 +157,30 @@ export class Disparos {
           this.pool.liberarEn(k);
           continue;
         }
+        k++;
+        continue;
+      }
+
+      // CHARCO: mismo aviso que el sismo, pero al activarse no revienta una vez
+      // y se queda: daña por tics durante `duracion`, que es su propio
+      // cronómetro de caducidad (el `restante` de arriba solo cubre el aviso).
+      if (d.charco) {
+        if (d.restante > 0) { k++; continue; }   // sigue avisando
+        d.duracion -= dt;
+        d.relojTic -= dt;
+        if (d.relojTic <= 0) {
+          d.relojTic = d.intervalo;
+          for (let i = 0; i < jugadores.length; i++) {
+            const j = jugadores[i];
+            if (j.abatido) continue;
+            const dx = j.x - d.x, dy = j.y - d.y;
+            if (dx * dx + dy * dy < d.radio * d.radio) {
+              j.recibirDanyo(d.danyo);
+              this.impactos++;
+            }
+          }
+        }
+        if (d.duracion <= 0) { this.pool.liberarEn(k); continue; }
         k++;
         continue;
       }
@@ -172,7 +229,7 @@ export class Disparos {
     let k = 0;
     while (k < this.pool.activos) {
       const d = items[k];
-      if (d.sismo) { k++; continue; }      // no se destruye: se esquiva
+      if (d.sismo || d.charco) { k++; continue; }   // terreno: no se destruye, se esquiva
       let tocado = false;
 
       // Proyectiles del jugador
@@ -312,6 +369,42 @@ export class Disparos {
         ctx.beginPath();
         ctx.arc(x, y, d.radio, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.globalAlpha = 1;
+        continue;
+      }
+
+      if (d.charco) {
+        if (d.restante > 0) {
+          // Mismo aviso que el sismo: anillo fijo, relleno que crece con lo
+          // que queda por venir.
+          const prog = 1 - d.restante / d.aviso;
+          ctx.globalAlpha = 0.22 + 0.2 * prog;
+          ctx.fillStyle = d.color;
+          ctx.beginPath();
+          ctx.arc(x, y, d.radio * prog, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 0.85;
+          ctx.strokeStyle = d.color;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(x, y, d.radio, 0, Math.PI * 2);
+          ctx.stroke();
+        } else {
+          // Activo: relleno caliente que titila mientras dura. Sin anillo de
+          // aviso porque ya no hay nada que anunciar, el peligro ES el charco.
+          const late = 1 + Math.sin(d.fase) * 0.15;
+          ctx.globalAlpha = 0.32;
+          ctx.fillStyle = d.color;
+          ctx.beginPath();
+          ctx.arc(x, y, d.radio * late, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 0.7;
+          ctx.strokeStyle = d.color;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(x, y, d.radio, 0, Math.PI * 2);
+          ctx.stroke();
+        }
         ctx.globalAlpha = 1;
         continue;
       }

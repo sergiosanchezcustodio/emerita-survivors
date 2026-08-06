@@ -7,7 +7,11 @@ export const NIVEL = {
   id: 'merida',
   nombre: 'Emerita Augusta',
   subtitulo: 'Las ruinas del Imperio',
-  duracion: 1200,                      // segundos
+  // AMPLIADA a 30 minutos (petición de Sergio), con un jefe cada diez: Cerbero
+  // en el 10, la Hidra en el 20, la Loba (jefe final) en el 30. La curva de
+  // los primeros 20 minutos no se toca —sigue siendo la que se jugó y se
+  // ajustó— y el tramo 20-30 es nuevo, por debajo.
+  duracion: 1800,                      // segundos
 
   // Ocres, arena tostada, piedra caliza, mármol roto, oliva y púrpura imperial.
   paleta: {
@@ -201,23 +205,56 @@ export const NIVEL = {
     // Enjambre de serpientes en travesía: el suelo entero se mueve en una
     // dirección. Con la horda del minuto 16 encima, esto es lo que impide que
     // todo lo que hay en pantalla vaya hacia el mismo sitio.
-    { desde:  800, hasta: 1200, patron: 'oleada', cada: 9, cantidad: 18,
+    //
+    // HASTA 1800, no 1200: con la partida ampliada a 30 minutos, esta fuente
+    // —como las otras tres marcadas igual más abajo— sigue viva hasta el
+    // final en vez de apagarse en el minuto 20. Es la curva de fondo del
+    // tramo final, no un evento que tenga que renovarse.
+    { desde:  800, hasta: 1800, patron: 'oleada', cada: 9, cantidad: 18,
       tipos: ['serpiente', 'serpiente', 'gargola'], movimiento: 'travesia' },
     { desde:  840, hasta:  960, patron: 'oleada', cada: 22,  cantidad:  3,
       tipos: ['ciclope', 'minotauro'] },
 
-    // --- 16-19: mezcla total, oleadas superpuestas.
-    { desde:  960, hasta: 1200, patron: 'anillo', cada: 0.29, cantidad: 6,
+    // --- 16-20: mezcla total, oleadas superpuestas. HASTA 1800: es la misma
+    // razón que la travesía de arriba, con la partida ampliada estas tres
+    // fuentes siguen vivas de fondo durante todo el tramo 20-30, y encima de
+    // ellas es donde se apilan los eventos nuevos de esa década.
+    { desde:  960, hasta: 1800, patron: 'anillo', cada: 0.29, cantidad: 6,
       tipos: ['serpiente', 'serpiente', 'serpiente', 'serpiente', 'serpiente',
               'gargola', 'gargola', 'gargola', 'legionario', 'legionario',
               'gladiador', 'gladiador', 'arpia', 'arpia', 'medusa', 'minotauro'] },
-    { desde:  960, hasta: 1200, patron: 'linea',  cada: 20,  cantidad: 20,
+    { desde:  960, hasta: 1800, patron: 'linea',  cada: 20,  cantidad: 20,
       tipos: ['legionario', 'gladiador'] },
-    { desde:  980, hasta: 1200, patron: 'cerco',  cada: 15,  cantidad: 34,
+    { desde:  980, hasta: 1800, patron: 'cerco',  cada: 15,  cantidad: 34,
       tipos: ['serpiente', 'gargola', 'arpia', 'medusa', 'minotauro'] },
     { desde:  990, hasta:  992, patron: 'individual', cada: 60, cantidad: 1,
       tipos: ['manticora'], aviso: 'MANTICORA' },
     { desde: 1080, hasta: 1082, patron: 'individual', cada: 60, cantidad: 1,
+      tipos: ['manticora'], aviso: 'MANTICORA' },
+
+    // --- 20-25: tras la Hidra, un escalón más sobre la misma mezcla. Cíclope
+    // entra en el reparto normal (antes solo salía en oleadas propias) porque
+    // a estas alturas ya no es un susto, es uno más de la horda.
+    { desde: 1200, hasta: 1800, patron: 'anillo', cada: 0.27, cantidad: 6,
+      tipos: ['serpiente', 'serpiente', 'serpiente', 'serpiente',
+              'gargola', 'gargola', 'gargola', 'legionario', 'legionario',
+              'gladiador', 'gladiador', 'arpia', 'arpia', 'medusa', 'medusa',
+              'minotauro', 'ciclope'] },
+    { desde: 1220, hasta: 1800, patron: 'cerco',  cada: 13,  cantidad: 36,
+      tipos: ['serpiente', 'gargola', 'arpia', 'medusa', 'minotauro', 'ciclope'] },
+    { desde: 1260, hasta: 1800, patron: 'oleada', cada: 20,  cantidad: 4,
+      tipos: ['ciclope', 'minotauro'] },
+    { desde: 1350, hasta: 1352, patron: 'individual', cada: 60, cantidad: 1,
+      tipos: ['manticora'], aviso: 'MANTICORA' },
+
+    // --- 25-30: el tramo final, de camino a la Loba. Travesía densa: el
+    // suelo entero cruza mientras se acerca el jefe final, para que el último
+    // tramo no se sienta como una repetición del anterior.
+    { desde: 1500, hasta: 1800, patron: 'oleada', cada: 8, cantidad: 20,
+      tipos: ['serpiente', 'serpiente', 'gargola', 'arpia'], movimiento: 'travesia' },
+    { desde: 1500, hasta: 1800, patron: 'linea',  cada: 18,  cantidad: 22,
+      tipos: ['legionario', 'gladiador'] },
+    { desde: 1650, hasta: 1652, patron: 'individual', cada: 60, cantidad: 1,
       tipos: ['manticora'], aviso: 'MANTICORA' },
 
     // --- Serpiente dorada, cada dos minutos (sección 11) -------------------
@@ -241,6 +278,11 @@ export const NIVEL = {
     { desde:  600, hasta:  602, patron: 'individual', cada: 60, cantidad: 1, tipos: ['serpienteDorada'] },
     { desde:  840, hasta:  842, patron: 'individual', cada: 60, cantidad: 1, tipos: ['serpienteDorada'] },
     { desde: 1080, hasta: 1082, patron: 'individual', cada: 60, cantidad: 1, tipos: ['serpienteDorada'] },
+    // Sigue cada cuatro minutos en el tramo ampliado: sin esto, la vía de
+    // evolución más fiable desaparecería justo en los diez minutos que se han
+    // añadido.
+    { desde: 1320, hasta: 1322, patron: 'individual', cada: 60, cantidad: 1, tipos: ['serpienteDorada'] },
+    { desde: 1560, hasta: 1562, patron: 'individual', cada: 60, cantidad: 1, tipos: ['serpienteDorada'] },
 
     // --- Gárgola de bronce, cada cuatro minutos desde el 5 -----------------
     // El segundo especial. Menos frecuente que la dorada porque es lo contrario
@@ -250,6 +292,8 @@ export const NIVEL = {
     { desde:  540, hasta:  542, patron: 'individual', cada: 60, cantidad: 1, tipos: ['gargolaBronce'] },
     { desde:  780, hasta:  782, patron: 'individual', cada: 60, cantidad: 1, tipos: ['gargolaBronce'] },
     { desde: 1020, hasta: 1022, patron: 'individual', cada: 60, cantidad: 1, tipos: ['gargolaBronce'] },
+    { desde: 1260, hasta: 1262, patron: 'individual', cada: 60, cantidad: 1, tipos: ['gargolaBronce'] },
+    { desde: 1500, hasta: 1502, patron: 'individual', cada: 60, cantidad: 1, tipos: ['gargolaBronce'] },
 
     // --- DORADOS: cada enemigo tiene su versión con tesoro -----------------
     // Escalonados por poder: el de la gárgola pronto, el del minotauro casi al
@@ -290,23 +334,26 @@ export const NIVEL = {
   // con el reloj acaba siendo imposible de leer.
   escalado: { vida: 0.11, danyo: 0.05 },
 
-  // Momentos de la línea temporal que el director solo ANUNCIA. Los jefes son
-  // la Fase 6 y necesitan sus fases de patrón; meterlos aquí como enemigos
-  // corrientes daría un saco de vida ambulante que estropea la lectura de la
-  // curva justo cuando se está midiendo.
-  // El minuto 19 YA NO es un hito anunciado: la loba entra de verdad, la invoca
-  // el director y su aviso sale de `jefes.avisoFinal`. Aquí solo queda Cerbero,
-  // que sigue pendiente de sus fases (Fase 6).
+  // Momentos de la línea temporal en los que entra un jefe DE VERDAD (Fase 6):
+  // `jefe` es la clave dentro de `jefes` de más abajo, así que el director
+  // resuelve el tipo (`jefes[hito.jefe]`) sin saber nada de Cerbero ni de la
+  // Loba. El jefe final del nivel (`jefes.final`) no necesita hito propio: lo
+  // invoca el director solo, un minuto antes de acabar la partida (ver
+  // MARGEN_JEFE_FINAL en sistemas/director.js) y su aviso sale de
+  // `jefes.avisoFinal`.
   hitos: [
-    { t:  600, texto: 'Cerbero' }
+    { t:  600, texto: 'CERBERO', jefe: 'intermedio' },
+    { t: 1200, texto: 'HIDRA',   jefe: 'segundo' }
   ],
 
   // --- Pendiente de fases posteriores -------------------------------------
   decoracion: [],                      // Fase 7: columnas, gradas, arcos
   // El jefe final del nivel 1 es LA LOBA CAPITOLINA con los gemelos, no la
-  // hidra del plan: ver el bloque de jefes de datos/enemigos.js. Los invoca la
-  // Fase 6, que es la que trae sus fases de patrón.
-  jefes:      { intermedio: 'cerbero', final: 'loba', escolta: 'gemelo',
+  // hidra del plan: ver el bloque de jefes de datos/enemigos.js y sus fases
+  // en datos/jefes.js y sistemas/jefes.js (Fase 6). La hidra no desaparece
+  // del todo: con la partida ampliada a 30 minutos recupera su papel, ahora
+  // como jefe SEGUNDO (minuto 20), entre Cerbero y la Loba.
+  jefes:      { intermedio: 'cerbero', segundo: 'hidra', final: 'loba', escolta: 'gemelo',
                 avisoFinal: 'LA LOBA CAPITOLINA' },
   musica:     { ambiente: null, jefe: null }
 };

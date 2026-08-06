@@ -113,9 +113,19 @@ export class Proyectiles {
     }
   }
 
-  // Trazo orientado según la velocidad, con un núcleo claro encima. El modo
-  // 'lighter' suma luz en vez de taparla, que es lo que hace que los impactos
-  // se vean calientes cuando se amontonan.
+  // Trazo orientado según la velocidad, con un núcleo claro encima y un
+  // resplandor suave en la punta. El modo 'lighter' suma luz en vez de
+  // taparla, que es lo que hace que los impactos se vean calientes cuando se
+  // amontonan.
+  //
+  // EL RESPLANDOR VA A ALFA BAJO A PROPÓSITO (0.22). Este es un juego de
+  // "muchas balas en pantalla a la vez" —a nivel alto, un arma puede tener
+  // varios proyectiles vivos y varias armas disparan juntas— así que un halo
+  // intenso por proyectil se acumularía hasta lavar la lectura del combate.
+  // Con 'lighter' ya activo, los que SÍ se solapan se ven más calientes solos
+  // por la suma, sin tener que subir el alfa base de cada uno. El radio del
+  // halo se acota (máximo 16) para que un arma con hitbox grande no deje una
+  // mancha desproporcionada.
   dibujar(ctx, alpha) {
     const items = this.pool.items;
     const n = this.pool.activos;
@@ -143,6 +153,14 @@ export class Proyectiles {
         ctx.lineTo(x, y);
         ctx.stroke();
       }
+
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(x, y, Math.min(p.radio * 2.2, 16), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
       ctx.strokeStyle = p.color;
       ctx.lineWidth = 2.5;
       ctx.beginPath();

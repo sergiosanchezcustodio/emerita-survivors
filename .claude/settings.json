@@ -1,0 +1,6 @@
+{
+  "hooks": {
+    "task_completed": "powershell -c \"[console]::beep(800, 500)\"",
+    "agent_complete": "powershell -c \"[console]::beep(1000, 300); [console]::beep(1200, 300)\""
+  }
+}

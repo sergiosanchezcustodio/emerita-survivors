@@ -95,7 +95,14 @@ function empujar(a, b) {
 
   // Reparto por masa: el ligero cede. Un cíclope (masa 8) contra una serpiente
   // (masa 1) apenas se aparta y es la serpiente la que rodea.
+  //
+  // Dos inmunes al empuje (invMasa 0 los dos, ver entidades/enemigo.js) dan
+  // total 0: sin esta salida sería una división por cero. Es un caso raro
+  // —dos jefes solapados— pero posible si Cerbero sigue vivo cuando entra la
+  // Loba, y no hay nada sensato que repartir entre dos cuerpos que ninguno de
+  // los dos va a ceder.
   const total = a.invMasa + b.invMasa;
+  if (total <= 0) return;   // los dos son inamovibles: no hay nada que repartir
   const corr = solape * RELAJACION;
   const ca = (corr * a.invMasa) / total;
   const cb = (corr * b.invMasa) / total;
@@ -138,6 +145,7 @@ function separarDuro(a, b) {
   }
 
   const total = a.invMasa + b.invMasa;
+  if (total <= 0) return;   // dos inamovibles solapados: nada que repartir (ver empujar)
   const ca = (pen * a.invMasa) / total;
   const cb = (pen * b.invMasa) / total;
   a.x -= nx * ca;

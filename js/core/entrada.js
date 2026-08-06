@@ -243,6 +243,19 @@ export class Entrada {
 
   limpiarFlanco() { this._flanco.clear(); }
 
+  // "Atrás": B en CUALQUIER mando (botón 1 del mapeo estándar). Es el gesto
+  // general para cerrar una pantalla, y a propósito solo CIERRA, nunca abre:
+  // Start y Select ya abren cosas distintas según la ventana (pausa, ficha...)
+  // y cada una tiene su propio botón para eso. B es el único que hace lo mismo
+  // en todas partes, así que no debe además ponerse a abrir la que le toque a
+  // cada sitio.
+  consumirAtras() {
+    for (let i = 0; i < this.controles.length; i++) {
+      if (this.controles[i].consumirBoton(1)) return true;
+    }
+    return false;
+  }
+
   // ¿Se ha pulsado ALGO en este paso? Teclado o cualquier botón de cualquier
   // mando. Lo usa la pantalla del cofre, que no pide una decisión sino un
   // "vale": obligar a buscar la tecla correcta para cerrar un aviso es fricción

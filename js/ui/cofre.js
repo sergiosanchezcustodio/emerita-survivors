@@ -1,4 +1,4 @@
-import { ANCHO_FISICO, ALTO_FISICO } from '../core/constantes.js';
+import { ANCHO_UI, ALTO_UI } from '../core/constantes.js';
 import { Progresion } from '../sistemas/progresion.js';
 import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
 import { Tema, panel, cenefa } from './tema.js';
@@ -82,13 +82,13 @@ function dibujarMejoras(ctx, jugadores, j) {
 
 function situar(indice, unSolo, alto = ALTO_PANEL) {
   if (unSolo || indice < 0) {
-    return { x: (ANCHO_FISICO - ANCHO_PANEL) / 2, y: (ALTO_FISICO - alto) / 2 };
+    return { x: (ANCHO_UI - ANCHO_PANEL) / 2, y: (ALTO_UI - alto) / 2 };
   }
   const derecha = (indice % 2) === 1;
   const abajo = indice >= 2;
   return {
-    x: derecha ? ANCHO_FISICO - ANCHO_PANEL - MARGEN_PANTALLA : MARGEN_PANTALLA,
-    y: abajo ? ALTO_FISICO - ESTORBO_FICHA - HUECO - alto : ESTORBO_FICHA + HUECO
+    x: derecha ? ANCHO_UI - ANCHO_PANEL - MARGEN_PANTALLA : MARGEN_PANTALLA,
+    y: abajo ? ALTO_UI - ESTORBO_FICHA - HUECO - alto : ESTORBO_FICHA + HUECO
   };
 }
 

@@ -1,5 +1,6 @@
 import {
-  ANCHO_LOGICO, ALTO_LOGICO, ANCHO_FISICO, ALTO_FISICO, ESCALA_ARTE, TILE, DT
+  ANCHO_LOGICO, ALTO_LOGICO, ANCHO_FISICO, ALTO_FISICO, ANCHO_UI, ALTO_UI,
+  ESCALA_ARTE, TILE, DT
 } from './core/constantes.js';
 import { Bucle } from './core/bucle.js';
 import { Entrada } from './core/entrada.js';
@@ -23,13 +24,14 @@ import { Progresion } from './sistemas/progresion.js';
 import { dibujarMenuNivel } from './ui/menuNivel.js';
 import { dibujarCofre } from './ui/cofre.js';
 import { dibujarFicha } from './ui/ficha.js';
-import { dibujarPaneles, dibujarReloj } from './ui/hud.js';
+import { dibujarPaneles, dibujarReloj, dibujarBarraJefe } from './ui/hud.js';
 import { Capa } from './ui/capa.js';
 import { Tema, olvidarDegradados } from './ui/tema.js';
 import {
   dibujarDepuracion, dibujarPausa, dibujarAbatido
 } from './ui/depuracion.js';
 import { Director, aparecerTanda } from './sistemas/director.js';
+import { Jefes } from './sistemas/jefes.js';
 import { NIVEL } from './datos/niveles/merida.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from './datos/personajes.js';
 import { ARMAS } from './datos/armas.js';
@@ -242,6 +244,28 @@ function vigilarDensidad() {
                       { once: true });
 }
 
+// --- Pantalla completa -------------------------------------------------------
+// Vía la API del navegador y no el F11 nativo: F11 lo intercepta el propio
+// navegador antes de que la página se entere, así que no hay forma de
+// ofrecerlo como un botón del juego ni de saber si está activo. El resultado
+// visual es el mismo (y el mismo margen si la pantalla no encaja a zoom
+// entero exacto), pero así queda un control real dentro del juego.
+const botonPantallaCompleta = document.getElementById('pantallaCompleta');
+botonPantallaCompleta.addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
+});
+addEventListener('fullscreenchange', () => {
+  botonPantallaCompleta.textContent = document.fullscreenElement ? '⤢' : '⛶';
+  botonPantallaCompleta.title = document.fullscreenElement
+    ? 'Salir de pantalla completa' : 'Pantalla completa';
+  // El cambio de tamaño real del viewport llega con su propio evento resize,
+  // pero en algunos navegadores fullscreenchange se dispara un instante antes
+  // de que innerWidth/innerHeight se actualicen. Redimensionar aquí también
+  // es barato y evita un frame con el zoom viejo.
+  redimensionar();
+});
+
 // --- Consumibles del suelo ---------------------------------------------------
 // Cuánto cura la comida y cuánto dura el lanzallamas prestado.
 const CURA_COMIDA = 20;
@@ -341,13 +365,21 @@ function actualizar(dt) {
   }
   if (fichaAbierta >= 0) {
     if (fichaAbierta >= jugadores.length) fichaAbierta = -1;   // se fue ese jugador
-    else alternarAutomatico(jugadores[fichaAbierta]);
+    else {
+      alternarAutomatico(jugadores[fichaAbierta]);
+      // ESC en teclado o B en cualquier mando: la ficha no tenía hasta ahora
+      // ninguna forma de cerrarse aparte de la misma tecla que la abrió.
+      if (entrada.consumirFlanco('Escape') || entrada.consumirAtras()) fichaAbierta = -1;
+    }
     entrada.limpiarFlanco();
     return;
   }
 
   if (entrada.consumirFlanco('F3')) verDepuracion = !verDepuracion;
   if (entrada.consumirFlanco('Escape', 9)) pausado = !pausado;
+  // B en el mando SOLO cierra la pausa, nunca la abre: "atrás" no es un botón
+  // de menú, así que si el juego no está pausado no hace nada.
+  else if (pausado && entrada.consumirAtras()) pausado = false;
   if (entrada.consumirFlanco('KeyC')) {
     // Cambia el personaje del jugador 1; los demás llevan el suyo.
     indicePersonaje = (indicePersonaje + 1) % ORDEN_PERSONAJES.length;
@@ -367,7 +399,9 @@ function actualizar(dt) {
   // 6 y 7 mueven el reloj un minuto: probar el minuto 16 esperando dieciséis
   // minutos no es probar, es esperar.
   if (entrada.consumirFlanco('Digit5')) {
-    if (Director.alternar()) { enemigos.vaciar(); proyectiles.vaciar(); zonas.vaciar(); }
+    if (Director.alternar()) {
+      enemigos.vaciar(); proyectiles.vaciar(); zonas.vaciar(); disparos.vaciar(); Jefes.vaciar();
+    }
   }
   if (entrada.consumirFlanco('Digit6')) Director.saltar(60);
   if (entrada.consumirFlanco('Digit7')) Director.saltar(-60);
@@ -376,7 +410,7 @@ function actualizar(dt) {
   if (entrada.consumirFlanco('Digit8')) cofres.soltar(jugadores[0].x, jugadores[0].y);
   if (entrada.consumirFlanco('KeyX')) {
     enemigos.vaciar(); proyectiles.vaciar(); zonas.vaciar(); cofres.vaciar();
-    disparos.vaciar();
+    disparos.vaciar(); Jefes.vaciar();
   }
   if (entrada.consumirFlanco('KeyG')) {
     const nuevo = !jugadores[0].inmortal;
@@ -494,6 +528,10 @@ function actualizar(dt) {
   // cámara corriendo detrás del grupo los enemigos entrarían medio metidos en
   // pantalla por el lado hacia el que se avanza.
   Director.actualizar(dt, enemigos, camara);
+  // Los jefes van DESPUÉS del director: si acaba de invocar a uno este mismo
+  // paso, sistemas/jefes.js ya lo encuentra registrado y puede empezar a
+  // actuar sin esperar a la vuelta siguiente del bucle.
+  Jefes.actualizar(dt, enemigos, jugadores, disparos);
   entrada.limpiarFlanco();
 }
 
@@ -684,11 +722,14 @@ function dibujar(alpha) {
       zoom: zoomPantalla,
       cofres: cofres.activos,
       disparos: disparos.activos,
-      sustituidos: Recursos.sustituidos.length
+      sustituidos: Recursos.sustituidos.length,
+      jefe: Jefes.info(enemigos),
+      escoltas: enemigos.escoltasVivos
     });
   }
   dibujarPaneles(ctxUi, jugadores);
   dibujarReloj(ctxUi);
+  dibujarBarraJefe(ctxUi, Jefes.info(enemigos));
 
   // Solo se pierde cuando caen TODOS. Con un compañero en pie la partida sigue,
   // que es lo que hace que el cooperativo tenga sentido.
@@ -696,11 +737,11 @@ function dibujar(alpha) {
   // El cofre manda sobre todo lo demás: es el único que aparece sin haberlo
   // pedido, y si una subida de nivel simultánea se pintara encima nadie sabría
   // qué le acaba de tocar.
-  if (jugadores.every((j) => j.abatido)) dibujarAbatido(ctxUi, ALTO_FISICO);
+  if (jugadores.every((j) => j.abatido)) dibujarAbatido(ctxUi, ALTO_UI);
   if (fichaAbierta >= 0) dibujarFicha(ctxUi, jugadores, fichaAbierta);
   else if (Progresion.cofreAbierto) dibujarCofre(ctxUi, jugadores);
   else if (Progresion.abierto) dibujarMenuNivel(ctxUi, jugadores);
-  else if (pausado) dibujarPausa(ctxUi, ALTO_FISICO);
+  else if (pausado) dibujarPausa(ctxUi, ALTO_UI);
   perfil.interfaz = performance.now() - t;
 }
 
@@ -771,6 +812,7 @@ async function arrancar() {
   // El director decide cuándo cae un consumible; los objetos del suelo saben
   // dibujarse y dejarse recoger. Ninguno de los dos sabe del otro más que esto.
   Director.objetos = cofres;
+  Jefes.iniciar(rng);
 
   ctxArmas.enemigos = enemigos;
   ctxArmas.proyectiles = proyectiles;
@@ -796,7 +838,7 @@ async function arrancar() {
   // balance, que es de lo que va el criterio 10.
   window.EMERITA = {
     jugadores, arsenales, enemigos, proyectiles, recogibles, cofres, disparos, zonas, camara, entrada, bucle,
-    particulas: Particulas, vfx: VFX, progresion: Progresion, director: Director,
+    particulas: Particulas, vfx: VFX, progresion: Progresion, director: Director, jefes: Jefes,
     ajustes, activo, perfil,
     anyadirJugador, quitarJugador,
     get jugador() { return jugadores[0]; },   // atajo para el caso de uno solo

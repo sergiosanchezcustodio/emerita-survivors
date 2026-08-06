@@ -1,9 +1,9 @@
-import { ANCHO_FISICO, ALTO_FISICO } from '../core/constantes.js';
+import { ANCHO_UI, ALTO_UI } from '../core/constantes.js';
 import { Progresion } from '../sistemas/progresion.js';
 import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
 import { Tema, panel, cenefa } from './tema.js';
 import {
-  ALTO_FICHA, MARGEN_FICHA, glifoArma, glifoPasivo, COLOR_PASIVO
+  ALTO_FICHA, MARGEN_FICHA, dibujarIconoArma, dibujarIconoPasivo, COLOR_PASIVO
 } from './hud.js';
 import { ARMAS } from '../datos/armas.js';
 import { PASIVOS } from '../datos/pasivos.js';
@@ -114,12 +114,10 @@ function dibujarMedallon(ctx, cx, cy, o, color, elegida) {
 
   if (o.clase === 'arma') {
     const def = ARMAS[o.id];
-    if (def) glifoArma(ctx, def.comportamiento, ICONO_R * 0.62);
+    if (def) dibujarIconoArma(ctx, 0, 0, ICONO_R * 0.62, def.comportamiento, color);
   } else if (o.clase === 'pasivo') {
     const def = PASIVOS[o.id];
-    ctx.strokeStyle = COLOR_PASIVO;
-    ctx.fillStyle = COLOR_PASIVO;
-    if (def) glifoPasivo(ctx, def.campo, ICONO_R * 0.62);
+    if (def) dibujarIconoPasivo(ctx, 0, 0, ICONO_R * 0.62, def.campo, COLOR_PASIVO);
   } else {
     // Curación: una copa. No tiene comportamiento ni campo del que sacar glifo,
     // y dejarla con el círculo por defecto la haría parecer un arma sin icono.
@@ -143,14 +141,14 @@ function dibujarMedallon(ctx, cx, cy, o, color, elegida) {
 // quien elige, por detrás de su ficha.
 function situar(indice, unSolo, ancho, alto) {
   if (unSolo || indice < 0) {
-    return { x: (ANCHO_FISICO - ancho) / 2, y: (ALTO_FISICO - alto) / 2 };
+    return { x: (ANCHO_UI - ancho) / 2, y: (ALTO_UI - alto) / 2 };
   }
   const derecha = (indice % 2) === 1;
   const abajo = indice >= 2;
   return {
-    x: derecha ? ANCHO_FISICO - ancho - MARGEN_PANTALLA : MARGEN_PANTALLA,
+    x: derecha ? ANCHO_UI - ancho - MARGEN_PANTALLA : MARGEN_PANTALLA,
     y: abajo
-      ? ALTO_FISICO - ESTORBO_FICHA - HUECO - alto
+      ? ALTO_UI - ESTORBO_FICHA - HUECO - alto
       : ESTORBO_FICHA + HUECO
   };
 }
