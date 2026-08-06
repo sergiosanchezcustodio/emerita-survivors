@@ -43,11 +43,11 @@
                                 },
                       "medusa":  {
                                      "archivo":  "enemigos/medusa.png",
-                                     "w":  80,
+                                     "w":  78,
                                      "h":  96,
-                                     "anclaX":  40,
+                                     "anclaX":  39,
                                      "anclaY":  96,
-                                     "frames":  1
+                                     "frames":  16
                                  },
                       "minotauro":  {
                                         "archivo":  "enemigos/minotauro.png",
@@ -59,11 +59,11 @@
                                     },
                       "ciclope":  {
                                       "archivo":  "enemigos/ciclope.png",
-                                      "w":  160,
+                                      "w":  159,
                                       "h":  140,
                                       "anclaX":  80,
                                       "anclaY":  140,
-                                      "frames":  1
+                                      "frames":  16
                                   },
                       "manticora":  {
                                         "archivo":  "enemigos/manticora.png",
@@ -121,41 +121,21 @@
                                          "anclaY":  760,
                                          "frames":  1
                                      },
-                      "ericIzq":  {
-                                      "archivo":  "personajes/eric-izq.png",
-                                      "w":  50,
-                                      "h":  104,
-                                      "anclaX":  25,
-                                      "anclaY":  104,
-                                      "frames":  14,
-                                      "clips":  {
-                                                    "andar":  {
-                                                                  "desde":  0,
-                                                                  "n":  12,
-                                                                  "fps":  12
-                                                              },
-                                                    "quieto":  {
-                                                                   "desde":  12,
-                                                                   "n":  2,
-                                                                   "fps":  2
-                                                               }
-                                                }
-                                  },
                       "eric":  {
                                    "archivo":  "personajes/eric.png",
-                                   "w":  50,
+                                   "w":  49,
                                    "h":  104,
-                                   "anclaX":  25,
+                                   "anclaX":  24,
                                    "anclaY":  104,
-                                   "frames":  14,
+                                   "frames":  18,
                                    "clips":  {
                                                  "andar":  {
                                                                "desde":  0,
-                                                               "n":  12,
-                                                               "fps":  12
+                                                               "n":  16,
+                                                               "fps":  14
                                                            },
                                                  "quieto":  {
-                                                                "desde":  12,
+                                                                "desde":  16,
                                                                 "n":  2,
                                                                 "fps":  2
                                                             }
@@ -179,27 +159,22 @@
                                      },
                       "lucy":  {
                                    "archivo":  "personajes/lucy.png",
-                                   "w":  40,
+                                   "w":  44,
                                    "h":  104,
-                                   "anclaX":  20,
+                                   "anclaX":  22,
                                    "anclaY":  104,
-                                   "frames":  10,
+                                   "frames":  18,
                                    "clips":  {
-                                                 "quieto":  {
-                                                                "desde":  0,
-                                                                "n":  2,
-                                                                "fps":  3
-                                                            },
                                                  "andar":  {
-                                                               "desde":  2,
-                                                               "n":  4,
-                                                               "fps":  8
+                                                               "desde":  0,
+                                                               "n":  16,
+                                                               "fps":  14
                                                            },
-                                                 "andar_lateral":  {
-                                                                       "desde":  6,
-                                                                       "n":  4,
-                                                                       "fps":  8
-                                                                   }
+                                                 "quieto":  {
+                                                                "desde":  16,
+                                                                "n":  2,
+                                                                "fps":  2
+                                                            }
                                              }
                                },
                       "saraCara":  {
@@ -224,23 +199,18 @@
                                    "h":  104,
                                    "anclaX":  28,
                                    "anclaY":  104,
-                                   "frames":  10,
+                                   "frames":  18,
                                    "clips":  {
-                                                 "quieto":  {
-                                                                "desde":  0,
-                                                                "n":  2,
-                                                                "fps":  3
-                                                            },
                                                  "andar":  {
-                                                               "desde":  2,
-                                                               "n":  4,
-                                                               "fps":  8
+                                                               "desde":  0,
+                                                               "n":  16,
+                                                               "fps":  14
                                                            },
-                                                 "andar_lateral":  {
-                                                                       "desde":  6,
-                                                                       "n":  4,
-                                                                       "fps":  8
-                                                                   }
+                                                 "quieto":  {
+                                                                "desde":  16,
+                                                                "n":  2,
+                                                                "fps":  2
+                                                            }
                                              }
                                },
                       "vickyCara":  {
@@ -261,27 +231,22 @@
                                       },
                       "vicky":  {
                                     "archivo":  "personajes/vicky.png",
-                                    "w":  48,
+                                    "w":  50,
                                     "h":  104,
-                                    "anclaX":  24,
+                                    "anclaX":  25,
                                     "anclaY":  104,
-                                    "frames":  10,
+                                    "frames":  18,
                                     "clips":  {
-                                                  "quieto":  {
-                                                                 "desde":  0,
-                                                                 "n":  2,
-                                                                 "fps":  3
-                                                             },
                                                   "andar":  {
-                                                                "desde":  2,
-                                                                "n":  4,
-                                                                "fps":  8
+                                                                "desde":  0,
+                                                                "n":  16,
+                                                                "fps":  14
                                                             },
-                                                  "andar_lateral":  {
-                                                                        "desde":  6,
-                                                                        "n":  4,
-                                                                        "fps":  8
-                                                                    }
+                                                  "quieto":  {
+                                                                 "desde":  16,
+                                                                 "n":  2,
+                                                                 "fps":  2
+                                                             }
                                               }
                                 },
                       "iconosObjetos":  {

@@ -650,6 +650,58 @@ public class Procesador {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Reposo aniadido a una tira ya escrita
+    // ---------------------------------------------------------------------
+    //
+    // Los GIF de personaje que dibuja Sergio son ciclo de andar y solo eso: no
+    // traen pose de reposo. Y un personaje parado que se queda clavado en un
+    // fotograma del paso parece congelado, no quieto — se ve enseguida, porque
+    // en este juego se pasa mucho rato parado disparando.
+    //
+    // Misma solucion que ya usa RecortarHoja con las hojas dibujadas a mano: se
+    // copian nQuieto fotogramas del `idle` al final de la tira y el segundo baja
+    // UN pixel. Un solo pixel a 2 fps es lo justo para que se lea como peso, y
+    // no hay que pedirle al artista una animacion de reposo por personaje.
+    //
+    // Va aparte de ProcesarGif y no dentro: ProcesarGif lo usan los trece
+    // enemigos y esta probado, y un bicho no tiene reposo que anadir.
+    public static string AnyadirReposo(string archivo, int nFrames, int idle, int nQuieto) {
+        byte[] px; int w, h, stride;
+        CargarPx(archivo, out px, out w, out h, out stride);
+        int frameW = w / nFrames;
+
+        int total = nFrames + nQuieto;
+        int dStride = frameW * total * 4;
+        byte[] dst = new byte[dStride * h];
+
+        for (int y = 0; y < h; y++)
+            for (int f = 0; f < nFrames; f++)
+                Array.Copy(px, y * stride + f * frameW * 4,
+                           dst, y * dStride + f * frameW * 4, frameW * 4);
+
+        int origen = Math.Max(0, Math.Min(nFrames - 1, idle)) * frameW;
+        for (int k = 0; k < nQuieto; k++) {
+            int destino = (nFrames + k) * frameW;
+            for (int y = 0; y < h; y++) {
+                int sy = y - k;                    // 0, 1, 2... pixeles hacia abajo
+                if (sy < 0) continue;
+                Array.Copy(dst, sy * dStride + origen * 4,
+                           dst, y * dStride + destino * 4, frameW * 4);
+            }
+        }
+
+        using (Bitmap sal = new Bitmap(frameW * total, h, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0, 0, frameW * total, h),
+                                         ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < h; y++)
+                Marshal.Copy(dst, y * dStride, (IntPtr)(dd.Scan0.ToInt64() + y * dd.Stride), dStride);
+            sal.UnlockBits(dd);
+            sal.Save(archivo, ImageFormat.Png);
+        }
+        return frameW + "|" + h + "|" + total;
+    }
+
     // Mayor N tal que la imagen sea un escalado entero NxN de otra mas pequena.
     // 1 significa "no es pixel art ampliado, tratalo tal cual".
     static int FactorNativo(byte[][] marcos, int w, int h, int stride) {
@@ -1479,9 +1531,14 @@ $CATALOGO = @(
     # para que el rol "rápido" se lea desde lejos. No lleva voltear: la pose es
     # frontal con las dos alas abiertas y no mira a ningún lado.
     @{ src='enemies\arpia.gif';            dst='enemigos\arpia.png';     id='arpia';     alto=19;  anchoFijo=0;  tol=0; gif=$true }
-    @{ src='enemies\medusa.png';           dst='enemigos\medusa.png';    id='medusa';    alto=24;  anchoFijo=0;  tol=0 }
+    # También en GIF. Frontal —encarada, con las serpientes del pelo moviéndose—
+    # así que no lleva voltear.
+    @{ src='enemies\medusa.gif';           dst='enemigos\medusa.png';    id='medusa';    alto=24;  anchoFijo=0;  tol=0; gif=$true }
     @{ src='enemies\minotauro.gif';        dst='enemigos\minotauro.png'; id='minotauro'; alto=30;  anchoFijo=0;  tol=0; gif=$true }
-    @{ src='enemies\ciclope.png';          dst='enemigos\ciclope.png';   id='ciclope';   alto=35;  anchoFijo=0;  tol=45 }
+    # El cíclope cierra el bestiario: ya no queda un solo enemigo estático. Su
+    # `tol=45` desaparece con la ilustración —era la tolerancia del recorte por
+    # color, y un GIF trae su propio alfa, así que no hay fondo que adivinar—.
+    @{ src='enemies\ciclope.gif';          dst='enemigos\ciclope.png';   id='ciclope';   alto=35;  anchoFijo=0;  tol=0; gif=$true }
     @{ src='enemies\masticore.png';        dst='enemigos\manticora.png'; id='manticora'; alto=43;  anchoFijo=0;  tol=0 }
     @{ src='enemies\cerberus.gif';         dst='enemigos\cerbero.png';   id='cerbero';   alto=70;  anchoFijo=0;  tol=0; gif=$true }
     # La hidra deja de ser un sprite huérfano: recupera su papel de jefe, ahora
@@ -1504,21 +1561,40 @@ $CATALOGO = @(
     # mas bajas: a Vicky, con ratio 1.43, la limitaba el ancho y se quedaba más
     # baja que Eric con el mismo número.
     #
-    # `hojaDer`/`hojaIzq`: hojas de animacion DIBUJADAS A MANO en rejilla. Quien
-    # las tiene se salta la animacion procedural entera. Quien no, sigue
-    # animandose al vuelo desde su unica pose (ver AnimarPersonaje): `cadera` es
-    # la fraccion del alto a la que empiezan las piernas de verdad, medida sobre
-    # el sprite. Lucy va en modo falda porque su vestido llega al tobillo y no
-    # hay piernas que separar.
+    # LOS CUATRO YA ANIMADOS A MANO, en GIF. Es la tercera y ultima forma de
+    # animar un personaje que ha tenido este proyecto, y sustituye a las dos
+    # anteriores:
     #
-    # `src` sigue apuntando a la ilustracion grande aunque haya hojas: el retrato
-    # de la ficha se recorta de ahi, a resolucion completa, no de un sprite de 44
-    # pixeles de alto.
-    @{ src='characters\Eric.png';  dst='personajes\eric.png';  id='eric';  alto=26; anchoFijo=0; tol=0; cadera=0.68; ampPierna=4; ampEscora=4
-       hojaDer='characters\Eric-der.png'; hojaIzq='characters\Eric-izq.png'; cols=4; filas=3; idle=2; fpsAndar=12 }
-    @{ src='characters\Lucy.png';  dst='personajes\lucy.png';  id='lucy';  alto=26; anchoFijo=0; tol=0; cadera=0.55; ampPierna=3; falda=$true; ampEscora=3 }
-    @{ src='characters\Sara.png';  dst='personajes\sara.png';  id='sara';  alto=26; anchoFijo=0; tol=0; cadera=0.62; ampPierna=4; ampEscora=4 }
-    @{ src='characters\Vicky.png'; dst='personajes\vicky.png'; id='vicky'; alto=26; anchoFijo=0; tol=0; cadera=0.62; ampPierna=4; ampEscora=4 }
+    #   1. Procedural (AnimarPersonaje): deformar la unica pose que habia. Lo
+    #      llevaban Lucy, Sara y Vicky.
+    #   2. Hojas dibujadas en rejilla 4x3 (hojaDer/hojaIzq). Solo Eric.
+    #   3. GIF de 16 fotogramas. Los cuatro.
+    #
+    # Que Sergio dibujara tambien el de Eric, que YA tenia hojas, es lo que dice
+    # que el GIF las sustituye y no que convivan. Los dos caminos viejos siguen
+    # en la herramienta y funcionan: un personaje nuevo sin GIF se anima solo, y
+    # devolverle a Eric sus hojas es cambiar esta linea. Pero no se usan.
+    #
+    # `gifAnim` es el SPRITE; `src` sigue siendo la ilustracion grande porque de
+    # ahi salen el retrato y el cuerpo entero de la ficha, a resolucion completa
+    # (650x1492 en Eric). Recortarlos de un fotograma del GIF seria cambiar un
+    # busto nitido por una miniatura ampliada.
+    #
+    # No hay `hojaIzq` ni equivalente: sin `<id>Izq` en el atlas, jugador.js cae
+    # en la copia espejada que ya precachea recursos.js. Con arte FRONTAL como
+    # este el espejo casi no se nota —es lo que ya hacian Lucy, Sara y Vicky—.
+    #
+    # `idle` es el fotograma del que se copia el reposo: el 0, que es el unico
+    # con los dos pies en el suelo. Cualquier otro deja al personaje parado a
+    # media zancada.
+    @{ src='characters\Eric.png';  dst='personajes\eric.png';  id='eric';  alto=26; anchoFijo=0; tol=0
+       gifAnim='characters\Eric.gif';  idle=0; nQuieto=2; fpsAndar=14 }
+    @{ src='characters\Lucy.png';  dst='personajes\lucy.png';  id='lucy';  alto=26; anchoFijo=0; tol=0
+       gifAnim='characters\Lucy.gif';  idle=0; nQuieto=2; fpsAndar=14 }
+    @{ src='characters\Sara.png';  dst='personajes\sara.png';  id='sara';  alto=26; anchoFijo=0; tol=0
+       gifAnim='characters\Sara.gif';  idle=0; nQuieto=2; fpsAndar=14 }
+    @{ src='characters\Vicky.png'; dst='personajes\vicky.png'; id='vicky'; alto=26; anchoFijo=0; tol=0
+       gifAnim='characters\Vicky.gif'; idle=0; nQuieto=2; fpsAndar=14 }
 )
 
 # Retrato de la ficha de jugador. CUADRADO: de los hombros a la cabeza y nada
@@ -1629,7 +1705,12 @@ foreach ($e in $CATALOGO) {
     # Retrato para el panel de informacion, recortado del ORIGINAL a resolucion
     # completa. Ver el comentario de RecortarCabeza: es un busto, no una cabeza
     # en cuadrado, porque la ficha le reserva una columna alta y estrecha.
-    if ($null -ne $e.cadera) {
+    #
+    # La condicion es "esto es un personaje". Antes bastaba mirar `cadera`, que
+    # solo tienen los personajes, pero los cuatro han pasado a GIF y ya no la
+    # llevan: con la comprobacion vieja los cuatro se quedaban de golpe sin
+    # retrato ni cuerpo, y la ficha de jugador con dos huecos vacios.
+    if ($null -ne $e.cadera -or $null -ne $e.gifAnim) {
         $rutaCara = Join-Path $DESTINO ("personajes\" + $e.id + "-cara.png")
         try {
             # fraccionAlto 0.30 sigue siendo la franja que se usa para ENCUADRAR
@@ -1660,6 +1741,34 @@ foreach ($e in $CATALOGO) {
     $nFrames = 1
     $clips = $null
 
+    # --- GIF de personaje ---------------------------------------------------
+    # Manda sobre las otras dos formas de animar, por el mismo motivo por el que
+    # las hojas mandaban sobre la procedural: si el artista ha dibujado el ciclo
+    # entero, cualquier cosa que haga el codigo solo puede empeorarlo.
+    #
+    # Sobrescribe el sprite de un fotograma que acaba de escribir Procesar()
+    # desde la ilustracion. Ese paso NO sobra aunque su resultado se tire: es lo
+    # que comprueba que la ilustracion sigue recortandose bien —de ella salen el
+    # retrato y el cuerpo de la ficha— y lo que llena la columna `Quitado` del
+    # informe, que es donde se ve si el arte de origen se ha estropeado.
+    if ($null -ne $e.gifAnim) {
+        $rutaGif = Join-Path $ORIGEN $e.gifAnim
+        $rg = [Procesador]::ProcesarGif($rutaGif, $rutaDst, $ESCALA, $e.alto, [bool]$e.voltear)
+        $pg = $rg -split '\|'
+        $nAndar = [int]$pg[2]
+        $nQuieto = [int]$e.nQuieto
+        $ra = [Procesador]::AnyadirReposo($rutaDst, $nAndar, [int]$e.idle, $nQuieto) -split '\|'
+
+        $fw = [int]$ra[0]; $fh = [int]$ra[1]; $nFrames = [int]$ra[2]
+        $ax = [int]($fw/2); $ay = $fh
+        # `andar_lateral` NO se declara: el GIF es un ciclo frontal y no trae uno
+        # escorado. jugador.js cae solo en `andar` si no existe, y declararlo
+        # apuntando al mismo tramo seria un nombre que no significa nada.
+        $clips = [ordered]@{
+            andar  = [ordered]@{ desde = 0;       n = $nAndar;  fps = $e.fpsAndar }
+            quieto = [ordered]@{ desde = $nAndar; n = $nQuieto; fps = 2 }
+        }
+    }
     # --- Hojas dibujadas a mano --------------------------------------------
     # Mandan sobre la animacion procedural: si el artista ha dibujado el ciclo,
     # deformar una pose por codigo solo puede empeorarlo.
@@ -1668,7 +1777,7 @@ foreach ($e in $CATALOGO) {
     # hoja, la figura quedaria centrada de forma distinta a cada lado y el
     # personaje daria un salto lateral cada vez que gira, que es justo lo que
     # mas se hace en este juego.
-    if ($null -ne $e.hojaDer) {
+    elseif ($null -ne $e.hojaDer) {
         $rd = Join-Path $ORIGEN $e.hojaDer
         $ri = Join-Path $ORIGEN $e.hojaIzq
         $md = [Procesador]::MedirHoja($rd, $e.cols, $e.filas) -split '\|'

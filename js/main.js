@@ -153,7 +153,11 @@ const ctxArmas = { jugador: null, enemigos: null, proyectiles: null, zonas: null
 const PANTALLA_TITULO = 0;
 const PANTALLA_SELECCION = 1;
 const PANTALLA_JUEGO = 2;
-let pantalla = PANTALLA_TITULO;
+// Sin valor de arranque: lo pone `irA` al final de este bloque, porque el
+// estado de pantalla no es solo esta variable — arrastra la clase del body, y
+// dejarlos puestos por separado es tener dos verdades que se desincronizan.
+// Pasó: el título salía con la chuleta de atajos de depuración encima.
+let pantalla;
 
 // Un hueco por control: null si ese jugador no se ha sumado, y si no
 // `{ personaje, listo }`. El índice ES el del control, así que el mando 3
@@ -168,6 +172,7 @@ function irA(nueva) {
   pantalla = nueva;
   document.body.classList.toggle('enMenu', nueva !== PANTALLA_JUEGO);
 }
+irA(PANTALLA_TITULO);
 
 let pausado = false;
 // Índice del jugador cuya ficha está abierta, o -1. Se abre con Select en el
