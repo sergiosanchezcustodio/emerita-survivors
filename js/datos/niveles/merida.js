@@ -397,6 +397,8 @@ export const NIVEL = {
   // del todo: con la partida ampliada a 30 minutos recupera su papel, ahora
   // como jefe SEGUNDO (minuto 20), entre Cerbero y la Loba.
   jefes:      { intermedio: 'cerbero', segundo: 'hidra', final: 'loba', escolta: 'gemelo',
-                avisoFinal: 'LA LOBA CAPITOLINA' },
-  musica:     { ambiente: null, jefe: null }
+                avisoFinal: 'LA LOBA CAPITOLINA' }
+  // Sin campo `musica`: la Fase 7 sustituyó los ficheros de audio previstos en
+  // el plan por síntesis procedural (ver sistemas/audio.js) — no hay pistas
+  // que referenciar desde aquí, ni para este nivel ni para los siguientes.
 };

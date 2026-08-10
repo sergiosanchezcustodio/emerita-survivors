@@ -5,6 +5,7 @@ import { PERSONAJES } from '../datos/personajes.js';
 import { PASIVOS } from '../datos/pasivos.js';
 import { POTENCIADORES } from '../datos/potenciadores.js';
 import { Progresion, xpNecesaria, REROLLS } from '../sistemas/progresion.js';
+import { GestorAudio } from '../sistemas/audio.js';
 
 // --- Animación ---------------------------------------------------------------
 //
@@ -179,6 +180,7 @@ export class Jugador {
     this.vida -= Math.max(1, cantidad - this.armadura);
     this.invulnerable = INVULNERABILIDAD;
     this.golpesRecibidos++;
+    GestorAudio.danyoJugador();
     if (this.vida <= 0) {
       this.vida = 0;
       this.abatido = true;

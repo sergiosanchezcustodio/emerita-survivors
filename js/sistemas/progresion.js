@@ -1,6 +1,7 @@
 import { ARMAS } from '../datos/armas.js';
 import { PASIVOS } from '../datos/pasivos.js';
 import { comportamientoImplementado } from './armas.js';
+import { GestorAudio } from './audio.js';
 
 // Experiencia, subida de nivel y generación de ofertas.
 //
@@ -182,6 +183,7 @@ export const Progresion = {
         jugador.nivel++;
         jugador.xpNecesaria = xpNecesaria(jugador.nivel);
         this.encolar(jugador);
+        GestorAudio.subidaNivel();
       }
       return;
     }
@@ -198,6 +200,7 @@ export const Progresion = {
         j.xpNecesaria = necesaria;
         if (!j.abatido) this.encolar(j);
       }
+      GestorAudio.subidaNivel();
     }
   },
 

@@ -1,4 +1,5 @@
 import { Pool } from '../core/pool.js';
+import { GestorAudio } from '../sistemas/audio.js';
 
 // Gemas de experiencia. Pool preasignado, como todo lo demás.
 //
@@ -132,6 +133,7 @@ export class Recogibles {
         // Absorbida
         if (d2 < 36) {
           j.ganarXp(g.valor, jugadores);
+          GestorAudio.recogerGema();
           this.recogidas++;
           this.pool.liberarEn(k);       // sin avanzar k
           continue;

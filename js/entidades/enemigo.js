@@ -5,6 +5,7 @@ import { Recursos } from '../core/recursos.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
 import { ENEMIGOS } from '../datos/enemigos.js';
 import { VFX } from '../sistemas/vfx.js';
+import { GestorAudio } from '../sistemas/audio.js';
 import {
   Particulas, COLOR_SANGRE, COLOR_POLVO, COLOR_CHISPA
 } from '../sistemas/particulas.js';
@@ -740,6 +741,7 @@ export class Enemigos {
       // (sistemas/director.js) por el escenario cada pocos minutos.
       if (e.def.esObjeto) {
         MetaProgreso.ganar(DENARIOS_ANTORCHA);
+        GestorAudio.muerteEnemigo();
         if (this.cofres) {
           const dado = this._rng();
           const tipo = dado < 0.45 ? COMIDA : (dado < 0.8 ? LLAMARADA : IMAN);
@@ -757,6 +759,7 @@ export class Enemigos {
 
       this.bajas++;
       MetaProgreso.ganar(denariosPorBaja(e.def));
+      GestorAudio.muerteEnemigo();
       if (e.def.cofre) this.elitesVivos--;
       if (e.def.escolta) this.escoltasVivos--;
       // Con la matanza en marcha se recorta el estallido: cuando mueren cien a
@@ -788,6 +791,7 @@ export class Enemigos {
       Particulas.estallido(e.x, e.y - 6, 2, 45, 0.22, 1,
                            COLOR_CHISPA, 0.6, this._rng);
     }
+    GestorAudio.golpe();
     return false;
   }
 

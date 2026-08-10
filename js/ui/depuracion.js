@@ -150,11 +150,3 @@ export function dibujarPausa(ctx, alto) {
   pantallaDeAviso(ctx, alto, t.filo, 'PAUSA', t.titulo,
                   'ESC o Start para continuar', t.texto);
 }
-
-// Provisional. La pantalla de derrota de verdad (tiempo, nivel, bajas, arsenal)
-// llega en la Fase 7; esto solo cierra el ciclo del daño por contacto para poder
-// probarlo en la Fase 2.
-export function dibujarAbatido(ctx, alto) {
-  pantallaDeAviso(ctx, alto, '#a04a3c', 'ABATIDO', '#e8b0a4',
-                  'R para revivir  ·  X para vaciar la horda', '#a4837c');
-}

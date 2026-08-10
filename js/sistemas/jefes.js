@@ -2,6 +2,7 @@ import { JEFES } from '../datos/jefes.js';
 import { masCercano } from '../entidades/enemigo.js';
 import { Particulas, COLOR_CHISPA, COLOR_POLVO, COLOR_SANGRE } from './particulas.js';
 import { VFX } from './vfx.js';
+import { GestorAudio } from './audio.js';
 
 // FASE 6: comportamiento de los jefes. Motor genérico, parametrizado por
 // datos/jefes.js — mismo reparto que el resto del juego: aquí solo hay
@@ -409,6 +410,7 @@ export const Jefes = {
       est.velBase = entidad.velocidad;
       est.danyoBase = entidad.danyo;
     }
+    GestorAudio.avisoJefe();
   },
 
   actualizar(dt, enemigos, jugadores, disparos) {

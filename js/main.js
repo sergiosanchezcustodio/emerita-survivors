@@ -14,6 +14,7 @@ import { Proyectiles } from './entidades/proyectil.js';
 import { Armas } from './sistemas/armas.js';
 import { Particulas } from './sistemas/particulas.js';
 import { VFX } from './sistemas/vfx.js';
+import { GestorAudio } from './sistemas/audio.js';
 import {
   separacion, contactoJugadores, impactosProyectiles, separarJugadores,
   colisionarObstaculos, ajustes
@@ -29,12 +30,13 @@ import { dibujarCofre } from './ui/cofre.js';
 import { dibujarFicha } from './ui/ficha.js';
 import { dibujarMapa } from './ui/mapa.js';
 import { dibujarTienda } from './ui/tienda.js';
+import { dibujarFinal } from './ui/final.js';
 import { dibujarPaneles, dibujarReloj, dibujarBarraJefe } from './ui/hud.js';
 import { Pantallas, ocupantePersonaje } from './ui/pantallas.js';
 import { Capa } from './ui/capa.js';
 import { Tema, olvidarDegradados } from './ui/tema.js';
 import {
-  dibujarDepuracion, dibujarPausa, dibujarAbatido
+  dibujarDepuracion, dibujarPausa
 } from './ui/depuracion.js';
 import { Director, aparecerTanda } from './sistemas/director.js';
 import { Jefes } from './sistemas/jefes.js';
@@ -197,6 +199,13 @@ let mapaAbierto = false;
 // Flanco de "todos caídos": evita reescribir localStorage cada frame mientras
 // dura el cartel de derrota, y solo guarda una vez por caída de verdad.
 let derrotaGuardada = false;
+// Pantalla final (Fase 7): null mientras se juega, o 'victoria'/'derrota' una
+// vez que termina. `statsFinal` es la foto fija de ese instante — ver
+// capturarStats(). El primero de los dos flancos que salta manda: si el
+// equipo cae DESPUÉS de que el reloj ya haya llegado al final, sigue siendo
+// una victoria, no una derrota de última hora.
+let finalMostrado = null;
+let statsFinal = null;
 let zoomPantalla = 1;
 let tilesDibujados = 0;
 let indicePersonaje = 0;
@@ -538,6 +547,11 @@ function empezarPartida() {
   }
   camara.situar(jugadores[0].x, jugadores[0].y);
   Director.reiniciar();
+  enemigos.bajas = 0;
+  derrotaGuardada = false;
+  finalMostrado = null;
+  statsFinal = null;
+  GestorAudio.iniciarMusica();
   irA(PANTALLA_JUEGO);
 }
 
@@ -557,6 +571,23 @@ function clamparXNivel(e) {
   const limIzq = MARGEN_NIVEL;
   const limDer = Recursos.anchoSuelo - MARGEN_NIVEL;
   if (e.x < limIzq) e.x = limIzq; else if (e.x > limDer) e.x = limDer;
+}
+
+// Foto fija del resumen de la partida (Fase 7, sección 14 del plan), tomada
+// UNA vez en el instante en que se gana o se pierde. El arsenal es del
+// jugador 1: nivel y bajas ya son cifras de equipo con cooperativo, pero el
+// inventario es personal de cada uno y no cabrían los cuatro en la misma
+// pantalla.
+function capturarStats() {
+  const j = jugadores[0];
+  return {
+    tiempo: Director.reloj,
+    nivel: j.nivel,
+    bajas: enemigos.bajas,
+    denarios: MetaProgreso.denarios,
+    armas: j.arsenal ? j.arsenal.equipadas.map((a) => ({ id: a.id })) : [],
+    pasivos: { ...j.pasivos }
+  };
 }
 
 // --- Lógica -----------------------------------------------------------------
@@ -749,6 +780,7 @@ function actualizar(dt) {
   disparos.actualizar(dt, jugadores, camara);
   Particulas.actualizar(dt);
   VFX.actualizar(dt);
+  GestorAudio.actualizar();
 
   // Si alguien ha subido de nivel durante este paso, el menú abre en el
   // siguiente. Se atiende aquí, al final, para que el paso termine entero.
@@ -787,6 +819,18 @@ function actualizar(dt) {
   const derrota = jugadores.every((j) => j.abatido);
   if (derrota && !derrotaGuardada) { MetaProgreso.guardar(); derrotaGuardada = true; }
   else if (!derrota) derrotaGuardada = false;
+
+  // Fin de la partida: el reloj llega al final ANTES que la derrota, para que
+  // un equipo que cae justo cuando expira el tiempo se lleve la victoria y no
+  // una derrota de última hora — ver la nota de finalMostrado más arriba.
+  if (!finalMostrado && Director.terminado) {
+    statsFinal = capturarStats();
+    finalMostrado = 'victoria';
+    MetaProgreso.guardar();
+  } else if (!finalMostrado && derrota) {
+    statsFinal = capturarStats();
+    finalMostrado = 'derrota';
+  }
 
   entrada.limpiarFlanco();
 }
@@ -876,6 +920,12 @@ function mundoCongelado() {
 }
 
 function dibujar(alpha) {
+  // Música: se programa por horizonte en tiempo de PARED, no de simulación
+  // (ver sistemas/audio.js), así que avanza aquí, en el render de cada
+  // fotograma, y no en el paso de lógica fijo — sigue sonando aunque el
+  // mundo esté congelado por un menú o la pausa.
+  GestorAudio.tick();
+
   // Título y selección: no hay mundo que dibujar. La ilustración ocupa el
   // lienzo del juego entero y los resaltados van en la capa de interfaz, así
   // que ni se limpia el suelo ni se recorren pools que están vacíos.
@@ -996,7 +1046,11 @@ function dibujar(alpha) {
   }
   dibujarPaneles(ctxUi, jugadores);
   dibujarReloj(ctxUi);
-  dibujarBarraJefe(ctxUi, Jefes.info(enemigos));
+  // Un mismo Jefes.info() alimenta la barra Y decide si suena la música de
+  // jefe: es el único punto donde main.js sabe si hay uno en pie ahora mismo.
+  const infoJefe = Jefes.info(enemigos);
+  GestorAudio.jefeActivo(!!infoJefe);
+  dibujarBarraJefe(ctxUi, infoJefe);
 
   // Solo se pierde cuando caen TODOS. Con un compañero en pie la partida sigue,
   // que es lo que hace que el cooperativo tenga sentido.
@@ -1004,7 +1058,7 @@ function dibujar(alpha) {
   // El cofre manda sobre todo lo demás: es el único que aparece sin haberlo
   // pedido, y si una subida de nivel simultánea se pintara encima nadie sabría
   // qué le acaba de tocar.
-  if (jugadores.every((j) => j.abatido)) dibujarAbatido(ctxUi, ALTO_UI);
+  if (finalMostrado) dibujarFinal(ctxUi, ALTO_UI, finalMostrado === 'victoria', statsFinal);
   if (fichaAbierta >= 0) dibujarFicha(ctxUi, jugadores, fichaAbierta);
   else if (Progresion.cofreAbierto) dibujarCofre(ctxUi, jugadores);
   else if (Progresion.abierto) dibujarMenuNivel(ctxUi, jugadores);
@@ -1076,6 +1130,7 @@ const DENARIOS_COFRE = 15;
 
 async function arrancar() {
   MetaProgreso.iniciar();
+  GestorAudio.iniciar();
   await Recursos.cargar(NIVEL);
   // Variantes de color del bestiario (la serpiente dorada). Después de cargar el
   // atlas y antes del primer frame: teñir un sprite en caliente sería un canvas
@@ -1109,6 +1164,7 @@ async function arrancar() {
     if (tipo === COFRE) {
       Progresion.abrirCofre(jugador, jugadores);
       MetaProgreso.ganar(DENARIOS_COFRE);
+      GestorAudio.abrirCofre();
     } else usarConsumible(jugador, tipo);
   };
 
