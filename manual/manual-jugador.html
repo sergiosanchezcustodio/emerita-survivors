@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Emerita Survivors — Manual del jugador</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @page { size: A4; margin: 0; }
+
+  :root{
+    --bg:        #22242a;
+    --bg-low:    #16181c;
+    --carta:     #2c3038;
+    --carta-alt: #33373d;
+    --borde:     #0a0b0d;
+    --bronce:    #b08c50;
+    --bronce-claro: #e8c368;
+    --titulo:    #f2f4f7;
+    --texto:     #c7ccd3;
+    --apagado:   #8b919b;
+    --purpura:   #6d2743;
+    --oliva:     #4a5138;
+    --arena:     #b99b6b;
+    --cielo:     #e0a15c;
+    --vida:      #c8443c;
+    --xp:        #2f5aa8;
+    --fuente:        "Segoe UI","Noto Sans",system-ui,sans-serif;
+    --fuente-titulo: "Trajan Pro","Palatino Linotype","Book Antiqua",Georgia,serif;
+  }
+
+  *{
+    box-sizing:border-box;
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
+    color-adjust:exact !important;
+  }
+  html,body{
+    margin:0; padding:0; background:var(--bg-low); color:var(--texto);
+    font-family:var(--fuente); font-size:15px; line-height:1.55;
+  }
+  img{ max-width:100%; display:block; }
+
+  /* ---------- Cenefa de greca, la misma idea que ui/tema.js -------------- */
+  .cenefa{
+    height:9px; margin:18px 0;
+    background-image: repeating-linear-gradient(90deg,
+      var(--bronce) 0 3px, transparent 3px 5px);
+    background-position:center;
+    opacity:.75;
+  }
+  .cenefa.grande{ height:12px; opacity:.9; }
+
+  /* ---------- Estructura de página --------------------------------------- */
+  .pagina{
+    width:210mm; min-height:297mm; margin:0 auto; position:relative;
+    background:
+      radial-gradient(ellipse at 50% -10%, rgba(176,140,80,.10), transparent 55%),
+      linear-gradient(180deg, var(--bg) 0%, var(--bg-low) 100%);
+    padding:16mm 16mm 14mm;
+    page-break-after:always;
+  }
+  .pagina:last-child{ page-break-after:auto; }
+  .pagina::before{
+    content:""; position:absolute; inset:7mm;
+    border:1px solid rgba(176,140,80,.35); pointer-events:none;
+  }
+  .pagina::after{
+    content:""; position:absolute; inset:9mm;
+    border:1px solid rgba(176,140,80,.16); pointer-events:none;
+  }
+
+  h1,h2,h3{ font-family:var(--fuente-titulo); color:var(--titulo); margin:0; font-weight:400; }
+  .kicker{
+    font-family:var(--fuente); font-size:11px; font-weight:700; letter-spacing:3px;
+    text-transform:uppercase; color:var(--bronce-claro); margin:0 0 6px;
+  }
+  h2{ font-size:26px; letter-spacing:1px; }
+  h3{ font-size:16px; letter-spacing:.5px; color:var(--bronce-claro); }
+  p{ margin:0 0 10px; }
+  strong{ color:var(--titulo); font-weight:600; }
+
+  /* ---------- Portada ------------------------------------------------- */
+  .portada{
+    padding:0; display:flex; align-items:flex-end;
+    background:#000 url('../assets/menus/titulo.png') center 30%/cover no-repeat;
+  }
+  .portada::before,.portada::after{ display:none; }
+  .portada .velo{
+    width:100%; padding:14mm 16mm 16mm;
+    background:linear-gradient(180deg, rgba(10,8,10,0) 0%, rgba(8,6,8,.55) 45%, rgba(6,5,6,.92) 100%);
+  }
+  .portada .rotulo{ text-align:center; }
+  .portada .rotulo .kicker{ color:var(--cielo); font-size:12px; }
+  .portada h1{
+    font-size:56px; color:#f4efe2; letter-spacing:4px;
+    text-shadow:0 3px 18px rgba(0,0,0,.8);
+  }
+  .portada .subtitulo{
+    font-family:var(--fuente-titulo); font-style:italic; color:var(--bronce-claro);
+    font-size:18px; margin-top:4px;
+  }
+  .portada .franja{
+    display:flex; justify-content:center; gap:26px; margin-top:16px;
+    font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--texto);
+  }
+  .portada .franja b{ color:var(--bronce-claro); display:block; font-size:15px; letter-spacing:.5px; }
+
+  /* ---------- Cabeceras de sección con columnas -------------------------- */
+  .cabecera-seccion{ display:flex; align-items:center; gap:14px; margin-bottom:4px; }
+  .cabecera-seccion .num{
+    font-family:var(--fuente-titulo); font-size:34px; color:var(--bronce);
+    opacity:.55; line-height:1;
+  }
+
+  /* ---------- Panel genérico (misma idea que ui/tema.js: panel) --------- */
+  .panel{
+    background:var(--carta); border:1px solid var(--borde);
+    box-shadow:inset 0 0 0 1px rgba(176,140,80,.30);
+    border-radius:3px; padding:14px 16px;
+  }
+
+  /* ---------- Grid de héroes ---------------------------------------------*/
+  .grid-heroes{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .carta-heroe{ display:flex; gap:12px; }
+  .carta-heroe .retrato{
+    width:74px; height:74px; border-radius:4px; overflow:hidden; flex:none;
+    border:2px solid var(--bronce); background:#8b9099;
+  }
+  .carta-heroe .retrato img{ width:100%; height:100%; object-fit:cover; }
+  .carta-heroe h3{ margin-bottom:2px; }
+  .carta-heroe .desc{ font-size:12.5px; font-style:italic; color:var(--apagado); margin-bottom:6px; }
+  .fila-arma{ display:flex; align-items:center; gap:7px; font-size:12px; }
+  .fila-arma .icono{ border:1px solid rgba(176,140,80,.5); border-radius:3px; background:#15171b; }
+  .fila-stats{ display:flex; gap:10px; margin-top:6px; font-size:10.5px; color:var(--apagado); }
+  .fila-stats span b{ color:var(--texto); }
+
+  /* ---------- Icono recortado de sprite sheet ---------------------------*/
+  .sprite{ image-rendering:pixelated; background-repeat:no-repeat; flex:none; }
+
+  /* ---------- Controles ------------------------------------------------- */
+  .grid-controles{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .tecla{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:26px; height:22px; padding:0 6px; margin-right:3px;
+    background:#15171b; border:1px solid var(--bronce); border-radius:4px;
+    font-size:11px; font-weight:700; color:var(--bronce-claro);
+    box-shadow:0 2px 0 rgba(0,0,0,.5);
+  }
+  .fila-control{ display:flex; align-items:center; gap:6px; padding:6px 0; border-bottom:1px dashed rgba(176,140,80,.18); font-size:12.5px; }
+  .fila-control:last-child{ border-bottom:none; }
+  .fila-control .teclas{ flex:none; min-width:150px; }
+
+  /* ---------- Bestiario --------------------------------------------------*/
+  .grid-bestia{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .carta-bestia{
+    background:var(--carta); border:1px solid rgba(176,140,80,.28); border-radius:4px;
+    padding:8px 6px 7px; text-align:center;
+  }
+  .carta-bestia .marco{
+    height:64px; display:flex; align-items:flex-end; justify-content:center; margin-bottom:4px;
+  }
+  .carta-bestia .nombre{ font-size:11px; font-weight:700; color:var(--titulo); }
+  .carta-bestia .rol{ font-size:9px; color:var(--bronce-claro); text-transform:uppercase; letter-spacing:.5px; }
+
+  .etiqueta-rol{
+    display:inline-block; font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase;
+    color:var(--bg-low); background:var(--bronce-claro); border-radius:2px; padding:2px 7px; margin:14px 0 8px;
+  }
+
+  /* ---------- Jefes -------------------------------------------------------*/
+  .carta-jefe{
+    display:flex; gap:14px; align-items:center;
+    background:linear-gradient(90deg, var(--carta) 60%, rgba(109,39,67,.28));
+    border:1px solid var(--purpura); border-radius:4px; padding:12px 14px; margin-bottom:10px;
+  }
+  .carta-jefe .marco{ width:92px; height:92px; flex:none; display:flex; align-items:flex-end; justify-content:center; }
+  .carta-jefe .minuto{
+    font-family:var(--fuente-titulo); font-size:11px; color:var(--cielo);
+    letter-spacing:1.5px; text-transform:uppercase;
+  }
+  .carta-jefe h3{ color:#ff9f8a; margin:1px 0 4px; }
+  .carta-jefe p{ font-size:12.5px; margin:0; }
+
+  /* ---------- Tienda / potenciadores --------------------------------------*/
+  .grid-tienda{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .carta-pot{ display:flex; gap:10px; align-items:flex-start; }
+  .carta-pot .icono{
+    width:34px; height:34px; border:1px solid var(--bronce); border-radius:50%;
+    background:#15171b; flex:none;
+  }
+  .carta-pot h3{ font-size:13px; margin-bottom:2px; }
+  .carta-pot p{ font-size:12px; margin:0; }
+
+  /* ---------- Consejos ----------------------------------------------------*/
+  .lista-consejos{ list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+  .lista-consejos li{
+    position:relative; padding-left:22px; font-size:13px;
+  }
+  .lista-consejos li::before{
+    content:"❧"; position:absolute; left:0; top:-1px; color:var(--bronce-claro); font-size:14px;
+  }
+
+  .dos-col{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .tres-col{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+
+  .pie-pagina{
+    position:absolute; bottom:9mm; left:16mm; right:16mm;
+    display:flex; justify-content:space-between; font-size:9px; color:var(--apagado);
+    letter-spacing:1px; text-transform:uppercase;
+  }
+
+  .flor{ text-align:center; font-size:20px; color:var(--bronce); opacity:.6; margin:14px 0 2px; }
+
+  @media print{
+    body{ background:var(--bg-low); }
+    .pagina{ box-shadow:none; }
+  }
+  @media screen{
+    body{ padding:24px 0; }
+    .pagina{ box-shadow:0 20px 60px rgba(0,0,0,.6); margin-bottom:24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ PORTADA -->
+<section class="pagina portada">
+  <div class="velo">
+    <div class="rotulo">
+      <div class="kicker">Manual del jugador</div>
+      <h1>EMERITA<br>SURVIVOR</h1>
+      <div class="subtitulo">Las ruinas del Imperio</div>
+      <div class="franja">
+        <div><b>30 min</b>por partida</div>
+        <div><b>1–4</b>jugadores</div>
+        <div><b>3</b>jefes</div>
+        <div><b>52</b>armas</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ EL MUNDO -->
+<section class="pagina">
+  <div class="cabecera-seccion">
+    <div class="num">I</div>
+    <div>
+      <div class="kicker">Ambientación</div>
+      <h2>Emerita Augusta, de noche</h2>
+    </div>
+  </div>
+  <div class="cenefa grande"></div>
+
+  <p>Ha caído la noche sobre <strong>Emerita Augusta</strong>. Entre las columnas
+  rotas y los templos hundidos en la hierba, algo ha despertado a la horda: serpientes,
+  gárgolas, legionarios que ya no responden a ninguna orden. Sales solo —o
+  acompañado— a la calzada, y tienes que aguantar treinta minutos.</p>
+
+  <p>No hay salida ni objetivo que cumplir más allá de <strong>sobrevivir hasta que
+  amanezca</strong>. Cuanto más aguantas, más crece la horda, más fuerte te haces tú
+  y más cerca está el siguiente jefe. Es un juego de una sola decisión repetida sin
+  parar: ¿por dónde sigo, y con qué me quedo cuando algo cae?</p>
+
+  <div class="cenefa"></div>
+
+  <div class="dos-col">
+    <div class="panel">
+      <h3>El bucle de cada partida</h3>
+      <p style="font-size:13px">Te mueves. Tus armas disparan solas. Los enemigos
+      caen y sueltan gemas de experiencia; recogerlas te sube de nivel; subir de
+      nivel te deja elegir una carta nueva —arma o mejora— de cuatro. La horda
+      crece con el reloj. Cada diez minutos, un jefe.</p>
+    </div>
+    <div class="panel">
+      <h3>Lo que se lleva entre partidas</h3>
+      <p style="font-size:13px">Matar, quemar antorchas y abrir cofres da
+      <strong>denarios</strong>. Los denarios no se pierden al morir: se gastan
+      en la tienda del título en mejoras permanentes que llevas a la partida
+      siguiente. Cada intento, aunque acabe mal, te deja algo.</p>
+    </div>
+  </div>
+
+  <div class="flor">❦</div>
+
+  <div class="panel" style="margin-top:4px">
+    <h3>Cooperativo, hasta cuatro</h3>
+    <p style="font-size:13px; margin:0">El teclado maneja siempre al jugador 1;
+    cada mando que enchufas suma a otro jugador en el acto. Con dos o más, la
+    experiencia es de <strong>equipo</strong> — sube todo el grupo a la vez— pero
+    cada uno elige su propia carta al subir de nivel. Se comparte el ritmo, no
+    con qué juega cada uno.</p>
+  </div>
+</section>
+
+<!-- ============================================================ CONTROLES -->
+<section class="pagina">
+  <div class="cabecera-seccion">
+    <div class="num">II</div>
+    <div>
+      <div class="kicker">Cómo se juega</div>
+      <h2>Controles</h2>
+    </div>
+  </div>
+  <div class="cenefa grande"></div>
+
+  <p style="font-size:13px">Las armas disparan <strong>solas</strong>: no hay botón
+  de ataque. Lo único que decides en cada instante es hacia dónde te mueves, y
+  qué eliges cuando el juego te lo pregunta.</p>
+
+  <div class="grid-controles" style="margin-top:12px">
+    <div class="panel">
+      <h3>Teclado</h3>
+      <div class="fila-control"><span class="teclas"><span class="tecla">W</span><span class="tecla">A</span><span class="tecla">S</span><span class="tecla">D</span> o <span class="tecla">↑←↓→</span></span> Moverte</div>
+      <div class="fila-control"><span class="teclas"><span class="tecla">Tab</span></span> Ficha del personaje</div>
+      <div class="fila-control"><span class="teclas"><span class="tecla">F4</span></span> Mapa</div>
+      <div class="fila-control"><span class="teclas"><span class="tecla">Esc</span></span> Pausa</div>
+      <div class="fila-control"><span class="teclas"><span class="tecla">Enter</span></span> Confirmar / elegir carta</div>
+      <div class="fila-control"><span class="teclas"><span class="tecla">T</span></span> Tienda (desde el título)</div>
+    </div>
+    <div class="panel">
+      <h3>Mando</h3>
+      <div class="fila-control"><span class="teclas"><span class="tecla">⬤</span></span> Stick izquierdo — moverte</div>
+      <div class="fila-control"><span class="teclas"><span class="tecla">A</span></span> Confirmar / elegir carta</div>
+      <div class="fila-control"><span class="teclas"><span class="tecla">B</span></span> Atrás / cerrar</div>
+      <div class="fila-control"><span class="teclas"><span class="tecla">Select</span></span> Ficha del personaje</div>
+      <div class="fila-control"><span class="teclas"><span class="tecla">Start</span></span> Pausa</div>
+      <div class="fila-control"><span class="teclas"><span class="tecla">⇄</span></span> Cruceta — navegar menús</div>
+    </div>
+  </div>
+
+  <div class="cenefa"></div>
+
+  <div class="panel">
+    <h3>La ficha del personaje</h3>
+    <p style="font-size:12.5px; margin:0">Abrir la ficha <strong>para el mundo</strong>:
+    es donde se miran los números con calma —vida, experiencia, características y las
+    ocho ranuras del arsenal— sin que nada te esté rodeando mientras lees. Vuelve a
+    cerrarse con la misma tecla.</p>
+  </div>
+</section>
+
+<!-- ============================================================ HEROES -->
+<section class="pagina">
+  <div class="cabecera-seccion">
+    <div class="num">III</div>
+    <div>
+      <div class="kicker">Elige a tu héroe</div>
+      <h2>Los cuatro</h2>
+    </div>
+  </div>
+  <div class="cenefa grande"></div>
+  <p style="font-size:13px">Cada uno arranca con SU arma —nadie más puede llevarla— y
+  esa arma inicial es la que de verdad cambia cómo se juega, más que cualquier
+  estadística.</p>
+
+  <div class="grid-heroes" style="margin-top:10px">
+    <div class="panel carta-heroe">
+      <div class="retrato"><img src="../assets/personajes/eric-cara.png" alt="Eric"></div>
+      <div>
+        <h3>Eric</h3>
+        <div class="desc">«Aguanta el tipo en primera línea.»</div>
+        <div class="fila-arma">
+          <img class="icono sprite" style="width:20px" src="sprites/icono-scutum.png" alt="">
+          <span><strong>Scutum</strong> — escudos que giran a tu alrededor y arrollan.</span>
+        </div>
+        <div class="fila-stats"><span><b>+15%</b> vida</span><span><b>-5%</b> velocidad</span></div>
+      </div>
+    </div>
+
+    <div class="panel carta-heroe">
+      <div class="retrato"><img src="../assets/personajes/lucy-cara.png" alt="Lucy"></div>
+      <div>
+        <h3>Lucy</h3>
+        <div class="desc">«Frágil, pero no la alcanza nadie.»</div>
+        <div class="fila-arma">
+          <img class="icono sprite" style="width:20px" src="sprites/icono-pistola.png" alt="">
+          <span><strong>Pistola</strong> — tiro certero al más cercano, rápida y de largo alcance.</span>
+        </div>
+        <div class="fila-stats"><span><b>-15%</b> vida</span><span><b>+15%</b> velocidad</span></div>
+      </div>
+    </div>
+
+    <div class="panel carta-heroe">
+      <div class="retrato"><img src="../assets/personajes/sara-cara.png" alt="Sara"></div>
+      <div>
+        <h3>Sara</h3>
+        <div class="desc">«Recoge el botín desde lejos.»</div>
+        <div class="fila-arma">
+          <img class="icono sprite" style="width:20px" src="sprites/icono-campoelectrico.png" alt="">
+          <span><strong>Campo eléctrico</strong> — chisporroteo pegado a ti; nadie se acerca gratis.</span>
+        </div>
+        <div class="fila-stats"><span><b>+45%</b> radio de recogida</span></div>
+      </div>
+    </div>
+
+    <div class="panel carta-heroe">
+      <div class="retrato"><img src="../assets/personajes/vicky-cara.png" alt="Vicky"></div>
+      <div>
+        <h3>Vicky</h3>
+        <div class="desc">«La fuerza de voluntad lo es todo en esta vida.»</div>
+        <div class="fila-arma">
+          <img class="icono sprite" style="width:20px" src="sprites/icono-katana.png" alt="">
+          <span><strong>Katana</strong> — barrido de 360° a tu alrededor; hay que estar dentro.</span>
+        </div>
+        <div class="fila-stats"><span><b>-5%</b> vida</span><span><b>+5%</b> velocidad</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cenefa"></div>
+  <div class="panel">
+    <p style="font-size:12.5px; margin:0"><strong>En cooperativo</strong>, los cuatro
+    arrancan siempre con personajes distintos, así que las cuatro armas iniciales nunca
+    se repiten — y el sorteo de las cartas de subida de nivel se encarga de que
+    tampoco se repita el resto.</p>
+  </div>
+</section>
+
+<!-- ============================================================ ARSENAL -->
+<section class="pagina">
+  <div class="cabecera-seccion">
+    <div class="num">IV</div>
+    <div>
+      <div class="kicker">Progresión</div>
+      <h2>El arsenal</h2>
+    </div>
+  </div>
+  <div class="cenefa grande"></div>
+
+  <div class="dos-col">
+    <div>
+      <h3>Ocho ranuras</h3>
+      <p style="font-size:13px">Cuatro para <strong>armas</strong> y cuatro para
+      <strong>objetos pasivos</strong>. Cada gema de experiencia recogida llena la
+      barra; al completarla, se para el mundo y eliges una de cuatro cartas
+      —arma nueva, objeto nuevo, o subir de nivel algo que ya llevas—.</p>
+      <p style="font-size:13px">Cada arma y cada pasivo se puede subir hasta
+      <strong>nivel 10</strong>, y cada nivel lo hace más fuerte: más daño, menos
+      recarga, más alcance, según lo que sea. Tres <strong>rerolls</strong> por
+      partida, por si las cuatro cartas que salen no convencen.</p>
+    </div>
+    <div>
+      <h3>Evolucionar un arma</h3>
+      <p style="font-size:13px">Algunas armas evolucionan en una versión muy superior
+      si llegan a <strong>nivel máximo</strong> y llevas encima el pasivo concreto que
+      les hace pareja, y entonces abres un <strong>cofre</strong>. El Scutum de Eric,
+      por ejemplo, se convierte en el Testudo con la Corona de laurel al máximo.</p>
+      <p style="font-size:13px">Los cofres no aparecen solos: los sueltan los
+      <strong>élites</strong> al morir —la mantícora, la serpiente dorada, la
+      gárgola de bronce, y el resto de variantes doradas del bestiario— y también
+      los tres jefes. Ver uno es siempre una decisión: dejar lo que estabas
+      haciendo e ir a por él.</p>
+    </div>
+  </div>
+
+  <div class="cenefa"></div>
+
+  <h3 style="margin-bottom:8px">Los ocho objetos pasivos</h3>
+  <div class="tres-col">
+    <div class="fila-arma"><img class="icono sprite" style="width:22px" src="sprites/icono-sandalias.png" alt=""><span style="font-size:12px"><strong>Sandalias aladas</strong> — velocidad</span></div>
+    <div class="fila-arma"><img class="icono sprite" style="width:22px" src="sprites/icono-lorica.png" alt=""><span style="font-size:12px"><strong>Lorica segmentata</strong> — armadura</span></div>
+    <div class="fila-arma"><img class="icono sprite" style="width:22px" src="sprites/icono-anillo.png" alt=""><span style="font-size:12px"><strong>Anillo de Augusto</strong> — daño</span></div>
+    <div class="fila-arma"><img class="icono sprite" style="width:22px" src="sprites/icono-clepsidra.png" alt=""><span style="font-size:12px"><strong>Clepsidra</strong> — recarga</span></div>
+    <div class="fila-arma"><img class="icono sprite" style="width:22px" src="sprites/icono-corona.png" alt=""><span style="font-size:12px"><strong>Corona de laurel</strong> — regeneración</span></div>
+    <div class="fila-arma"><img class="icono sprite" style="width:22px" src="sprites/icono-antorcha.png" alt=""><span style="font-size:12px"><strong>Antorcha votiva</strong> — área de efecto</span></div>
+    <div class="fila-arma"><img class="icono sprite" style="width:22px" src="sprites/icono-piedraiman.png" alt=""><span style="font-size:12px"><strong>Piedra imán</strong> — radio de recogida</span></div>
+    <div class="fila-arma"><img class="icono sprite" style="width:22px" src="sprites/icono-anfora.png" alt=""><span style="font-size:12px"><strong>Ánfora de vino</strong> — vida máxima, y cura al tomarla</span></div>
+  </div>
+
+  <div class="cenefa"></div>
+
+  <div class="panel">
+    <h3>Lo que cae por el suelo</h3>
+    <p style="font-size:12.5px; margin:0"><strong>Gemas</strong> (experiencia, de
+    cuatro colores según su valor) las suelta todo lo que matas. <strong>Cofres</strong>
+    (evoluciones) los sueltan élites y jefes. Y cada tanto, un <strong>consumible</strong>
+    cae lejos, en algún punto del mapa: una llamarada te presta un lanzallamas ocho
+    segundos, un imán atrae todas las gemas del mapa de golpe, y un pan cura al
+    instante. Lejos a propósito — ir a por ellos es una decisión, no un regalo.</p>
+  </div>
+</section>
+
+<!-- ============================================================ BESTIARIO -->
+<section class="pagina">
+  <div class="cabecera-seccion">
+    <div class="num">V</div>
+    <div>
+      <div class="kicker">Lo que viene a por ti</div>
+      <h2>El bestiario</h2>
+    </div>
+  </div>
+  <div class="cenefa grande"></div>
+  <p style="font-size:13px">La velocidad de cada enemigo no cambia con el reloj —solo
+  su vida y su daño—, así que aprender a leer QUIÉN es cada silueta importa más que
+  memorizar números.</p>
+
+  <span class="etiqueta-rol">Masa — el enjambre de fondo</span>
+  <div class="grid-bestia">
+    <div class="carta-bestia">
+      <div class="marco"><img class="sprite" style="width:54px" src="sprites/serpiente.png" alt=""></div>
+      <div class="nombre">Serpiente</div><div class="rol">zigzag, débil, en cantidad</div>
+    </div>
+    <div class="carta-bestia">
+      <div class="marco"><img class="sprite" style="width:59px" src="sprites/gargola.png" alt=""></div>
+      <div class="nombre">Gárgola</div><div class="rol">vuela, revoloteo errático</div>
+    </div>
+    <div class="carta-bestia" style="grid-column:span 2">
+      <div class="marco" style="justify-content:flex-start;gap:6px">
+        <img class="sprite" style="width:73px" src="sprites/arpia.png" alt="">
+        <img class="sprite" style="width:52px" src="sprites/medusa.png" alt="">
+      </div>
+      <div class="nombre">Arpía · Medusa</div><div class="rol">rápida y a distancia</div>
+    </div>
+  </div>
+
+  <span class="etiqueta-rol">Base — la línea que hay que romper</span>
+  <div class="grid-bestia">
+    <div class="carta-bestia">
+      <div class="marco"><img class="sprite" style="width:60px" src="sprites/legionario.png" alt=""></div>
+      <div class="nombre">Legionario</div><div class="rol">avanza en muro, directo</div>
+    </div>
+    <div class="carta-bestia">
+      <div class="marco"><img class="sprite" style="width:61px" src="sprites/gladiador.png" alt=""></div>
+      <div class="nombre">Gladiador</div><div class="rol">rodea en órbita, rápido</div>
+    </div>
+    <div class="carta-bestia">
+      <div class="marco"><img class="sprite" style="width:60px" src="sprites/minotauro.png" alt=""></div>
+      <div class="nombre">Minotauro</div><div class="rol">tanque, acecha</div>
+    </div>
+    <div class="carta-bestia">
+      <div class="marco"><img class="sprite" style="width:68px" src="sprites/ciclope.png" alt=""></div>
+      <div class="nombre">Cíclope</div><div class="rol">tanque, muro de vida</div>
+    </div>
+  </div>
+
+  <span class="etiqueta-rol">Élites — sueltan cofre garantizado</span>
+  <div class="grid-bestia" style="grid-template-columns:1fr 1fr">
+    <div class="carta-bestia" style="text-align:left; padding:10px">
+      <div style="display:flex;gap:10px;align-items:center">
+        <img class="sprite" style="width:76px;flex:none" src="sprites/manticora.png" alt="">
+        <div><div class="nombre">Mantícora</div><p style="font-size:11px;margin:2px 0 0">Dispara un abanico de tres púas desde lejos. Hay que acercarse con cuidado.</p></div>
+      </div>
+    </div>
+    <div class="carta-bestia" style="text-align:left; padding:10px">
+      <div style="display:flex;gap:10px;align-items:center">
+        <img class="sprite" style="width:45px;flex:none;filter:sepia(1) saturate(4) hue-rotate(-12deg) brightness(1.35)" src="sprites/serpiente.png" alt="">
+        <div><div class="nombre">Serpiente dorada</div><p style="font-size:11px;margin:2px 0 0">Huye en vez de morder. Casi noventa veces la vida de la serpiente normal: el reto es aguantar plantado, no cazarla.</p></div>
+      </div>
+    </div>
+  </div>
+  <p style="font-size:11px; color:var(--apagado); margin-top:6px">Cualquier enemigo
+  del bestiario puede aparecer en su <strong>variante dorada</strong> — mismo aspecto
+  teñido, mucha más vida, cofre garantizado. Aparecen poco y espaciados: nunca hay
+  dos élites vivos a la vez.</p>
+</section>
+
+<!-- ============================================================ JEFES -->
+<section class="pagina">
+  <div class="cabecera-seccion">
+    <div class="num">VI</div>
+    <div>
+      <div class="kicker">Cada diez minutos</div>
+      <h2>Los tres jefes</h2>
+    </div>
+  </div>
+  <div class="cenefa grande"></div>
+
+  <div class="carta-jefe">
+    <div class="marco"><img class="sprite" style="width:89px" src="sprites/cerbero.png" alt=""></div>
+    <div>
+      <div class="minuto">Minuto 10</div>
+      <h3>Cerbero</h3>
+      <p>Tres fases por tercios de vida. Persecución simple al principio; a media
+      vida, sus tres cabezas escupen conos de fuego alternos que dejan charcos —lee
+      qué cabeza va a disparar y sal del cono—; por debajo de un tercio, encadena
+      embestidas mientras invoca serpientes en tandas de diez.</p>
+    </div>
+  </div>
+
+  <div class="carta-jefe">
+    <div class="marco"><img class="sprite" style="width:91px" src="sprites/hidra.png" alt=""></div>
+    <div>
+      <div class="minuto">Minuto 20</div>
+      <h3>Hidra</h3>
+      <p>Dos cabezas escupen veneno por turnos desde que aparece: charcos más chicos
+      que los de Cerbero, pero constantes. Al cruzar el <strong>50% de vida</strong>
+      se enfurece PARA SIEMPRE — más rápida, más dañina, y regenera un goteo. La
+      herida no cierra: cuanto antes se le llegue a la mitad, peor.</p>
+    </div>
+  </div>
+
+  <div class="carta-jefe">
+    <div class="marco"><img class="sprite" style="width:71px" src="sprites/loba.png" alt=""></div>
+    <div>
+      <div class="minuto">Minuto 30 — jefe final</div>
+      <h3>La Loba Capitolina</h3>
+      <p>Entra con dos gemelos como escolta. Mientras viva alguno, ella
+      <strong>regenera</strong> — pegarle a su cuerpo sin arrancarle antes los
+      gemelos es perder el tiempo. Cada gemelo que cae la enfurece un rato: más
+      rápida, más dañina. Sobrevivir a ella es sobrevivir a la partida entera.</p>
+    </div>
+  </div>
+
+  <div class="cenefa"></div>
+  <div class="panel">
+    <p style="font-size:12.5px; margin:0">Un jefe siempre avisa antes de entrar
+    —su nombre aparece bajo el reloj— y al llegar, el resto de la horda huye un
+    instante: la pelea es contra él, no contra él y doscientos más a la vez.</p>
+  </div>
+</section>
+
+<!-- ============================================================ DENARIOS -->
+<section class="pagina">
+  <div class="cabecera-seccion">
+    <div class="num">VII</div>
+    <div>
+      <div class="kicker">Entre partidas</div>
+      <h2>Denarios y la tienda</h2>
+    </div>
+  </div>
+  <div class="cenefa grande"></div>
+
+  <p style="font-size:13px">Cada baja, cada antorcha rota y cada cofre da
+  <strong>denarios</strong>. No se gastan durante la partida — se guardan al
+  volver al título y se gastan ahí, en potenciadores <strong>permanentes</strong>
+  que se llevan a TODAS las partidas futuras, tuyas o de quien juegue después.</p>
+
+  <div class="grid-tienda" style="margin-top:10px">
+    <div class="panel carta-pot">
+      <div class="icono" style="background:radial-gradient(circle,#c8443c,#7a2620)"></div>
+      <div><h3>Vitalidad</h3><p>+4% de vida máxima por nivel, en toda partida futura.</p></div>
+    </div>
+    <div class="panel carta-pot">
+      <div class="icono" style="background:radial-gradient(circle,#5aa9e6,#2a5a86)"></div>
+      <div><h3>Premura</h3><p>+2% de velocidad por nivel, en toda partida futura.</p></div>
+    </div>
+    <div class="panel carta-pot">
+      <div class="icono" style="background:radial-gradient(circle,#b0b6bd,#585d63)"></div>
+      <div><h3>Coraza</h3><p>+1 de armadura por nivel, en toda partida futura.</p></div>
+    </div>
+    <div class="panel carta-pot">
+      <div class="icono" style="background:radial-gradient(circle,#7fd68a,#2f6a3a)"></div>
+      <div><h3>Codicia</h3><p>+5% de radio de recogida por nivel, en toda partida futura.</p></div>
+    </div>
+  </div>
+  <div class="panel carta-pot" style="margin-top:10px; max-width:calc(50% - 5px)">
+    <div class="icono" style="background:radial-gradient(circle,#e8c368,#8a5a1a)"></div>
+    <div><h3>Furia</h3><p>+3% de daño por nivel, en toda partida futura.</p></div>
+  </div>
+
+  <div class="cenefa"></div>
+  <p style="font-size:12px; color:var(--apagado)">Cinco niveles cada uno, cada vez
+  más caro. Nada de esto se pierde al morir: aunque una partida acabe mal en el
+  minuto tres, lo ganado hasta ahí ya es tuyo para siempre.</p>
+</section>
+
+<!-- ============================================================ CONSEJOS -->
+<section class="pagina">
+  <div class="cabecera-seccion">
+    <div class="num">VIII</div>
+    <div>
+      <div class="kicker">Antes de entrar</div>
+      <h2>Consejos de supervivencia</h2>
+    </div>
+  </div>
+  <div class="cenefa grande"></div>
+
+  <ul class="lista-consejos">
+    <li><strong>No pares.</strong> La horda entra sobre todo hacia donde avanzas;
+    quedarte quieto o dar media vuelta constante no te libra de nada, solo te deja
+    sin ver venir lo que llega por detrás.</li>
+    <li><strong>Huir siempre mete en la siguiente horda</strong> — es la idea del
+    juego, no un fallo. Elige hacia dónde huyes con la misma atención que hacia
+    dónde peleas.</li>
+    <li><strong>Las cuatro primeras cartas definen la partida.</strong> Llegan
+    baratas y rápido a propósito: no las malgastes en una mejora que no encaja con
+    tu arma inicial.</li>
+    <li><strong>Un cofre es siempre una decisión.</strong> Ir a por él te saca de
+    donde estabas a salvo — merece la pena casi siempre, pero no des por hecho que
+    el camino está limpio.</li>
+    <li><strong>Los charcos y conos de los jefes se telegrafían.</strong> Hay un
+    instante de aviso antes de que hagan daño de verdad: ese instante es para
+    moverte, no para seguir pegando.</li>
+    <li><strong>En cooperativo, un caído no acaba la partida</strong> — sigue
+    mientras quede alguien en pie. Reagruparse cerca de quien cayó ayuda a que el
+    grupo no se disperse cazando gemas por su cuenta.</li>
+    <li><strong>Vuelve a la tienda aunque hayas perdido.</strong> Los denarios de
+    una partida corta también cuentan, y cada potenciador comprado hace la
+    siguiente un poco más fácil.</li>
+  </ul>
+
+  <div class="cenefa" style="margin-top:24px"></div>
+  <p style="text-align:center; font-family:var(--fuente-titulo); font-style:italic; color:var(--bronce-claro); font-size:15px; margin-top:10px">
+    «Aguanta hasta que amanezca sobre Emerita Augusta.»
+  </p>
+
+  <div class="pie-pagina">
+    <span>Emerita Survivors</span>
+    <span>Manual del jugador</span>
+  </div>
+</section>
+
+</body>
+</html>
