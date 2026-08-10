@@ -192,8 +192,17 @@ export const ENEMIGOS = {
   //
   // Es el enemigo que obliga a MOVERSE aunque le estés dando. Con daño solo por
   // contacto, un cíclope se resolvía quedándose a dos pasos y disparando.
+  // AJUSTADO tras jugarlo: radio 46 no tenía comparación en el resto del
+  // bestiario (el propio cuerpo del cíclope mide 11.8 de radio; hasta las
+  // charcas de fuego de Cerbero son 15-18) y encima apuntaba siempre al
+  // pixel exacto del jugador, así que un único sismo cubría casi cualquier
+  // intento de esquivarlo en el sitio. 46->30 de radio, 34->24 de daño, y
+  // `azarObjetivo` (entidades/enemigo.js) hace que una vez de cada tres el
+  // sismo caiga en un punto al azar de la pantalla en vez de sobre el
+  // jugador: sigue habiendo que estar atento, pero deja de ser una trampa
+  // perfecta cada vez.
   ciclope:    { sprite:'ciclope',    rol:'tanque',    xp:45, vida:950,   velocidad:7,  danyo:30, radio:11.8, masa:20.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo',
-                ataque: { tipo:'sismo', danyo:34, cadencia:4.2, alcance:230, aviso:0.85, radio:46, color:'#c98a3a' } },
+                ataque: { tipo:'sismo', danyo:24, cadencia:4.2, alcance:230, aviso:0.85, radio:30, azarObjetivo:0.33, color:'#c98a3a' } },
   minotauro:  { sprite:'minotauro',  rol:'tanque',    xp:24, vida:520,   velocidad:15, danyo:21, radio:10.9, masa:14.0, vuela:false, inmuneEmpuje:false, movimiento:'acecho'    },
 
   // --- Élite: suelta cofre garantizado ------------------------------------
@@ -304,11 +313,40 @@ export const ENEMIGOS = {
   // jefe. 34->26 de daño de contacto, 9000->13000 de vida. El resto del
   // ajuste —charcos de fuego más pequeños y con más aviso— vive en
   // datos/jefes.js, junto a su propio comportamiento.
-  cerbero:    { sprite:'cerbero',    rol:'jefe',      xp:600,  vida:13000, velocidad:18, danyo:26, radio:21,   masa:80.0,  vuela:false, inmuneEmpuje:true,  movimiento:'directo' },
+  //
+  // SEGUNDA PASADA tras jugarlo de nuevo: 26 por contacto, sin telegrafía —es
+  // el daño de contacto genérico del motor, no un ataque especial— y con el
+  // radio de Cerbero (21, el más grande del juego salvo la Loba) resultaba en
+  // "casi imposible no estar tocándolo" mientras se pelea cuerpo a cuerpo:
+  // ~52/s sostenidos son medio jugador cada segundo. 26->15 para que el
+  // contacto duela pero no mate solo por quedarse cerca; la carga (embestida,
+  // más abajo en datos/jefes.js) sigue siendo el pico de daño real del jefe.
+  cerbero:    { sprite:'cerbero',    rol:'jefe',      xp:600,  vida:13000, velocidad:18, danyo:15, radio:21,   masa:80.0,  vuela:false, inmuneEmpuje:true,  movimiento:'directo' },
   hidra:      { sprite:'hidra',      rol:'jefe',      xp:1000, vida:16000, velocidad:15, danyo:36, radio:28,   masa:100.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo' },
   loba:       { sprite:'loba',       rol:'jefe',      xp:1500, vida:26000, velocidad:12, danyo:38, radio:31.5, masa:120.0, vuela:false, inmuneEmpuje:true,  movimiento:'acecho'  },
   // `escolta` es lo que sistemas/jefes.js vigila para saber cuándo cae un
   // gemelo: mientras alguno siga vivo, la loba regenera; cada vez que uno cae,
   // se enfurece. Ver datos/jefes.js.
-  gemelo:     { sprite:'gemelo',     rol:'jefe',      xp:200,  vida:3000,  velocidad:25, danyo:18, radio:9.5,  masa:16.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag', escolta:true }
+  // velocidad 25->30 (petición de Sergio jugándolo): rondaba la de un
+  // gladiador (24); ahora queda por delante de todo el bestiario base salvo
+  // la arpía (32), acorde a ser la escolta del jefe final.
+  gemelo:     { sprite:'gemelo',     rol:'jefe',      xp:200,  vida:3000,  velocidad:30, danyo:18, radio:9.5,  masa:16.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag', escolta:true },
+
+  // --- Objetos destruibles del escenario -----------------------------------
+  // Las antorchas del nivel (sistemas/obstaculos.js las coloca junto a
+  // columnas y estatuas) NO son decoración pura: se pueden romper a golpes.
+  // En vez de montar un sistema de daño aparte, se dan de alta como un
+  // enemigo más —quieto, sin ataque, sin daño de contacto— para heredar GRATIS
+  // todo lo que ya existe: cualquier arma las alcanza (todas apuntan a
+  // sistemas/colisiones.js sobre la rejilla de enemigos), el choque sólido
+  // contra jugadores y enemigos sale del mismo solucionador de separación de
+  // siempre (con `inmuneEmpuje` y masa alta no las mueve nadie), y morir ya
+  // sabe soltar algo y avisar con partículas. `esObjeto` es la única marca
+  // nueva: le dice a `Enemigos.danyar` (entidades/enemigo.js) que esto no es
+  // una baja de verdad —nada de gema de XP ni de sumar al contador de
+  // enemigos eliminados— y que reparta un consumible al azar en vez de sangre.
+  // `vida:0` en `xp` porque no da experiencia; `radio` sale de la misma
+  // fórmula que el resto de la decoración (sección 10 del plan).
+  antorcha1:  { sprite:'antorcha1',  rol:'objeto', xp:0, vida:30, velocidad:0, danyo:0, radio:2.7, masa:999, vuela:false, inmuneEmpuje:true, movimiento:'directo', esObjeto:true },
+  antorcha2:  { sprite:'antorcha2',  rol:'objeto', xp:0, vida:30, velocidad:0, danyo:0, radio:2.7, masa:999, vuela:false, inmuneEmpuje:true, movimiento:'directo', esObjeto:true }
 };

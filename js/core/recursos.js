@@ -31,9 +31,15 @@ export const Recursos = {
   tilesSuelo: [],           // canvas o imágenes del suelo, todas del mismo tamaño
   // Lado del tile de suelo en unidades LÓGICAS. Con suelo procedural es TILE en
   // los dos ejes; con un mapa pintado sale del tamaño de la imagen, que no tiene
-  // por qué ser cuadrada — el de Emerita es una avenida vertical de 240x368.
+  // por qué ser cuadrada — el de Emerita es una avenida vertical de 361x430.
   anchoSuelo: TILE,
   altoSuelo: TILE,
+  // true con mapa pintado (una sola pieza, ver _generarSuelo), false con el
+  // procedural de emergencia. main.js lo usa para decidir si el nivel tiene
+  // ancho limitado al de la imagen (mapa pintado) o sigue toroidal en las dos
+  // direcciones (procedural, que es un tile pequeño pensado para repetirse
+  // sin límite y no una avenida con bordes).
+  mapaPintado: false,
   sustituidos: [],          // ids que acabaron con placeholder
   paleta: null,
 
@@ -226,6 +232,7 @@ export const Recursos = {
         this.tilesSuelo.push(img);
         this.anchoSuelo = img.width / ESCALA_ARTE;
         this.altoSuelo = img.height / ESCALA_ARTE;
+        this.mapaPintado = true;
         return;
       }
       console.warn('[recursos] sin mapa de suelo: se usan tiles generados');
@@ -235,6 +242,7 @@ export const Recursos = {
     const lado = TILE * ESCALA_ARTE;
     const rng = crearRng(0xE3E21A);
     this.anchoSuelo = this.altoSuelo = TILE;
+    this.mapaPintado = false;
 
     for (let v = 0; v < cfg.variantes; v++) {
       const c = document.createElement('canvas');

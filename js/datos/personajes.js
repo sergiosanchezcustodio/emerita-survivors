@@ -40,7 +40,7 @@ export const PERSONAJES = {
   vicky: {
     nombre: 'Vicky',
     sprite: 'vicky',
-    descripcion: 'Pega primero y pregunta después.',
+    descripcion: 'La fuerza de voluntad lo es todo en esta vida, sin ella nos rendiríamos en la primera caída.',
     arma: 'katana',
     mods: { vidaMaxima: 0.95, velocidad: 1.05, radioRecogida: 1.0 }
   }

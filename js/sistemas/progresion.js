@@ -46,6 +46,27 @@ export function xpNecesaria(nivel) {
   return Math.round(XP_BASE + XP_LINEAL * nivel + XP_CUADRATICO * nivel * nivel);
 }
 
+// --- XP compartida en cooperativo --------------------------------------------
+// Con más de un jugador, la XP de CUALQUIERA alimenta una única barra de
+// equipo en vez de la suya propia: todos suben de nivel a la vez, aunque cada
+// uno elige su propia mejora al hacerlo (ver Progresion.ganarXp más abajo).
+//
+// El umbral tiene que subir con el número de jugadores porque la XP entrante
+// también sube: la horda no crece con más gente (sistemas/director.js no mira
+// cuántos hay), así que cuatro personas matándola juntas llenan la misma
+// barra hasta cuatro veces más deprisa. Sin este ajuste el equipo llegaría al
+// techo de la curva en una fracción del tiempo previsto.
+//
+// Sublineal a propósito: cuatro jugadores no reparten limpiamente la horda
+// entre cuatro (se pisan objetivos, se disputan al mismo enemigo), así que el
+// multiplicador no es 1/2/3/4.
+const MULT_EQUIPO = [1, 1.6, 2.1, 2.5];   // índice = nº de jugadores - 1
+
+function xpNecesariaPara(nivel, nJugadores) {
+  const n = Math.max(1, Math.min(nJugadores | 0, MULT_EQUIPO.length));
+  return Math.round(xpNecesaria(nivel) * MULT_EQUIPO[n - 1]);
+}
+
 // Cuatro y cuatro, no seis. Con menos ranuras cada elección duele más y las
 // partidas se diferencian entre sí: con seis de cada, al final todo el mundo
 // acababa llevando media tabla.
@@ -57,6 +78,16 @@ export const MAX_PASIVOS = 4;
 export const MAX_NIVEL = 10;
 export const OPCIONES = 3;      // el plan decía 4; se bajó a 3 por decisión de diseño
 export const REROLLS = 3;
+
+// --- Tirada de ruleta (ui/menuNivel.js) --------------------------------------
+// Al abrir el menú (o pedir un reroll) las cartas ya están decididas —salen de
+// `_generar`, con el RNG de siempre— pero se enseñan girando un momento antes
+// de leerse, como una tragaperras. Es puro adorno: el contenido no cambia con
+// la animación, solo se tapa un instante. Por eso vive el contador aquí en vez
+// de en la interfaz, igual que VFX.congelado —un número que cuenta hacia atrás
+// paso a paso— pero SIN tocar el RNG compartido, o dos partidas con la misma
+// semilla dejarían de coincidir si un frame duraba un pelín más que otro.
+export const DURACION_TIRADA = 0.6;
 
 // --- Cofres y evoluciones (secciones 9 y 12 del plan) ------------------------
 //
@@ -110,6 +141,7 @@ export const Progresion = {
   // cofre no puede dejar basura por el camino.
   mejoras: [],
   nMejoras: 0,
+  animando: 0,           // segundos que le quedan a la ruleta; 0 = se puede elegir
   _rng: null,
   _candidatas: [],       // buffer de trabajo, reutilizado
 
@@ -125,6 +157,7 @@ export const Progresion = {
     this.nOpciones = 0;
     this.cofre = null;
     this.nMejoras = 0;
+    this.animando = 0;
   },
 
   get abierto() { return this.actual !== null; },
@@ -134,6 +167,57 @@ export const Progresion = {
   // misma pantalla no hay forma de leerlos.
   encolar(jugador) {
     this.cola.push(jugador);
+  },
+
+  // Reparte experiencia. En solitario (o si no se pasa el resto de la
+  // partida) es la cuenta de siempre: sube ESE jugador y ya. En cooperativo,
+  // la XP de cualquiera alimenta la barra del EQUIPO: al cruzar el umbral
+  // sube el equipo entero de golpe, y cada jugador vivo encola su propia
+  // elección —lo que se comparte es el ritmo, no con qué juega cada uno—.
+  ganarXp(jugador, cantidad, jugadores) {
+    if (!jugadores || jugadores.length <= 1) {
+      jugador.xp += cantidad;
+      while (jugador.xp >= jugador.xpNecesaria) {
+        jugador.xp -= jugador.xpNecesaria;
+        jugador.nivel++;
+        jugador.xpNecesaria = xpNecesaria(jugador.nivel);
+        this.encolar(jugador);
+      }
+      return;
+    }
+
+    for (let i = 0; i < jugadores.length; i++) jugadores[i].xp += cantidad;
+    while (jugador.xp >= jugador.xpNecesaria) {
+      const nivel = jugador.nivel + 1;
+      const necesaria = xpNecesariaPara(nivel, jugadores.length);
+      const resto = jugador.xp - jugador.xpNecesaria;
+      for (let i = 0; i < jugadores.length; i++) {
+        const j = jugadores[i];
+        j.nivel = nivel;
+        j.xp = resto;
+        j.xpNecesaria = necesaria;
+        if (!j.abatido) this.encolar(j);
+      }
+    }
+  },
+
+  // Se llama al sumarse o irse alguien (main.js, anyadirJugador/quitarJugador).
+  // El progreso ya hecho NO se toca —ni nivel ni xp—, solo el umbral que falta
+  // por llenar: pasar de solitario a cooperativo (o al revés) a media partida
+  // ajusta el ritmo desde ese momento, no le quita a nadie lo que ya llevaba.
+  // También iguala a quien se acaba de sumar con el resto del equipo: entra
+  // ya al nivel común, sin cincuenta menús de "lo que te has perdido".
+  resincronizarEquipo(jugadores) {
+    if (!jugadores || jugadores.length === 0) return;
+    const lider = jugadores[0];
+    const necesaria = jugadores.length > 1
+      ? xpNecesariaPara(lider.nivel, jugadores.length)
+      : xpNecesaria(lider.nivel);
+    for (let i = 0; i < jugadores.length; i++) {
+      jugadores[i].nivel = lider.nivel;
+      jugadores[i].xp = lider.xp;
+      jugadores[i].xpNecesaria = necesaria;
+    }
   },
 
   // ¿Puede este jugador delegar la elección? Solo con las ocho ranuras llenas.
@@ -164,7 +248,16 @@ export const Progresion = {
       this.elegir(0);
       return false;
     }
+    this.animando = DURACION_TIRADA;
     return true;
+  },
+
+  // Mientras gira no se puede tocar el menú: se llama cada paso desde
+  // `main.js` en vez de desde la interfaz, que solo dibuja y no debe llevar
+  // cuenta de nada. Devuelve si todavía está girando.
+  tirando(dt) {
+    if (this.animando > 0) this.animando = Math.max(0, this.animando - dt);
+    return this.animando > 0;
   },
 
   rerollar(jugadores) {
@@ -172,6 +265,7 @@ export const Progresion = {
     this.actual.rerolls--;
     this.seleccion = 0;
     this._generar(this.actual, jugadores);
+    this.animando = DURACION_TIRADA;
     return true;
   },
 

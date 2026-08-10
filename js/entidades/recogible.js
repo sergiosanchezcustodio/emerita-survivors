@@ -131,7 +131,7 @@ export class Recogibles {
 
         // Absorbida
         if (d2 < 36) {
-          j.ganarXp(g.valor);
+          j.ganarXp(g.valor, jugadores);
           this.recogidas++;
           this.pool.liberarEn(k);       // sin avanzar k
           continue;

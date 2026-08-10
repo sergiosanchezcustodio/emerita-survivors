@@ -72,18 +72,26 @@ export const JEFES = {
   //     siempre —más rápida, más dañina, y regenera un goteo— en vez de
   //     encadenar varias veces como la Loba. Es la tensión de "la herida no
   //     cierra" contada con un interruptor, no con una cadena de eventos.
+  // AJUSTADO tras jugarlo: con cadencia 3.0s y cada charco vivo 0.5+3.5=4.0s,
+  // la SIGUIENTE cabeza escupía antes de que el veneno de la anterior se
+  // apagara —el mismo problema de la "pared" que ya se corrigió una vez en
+  // el fuego de Cerbero (ver su comentario más arriba), pero aquí sin
+  // corregir: el suelo quedaba envenenado sin hueco entre volea y volea,
+  // que es justo lo que se lee como "imposible de esquivar". Ahora la
+  // cadencia (4.2s) sí supera el tiempo de vida del charco (0.5+2.6=3.1s),
+  // dejando ~1.1s de suelo limpio entre cabezazo y cabezazo.
   hidra: {
     veneno: {
-      cadencia: 3.0,
+      cadencia: 4.2,
       aviso: 0.5,
       angulos: [-0.3, 0.3],         // dos cabezas, no tres como Cerbero
       pasos: 3, paso: 22,
-      radioCharco: 18, duracionCharco: 3.5, danyoCharco: 7, intervaloCharco: 0.6,
+      radioCharco: 18, duracionCharco: 2.6, danyoCharco: 6, intervaloCharco: 0.6,
       color: '#6fbf4a'
     },
     furia: {
       umbral: 0.5,                 // se dispara UNA vez, al cruzar el 50% de vida
-      multDanyo: 1.3,
+      multDanyo: 1.15,             // 1.3 -> 1.15: es PERMANENTE el resto del combate
       multVelocidad: 1.2,
       regenFraccion: 0.006
     }

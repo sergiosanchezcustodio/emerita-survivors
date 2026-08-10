@@ -5,6 +5,7 @@ import { Tema } from './tema.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from '../datos/personajes.js';
 import { ARMAS } from '../datos/armas.js';
 import { COLOR_JUGADOR } from './hud.js';
+import { MetaProgreso } from '../core/metaProgreso.js';
 
 // Pantallas de TÍTULO y de SELECCIÓN DE PERSONAJE.
 //
@@ -154,6 +155,17 @@ function dibujarTitulo(ctxMundo, ctxUi) {
   textoBorde(ctxUi, 'Pulsa cualquier tecla o botón', ANCHO_UI / 2, r.y - 12,
              Tema.actual.titulo, 3.5);
   ctxUi.restore();
+
+  // Rincón de la tienda: denarios ganados jugando (progreso META, ver
+  // core/metaProgreso.js) y la tecla para gastarlos. Aparte del botón START,
+  // que solo entiende "cualquier tecla vale" — T se mira antes en main.js.
+  ctxUi.save();
+  ctxUi.textAlign = 'left';
+  ctxUi.textBaseline = 'alphabetic';
+  ctxUi.font = `600 10px ${FUENTE}`;
+  textoBorde(ctxUi, `T · Tienda (${MetaProgreso.denarios} denarios)`, 10, ALTO_UI - 10,
+             '#e8b73a', 3);
+  ctxUi.restore();
 }
 
 // --- Selección de personaje --------------------------------------------------
@@ -201,7 +213,7 @@ function dibujarSeleccion(ctxMundo, ctxUi, puestos) {
   let pie = 'Empezando...';
   if (faltan) {
     pie = '← →  elegir     Enter/A  confirmar     Esc/B  atrás';
-    if (hueco) pie += '     J o A en otro mando  sumar jugador';
+    if (hueco) pie += '     J, A o Start en otro mando  sumar jugador';
   }
   ctxUi.globalAlpha = faltan ? 0.9 : latido(700, 0.4);
   textoBorde(ctxUi, pie, ANCHO_UI / 2, ALTO_UI - 44, t.texto, 3.5);
@@ -268,7 +280,15 @@ function dibujarPuesto(ctxUi, e, indice, puesto, t) {
   ctxUi.fillStyle = t.titulo;
   textoEspaciado(ctxUi, def.nombre.toUpperCase(), r.x + r.w / 2, yCaja + 11, 1.5);
 
-  ctxUi.font = `500 9px ${FUENTE}`;
+  // La cartela es fija y compacta —no hay alto de sobra para una segunda
+  // línea—, así que una descripción más larga que de costumbre se encoge
+  // hasta que quepa en una, en vez de desbordar la tarjeta.
+  let tamDesc = 9;
+  ctxUi.font = `500 ${tamDesc}px ${FUENTE}`;
+  while (ctxUi.measureText(def.descripcion).width > r.w - 10 && tamDesc > 6) {
+    tamDesc -= 0.5;
+    ctxUi.font = `500 ${tamDesc}px ${FUENTE}`;
+  }
   ctxUi.fillStyle = t.texto;
   ctxUi.fillText(def.descripcion, r.x + r.w / 2, yCaja + 24);
 

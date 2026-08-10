@@ -1021,6 +1021,83 @@ public class Procesador {
     }
 
     // ---------------------------------------------------------------------
+    // Ensanchar el mapa reflejando los bordes
+    // ---------------------------------------------------------------------
+    //
+    // Ensanchar el escenario (pedido de Sergio) generando arte nuevo con IA no
+    // salió adelante: ChatGPT, Bing y Gemini solo devuelven un puñado de
+    // resoluciones/proporciones propias, nunca el ancho exacto en píxeles que
+    // hacía falta, así que las dos veces el resultado llegaba más pequeño que
+    // el original en vez de más ancho (ver herramientas/candidatos/calzada-ancha,
+    // descartada). Esto no depende de ningún servicio externo: coge una franja
+    // de cada borde y la refleja hacia fuera.
+    //
+    // La costura es EXACTA y no una mezcla: la columna de la franja reflejada
+    // que queda pegada al original es, pixel a pixel, la MISMA columna que el
+    // original tiene ahí (reflejar alrededor del borde implica que ese punto
+    // coincide consigo mismo). Funciona bien aquí porque los márgenes de este
+    // mapa son un patrón de hierba/árboles sin ningún elemento único y
+    // reconocible que delate el espejo — los objetos que sí lo son (columnas,
+    // estatuas, ruinas) no están pintados en esta imagen, los coloca
+    // datos/niveles/merida.js por encima.
+    public static string Ensanchar(string entrada, string salida, int pxPorLado, int unidad) {
+        byte[] px; int w, h, stride;
+        CargarPx(entrada, out px, out w, out h, out stride);
+        if (pxPorLado <= 0 || pxPorLado >= w) return "RANGO";
+        if (unidad <= 0 || unidad > pxPorLado) unidad = pxPorLado;
+
+        int w2 = w + pxPorLado * 2;
+        int stride2 = w2 * 4;
+        byte[] dst = new byte[stride2 * h];
+
+        for (int y = 0; y < h; y++) {
+            int filaSrc = y * stride;
+            int filaDst = y * stride2;
+
+            // Centro: el original, intacto.
+            Array.Copy(px, filaSrc, dst, filaDst + pxPorLado * 4, w * 4);
+
+            // Franja izquierda, en ESPEJO DE ACORDEÓN: no un solo pliegue del
+            // ancho entero (eso deja un rombo enorme y evidente pegado a la
+            // calzada, que es justo lo que se ve mal), sino varios pliegues
+            // del ancho de `unidad`, alternando dirección. Cada juntura entre
+            // pliegues sigue siendo exacta por el mismo motivo de siempre —la
+            // columna de un lado de la juntura es la misma columna física que
+            // la del otro—, solo que ahora el patrón se repite en una escala
+            // más parecida a la de un árbol suelto que a la de todo el margen.
+            for (int x = 0; x < pxPorLado; x++) {
+                int distancia = pxPorLado - x;                  // 1..pxPorLado
+                int enTramo = (distancia - 1) % unidad;         // 0..unidad-1
+                bool par = ((distancia - 1) / unidad) % 2 == 0;
+                int xo = par ? enTramo : (unidad - 1 - enTramo);
+                if (xo >= w) xo = w - 1;
+                Array.Copy(px, filaSrc + xo * 4, dst, filaDst + x * 4, 4);
+            }
+
+            // Franja derecha: la misma idea en espejo.
+            for (int x = 0; x < pxPorLado; x++) {
+                int distancia = x + 1;                          // 1..pxPorLado
+                int enTramo = (distancia - 1) % unidad;
+                bool par = ((distancia - 1) / unidad) % 2 == 0;
+                int xo = par ? (w - 1 - enTramo) : (w - unidad + enTramo);
+                if (xo < 0) xo = 0;
+                int xd = w2 - pxPorLado + x;
+                Array.Copy(px, filaSrc + xo * 4, dst, filaDst + xd * 4, 4);
+            }
+        }
+
+        using (Bitmap sal = new Bitmap(w2, h, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0, 0, w2, h),
+                                         ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < h; y++)
+                Marshal.Copy(dst, y * stride2, (IntPtr)(dd.Scan0.ToInt64() + y * dd.Stride), stride2);
+            sal.UnlockBits(dd);
+            sal.Save(salida, ImageFormat.Png);
+        }
+        return w2 + "|" + h;
+    }
+
+    // ---------------------------------------------------------------------
     // Suelo del nivel: hacer teselable un mapa que no lo es
     // ---------------------------------------------------------------------
     //
@@ -1320,10 +1397,25 @@ public class Procesador {
                 for (int x = 0; x < w; x++)
                     if (px[y * stride + x * 4 + 3] < 128) fondo[y * w + x] = true;
 
+            // MARGEN DE SEGURIDAD: el icono de cada celda no siempre respeta su
+            // rejilla a rajatabla —un par de píxeles sueltos del icono VECINO
+            // (sangrado por el degradado de ambiente que trae cada uno) caen
+            // justo en el borde de la celda de al lado—. CajaSilueta no sabe
+            // distinguir "esto es del icono" de "esto se coló del de al lado":
+            // mide cualquier píxel no-fondo que encuentre, así que ese sangrado
+            // ensancha la caja hacia ese borde y descuadra el centrado Y el
+            // escalado (una caja más ancha de lo real da un "contener" más
+            // pequeño). Recortar la zona de medida hacia dentro antes de buscar
+            // la silueta dobla de sobra el hueco en blanco que ya trae cada
+            // icono alrededor, así que no se come nada real.
+            int margen = 30;
             int cw = w / cols, ch = h / filas;
             for (int r = 0; r < filas; r++)
                 for (int c = 0; c < cols; c++)
-                    regiones.Add(new int[] { c * cw, r * ch, c * cw + cw - 1, r * ch + ch - 1 });
+                    regiones.Add(new int[] {
+                        c * cw + margen, r * ch + margen,
+                        c * cw + cw - 1 - margen, r * ch + ch - 1 - margen
+                    });
         } else {
             List<int[]> marcos = CajasDeMarco(px, stride, w, h);
             OrdenarLectura(marcos);
@@ -1539,7 +1631,9 @@ $CATALOGO = @(
     # `tol=45` desaparece con la ilustración —era la tolerancia del recorte por
     # color, y un GIF trae su propio alfa, así que no hay fondo que adivinar—.
     @{ src='enemies\ciclope.gif';          dst='enemigos\ciclope.png';   id='ciclope';   alto=35;  anchoFijo=0;  tol=0; gif=$true }
-    @{ src='enemies\masticore.png';        dst='enemigos\manticora.png'; id='manticora'; alto=43;  anchoFijo=0;  tol=0 }
+    # Animada a mano en GIF (antes era una ilustración estática): mira a la
+    # derecha en el original, así que no lleva voltear.
+    @{ src='enemies\masticore.gif';        dst='enemigos\manticora.png'; id='manticora'; alto=43;  anchoFijo=0;  tol=0; gif=$true }
     @{ src='enemies\cerberus.gif';         dst='enemigos\cerbero.png';   id='cerbero';   alto=70;  anchoFijo=0;  tol=0; gif=$true }
     # La hidra deja de ser un sprite huérfano: recupera su papel de jefe, ahora
     # como el segundo de tres (minuto 20), entre Cerbero y la Loba. Ver el
@@ -1595,6 +1689,43 @@ $CATALOGO = @(
        gifAnim='characters\Sara.gif';  idle=0; nQuieto=2; fpsAndar=14 }
     @{ src='characters\Vicky.png'; dst='personajes\vicky.png'; id='vicky'; alto=26; anchoFijo=0; tol=0
        gifAnim='characters\Vicky.gif'; idle=0; nQuieto=2; fpsAndar=14 }
+
+    # --- Decoracion solida del nivel 1: columnas, antorchas, estatuas y
+    # ruinas de resources/stages/1/objetos/. Ilustraciones estaticas sueltas
+    # (sin gif/cadera/hoja), asi que caen directas por Procesar():
+    # quitar fondo, recortar a silueta, ancla centro-inferior, un fotograma.
+    # `plano=$true` porque nunca giran ni reciben destello de impacto —ni
+    # espejo ni tinte les hacen falta, igual que a las hojas de iconos.
+    @{ src='stages\1\objetos\columna.png';   dst='objetos\columna.png';   id='columna';   alto=40; anchoFijo=0; tol=0;  plano=$true }
+    # SIN plano: a diferencia de columna/estatuas/ruinas (decoracion pura),
+    # las antorchas se pueden destruir (datos/enemigos.js) y necesitan la
+    # copia blanqueada de destello al recibir un golpe, igual que cualquier
+    # enemigo.
+    @{ src='stages\1\objetos\antorcha1.png'; dst='objetos\antorcha1.png'; id='antorcha1'; alto=26; anchoFijo=0; tol=0 }
+    @{ src='stages\1\objetos\antorcha2.png'; dst='objetos\antorcha2.png'; id='antorcha2'; alto=26; anchoFijo=0; tol=0 }
+    @{ src='stages\1\objetos\estatua1.png';  dst='objetos\estatua1.png';  id='estatua1';  alto=34; anchoFijo=0; tol=0;  plano=$true }
+    @{ src='stages\1\objetos\estatua2.png';  dst='objetos\estatua2.png';  id='estatua2';  alto=34; anchoFijo=0; tol=0;  plano=$true }
+    @{ src='stages\1\objetos\estatua3.png';  dst='objetos\estatua3.png';  id='estatua3';  alto=34; anchoFijo=0; tol=0;  plano=$true }
+    @{ src='stages\1\objetos\estatua4.png';  dst='objetos\estatua4.png';  id='estatua4';  alto=34; anchoFijo=0; tol=0;  plano=$true }
+    @{ src='stages\1\objetos\estatua5.png';  dst='objetos\estatua5.png';  id='estatua5';  alto=34; anchoFijo=0; tol=0;  plano=$true }
+    # Ruinas a proposito MAS GRANDES que columnas/antorchas/estatuas (peticion
+    # de Sergio jugando la Fase 8): un 53% mas de alto que la primera pasada
+    # (36->55). Son edificios, no mobiliario, y tienen que imponer en el
+    # margen de hierba en vez de leerse como un adorno mas.
+    @{ src='stages\1\objetos\ruinas1.png';   dst='objetos\ruinas1.png';   id='ruinas1';   alto=55; anchoFijo=0; tol=0;  plano=$true }
+    @{ src='stages\1\objetos\ruinas2.png';   dst='objetos\ruinas2.png';   id='ruinas2';   alto=55; anchoFijo=0; tol=0;  plano=$true }
+    @{ src='stages\1\objetos\ruinas4.png';   dst='objetos\ruinas4.png';   id='ruinas4';   alto=55; anchoFijo=0; tol=0;  plano=$true }
+    @{ src='stages\1\objetos\ruinas5.png';   dst='objetos\ruinas5.png';   id='ruinas5';   alto=55; anchoFijo=0; tol=0;  plano=$true }
+    # ruinas6..11 salieron de recortar a mano ruinas3.png (una hoja de
+    # contacto con seis ruinas juntas, no un objeto en si). El tol sube a 40:
+    # el recorte dejo cerca del borde la rejilla clara de la hoja original y
+    # el tolerancia por defecto (30) no bastaba para tragarsela entera.
+    @{ src='stages\1\objetos\ruinas6.png';   dst='objetos\ruinas6.png';   id='ruinas6';   alto=55; anchoFijo=0; tol=40; plano=$true }
+    @{ src='stages\1\objetos\ruinas7.png';   dst='objetos\ruinas7.png';   id='ruinas7';   alto=55; anchoFijo=0; tol=40; plano=$true }
+    @{ src='stages\1\objetos\ruinas8.png';   dst='objetos\ruinas8.png';   id='ruinas8';   alto=55; anchoFijo=0; tol=40; plano=$true }
+    @{ src='stages\1\objetos\ruinas9.png';   dst='objetos\ruinas9.png';   id='ruinas9';   alto=55; anchoFijo=0; tol=40; plano=$true }
+    @{ src='stages\1\objetos\ruinas10.png';  dst='objetos\ruinas10.png';  id='ruinas10';  alto=55; anchoFijo=0; tol=40; plano=$true }
+    @{ src='stages\1\objetos\ruinas11.png';  dst='objetos\ruinas11.png';  id='ruinas11';  alto=55; anchoFijo=0; tol=40; plano=$true }
 )
 
 # Retrato de la ficha de jugador. CUADRADO: de los hombros a la cabeza y nada
@@ -1617,6 +1748,7 @@ $CUERPO_H = 760
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'enemigos')   | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'personajes') | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'objetos')    | Out-Null
 
 $informe = @()
 $atlas = [ordered]@{}
@@ -1826,6 +1958,8 @@ foreach ($e in $CATALOGO) {
         w = $fw; h = $fh; anclaX = $ax; anclaY = $ay; frames = $nFrames
     }
     if ($clips) { $atlas[$e.id].clips = $clips }
+    # Decoracion estatica: sin espejo ni destello de impacto (ver CATALOGO).
+    if ($e.plano) { $atlas[$e.id].plano = $true }
 
     $informe += [PSCustomObject]@{
         Id      = $e.id
@@ -1949,11 +2083,29 @@ $informeIconos | Format-Table -AutoSize
 # datos y dejar su mapa, sin tocar el motor.
 #
 # El margen de fusión es el 6% del lado corto: bastante para que la mezcla no
-# se note como una banda, poco para no tirar arte. En el mapa de Emerita son 64
-# píxeles de 1024, y deja el tile en 960x1472 —240x368 unidades lógicas—, o sea
-# media pantalla de ancho y una pantalla y media de alto.
+# se note como una banda, poco para no tirar arte. Con la calzada nocturna
+# (1536x1815 de origen) son 92 píxeles.
+#
+# Antes de teselar, el mapa de Emerita pasa por Ensanchar (más arriba en este
+# mismo archivo): +384 px reflejados a cada lado, 768 en total —el 50% pedido—,
+# sin tocar el original. Es lo que hace que el nivel, que hasta ahora salía
+# más estrecho que la pantalla (480 unidades lógicas), tenga ya sitio de sobra
+# a los lados de la calzada.
+$rutaMapaOriginal = Join-Path $ORIGEN 'stages\1\mapa_emerita_survivor.png'
+$rutaMapaAncho = Join-Path $ORIGEN 'stages\1\mapa_emerita_survivor_ancho.png'
+if (Test-Path $rutaMapaOriginal) {
+    # `unidad` a pliegue único (=pxPorLado): se probó a trocear el pliegue en
+    # unidades más pequeñas (128, 192) para que el rombo del espejo pesara
+    # menos, y salió AL REVÉS -- el patrón de árboles ya es tan regular que
+    # trocear el espejo solo multiplica el número de rombos visibles en vez
+    # de esconderlos. Un solo pliegue por lado es, de las tres, la que menos
+    # se nota.
+    $rEnsanchar = [Procesador]::Ensanchar($rutaMapaOriginal, $rutaMapaAncho, 384, 384)
+    "Ensanchar mapa nivel 1: $rEnsanchar"
+}
+
 $SUELOS = @(
-    @{ src='stages\1\mapa_emerita_survivor.png'; dst='niveles\merida-suelo.png'; margen=64 }
+    @{ src='stages\1\mapa_emerita_survivor_ancho.png'; dst='niveles\merida-suelo.png'; margen=92 }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'niveles') | Out-Null

@@ -319,6 +319,13 @@ function actualizarLoba(dt, enemigos, rng) {
 export const Jefes = {
   _rng: null,
 
+  // Lo consulta el director al repartir una tanda nueva: con un jefe en
+  // pantalla, hasta el enemigo recién aparecido tiene que salir corriendo, no
+  // solo los que ya estaban cuando huidaGeneral() les dio la vuelta.
+  get hayJefeActivo() {
+    return estadoCerbero.activo || estadoHidra.activo || estadoLoba.activo;
+  },
+
   iniciar(rng) {
     this._rng = rng;
     this.vaciar();

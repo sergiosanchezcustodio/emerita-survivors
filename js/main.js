@@ -6,6 +6,7 @@ import { Bucle } from './core/bucle.js';
 import { Entrada } from './core/entrada.js';
 import { Camara } from './core/camara.js';
 import { Recursos } from './core/recursos.js';
+import { MetaProgreso } from './core/metaProgreso.js';
 import { crearRng, hash2 } from './core/rng.js';
 import { Jugador } from './entidades/jugador.js';
 import { Enemigos, prepararVariantes } from './entidades/enemigo.js';
@@ -14,8 +15,10 @@ import { Armas } from './sistemas/armas.js';
 import { Particulas } from './sistemas/particulas.js';
 import { VFX } from './sistemas/vfx.js';
 import {
-  separacion, contactoJugadores, impactosProyectiles, separarJugadores, ajustes
+  separacion, contactoJugadores, impactosProyectiles, separarJugadores,
+  colisionarObstaculos, ajustes
 } from './sistemas/colisiones.js';
+import { Obstaculos } from './sistemas/obstaculos.js';
 import { Recogibles } from './entidades/recogible.js';
 import { Cofres, COFRE, LLAMARADA, IMAN, COMIDA } from './entidades/cofre.js';
 import { Disparos } from './entidades/disparo.js';
@@ -24,6 +27,8 @@ import { Progresion } from './sistemas/progresion.js';
 import { dibujarMenuNivel } from './ui/menuNivel.js';
 import { dibujarCofre } from './ui/cofre.js';
 import { dibujarFicha } from './ui/ficha.js';
+import { dibujarMapa } from './ui/mapa.js';
+import { dibujarTienda } from './ui/tienda.js';
 import { dibujarPaneles, dibujarReloj, dibujarBarraJefe } from './ui/hud.js';
 import { Pantallas, ocupantePersonaje } from './ui/pantallas.js';
 import { Capa } from './ui/capa.js';
@@ -36,6 +41,7 @@ import { Jefes } from './sistemas/jefes.js';
 import { NIVEL } from './datos/niveles/merida.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from './datos/personajes.js';
 import { ARMAS } from './datos/armas.js';
+import { POTENCIADORES } from './datos/potenciadores.js';
 
 
 // Capacidad del pool. El objetivo del plan son 800 entidades simultáneas; el
@@ -153,6 +159,7 @@ const ctxArmas = { jugador: null, enemigos: null, proyectiles: null, zonas: null
 const PANTALLA_TITULO = 0;
 const PANTALLA_SELECCION = 1;
 const PANTALLA_JUEGO = 2;
+const PANTALLA_TIENDA = 3;
 // Sin valor de arranque: lo pone `irA` al final de este bloque, porque el
 // estado de pantalla no es solo esta variable — arrastra la clase del body, y
 // dejarlos puestos por separado es tener dos verdades que se desincronizan.
@@ -163,6 +170,11 @@ let pantalla;
 // `{ personaje, listo }`. El índice ES el del control, así que el mando 3
 // maneja siempre el puesto 3 aunque el 2 esté vacío.
 const puestos = new Array(4).fill(null);
+
+// Tienda de potenciadores (T desde el título). Un cursor y ya: comprar es
+// Enter, y con qué denarios se paga lo lleva MetaProgreso.
+const ID_POTENCIADORES = Object.keys(POTENCIADORES);
+let cursorTienda = 0;
 
 // Cambiar de pantalla en un solo sitio. Hay dos cosas que van fuera del lienzo
 // y que hay que mover con el estado: la chuleta de atajos del pie, que en las
@@ -181,6 +193,10 @@ let pausado = false;
 // mirarlos con calma.
 let fichaAbierta = -1;
 let verDepuracion = false;
+let mapaAbierto = false;
+// Flanco de "todos caídos": evita reescribir localStorage cada frame mientras
+// dura el cartel de derrota, y solo guarda una vez por caída de verdad.
+let derrotaGuardada = false;
 let zoomPantalla = 1;
 let tilesDibujados = 0;
 let indicePersonaje = 0;
@@ -223,6 +239,10 @@ function anyadirJugador(idPersonaje) {
   arsenal.equipar(j.def.arma);
   arsenales.push(arsenal);
   j.arsenal = arsenal;
+  // Con dos o más, la XP pasa a ser de equipo (ver Progresion.ganarXp): quien
+  // se suma entra ya al nivel común, y el umbral de todos se recalcula para
+  // el nuevo número de jugadores.
+  Progresion.resincronizarEquipo(jugadores);
   return j;
 }
 
@@ -230,6 +250,7 @@ function quitarJugador() {
   if (jugadores.length <= 1) return;   // siempre queda al menos uno
   jugadores.pop();
   arsenales.pop();
+  Progresion.resincronizarEquipo(jugadores);
 }
 
 // Cada mando que se enchufa suma un jugador, hasta cuatro. Solo con la partida
@@ -385,10 +406,30 @@ function entradaTitulo() {
   // Cualquier cosa vale. Es la misma decisión que la pantalla del cofre: no se
   // pide una elección, se pide un "vamos", y obligar a buscar la tecla correcta
   // para eso es fricción por nada.
+  // T abre la tienda de potenciadores. Se mira ANTES del "cualquier tecla
+  // vale" de abajo, o nunca se distinguiría de "empezar".
+  if (entrada.consumirFlanco('KeyT')) { irA(PANTALLA_TIENDA); return; }
+
   if (!entrada.algunFlanco()) return;
   puestos.fill(null);
   puestos[0] = { personaje: 0, listo: false };
   irA(PANTALLA_SELECCION);
+}
+
+// Tienda: un cursor, comprar con Enter, Esc o T para volver al título. Las
+// compras son denarios de progreso META (core/metaProgreso.js) — para
+// siempre, no de esta partida — así que no hay nada que deshacer al salir.
+function entradaTienda() {
+  if (entrada.consumirFlanco('Escape') || entrada.consumirFlanco('KeyT')) {
+    irA(PANTALLA_TITULO);
+    return;
+  }
+  const n = ID_POTENCIADORES.length;
+  if (entrada.consumirFlanco('ArrowDown')) cursorTienda = (cursorTienda + 1) % n;
+  if (entrada.consumirFlanco('ArrowUp')) cursorTienda = (cursorTienda + n - 1) % n;
+  if (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space')) {
+    MetaProgreso.comprarPotenciador(ID_POTENCIADORES[cursorTienda]);
+  }
 }
 
 // Siguiente personaje LIBRE en la dirección dada. Dos jugadores no pueden
@@ -415,13 +456,17 @@ function entradaSeleccion() {
   const hueco = primerLibre();
 
   // --- Altas ---------------------------------------------------------------
-  // Un mando enchufado entra pulsando A. Con J entra uno más por teclado, que
-  // es como se prueba el cooperativo sin cuatro mandos encima de la mesa.
+  // Un mando enchufado entra pulsando A o Start. Start (9) no lo reclama
+  // ninguna otra pantalla de selección —solo abre pausa/ficha durante la
+  // partida (ver el comentario de core/entrada.js)—, así que aquí es libre y
+  // es el botón que casi todo el mundo prueba primero para "unirse". Con J
+  // entra uno más por teclado, que es como se prueba el cooperativo sin
+  // cuatro mandos encima de la mesa.
   if (hueco >= 0) {
     for (let i = 1; i < puestos.length; i++) {
       if (puestos[i]) continue;
       const c = entrada.controles[i];
-      if (c && c.conectado && c.consumirBoton(0)) {
+      if (c && c.conectado && (c.consumirBoton(0) || c.consumirBoton(9))) {
         puestos[i] = { personaje: hueco, listo: false };
         break;
       }
@@ -496,6 +541,24 @@ function empezarPartida() {
   irA(PANTALLA_JUEGO);
 }
 
+// Cuánto se queda cualquiera por dentro del borde del NIVEL (no de la
+// pantalla, eso ya lo hace camara.sujetar). Pequeño a propósito: la franja de
+// hierba llega hasta el borde de la imagen y no hay por qué recortarla.
+const MARGEN_NIVEL = 12;
+
+// Tope duro en X contra el borde del MUNDO, no de la pantalla. Se aplica a
+// jugadores y enemigos por igual: un enemigo generado en el hueco vacío de
+// fuera del mapa (los patrones de aparición reparten en anillo alrededor de
+// la cámara sin saber que el nivel tiene ancho limitado) terminaría dejando
+// su gema de XP en un sitio al que nadie puede llegar. En Y no hay tope: el
+// suelo repite sin límite hacia arriba y abajo.
+function clamparXNivel(e) {
+  if (!Recursos.mapaPintado) return;
+  const limIzq = MARGEN_NIVEL;
+  const limDer = Recursos.anchoSuelo - MARGEN_NIVEL;
+  if (e.x < limIzq) e.x = limIzq; else if (e.x > limDer) e.x = limDer;
+}
+
 // --- Lógica -----------------------------------------------------------------
 function actualizar(dt) {
   entrada.actualizar();
@@ -504,6 +567,7 @@ function actualizar(dt) {
   // todo lo que viene debajo da por hecho que hay al menos un jugador vivo.
   if (pantalla !== PANTALLA_JUEGO) {
     if (pantalla === PANTALLA_TITULO) entradaTitulo();
+    else if (pantalla === PANTALLA_TIENDA) entradaTienda();
     else entradaSeleccion();
     entrada.limpiarFlanco();
     return;
@@ -539,6 +603,7 @@ function actualizar(dt) {
   }
 
   if (entrada.consumirFlanco('F3')) verDepuracion = !verDepuracion;
+  if (entrada.consumirFlanco('F4')) mapaAbierto = !mapaAbierto;
   if (entrada.consumirFlanco('Escape', 9)) pausado = !pausado;
   // B en el mando SOLO cierra la pausa, nunca la abre: "atrás" no es un botón
   // de menú, así que si el juego no está pausado no hace nada.
@@ -599,7 +664,15 @@ function actualizar(dt) {
 
   // Menú de subida de nivel: congela el mundo entero. Es el único momento en que
   // el juego se detiene solo, y tiene prioridad sobre todo lo demás.
-  if (Progresion.abierto) { menuNivelEntrada(); entrada.limpiarFlanco(); return; }
+  //
+  // Mientras gira la ruleta (Progresion.animando) no se atiende ninguna
+  // entrada: aceptar Enter durante el giro dejaría elegir una carta que
+  // todavía no se ha visto.
+  if (Progresion.abierto) {
+    if (!Progresion.tirando(dt)) menuNivelEntrada();
+    entrada.limpiarFlanco();
+    return;
+  }
 
   if (pausado) { entrada.limpiarFlanco(); return; }
 
@@ -618,7 +691,8 @@ function actualizar(dt) {
   for (let i = 0; i < jugadores.length; i++) {
     jugadores[i].actualizar(dt, entrada.controles[i]);
   }
-  enemigos.mover(dt, jugadores);
+  for (let i = 0; i < jugadores.length; i++) clamparXNivel(jugadores[i]);
+  enemigos.mover(dt, jugadores, camara);
   proyectiles.mover(dt, estallar);
 
   // Orden deliberado: primero se recicla (el pool intercambia posiciones y
@@ -634,6 +708,8 @@ function actualizar(dt) {
   enemigos.rejilla.reconstruir(
     enemigos.pool.items, enemigos.pool.activos, camara.x, camara.y);
   separacion(enemigos, jugadores);
+  Obstaculos.actualizar(camara.y, enemigos);
+  colisionarObstaculos(Obstaculos, jugadores, enemigos);
   contactoJugadores(enemigos, jugadores);
 
   // Las armas disparan DESPUÉS de reconstruir la rejilla: el arco melee la
@@ -695,6 +771,23 @@ function actualizar(dt) {
   // paso, sistemas/jefes.js ya lo encuentra registrado y puede empezar a
   // actuar sin esperar a la vuelta siguiente del bucle.
   Jefes.actualizar(dt, enemigos, jugadores, disparos);
+
+  // Último en tocar posiciones este paso: atrapa tanto a los que acaban de
+  // aparecer (director/jefes, arriba) como a los que se han movido, antes de
+  // que nadie los vea ni de que puedan soltar una gema fuera del mundo.
+  {
+    const items = enemigos.pool.items;
+    const n = enemigos.pool.activos;
+    for (let k = 0; k < n; k++) clamparXNivel(items[k]);
+  }
+
+  // Todos caídos: se guardan los denarios ganados en la partida. Por flanco,
+  // no cada frame que el cartel sigue en pantalla —aquí no hay a dónde volver
+  // sin recargar, así que es la última oportunidad razonable de escribir.
+  const derrota = jugadores.every((j) => j.abatido);
+  if (derrota && !derrotaGuardada) { MetaProgreso.guardar(); derrotaGuardada = true; }
+  else if (!derrota) derrotaGuardada = false;
+
   entrada.limpiarFlanco();
 }
 
@@ -778,7 +871,7 @@ function equiparGladius() {
 // nivel, el aviso de evolución y el hitstop. Todos comparten la misma vía: en
 // `actualizar` se sale antes de tocar la simulación.
 function mundoCongelado() {
-  return pausado || fichaAbierta >= 0 || Progresion.abierto ||
+  return pausado || fichaAbierta >= 0 || mapaAbierto || Progresion.abierto ||
          Progresion.cofreAbierto || VFX.congelado > 0;
 }
 
@@ -789,6 +882,7 @@ function dibujar(alpha) {
   if (pantalla !== PANTALLA_JUEGO) {
     Capa.limpiar();
     if (pantalla === PANTALLA_TITULO) Pantallas.titulo(ctx, Capa.ctx);
+    else if (pantalla === PANTALLA_TIENDA) dibujarTienda(Capa.ctx, cursorTienda);
     else Pantallas.seleccion(ctx, Capa.ctx, puestos);
     return;
   }
@@ -832,7 +926,7 @@ function dibujar(alpha) {
   // por debajo de la horda, que es justo para lo que está.
   recogibles.dibujar(ctx, alpha);
   cofres.dibujar(ctx, alpha);
-  enemigos.dibujar(ctx, camara, alpha, jugadores);
+  enemigos.dibujar(ctx, camara, alpha, jugadores, Obstaculos);
   perfil.entidades = performance.now() - t;
 
   // Por encima de las entidades: los efectos tienen que leerse siempre, aunque
@@ -915,6 +1009,7 @@ function dibujar(alpha) {
   else if (Progresion.cofreAbierto) dibujarCofre(ctxUi, jugadores);
   else if (Progresion.abierto) dibujarMenuNivel(ctxUi, jugadores);
   else if (pausado) dibujarPausa(ctxUi, ALTO_UI);
+  else if (mapaAbierto) dibujarMapa(ctxUi, jugadores, enemigos, cofres, camara);
   perfil.interfaz = performance.now() - t;
 }
 
@@ -927,18 +1022,42 @@ function dibujar(alpha) {
 // ancho, una y media de alto— en vez de los 32x32 del suelo procedural. Con un
 // solo tile el hash da siempre 0 y la mezcla de variantes se queda en nada, que
 // es lo correcto: la variedad la trae ya el dibujo.
+// Fuera de los límites del mapa pintado no hay escenario: un color sólido y
+// oscuro en vez de repetir la imagen, para que se lea como "aquí se acaba el
+// mundo conocido" y no como una costura rota. A juego con el tono nocturno de
+// la calzada; no sale de `paleta` porque esa paleta es del tema diurno
+// original y no del nuevo mapa.
+const COLOR_VACIO = '#0a0c14';
+
 function dibujarSuelo(izq, arr) {
   const tiles = Recursos.tilesSuelo;
   if (tiles.length === 0) return;
 
   const anchoTile = Recursos.anchoSuelo;
   const altoTile = Recursos.altoSuelo;
-  const tx0 = Math.floor(izq / anchoTile);
   const ty0 = Math.floor(arr / altoTile);
-  const columnas = Math.ceil(ANCHO_LOGICO / anchoTile) + 1;
-  const filas    = Math.ceil(ALTO_LOGICO  / altoTile) + 1;
+  const filas = Math.ceil(ALTO_LOGICO / altoTile) + 1;
 
   tilesDibujados = 0;
+
+  // Mapa pintado: ANCHO LIMITADO al de la imagen, nunca varias avenidas en
+  // paralelo. Una sola columna de tile (x en [0, anchoTile)); en Y sigue
+  // repitiendo hacia arriba y abajo igual que siempre.
+  if (Recursos.mapaPintado) {
+    ctx.fillStyle = COLOR_VACIO;
+    ctx.fillRect(izq, arr, ANCHO_LOGICO, ALTO_LOGICO);
+    for (let fy = 0; fy < filas; fy++) {
+      const gy = ty0 + fy;
+      ctx.drawImage(tiles[0], 0, gy * altoTile, anchoTile, altoTile);
+      tilesDibujados++;
+    }
+    return;
+  }
+
+  // Procedural de emergencia: el tile es pequeño y está pensado para repetir
+  // sin límite en las dos direcciones, así que aquí sí hay varias columnas.
+  const tx0 = Math.floor(izq / anchoTile);
+  const columnas = Math.ceil(ANCHO_LOGICO / anchoTile) + 1;
   for (let fy = 0; fy < filas; fy++) {
     const gy = ty0 + fy;
     for (let fx = 0; fx < columnas; fx++) {
@@ -951,7 +1070,12 @@ function dibujarSuelo(izq, arr) {
 }
 
 // --- Arranque ---------------------------------------------------------------
+// Denarios por cofre de verdad (no consumible): un botín fijo, aparte de lo
+// que ya da —evolución o mejoras— por sí mismo.
+const DENARIOS_COFRE = 15;
+
 async function arrancar() {
+  MetaProgreso.iniciar();
   await Recursos.cargar(NIVEL);
   // Variantes de color del bestiario (la serpiente dorada). Después de cargar el
   // atlas y antes del primer frame: teñir un sprite en caliente sería un canvas
@@ -982,14 +1106,17 @@ async function arrancar() {
   // así el cofre no sabe nada de la progresión y la progresión no sabe nada de
   // que existan cofres tirados por el suelo.
   cofres.alRecoger = (jugador, tipo) => {
-    if (tipo === COFRE) Progresion.abrirCofre(jugador, jugadores);
-    else usarConsumible(jugador, tipo);
+    if (tipo === COFRE) {
+      Progresion.abrirCofre(jugador, jugadores);
+      MetaProgreso.ganar(DENARIOS_COFRE);
+    } else usarConsumible(jugador, tipo);
   };
 
   // Comparte el RNG con todo lo demás, así que con la misma semilla salen las
   // mismas oleadas: es el criterio 10 del plan y sin él no se puede comparar un
   // ajuste de balance con el anterior.
   Director.iniciar(NIVEL, rng);
+  Obstaculos.iniciar(NIVEL);
   // El director decide cuándo cae un consumible; los objetos del suelo saben
   // dibujarse y dejarse recoger. Ninguno de los dos sabe del otro más que esto.
   Director.objetos = cofres;
@@ -1018,9 +1145,16 @@ async function arrancar() {
   // pasos de lógica sin depender de requestAnimationFrame. Con eso se puede
   // reproducir una situación exacta (misma semilla, mismos pasos) al ajustar el
   // balance, que es de lo que va el criterio 10.
+  // Los denarios ganados en la partida ya están en MetaProgreso.denarios en
+  // caliente (ver enemigo.js/cofre.js), pero solo se ESCRIBEN a localStorage
+  // aquí: al cerrar o recargar la pestaña, que es el único momento en que de
+  // verdad se podrían perder.
+  addEventListener('beforeunload', () => MetaProgreso.guardar());
+
   window.EMERITA = {
     jugadores, arsenales, enemigos, proyectiles, recogibles, cofres, disparos, zonas, camara, entrada, bucle,
     particulas: Particulas, vfx: VFX, progresion: Progresion, director: Director, jefes: Jefes,
+    meta: MetaProgreso,
     ajustes, activo, perfil,
     anyadirJugador, quitarJugador,
     // Estado de las pantallas previas. Sirve para lo mismo que `avanzar`:

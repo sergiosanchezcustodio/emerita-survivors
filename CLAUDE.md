@@ -8,6 +8,12 @@
 - `datos/` contiene datos puros, jamás lógica.
 - Resolución interna 480x270, escalado entero, imageSmoothingEnabled = false.
 - Nombres de dominio en español, técnicos en inglés. Comentarios en español.
+- El estado de LA PARTIDA EN CURSO vive solo en memoria (sin `sessionStorage`
+  ni nada equivalente): con la misma semilla de RNG, dos partidas producen las
+  mismas oleadas, y persistir estado a medio jugar rompería esa reproducibilidad.
+  `localStorage` SÍ está permitido, pero únicamente para progreso META que
+  sobrevive entre partidas —denarios, héroes y potenciadores desbloqueados—,
+  nunca para nada que se lea durante la simulación de una partida activa.
 
 ## Comandos
 - `python -m http.server 8000` — servidor local

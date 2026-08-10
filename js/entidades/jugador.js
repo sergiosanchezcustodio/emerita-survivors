@@ -1,7 +1,9 @@
 import { ESCALA_ARTE } from '../core/constantes.js';
 import { Recursos } from '../core/recursos.js';
+import { MetaProgreso } from '../core/metaProgreso.js';
 import { PERSONAJES } from '../datos/personajes.js';
 import { PASIVOS } from '../datos/pasivos.js';
+import { POTENCIADORES } from '../datos/potenciadores.js';
 import { Progresion, xpNecesaria, REROLLS } from '../sistemas/progresion.js';
 
 // --- Animación ---------------------------------------------------------------
@@ -130,6 +132,18 @@ export class Jugador {
     this.reduccionRecarga = 0;
     this.bonusArea = 0;
 
+    // Potenciadores permanentes (denarios, ver core/metaProgreso.js): la base
+    // de la que arranca CUALQUIER personaje en CUALQUIER partida, así que se
+    // aplican antes que los pasivos —los de esta partida— con el mismo
+    // mecanismo exacto ('suma'/'factor' sobre `campo`).
+    for (const id in MetaProgreso.potenciadores) {
+      const def = POTENCIADORES[id];
+      if (!def) continue;
+      const nivel = MetaProgreso.potenciadores[id];
+      if (def.tipo === 'suma') this[def.campo] += def.valor * nivel;
+      else this[def.campo] *= (1 + def.valor * nivel);
+    }
+
     for (const id in this.pasivos) {
       const def = PASIVOS[id];
       if (!def) continue;
@@ -149,16 +163,12 @@ export class Jugador {
   }
 
   // Experiencia. Puede subir VARIOS niveles de golpe con una gema dorada, y cada
-  // subida encola su propia elección.
-  ganarXp(cantidad) {
+  // subida encola su propia elección. La lógica en sí —solitario o barra
+  // compartida en cooperativo— vive en Progresion, que es quien conoce al
+  // resto de la partida; el jugador solo sabe pedir que le sumen XP.
+  ganarXp(cantidad, jugadores) {
     if (this.abatido) return;
-    this.xp += cantidad;
-    while (this.xp >= this.xpNecesaria) {
-      this.xp -= this.xpNecesaria;
-      this.nivel++;
-      this.xpNecesaria = xpNecesaria(this.nivel);
-      Progresion.encolar(this);
-    }
+    Progresion.ganarXp(this, cantidad, jugadores);
   }
 
   // Reducción PLANA por armadura, nunca porcentual, pero con un mínimo de 1: si

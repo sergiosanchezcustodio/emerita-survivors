@@ -4,7 +4,7 @@ import { ARMAS } from '../datos/armas.js';
 import { PASIVOS } from '../datos/pasivos.js';
 import { Progresion, MAX_ARMAS, MAX_PASIVOS, MAX_NIVEL } from '../sistemas/progresion.js';
 import { Director } from '../sistemas/director.js';
-import { FUENTE, FUENTE_TITULO, textoEspaciado, textoBorde } from './capa.js';
+import { FUENTE, FUENTE_TITULO, textoEspaciado, textoBorde, envolverTexto } from './capa.js';
 import { Tema, panel, cenefa } from './tema.js';
 import {
   ALTO_FICHA, MARGEN_FICHA, dibujarIconoArma, dibujarIconoPasivo, COLOR_JUGADOR, COLOR_PASIVO
@@ -281,12 +281,19 @@ function ranura(ctx, x, y, r, color, glifo, nivel, maximo, cuadrada) {
   if (glifo) {
     ctx.save();
     ctx.translate(x, y);
-    // Al máximo el glifo va en blanco con su propio resplandor: el color ya
-    // lo lleva el marco, y el blanco es lo que hace que la ranura "brille".
-    // El color se lo pasa quien llama a `glifo` (no ctx.fillStyle): el icono
-    // ahora es un blit de pixel art cacheado por color, así que hace falta el
-    // valor real para elegir —o crear— el lienzo que toca.
-    if (tope) { ctx.shadowColor = color; ctx.shadowBlur = 5; }
+    // Al máximo el glifo va en blanco: el color ya lo lleva el marco (el
+    // resplandor de arriba), y el blanco es lo que hace que la ranura
+    // "brille" sin tener que aplicarle sombra al propio icono. El color se lo
+    // pasa quien llama a `glifo` (no ctx.fillStyle): el icono ahora es un
+    // blit de pixel art cacheado por color, así que hace falta el valor real
+    // para elegir —o crear— el lienzo que toca.
+    //
+    // A PROPÓSITO sin shadowBlur aquí: drawImage respeta la sombra del
+    // contexto igual que fill/stroke (ver el comentario de blitHoja en
+    // ui/hud.js), así que ponerla antes de este blit difuminaba el arma o el
+    // pasivo en sí —un halo sobre el dibujo, no sobre el marco—. El marco ya
+    // tiene su propio resplandor, correctamente apagado (shadowBlur = 0) unas
+    // líneas más arriba antes de llegar aquí.
     glifo(ctx, r * 0.58, tope ? '#ffffff' : color);
     ctx.restore();
 
@@ -449,9 +456,28 @@ export function dibujarFicha(ctx, jugadores, indice) {
   ctx.fillStyle = t.texto;
   // +33, no +31: el nombre va a 26px y una descendente (la "y" de Lucy) podía
   // llegar a rozar esta línea con solo 12px de por medio.
-  ctx.fillText(j.def.descripcion, xDer, py + RELLENO + 33);
+  //
+  // La mayoría de descripciones caben en una línea, pero no todas: se envuelve
+  // en vez de asumirlo, y el resto de la ficha (cenefa, vida, xp...) baja lo
+  // que haga falta según cuántas líneas salgan.
+  // Tope de 2 líneas: el resto de la ficha (armas, objetos, el interruptor
+  // del pie, anclado a ALTO_PANEL) está pensado para una descripción de una
+  // línea, y una tercera empujaría el inventario contra el pie.
+  const ALTO_LINEA_DESC = 10;
+  let lineasDesc = envolverTexto(ctx, j.def.descripcion, anchoDer);
+  if (lineasDesc.length > 2) {
+    let segunda = lineasDesc[1];
+    while (segunda.length > 1 &&
+           ctx.measureText(segunda + '…').width > anchoDer) {
+      segunda = segunda.slice(0, -1);
+    }
+    lineasDesc = [lineasDesc[0], segunda + '…'];
+  }
+  for (let i = 0; i < lineasDesc.length; i++) {
+    ctx.fillText(lineasDesc[i], xDer, py + RELLENO + 33 + i * ALTO_LINEA_DESC);
+  }
 
-  let y = py + RELLENO + 41;
+  let y = py + RELLENO + 41 + (lineasDesc.length - 1) * ALTO_LINEA_DESC;
   cenefa(ctx, xDer, y, anchoDer);
   y += 10;
 

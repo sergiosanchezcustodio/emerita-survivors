@@ -95,10 +95,10 @@ export class Entrada {
       if (e.repeat) { this._teclas.add(e.code); return; }
       this._teclas.add(e.code);
       this._flanco.add(e.code);
-      // F3, Tab y las flechas las reclama el navegador; aquí mandamos nosotros.
+      // F3, F4, Tab y las flechas las reclama el navegador; aquí mandamos nosotros.
       // Tab sobre todo: sin esto, abrir la ficha de jugador mueve además el foco
       // fuera del lienzo y la siguiente tecla ya no llega al juego.
-      if (e.code === 'F3' || e.code === 'Escape' || e.code === 'Tab' ||
+      if (e.code === 'F3' || e.code === 'F4' || e.code === 'Escape' || e.code === 'Tab' ||
           e.code.startsWith('Arrow')) {
         e.preventDefault();
       }

@@ -113,6 +113,26 @@ export function textoBorde(ctx, txt, x, y, color, grosor = 3) {
   ctx.fillText(txt, x, y);
 }
 
+// Reparte un texto en líneas que no superen `anchoMax`, con la fuente que ya
+// tenga asignada `ctx`. Reparto simple por palabras: no hay descripciones de
+// personaje tan largas como para necesitar guionado ni nada más fino.
+export function envolverTexto(ctx, txt, anchoMax) {
+  const palabras = txt.split(' ');
+  const lineas = [];
+  let actual = '';
+  for (const palabra of palabras) {
+    const prueba = actual ? actual + ' ' + palabra : palabra;
+    if (actual && ctx.measureText(prueba).width > anchoMax) {
+      lineas.push(actual);
+      actual = palabra;
+    } else {
+      actual = prueba;
+    }
+  }
+  if (actual) lineas.push(actual);
+  return lineas;
+}
+
 // Titular con aire entre letras, que es lo que da el carácter lapidario sin
 // necesidad de tener una romana instalada.
 //

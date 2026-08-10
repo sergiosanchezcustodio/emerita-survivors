@@ -2,11 +2,23 @@ import { ANCHO_LOGICO, ALTO_LOGICO, ESCALA_ARTE } from '../core/constantes.js';
 import { Pool } from '../core/pool.js';
 import { Rejilla } from '../core/rejilla.js';
 import { Recursos } from '../core/recursos.js';
+import { MetaProgreso } from '../core/metaProgreso.js';
 import { ENEMIGOS } from '../datos/enemigos.js';
 import { VFX } from '../sistemas/vfx.js';
 import {
   Particulas, COLOR_SANGRE, COLOR_POLVO, COLOR_CHISPA
 } from '../sistemas/particulas.js';
+import { LLAMARADA, IMAN, COMIDA } from './cofre.js';
+
+// Denarios por baja (progreso META, ver core/metaProgreso.js): proporcionales
+// a lo que ya vale el enemigo en XP, con un suelo de 1 para que hasta una
+// serpiente cuente para algo. Primera calibración, un único número — se
+// retoca desde aquí si el ritmo de la tienda pide más o menos.
+const MULT_DENARIOS = 0.05;
+function denariosPorBaja(def) {
+  return Math.max(1, Math.round((def.xp || 0) * MULT_DENARIOS));
+}
+const DENARIOS_ANTORCHA = 3;
 
 // --- Culling ----------------------------------------------------------------
 // 1.5 pantallas medidas desde el CENTRO de la cámara. Lo que sale de aquí vuelve
@@ -128,6 +140,16 @@ const AMP_REVOLOTEO = 1.15;
 // pasa de largo una y otra vez y el combate cuerpo a cuerpo deja de existir.
 const CERCA = 26;
 
+// Enganche de alcance para JEFES. Los tres son más lentos que el jugador
+// (18-12 contra 64), así que alejarse en línea recta abre hueco sin parar. Ya
+// no se los recicla por lejanía (reciclarLejanos), pero sin esto se quedarían
+// rezagados fuera de pantalla, invisibles pero "vivos" y disparando al vacío
+// —que es casi tan malo como perderlos del todo—. Pasado este umbral,
+// recuperan velocidad de forma progresiva y sin techo real (un jefe que se ha
+// quedado media pantalla atrás corre el doble; a pantalla y media, el triple),
+// así que SIEMPRE terminan cerrando la distancia, nunca de un salto.
+const DIST_ALCANCE_JEFE = 300;
+
 // --- Tabla de senos ----------------------------------------------------------
 // Math.sin llamado dos o tres veces por entidad y paso son 150.000 llamadas por
 // segundo con la horda llena. La tabla cuesta 4 KB una sola vez y el error de
@@ -247,7 +269,10 @@ export class Enemigos {
     this._cubo     = new Int32Array(capacidad);
     this._orden    = new Int32Array(capacidad);
     this._conteo   = new Int32Array(CUBOS_Y + 1);
-    this._ordenJugadores = new Array(8);   // holgado: nunca habrá más de 4
+    // Jugadores (nunca más de 4) Y obstáculos del escenario (columnas,
+    // estatuas...) intercalados en el mismo barrido por Y que los enemigos.
+    // 64 es holgado: los obstáculos activos a la vez son una decena larga.
+    this._ordenExtras = new Array(64);
 
     this.dibujados = 0;
     this.reciclados = 0;
@@ -397,7 +422,10 @@ export class Enemigos {
   //
   // xPrev queda con la posición de principio de paso, así que la interpolación
   // del render recoge también lo que mueva la separación.
-  mover(dt, jugadores) {
+  // `camara` es opcional y solo lo usan los ataques con `azarObjetivo` (el
+  // sismo del cíclope) para poder soltar el punto en cualquier sitio visible
+  // en vez de encima del jugador. Nada más en esta función lo necesita.
+  mover(dt, jugadores, camara) {
     const items = this.pool.items;
     const n = this.pool.activos;
 
@@ -463,7 +491,17 @@ export class Enemigos {
             // haría imposible esquivarlo moviéndose, que es justo lo que este
             // ataque tiene que enseñar.
             if (at.tipo === 'sismo') {
-              this.disparos.sismo(objetivo.x, objetivo.y, at);
+              // `azarObjetivo`: fracción de las veces que el sismo cae en un
+              // punto al azar de la pantalla en vez de sobre el jugador real
+              // (ver el comentario de `ciclope` en datos/enemigos.js). Usa el
+              // RNG de la partida, no Math.random(): dos partidas con la
+              // misma semilla tienen que tirar los mismos dados también aquí.
+              let tx = objetivo.x, ty = objetivo.y;
+              if (at.azarObjetivo && camara && this._rng() < at.azarObjetivo) {
+                tx = camara.izquierda + this._rng() * ANCHO_LOGICO;
+                ty = camara.arriba + this._rng() * ALTO_LOGICO;
+              }
+              this.disparos.sismo(tx, ty, at);
             } else {
 
             const inv = 1 / Math.sqrt(d2a);
@@ -608,6 +646,10 @@ export class Enemigos {
           // Acelerones cortos: se escapa a tirones, como algo que sabe que lo
           // persiguen. Además hace que perseguirla no sea mantener una tecla.
           vFactor = 0.88 + 0.34 * seno(e.faseMov);
+          // La desbandada de un jefe (huidaGeneral) no es la presa que ronda
+          // por el cofre: aquí "huir" tiene que leerse como PÁNICO, no como
+          // el mismo trote de siempre con la flecha invertida.
+          if (e.huidaTotal) vFactor *= 1.45;
         }
 
         const m2 = nx * nx + ny * ny;
@@ -617,11 +659,17 @@ export class Enemigos {
         }
       }
 
+      // Enganche de alcance: ver el comentario de DIST_ALCANCE_JEFE. `dist` ya
+      // es la distancia real al puesto de acoso (para un jefe, prácticamente
+      // la distancia al jugador, porque su radioAcoso es nulo).
+      const multJefe = (e.def.rol === 'jefe' && dist > DIST_ALCANCE_JEFE)
+        ? dist / DIST_ALCANCE_JEFE : 1;
+
       // El frenado lo imponen las redes y los charcos, y se desvanece solo. Es
       // un valor máximo, no acumulativo: dos redes solapadas frenan lo mismo
       // que una, o bastaría con apilar armas de control para dejar el mapa
       // congelado.
-      const v = e.velocidad * vFactor * (1 - e.frenado);
+      const v = e.velocidad * vFactor * multJefe * (1 - e.frenado);
       if (e.frenado > 0) {
         e.frenado -= dt * 1.6;
         if (e.frenado < 0) e.frenado = 0;
@@ -682,10 +730,35 @@ export class Enemigos {
 
     if (e.vida <= 0) {
       e.vida = 0;
+      if (e.vidaMaxima >= VIDA_HITSTOP) VFX.congelar(0.045);
+
+      // Objeto del escenario (antorcha, ver datos/enemigos.js): NO es una
+      // baja de verdad. Nada de gema de XP ni de sumar al contador de
+      // enemigos eliminados —ese contador y la experiencia son la cuenta de
+      // la horda, no del atrezo—, y en vez de sangre suelta un consumible al
+      // azar, la misma tripleta que ya reparte el director de oleadas
+      // (sistemas/director.js) por el escenario cada pocos minutos.
+      if (e.def.esObjeto) {
+        MetaProgreso.ganar(DENARIOS_ANTORCHA);
+        if (this.cofres) {
+          const dado = this._rng();
+          const tipo = dado < 0.45 ? COMIDA : (dado < 0.8 ? LLAMARADA : IMAN);
+          this.cofres.soltar(e.x, e.y, tipo);
+        }
+        const apretadoObjeto = Particulas.saturado();
+        Particulas.estallido(e.x, e.y - 4, apretadoObjeto ? 3 : 6, 60, 0.35, 1.5,
+                             COLOR_CHISPA, 0.8, this._rng);
+        if (!apretadoObjeto) {
+          Particulas.estallido(e.x, e.y - 4, 3, 35, 0.30, 1,
+                               COLOR_POLVO, 0.4, this._rng);
+        }
+        return true;
+      }
+
       this.bajas++;
+      MetaProgreso.ganar(denariosPorBaja(e.def));
       if (e.def.cofre) this.elitesVivos--;
       if (e.def.escolta) this.escoltasVivos--;
-      if (e.vidaMaxima >= VIDA_HITSTOP) VFX.congelar(0.045);
       // Con la matanza en marcha se recorta el estallido: cuando mueren cien a
       // la vez, nadie distingue siete partículas de tres, pero el coste sí se
       // nota. La muerte SIEMPRE deja algo, o el enemigo se esfumaría sin más.
@@ -748,6 +821,17 @@ export class Enemigos {
     let k = 0;
     while (k < this.pool.activos) {
       const e = items[k];
+      // Un jefe NUNCA se recicla por lejanía. Antes de este cambio, un jefe
+      // que se quedaba atrás (todos son más lentos que el jugador) podía
+      // cruzar el umbral de culling como cualquier serpiente: el objeto no se
+      // borraba (el pool solo mueve el índice), así que sistemas/jefes.js
+      // seguía creyéndolo vivo y gobernando un fantasma congelado e invisible,
+      // hasta que un enemigo nuevo reciclaba ese mismo hueco y lo pisaba sin
+      // más. El jefe desaparecía para siempre sin morir ni dar recompensa —el
+      // bug real de "hemos perdido a la Loba de vista y no ha vuelto a
+      // aparecer". El desenganche que sí hace falta (que no se quede atrás de
+      // verdad) se resuelve con velocidad de alcance más abajo, en mover().
+      if (e.def.rol === 'jefe') { k++; continue; }
       const margen = e.def.persistente ? 2 : 1;
       if (Math.abs(e.x - centroX) > CULL_X * margen ||
           Math.abs(e.y - centroY) > CULL_Y * margen) {
@@ -771,7 +855,10 @@ export class Enemigos {
     const items = this.pool.items;
     for (let k = 0; k < this.pool.activos; k++) {
       const e = items[k];
-      if (e.def.rol === 'jefe') continue;
+      // Ni jefes (no huyen de sí mismos) ni objetos del escenario (una
+      // antorcha no tiene piernas): ver la nota de `esObjeto` en
+      // datos/enemigos.js.
+      if (e.def.rol === 'jefe' || e.def.esObjeto) continue;
       e.mov = MOV_HUIDA;
       e.cadenciaMov = CADENCIA_MOV[MOV_HUIDA];
       e.huidaTotal = true;
@@ -792,10 +879,15 @@ export class Enemigos {
   // después del bloque: con la pantalla llena, un jugador siempre encima flota
   // sobre el enjambre y siempre debajo desaparece.
   //
-  // Se pintan por orden de Y creciente, igual que los enemigos. Como son cuatro
-  // como mucho, se ordenan con una inserción sobre un array preasignado; montar
-  // aquí un sort con comparador sería asignar una closure por frame.
-  dibujar(ctx, camara, alpha, jugadores) {
+  // Se pintan por orden de Y creciente, igual que los enemigos. Como son pocos
+  // (cuatro jugadores como mucho, una decena larga de obstáculos), se ordenan
+  // con una inserción sobre un array preasignado; montar aquí un sort con
+  // comparador sería asignar una closure por frame.
+  //
+  // `obstaculos` es opcional (columnas, antorchas, estatuas, ruinas —
+  // sistemas/obstaculos.js): son estáticos, así que solo aportan su posición
+  // y su propio método `dibujar(ctx)`, exactamente como un Jugador.
+  dibujar(ctx, camara, alpha, jugadores, obstaculos) {
     const items = this.pool.items;
     const n = this.pool.activos;
     const izq = camara.izquierda;
@@ -837,14 +929,26 @@ export class Enemigos {
 
     // 3. Pintar de arriba a abajo. Un solo drawImage por entidad: el volteo sale
     //    de la copia espejada precacheada, no de tocar la matriz del contexto.
-    // Jugadores ordenados por Y creciente, con inserción sobre buffer propio.
-    const ordenJ = this._ordenJugadores;
+    // Jugadores Y obstáculos, juntos, ordenados por Y creciente con inserción
+    // sobre un buffer propio. Un obstáculo nunca se mueve, así que su yVista
+    // es siempre su y; da igual mezclarlo con jugadores que sí interpolan.
+    const ordenJ = this._ordenExtras;
     let nj = 0;
     for (let i = 0; i < jugadores.length; i++) {
       const j = jugadores[i];
       let p = nj++;
       while (p > 0 && ordenJ[p - 1].yVista > j.yVista) { ordenJ[p] = ordenJ[p - 1]; p--; }
       ordenJ[p] = j;
+    }
+    if (obstaculos) {
+      const oi = obstaculos.items;
+      const on = obstaculos.activos;
+      for (let i = 0; i < on; i++) {
+        const o = oi[i];
+        let p = nj++;
+        while (p > 0 && ordenJ[p - 1].yVista > o.yVista) { ordenJ[p] = ordenJ[p - 1]; p--; }
+        ordenJ[p] = o;
+      }
     }
     let sigJugador = 0;
 

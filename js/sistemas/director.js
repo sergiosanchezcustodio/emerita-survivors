@@ -1,8 +1,13 @@
 import { ANCHO_LOGICO, ALTO_LOGICO } from '../core/constantes.js';
+import { Recursos } from '../core/recursos.js';
 import {
   LLAMARADA as TIPO_LLAMARADA, IMAN as TIPO_IMAN, COMIDA as TIPO_COMIDA
 } from '../entidades/cofre.js';
 import { Jefes } from './jefes.js';
+
+// Mismo margen que MARGEN_NIVEL en main.js: no se importa de ahí porque
+// main.js es el arranque, no un módulo pensado para que otros tiren de él.
+const MARGEN_NIVEL = 12;
 
 // EL DIRECTOR DE OLEADAS (Fase 5, sección 11 del plan).
 //
@@ -488,8 +493,16 @@ export const Director = {
         const dado = this.rng();
         const tipo = dado < 0.45 ? TIPO_COMIDA
                    : (dado < 0.85 ? TIPO_LLAMARADA : TIPO_IMAN);
-        this.objetos.soltar(camara.x + Math.cos(ang) * d,
-                            camara.y + Math.sin(ang) * d, tipo);
+        // Con el nivel de ancho limitado, un punto en anillo alrededor de la
+        // cámara puede caer en el hueco vacío de fuera del mapa: se recorta a
+        // los límites del suelo igual que se hace con jugadores y enemigos.
+        let px = camara.x + Math.cos(ang) * d;
+        if (Recursos.mapaPintado) {
+          const limIzq = MARGEN_NIVEL;
+          const limDer = Recursos.anchoSuelo - MARGEN_NIVEL;
+          if (px < limIzq) px = limIzq; else if (px > limDer) px = limDer;
+        }
+        this.objetos.soltar(px, camara.y + Math.sin(ang) * d, tipo);
       }
     }
 
@@ -571,8 +584,13 @@ export const Director = {
 
       const fn = PATRONES[ev.patron];
       if (!fn) continue;
+      // Con un jefe en pantalla, hasta el que acaba de aparecer sale
+      // huyendo: huidaGeneral() solo alcanza a los que YA estaban cuando el
+      // jefe entró, y sin esto la oleada de fondo seguiría repartiendo carne
+      // de cañón normal por debajo de la escena del jefe.
+      const mov = Jefes.hayJefeActivo ? 'huida' : ev.movimiento;
       fn(enemigos, camara.x, camara.y, ev.cantidad, ev.tipos, this.rng,
-         escalaVida, escalaDanyo, ev.movimiento, rX, rY);
+         escalaVida, escalaDanyo, mov, rX, rY);
       this.ultimoPatron = ev.patron;
     }
   },

@@ -1,5 +1,5 @@
 import { ANCHO_UI, ALTO_UI } from '../core/constantes.js';
-import { Progresion } from '../sistemas/progresion.js';
+import { Progresion, DURACION_TIRADA } from '../sistemas/progresion.js';
 import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
 import { Tema, panel, cenefa } from './tema.js';
 import {
@@ -59,6 +59,34 @@ const COLOR_CURACION      = '#8fbf5a';
 const COLOR_COFRE         = '#ffd45a';   // bronce del cofre, en el titular
 const COLOR_AUTO          = '#7fd68a';   // interruptor de subida automática
 const COLOR_JUGADOR = ['#5aa9e6', '#e8b73a', '#8fbf5a', '#d64b8f'];
+
+// --- Ruleta de la tirada -----------------------------------------------------
+// Las cartas ya están decididas cuando el menú se abre (Progresion.opciones
+// sale de `_generar`, con el RNG de siempre); esto solo tapa el resultado un
+// instante y lo enseña girando, como una tragaperras. La rueda cicla iconos
+// de armas y pasivos AL AZAR DE VERDAD —no los candidatos reales de esta
+// tirada—, precisamente para que no dé ninguna pista de lo que va a salir.
+const RUEDA_SPIN = [];
+{
+  const idsArma = Object.keys(ARMAS).filter((id) => !ARMAS[id].esEvolucion);
+  const idsPasivo = Object.keys(PASIVOS);
+  const max = Math.max(idsArma.length, idsPasivo.length);
+  for (let i = 0; i < max; i++) {
+    if (idsArma[i]) RUEDA_SPIN.push({ clase: 'arma', id: idsArma[i] });
+    if (idsPasivo[i]) RUEDA_SPIN.push({ clase: 'pasivo', id: idsPasivo[i] });
+  }
+}
+
+const INTERVALO_SIMBOLO = 0.06;   // cuánto dura cada icono antes de cambiar
+const DESFASE_CARRETE = 5;        // separa lo que enseña cada carrete a la vez
+const ESCALONADO = 0.14;          // cuánto tarda cada carrete de más en pararse
+const DURACION_POP = 0.18;        // rebote al parar
+
+// Un carrete por carta, de izquierda a derecha: la de más a la derecha es la
+// última en pararse, como en cualquier tragaperras de verdad.
+function paraEn(indice, nOpciones) {
+  return ESCALONADO * (nOpciones - 1 - indice);
+}
 
 function colorDe(o) {
   if (o.clase === 'curacion') return COLOR_CURACION;
@@ -200,17 +228,23 @@ export function dibujarMenuNivel(ctx, jugadores) {
   const x0 = px + RELLENO;
   const y0 = py + CABECERA;
 
+  const transcurrido = DURACION_TIRADA - Progresion.animando;
+
   for (let i = 0; i < n; i++) {
     const o = Progresion.opciones[i];
     const x = x0 + i * (ANCHO_CARTA + HUECO);
     const elegida = i === Progresion.seleccion;
-    const color = colorDe(o);
+    const pararEn = paraEn(i, n);
+    const girando = Progresion.animando > pararEn;
 
     ctx.fillStyle = elegida ? t.cartaElegida : t.fondoCarta;
     ctx.fillRect(x, y0, ANCHO_CARTA, ALTO_CARTA);
 
+    const color = girando ? t.filo : colorDe(o);
+
     // Franja de color arriba: identifica de un vistazo si es arma o pasivo,
-    // nuevo o mejora, sin tener que leer la etiqueta.
+    // nuevo o mejora, sin tener que leer la etiqueta. Mientras gira no dice
+    // nada todavía, así que se queda en el tono neutro del tema.
     ctx.fillStyle = color;
     ctx.fillRect(x, y0, ANCHO_CARTA, elegida ? 3 : 2);
 
@@ -223,11 +257,37 @@ export function dibujarMenuNivel(ctx, jugadores) {
     const centro = x + ANCHO_CARTA / 2;
     ctx.textAlign = 'center';
 
+    if (girando) {
+      // El carrete: cicla iconos AL AZAR DE VERDAD (no los candidatos de esta
+      // tirada) para no adelantar nada de lo que va a salir. Cada carta lleva
+      // su propio desfase para que las tres no enseñen el mismo icono a la vez.
+      const indice = (i * DESFASE_CARRETE + Math.floor(transcurrido / INTERVALO_SIMBOLO))
+                     % RUEDA_SPIN.length;
+      dibujarMedallon(ctx, centro, y0 + Y_ICONO, RUEDA_SPIN[indice], color, false);
+      continue;
+    }
+
+    // Recién parada: un pequeño rebote en el medallón, el "clac" de la
+    // tragaperras. Puramente cosmético, se calcula del propio contador de la
+    // tirada, no de nada nuevo.
+    const tiempoParado = pararEn - Progresion.animando;
+    const escala = tiempoParado < DURACION_POP
+      ? 1 + 0.14 * (1 - tiempoParado / DURACION_POP) ** 2
+      : 1;
+
     ctx.font = `600 8px ${FUENTE}`;
     ctx.fillStyle = color;
     textoEspaciado(ctx, etiquetaDe(o), centro, y0 + 15, 1);
 
-    dibujarMedallon(ctx, centro, y0 + Y_ICONO, o, color, elegida);
+    if (escala === 1) {
+      dibujarMedallon(ctx, centro, y0 + Y_ICONO, o, color, elegida);
+    } else {
+      ctx.save();
+      ctx.translate(centro, y0 + Y_ICONO);
+      ctx.scale(escala, escala);
+      dibujarMedallon(ctx, 0, 0, o, color, elegida);
+      ctx.restore();
+    }
 
     ctx.font = `600 14px ${FUENTE}`;
     ctx.fillStyle = elegida ? '#ffffff' : t.titulo;

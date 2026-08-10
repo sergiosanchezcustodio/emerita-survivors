@@ -357,8 +357,40 @@ export const NIVEL = {
     { t: 1200, texto: 'HIDRA',   jefe: 'segundo' }
   ],
 
-  // --- Pendiente de fases posteriores -------------------------------------
-  decoracion: [],                      // Fase 7: columnas, gradas, arcos
+  // --- Decoración sólida ---------------------------------------------------
+  // Columnas, antorchas, estatuas y ruinas a los lados de la calzada. Sistemas
+  // (sistemas/obstaculos.js) repite esta plantilla cada vez que el suelo
+  // repite su tile, así que las coordenadas son LOCALES a un tile de suelo
+  // (0..361 de ancho, 0..430 de alto una vez procesado por
+  // herramientas/procesar-assets.ps1), no coordenadas de mundo.
+  //
+  // Medidas a ojo sobre niveles/merida-suelo.png: el borde calzada/arcén cae
+  // en x≈186 y x≈367, y la franja de hierba utilizable queda centrada en
+  // x≈141 (izquierda) y x≈412 (derecha). Columnas y antorchas van justo sobre
+  // el borde, tal como se pidió; estatuas y ruinas, más adentro en la
+  // hierba. Deliberadamente disperso —ocho piezas en 430 unidades de alto—
+  // para que no sature.
+  //
+  // ENSANCHADO un 50% (pedido de Sergio): herramientas/procesar-assets.ps1
+  // ya no procesa mapa_emerita_survivor.png directamente, sino una copia
+  // ensanchada por reflejo de los bordes (`Procesador.Ensanchar`, sin IA —los
+  // intentos con Gemini/ChatGPT/Bing se descartaron, ver comentario en el
+  // propio script). El tile pasó de 361 a 553 unidades lógicas de ancho, +96
+  // simétricos a cada lado; las cifras de aquí abajo son las de siempre +96,
+  // así que la calzada queda exactamente donde estaba y lo nuevo es margen.
+  // A propósito NO se ha metido decoración en la franja añadida, la más
+  // externa: es la que sale del espejo y tiene su propio pliegue visible, y
+  // llenarla de objetos solo llamaría la atención hacia él.
+  decoracion: [
+    { tipo: 'columna',   x: 186, y:  50 },
+    { tipo: 'antorcha1', x: 186, y: 250 },
+    { tipo: 'antorcha2', x: 367, y: 130 },
+    { tipo: 'columna',   x: 367, y: 350 },
+    { tipo: 'estatua2',  x: 141, y: 150 },
+    { tipo: 'ruinas2',   x: 141, y: 380 },
+    { tipo: 'ruinas9',   x: 412, y:  90 },
+    { tipo: 'estatua4',  x: 412, y: 300 }
+  ],
   // El jefe final del nivel 1 es LA LOBA CAPITOLINA con los gemelos, no la
   // hidra del plan: ver el bloque de jefes de datos/enemigos.js y sus fases
   // en datos/jefes.js y sistemas/jefes.js (Fase 6). La hidra no desaparece

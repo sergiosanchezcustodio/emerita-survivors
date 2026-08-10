@@ -5,3 +5,8 @@
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Candidatos de IA para elegir arte (comparador.html + generaciones): sirven
+# para decidir en el momento, no para el historial del juego. Varios MB de
+# PNG/JPG por intento, muchos descartados.
+herramientas/candidatos/

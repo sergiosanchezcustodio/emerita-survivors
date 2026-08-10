@@ -311,6 +311,67 @@ function apartarDelJugador(items, rejilla, jugador) {
   }
 }
 
+// Un obstáculo del escenario (columna, antorcha, estatua, ruina) es, para la
+// física, exactamente lo que es el jugador en `apartarDelJugador`: un cuerpo
+// fijo que aparta y al que nadie aparta. Se factoriza en una función propia
+// porque aquí el "fijo" cambia entre obstáculo y obstáculo, mientras que
+// `apartarDelJugador` siempre gira alrededor de un jugador concreto.
+function empujarFueraDe(e, ox, oy, oRadio) {
+  const dx = e.x - ox;
+  const dy = e.y - oy;
+  const r = oRadio + e.radioCuerpo;
+  const d2 = dx * dx + dy * dy;
+  if (d2 >= r * r) return;
+
+  if (d2 > 0.0001) {
+    const d = Math.sqrt(d2);
+    const f = (r - d) / d;
+    e.x += dx * f;
+    e.y += dy * f;
+  } else {
+    e.x += r;
+  }
+}
+
+// Objetos sólidos del escenario contra jugadores y enemigos. Los obstáculos
+// son pocos y estáticos (sistemas/obstaculos.js), así que no llevan rejilla
+// propia: contra los jugadores (como mucho 4) se compara directo, y contra
+// los enemigos se reutiliza la rejilla que YA construyó `main.js` para este
+// paso, con la misma consulta 3x3 de `apartarDelJugador`.
+export function colisionarObstaculos(obstaculos, jugadores, enemigos) {
+  const items = obstaculos.items;
+  const n = obstaculos.activos;
+  if (n === 0) return;
+
+  const rejilla = enemigos.rejilla;
+  const enemItems = enemigos.pool.items;
+  const inicio = rejilla.inicio;
+  const indices = rejilla.indices;
+  const columnas = rejilla.columnas;
+  const filas = rejilla.filas;
+
+  for (let k = 0; k < n; k++) {
+    const o = items[k];
+
+    for (let i = 0; i < jugadores.length; i++) {
+      empujarFueraDe(jugadores[i], o.x, o.y, o.radio);
+    }
+
+    const cx = rejilla.columnaDe(o.x);
+    const cy = rejilla.filaDe(o.y);
+    for (let fy = cy - 1; fy <= cy + 1; fy++) {
+      if (fy < 0 || fy >= filas) continue;
+      for (let fx = cx - 1; fx <= cx + 1; fx++) {
+        if (fx < 0 || fx >= columnas) continue;
+        const c = fy * columnas + fx;
+        for (let p = inicio[c]; p < inicio[c + 1]; p++) {
+          empujarFueraDe(enemItems[indices[p]], o.x, o.y, o.radio);
+        }
+      }
+    }
+  }
+}
+
 export function separacion(enemigos, jugadores) {
   const pool = enemigos.pool;
   const items = pool.items;

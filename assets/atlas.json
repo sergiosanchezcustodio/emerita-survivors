@@ -67,11 +67,11 @@
                                   },
                       "manticora":  {
                                         "archivo":  "enemigos/manticora.png",
-                                        "w":  192,
+                                        "w":  204,
                                         "h":  172,
-                                        "anclaX":  96,
+                                        "anclaX":  102,
                                         "anclaY":  172,
-                                        "frames":  1
+                                        "frames":  16
                                     },
                       "cerbero":  {
                                       "archivo":  "enemigos/cerbero.png",
@@ -249,6 +249,166 @@
                                                              }
                                               }
                                 },
+                      "columna":  {
+                                      "archivo":  "objetos/columna.png",
+                                      "w":  56,
+                                      "h":  160,
+                                      "anclaX":  28,
+                                      "anclaY":  160,
+                                      "frames":  1,
+                                      "plano":  true
+                                  },
+                      "antorcha1":  {
+                                        "archivo":  "objetos/antorcha1.png",
+                                        "w":  24,
+                                        "h":  104,
+                                        "anclaX":  12,
+                                        "anclaY":  104,
+                                        "frames":  1
+                                    },
+                      "antorcha2":  {
+                                        "archivo":  "objetos/antorcha2.png",
+                                        "w":  24,
+                                        "h":  104,
+                                        "anclaX":  12,
+                                        "anclaY":  104,
+                                        "frames":  1
+                                    },
+                      "estatua1":  {
+                                       "archivo":  "objetos/estatua1.png",
+                                       "w":  48,
+                                       "h":  136,
+                                       "anclaX":  24,
+                                       "anclaY":  136,
+                                       "frames":  1,
+                                       "plano":  true
+                                   },
+                      "estatua2":  {
+                                       "archivo":  "objetos/estatua2.png",
+                                       "w":  48,
+                                       "h":  136,
+                                       "anclaX":  24,
+                                       "anclaY":  136,
+                                       "frames":  1,
+                                       "plano":  true
+                                   },
+                      "estatua3":  {
+                                       "archivo":  "objetos/estatua3.png",
+                                       "w":  56,
+                                       "h":  136,
+                                       "anclaX":  28,
+                                       "anclaY":  136,
+                                       "frames":  1,
+                                       "plano":  true
+                                   },
+                      "estatua4":  {
+                                       "archivo":  "objetos/estatua4.png",
+                                       "w":  56,
+                                       "h":  136,
+                                       "anclaX":  28,
+                                       "anclaY":  136,
+                                       "frames":  1,
+                                       "plano":  true
+                                   },
+                      "estatua5":  {
+                                       "archivo":  "objetos/estatua5.png",
+                                       "w":  56,
+                                       "h":  136,
+                                       "anclaX":  28,
+                                       "anclaY":  136,
+                                       "frames":  1,
+                                       "plano":  true
+                                   },
+                      "ruinas1":  {
+                                      "archivo":  "objetos/ruinas1.png",
+                                      "w":  248,
+                                      "h":  220,
+                                      "anclaX":  124,
+                                      "anclaY":  220,
+                                      "frames":  1,
+                                      "plano":  true
+                                  },
+                      "ruinas2":  {
+                                      "archivo":  "objetos/ruinas2.png",
+                                      "w":  248,
+                                      "h":  220,
+                                      "anclaX":  124,
+                                      "anclaY":  220,
+                                      "frames":  1,
+                                      "plano":  true
+                                  },
+                      "ruinas4":  {
+                                      "archivo":  "objetos/ruinas4.png",
+                                      "w":  208,
+                                      "h":  220,
+                                      "anclaX":  104,
+                                      "anclaY":  220,
+                                      "frames":  1,
+                                      "plano":  true
+                                  },
+                      "ruinas5":  {
+                                      "archivo":  "objetos/ruinas5.png",
+                                      "w":  240,
+                                      "h":  220,
+                                      "anclaX":  120,
+                                      "anclaY":  220,
+                                      "frames":  1,
+                                      "plano":  true
+                                  },
+                      "ruinas6":  {
+                                      "archivo":  "objetos/ruinas6.png",
+                                      "w":  248,
+                                      "h":  220,
+                                      "anclaX":  124,
+                                      "anclaY":  220,
+                                      "frames":  1,
+                                      "plano":  true
+                                  },
+                      "ruinas7":  {
+                                      "archivo":  "objetos/ruinas7.png",
+                                      "w":  248,
+                                      "h":  220,
+                                      "anclaX":  124,
+                                      "anclaY":  220,
+                                      "frames":  1,
+                                      "plano":  true
+                                  },
+                      "ruinas8":  {
+                                      "archivo":  "objetos/ruinas8.png",
+                                      "w":  296,
+                                      "h":  220,
+                                      "anclaX":  148,
+                                      "anclaY":  220,
+                                      "frames":  1,
+                                      "plano":  true
+                                  },
+                      "ruinas9":  {
+                                      "archivo":  "objetos/ruinas9.png",
+                                      "w":  224,
+                                      "h":  220,
+                                      "anclaX":  112,
+                                      "anclaY":  220,
+                                      "frames":  1,
+                                      "plano":  true
+                                  },
+                      "ruinas10":  {
+                                       "archivo":  "objetos/ruinas10.png",
+                                       "w":  208,
+                                       "h":  220,
+                                       "anclaX":  104,
+                                       "anclaY":  220,
+                                       "frames":  1,
+                                       "plano":  true
+                                   },
+                      "ruinas11":  {
+                                       "archivo":  "objetos/ruinas11.png",
+                                       "w":  224,
+                                       "h":  220,
+                                       "anclaX":  112,
+                                       "anclaY":  220,
+                                       "frames":  1,
+                                       "plano":  true
+                                   },
                       "iconosObjetos":  {
                                             "archivo":  "iconos/objetos.png",
                                             "w":  32,
