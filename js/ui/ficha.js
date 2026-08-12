@@ -42,12 +42,11 @@ import {
 // saber cuál es la tuya) y el retrato a toda altura.
 
 const ANCHO_PANEL = 486;
-// 258: las barras con icono y etiqueta ocupan menos que la fila suelta de
-// antes de la segunda versión, así que el panel bajó a 250 aunque sumara las
-// cajas de estadísticas e inventario. Ahora sube 8 de vuelta porque el pase
-// de espaciado (separar etiquetas de sus barras, más aire tras el nombre)
-// necesitaba ese margen para no dejar el pie pegado al inventario.
-const ALTO_PANEL = 258;
+// Ha ido subiendo a base de pases de espaciado: 250 al reordenar las barras,
+// 258 al separar cada etiqueta de su barra, y 272 al sacar los rótulos de
+// sección ("ESTADÍSTICAS", "ARMAS", "OBJETOS") de encima del borde de su caja
+// —ver `caja`—, que pide unos píxeles por encima de cada una.
+const ALTO_PANEL = 272;
 const RELLENO = 12;
 const MARGEN_PANTALLA = 14;
 const HUECO = 8;
@@ -87,10 +86,21 @@ function barra(ctx, x, y, w, h, frac, color) {
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
 }
 
-// Caja de agrupación: un rectángulo redondeado tenue con una etiqueta pegada
-// arriba a la izquierda, pisando el borde (misma idea que el nivel de una
-// ranura en ui/hud.js). Es lo que separa visualmente "esto es un grupo" sin
-// gastar una cenefa entera por sección.
+// Caja de agrupación: un rectángulo redondeado tenue con su etiqueta encima.
+// Es lo que separa visualmente "esto es un grupo" sin gastar una cenefa entera
+// por sección.
+//
+// La etiqueta va ENCIMA de la caja, no montada sobre su borde.
+//
+// Antes la pisaba, y para que el borde no le cruzara las letras se pintaba un
+// rectángulo del color del panel por detrás. Eso es lo que se veía mal: un
+// parche de 8 píxeles de alto recortando un texto de 7,5, con el borde de la
+// caja asomando por arriba y por abajo de las letras. A ese tamaño no hay
+// parche que salga limpio.
+//
+// Subiéndola queda fuera del recorrido del borde, así que no hace falta tapar
+// nada: texto plano sobre el fondo del panel, que es como se ve bien. Y de paso
+// sube un punto de tamaño, porque ya no tiene que caber dentro de una franja.
 function caja(ctx, x, y, w, h, etiqueta, t) {
   ctx.save();
   ctx.beginPath();
@@ -102,14 +112,11 @@ function caja(ctx, x, y, w, h, etiqueta, t) {
   ctx.stroke();
 
   if (etiqueta) {
-    ctx.font = `600 7.5px ${FUENTE}`;
+    ctx.font = `600 8.5px ${FUENTE}`;
     ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    const anchoTexto = ctx.measureText(etiqueta).width + 8;
-    ctx.fillStyle = t.fondoCarta;
-    ctx.fillRect(x + 6, y - 4, anchoTexto, 8);
+    ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = t.apagado;
-    textoEspaciado(ctx, etiqueta, x + 10, y, 1);
+    textoEspaciado(ctx, etiqueta, x + 2, y - 4, 1);
   }
   ctx.restore();
 }
@@ -192,16 +199,20 @@ function placaNivel(ctx, cx, cy, r, nivel, t) {
   ctx.strokeStyle = COLOR_NIVEL;
   ctx.stroke();
 
+  // SOLO LA CIFRA. La palabra "NIVEL" ocupaba la mitad de la placa a 6px —
+  // ilegible— y empujaba el número hacia abajo, así que el hexágono parecía
+  // descentrado. Y no hace falta decirlo: una cifra sola dentro de un hexágono
+  // dorado pegado al retrato no se confunde con ninguna otra cosa de la ficha.
+  //
+  // Centrado de verdad: `middle` alinea por la mitad de la caja de la fuente,
+  // que en una tipografía con serifa no es la mitad óptica de un dígito —las
+  // cifras no tienen descendentes—. El medio píxel de corrección es lo que
+  // hace que el número se vea en el centro del hexágono y no un pelo alto.
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `700 6px ${FUENTE}`;
-  ctx.fillStyle = COLOR_NIVEL;
-  ctx.globalAlpha = 0.85;
-  ctx.fillText('NIVEL', cx, cy - 6);
-  ctx.globalAlpha = 1;
-  ctx.font = `700 13px ${FUENTE_TITULO}`;
+  ctx.font = `700 15px ${FUENTE_TITULO}`;
   ctx.fillStyle = '#ffffff';
-  ctx.fillText(String(nivel), cx, cy + 5);
+  ctx.fillText(String(nivel), cx, cy + 0.5);
   ctx.restore();
 }
 
@@ -252,49 +263,46 @@ function ranura(ctx, x, y, r, color, glifo, nivel, maximo, cuadrada) {
   const tope = glifo && nivel >= maximo;
   ctx.save();
 
-  if (tope) {
-    // Resplandor: 'lighter' suma luz sobre el fondo en vez de taparlo, y
-    // shadowBlur da un halo que se apaga hacia fuera en vez de un borde duro.
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 9;
-    ctx.globalAlpha = 0.5;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x, y, r * 0.75, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
+  // El fondo de la ranura es el MISMO esté al máximo o no. Antes, al llegar al
+  // tope se pintaba detrás un disco de color con 'lighter', y eso es lo que
+  // hacía que pareciera que brillaba el arma: sumaba luz POR DEBAJO del dibujo
+  // y lo dejaba lavado. Ahora el resplandor es solo del marco.
   ctx.beginPath();
   if (cuadrada) ctx.roundRect(x - r, y - r, r * 2, r * 2, 3);
   else ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = tope ? 'rgba(255,255,255,.16)' : 'rgba(10,11,13,.5)';
+  ctx.fillStyle = 'rgba(10,11,13,.5)';
   ctx.fill();
+
+  // MARCO. Al máximo va más grueso y con halo; y el halo se consigue trazando
+  // DOS veces con sombra, no subiendo el `shadowBlur` de una sola pasada: con
+  // una, el difuminado se reparte entre el trazo y el halo y el marco pierde
+  // filo justo cuando tiene que verse más.
   ctx.lineWidth = tope ? 2 : 1;
   ctx.strokeStyle = glifo ? color : 'rgba(238,240,243,.16)';
-  if (tope) { ctx.shadowColor = color; ctx.shadowBlur = 6; }
-  ctx.stroke();
+  if (tope) {
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 7;
+    ctx.stroke();
+    ctx.stroke();
+  }
   ctx.shadowBlur = 0;
+  ctx.stroke();
 
   if (glifo) {
     ctx.save();
     ctx.translate(x, y);
-    // Al máximo el glifo va en blanco: el color ya lo lleva el marco (el
-    // resplandor de arriba), y el blanco es lo que hace que la ranura
-    // "brille" sin tener que aplicarle sombra al propio icono. El color se lo
-    // pasa quien llama a `glifo` (no ctx.fillStyle): el icono ahora es un
-    // blit de pixel art cacheado por color, así que hace falta el valor real
-    // para elegir —o crear— el lienzo que toca.
+    // El icono se dibuja SIEMPRE igual, al máximo y sin él. Es lo único que
+    // pidió Sergio de esto: lo que tiene que brillar es el marco, no el arma.
     //
-    // A PROPÓSITO sin shadowBlur aquí: drawImage respeta la sombra del
-    // contexto igual que fill/stroke (ver el comentario de blitHoja en
-    // ui/hud.js), así que ponerla antes de este blit difuminaba el arma o el
-    // pasivo en sí —un halo sobre el dibujo, no sobre el marco—. El marco ya
-    // tiene su propio resplandor, correctamente apagado (shadowBlur = 0) unas
-    // líneas más arriba antes de llegar aquí.
-    glifo(ctx, r * 0.58, tope ? '#ffffff' : color);
+    // Antes se le pasaba blanco al llegar al tope, que en los glifos vectoriales
+    // servía para "encenderlo"; con los iconos dibujados el color ya ni se usa
+    // salvo en el repliegue, así que teñirlos de blanco solo podía estropear un
+    // dibujo que ya trae su paleta.
+    //
+    // Y `shadowBlur` llega aquí a cero a propósito: drawImage respeta la sombra
+    // del contexto igual que fill/stroke (ver blitHoja en ui/hud.js), así que
+    // dejarla puesta difuminaría el arma en vez del marco.
+    glifo(ctx, r * 0.58, color);
     ctx.restore();
 
     if (!tope) {
@@ -491,7 +499,9 @@ export function dibujarFicha(ctx, jugadores, indice) {
                  j.xp / j.xpNecesaria, COLOR_XP, t);
 
   // --- Características, en una caja de dos columnas ----------------------
-  y += 6;
+  // El hueco sube de 6 a 13: la etiqueta ya no se monta sobre el borde de la
+  // caja, va encima, y necesita su sitio.
+  y += 13;
   const altoCaja = Math.ceil(CARACTERISTICAS.length / 2) * 13 + 8;
   caja(ctx, xDer, y, anchoDer, altoCaja, 'ESTADÍSTICAS', t);
   const anchoCol = anchoDer / 2;
@@ -509,7 +519,7 @@ export function dibujarFicha(ctx, jugadores, indice) {
     ctx.fillStyle = t.titulo;
     ctx.fillText(String(c.valor(j)), cx + anchoCol - 18, cy);
   }
-  y += altoCaja + 8;
+  y += altoCaja + 15;
 
   // --- Inventario: armas y objetos, cada uno en su caja -------------------
   const armas = j.arsenal ? j.arsenal.equipadas : [];

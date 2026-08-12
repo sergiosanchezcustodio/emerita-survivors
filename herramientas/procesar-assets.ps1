@@ -1368,6 +1368,40 @@ public class Procesador {
         });
     }
 
+    // Manchas OPACAS conexas, con su caja. Es la misma idea que CajasDeMarco
+    // pero sobre el alfa en vez de sobre el hueco negro: sirve para las hojas
+    // que ya vienen recortadas, donde cada icono es una isla y no hay marco que
+    // buscar. `minArea` descarta el sangrado de un icono vecino, que son unas
+    // decenas de pixeles sueltos contra los miles de un icono de verdad.
+    static List<int[]> IslasOpacas(byte[] px, int stride, int w, int h, int minArea) {
+        bool[] visto = new bool[w * h];
+        List<int[]> cajas = new List<int[]>();
+        Queue<int> cola = new Queue<int>();
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int i = y * w + x;
+                if (visto[i] || px[y * stride + x * 4 + 3] <= 128) continue;
+                int ax = x, bx = x, ay = y, by = y, n = 0;
+                visto[i] = true; cola.Enqueue(i);
+                while (cola.Count > 0) {
+                    int k = cola.Dequeue(); int kx = k % w, ky = k / w; n++;
+                    if (kx < ax) ax = kx; if (kx > bx) bx = kx;
+                    if (ky < ay) ay = ky; if (ky > by) by = ky;
+                    for (int dy = -1; dy <= 1; dy++)
+                        for (int dx = -1; dx <= 1; dx++) {
+                            int nx = kx + dx, ny = ky + dy;
+                            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                            int ni = ny * w + nx;
+                            if (visto[ni] || px[ny * stride + nx * 4 + 3] <= 128) continue;
+                            visto[ni] = true; cola.Enqueue(ni);
+                        }
+                }
+                if (n >= minArea) cajas.Add(new int[] { ax, ay, bx, by });
+            }
+        }
+        return cajas;
+    }
+
     // Caja de la silueta dentro de una región, con el fondo ya resuelto.
     // Devuelve null si la región está vacía.
     static int[] CajaSilueta(bool[] fondo, int w, int x0, int y0, int x1, int y1) {
@@ -1397,25 +1431,51 @@ public class Procesador {
                 for (int x = 0; x < w; x++)
                     if (px[y * stride + x * 4 + 3] < 128) fondo[y * w + x] = true;
 
-            // MARGEN DE SEGURIDAD: el icono de cada celda no siempre respeta su
-            // rejilla a rajatabla —un par de píxeles sueltos del icono VECINO
-            // (sangrado por el degradado de ambiente que trae cada uno) caen
-            // justo en el borde de la celda de al lado—. CajaSilueta no sabe
-            // distinguir "esto es del icono" de "esto se coló del de al lado":
-            // mide cualquier píxel no-fondo que encuentre, así que ese sangrado
-            // ensancha la caja hacia ese borde y descuadra el centrado Y el
-            // escalado (una caja más ancha de lo real da un "contener" más
-            // pequeño). Recortar la zona de medida hacia dentro antes de buscar
-            // la silueta dobla de sobra el hueco en blanco que ya trae cada
-            // icono alrededor, así que no se come nada real.
-            int margen = 30;
+            // POR ISLAS, no por celdas de rejilla. Los iconos NO respetan su
+            // casilla: la corona de laurel mide de x=156 a x=402 y su celda
+            // acaba en 383, así que el arco derecho cae dentro de la casilla
+            // vecina. Partir la hoja en rectángulos iguales se lo cortaba, y
+            // encima descuadraba el centrado, porque media corona centrada en
+            // su celda no está centrada.
+            //
+            // Antes esto se intentó arreglar metiendo la zona de medida 30px
+            // hacia dentro —el problema que se veía entonces era el contrario:
+            // un par de píxeles del icono de al lado ensanchaban la caja—, pero
+            // ese margen es justo lo que remata de cortar a los anchos.
+            //
+            // Con islas se resuelven los dos a la vez: se buscan las manchas
+            // opacas conexas y cada una se asigna a la celda donde cae su
+            // CENTRO. Un icono que se desborda sigue siendo suyo entero, porque
+            // su centro no se ha movido; y un sangrado del vecino es una isla
+            // diminuta que el área mínima descarta. Los iconos de varias piezas
+            // (la corona son dos arcos que se tocan por abajo) se recomponen
+            // porque se unen todas las islas de la misma celda.
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    if (px[y * stride + x * 4 + 3] < 128) fondo[y * w + x] = true;
+
             int cw = w / cols, ch = h / filas;
-            for (int r = 0; r < filas; r++)
-                for (int c = 0; c < cols; c++)
-                    regiones.Add(new int[] {
-                        c * cw + margen, r * ch + margen,
-                        c * cw + cw - 1 - margen, r * ch + ch - 1 - margen
-                    });
+            int[][] caja = new int[cols * filas][];
+            foreach (int[] isla in IslasOpacas(px, stride, w, h, 600)) {
+                int mx = (isla[0] + isla[2]) / 2, my = (isla[1] + isla[3]) / 2;
+                int c = Math.Min(cols - 1, Math.Max(0, mx / cw));
+                int r = Math.Min(filas - 1, Math.Max(0, my / ch));
+                int k = r * cols + c;
+                if (caja[k] == null) caja[k] = new int[] { isla[0], isla[1], isla[2], isla[3] };
+                else {
+                    if (isla[0] < caja[k][0]) caja[k][0] = isla[0];
+                    if (isla[1] < caja[k][1]) caja[k][1] = isla[1];
+                    if (isla[2] > caja[k][2]) caja[k][2] = isla[2];
+                    if (isla[3] > caja[k][3]) caja[k][3] = isla[3];
+                }
+            }
+            for (int k = 0; k < cols * filas; k++) {
+                // Celda sin isla: se emite su rectángulo entero y CajaSilueta
+                // devolverá "vacía", que es lo que hay que ver en el informe.
+                regiones.Add(caja[k] != null ? caja[k] : new int[] {
+                    (k % cols) * cw, (k / cols) * ch,
+                    (k % cols) * cw + cw - 1, (k / cols) * ch + ch - 1 });
+            }
         } else {
             List<int[]> marcos = CajasDeMarco(px, stride, w, h);
             OrdenarLectura(marcos);

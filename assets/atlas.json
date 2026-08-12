@@ -335,19 +335,19 @@
                                            },
                       "mascotaOreo":  {
                                           "archivo":  "mascotas/oreo.png",
-                                          "w":  48,
+                                          "w":  44,
                                           "h":  44,
-                                          "anclaX":  24,
+                                          "anclaX":  22,
                                           "anclaY":  44,
-                                          "frames":  1
+                                          "frames":  16
                                       },
                       "mascotaPollito":  {
                                              "archivo":  "mascotas/pollito.png",
-                                             "w":  48,
+                                             "w":  46,
                                              "h":  48,
-                                             "anclaX":  24,
+                                             "anclaX":  23,
                                              "anclaY":  48,
-                                             "frames":  1
+                                             "frames":  16
                                          },
                       "columna":  {
                                       "archivo":  "objetos/columna.png",
