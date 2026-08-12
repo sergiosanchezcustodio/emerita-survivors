@@ -1,9 +1,22 @@
-// GESTOR DE AUDIO — síntesis procedural con Web Audio API. Cero ficheros,
-// cero dependencias: el mismo principio que rige todo el arte del juego
-// (pixel art dibujado a mano, iconos rasterizados una vez) aplicado al
-// sonido. Golpes, muertes, subidas de nivel y la música de fondo se generan
-// en tiempo real con osciladores y ruido; no hay un solo .mp3/.ogg en el
-// proyecto.
+// GESTOR DE AUDIO.
+//
+// Los EFECTOS son síntesis procedural con Web Audio API: golpes, muertes,
+// subidas de nivel y aperturas de cofre se generan en tiempo real con
+// osciladores y ruido, sin un solo fichero. Se hizo así porque no había forma
+// de conseguir samples, y sigue así porque funciona.
+//
+// La MÚSICA ya no. Sergio ha compuesto dos temas para Emerita y suenan ellos,
+// encadenados en bucle (ver PISTAS y la sección de música más abajo). El bucle
+// procedural que había —dron grave y frases sueltas— se queda como REPLIEGUE
+// para cuando los ficheros no cargan: sin él, un fallo de red dejaría la
+// partida muda, y el plan pedía tolerancia a la ausencia de assets.
+//
+// Los ficheros van por <audio> y NO por decodeAudioData, que es la otra forma
+// de meterlos en el grafo. Son 13,6 MB de MP3: decodificados a PCM en memoria
+// serían más de 150 MB, y no hace ninguna falta tenerlos enteros en RAM cuando
+// lo único que se hace con ellos es reproducirlos de principio a fin. El
+// elemento se enchufa al grafo con createMediaElementSource, así que el volumen
+// se controla en el mismo sitio que todo lo demás.
 //
 // TOLERANTE A LA AUSENCIA DE AudioContext: si el navegador lo bloquea (sin
 // gesto del usuario todavía) o no existe, `ctx` se queda a null y todos los
@@ -161,6 +174,85 @@ let _musicaActiva = false;
 let _jefeActivo = false;
 let _dronOsc = null, _dronGain = null;
 
+// --- Música de fichero -------------------------------------------------------
+//
+// Las dos pistas de Emerita, en el orden en que suenan. Al acabar la última se
+// vuelve a la primera, así que la partida entera va encadenando las dos sin
+// silencio en medio.
+//
+// El bucle NO se hace con `loop = true` en cada elemento: eso repetiría la
+// misma canción para siempre. Se encadena con el evento `ended`, que es lo que
+// permite pasar de una a la otra y volver a empezar.
+const PISTAS = ['assets/musica/emerita-1.mp3', 'assets/musica/emerita-2.mp3'];
+
+// El volumen de la música compuesta va por debajo del que tenía la procedural:
+// aquella eran cuatro notas sueltas y esto es una mezcla completa, así que al
+// mismo nivel se comía los efectos.
+const VOLUMEN_MUSICA = 0.42;
+
+let _pistas = null;          // HTMLAudioElement por pista, creados una vez
+let _pistaActual = -1;
+let _musicaFichero = false;  // ¿hay ficheros y han cargado?
+
+function siguientePista() {
+  if (!_pistas) return;
+  _pistaActual = (_pistaActual + 1) % _pistas.length;
+  const a = _pistas[_pistaActual];
+  a.currentTime = 0;
+  // `play()` devuelve una promesa que el navegador rechaza si todavía no ha
+  // habido gesto del usuario. No es un error del que haya que enterarse: la
+  // siguiente llamada —al empezar la partida, que ya viene de pulsar una
+  // tecla— sí sonará.
+  const p = a.play();
+  if (p && p.catch) p.catch(() => {});
+}
+
+// Prepara los elementos y los engancha al grafo. Devuelve si ha podido.
+function prepararMusica() {
+  if (!ctx || _pistas) return _musicaFichero;
+  _pistas = [];
+  for (let i = 0; i < PISTAS.length; i++) {
+    const a = new Audio();
+    a.src = PISTAS[i];
+    a.preload = 'auto';
+    a.loop = false;
+    // Al acabar una, la siguiente. Es el bucle entero.
+    a.addEventListener('ended', siguientePista);
+    // Si una pista no carga se abandona el plan y manda el repliegue
+    // procedural: media banda sonora sonando y media no sería peor que
+    // ninguna, porque el silencio caería siempre en el mismo sitio.
+    a.addEventListener('error', () => {
+      _musicaFichero = false;
+      pararPistas();
+    });
+    try {
+      ctx.createMediaElementSource(a).connect(gMusica);
+    } catch {
+      // Sin enrutado al grafo se reproduce igual, solo que su volumen deja de
+      // depender del maestro. Mejor eso que quedarse sin música.
+      a.volume = VOLUMEN_MUSICA;
+    }
+    // Al documento, ocultos. Para sonar no hace falta —un elemento suelto se
+    // reproduce igual— pero así se pueden inspeccionar desde el navegador, que
+    // es la única forma cómoda de comprobar si una pista va por donde debe.
+    a.hidden = true;
+    a.dataset.pista = String(i);
+    document.body.appendChild(a);
+    _pistas.push(a);
+  }
+  _musicaFichero = true;
+  return true;
+}
+
+function pararPistas() {
+  if (!_pistas) return;
+  for (let i = 0; i < _pistas.length; i++) {
+    _pistas[i].pause();
+    _pistas[i].currentTime = 0;
+  }
+  _pistaActual = -1;
+}
+
 // El dron grave del ambiente suena TODO el rato, no en bucles discretos: es
 // el colchón sobre el que se recortan las frases sueltas.
 function arrancarDron() {
@@ -202,7 +294,7 @@ export const GestorAudio = {
       gEfectos.gain.value = 0.6;
       gEfectos.connect(gMaestro);
       gMusica = ctx.createGain();
-      gMusica.gain.value = 0.5;
+      gMusica.gain.value = VOLUMEN_MUSICA;
       gMusica.connect(gMaestro);
 
       // Un segundo de ruido blanco, generado UNA vez y reutilizado por todas
@@ -237,6 +329,9 @@ export const GestorAudio = {
   // no por paso de lógica: es tiempo de pared, ver la nota de cabecera.
   tick() {
     if (!ctx || !_musicaActiva) return;
+    // Con las pistas de Sergio sonando no se programa nada: el dron y las
+    // frases sueltas se pisarían con la mezcla y sonaría a dos músicas a la vez.
+    if (_musicaFichero) return;
     const MARGEN = 0.25;
     if (ctx.currentTime > _horizonte - MARGEN) {
       arrancarDron();
@@ -249,6 +344,31 @@ export const GestorAudio = {
     if (!ctx) return;
     _musicaActiva = true;
     _horizonte = ctx.currentTime;
+    if (prepararMusica()) {
+      _pistaActual = -1;
+      siguientePista();      // arranca por la primera y de ahí encadena
+    }
+  },
+
+  pararMusica() {
+    _musicaActiva = false;
+    pararPistas();
+  },
+
+  // Estado de la música, para poder mirarlo desde la consola sin adivinar por
+  // el oído si están sonando los ficheros o el repliegue procedural.
+  estadoMusica() {
+    return {
+      activa: _musicaActiva,
+      fichero: _musicaFichero,
+      pista: _pistaActual,
+      sonando: _pistas && _pistaActual >= 0 ? !_pistas[_pistaActual].paused : false,
+      segundo: _pistas && _pistaActual >= 0
+               ? Math.round(_pistas[_pistaActual].currentTime) : 0,
+      duracion: _pistas && _pistaActual >= 0
+                ? Math.round(_pistas[_pistaActual].duration) || 0 : 0,
+      contexto: ctx ? ctx.state : 'sin AudioContext'
+    };
   },
 
   // Sistemas/jefes.js avisa aquí cuando hay un jefe en pie o no. El cambio de

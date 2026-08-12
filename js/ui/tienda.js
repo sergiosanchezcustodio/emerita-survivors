@@ -194,6 +194,10 @@ function dibujarMascotas(ctx, cursor) {
       const h = meta.h * esc;
       const suavizado = ctx.imageSmoothingEnabled;
       ctx.imageSmoothingEnabled = false;
+      // SIEMPRE el fotograma 0. Las mascotas animadas son una tira de
+      // fotogramas en un solo PNG, así que dibujarla entera saldría como una
+      // fila de búhos; y animarla aquí sería una animación en una lista de
+      // compra, que no aporta nada y encima obliga a repintar el panel.
       ctx.drawImage(img, 0, 0, meta.w, meta.h, cxIcono - w / 2, yc - h / 2, w, h);
       ctx.imageSmoothingEnabled = suavizado;
     } else {

@@ -1348,7 +1348,7 @@ async function arrancar() {
     // Progreso META y mascotas. Se exponen para poder probar desde la consola
     // sin jugar veinte partidas para reunir denarios, y para poder mirar qué
     // hay guardado sin abrir el inspector de localStorage.
-    meta: MetaProgreso, mascotas: Mascotas,
+    meta: MetaProgreso, mascotas: Mascotas, audio: GestorAudio,
     get jugador() { return jugadores[0]; },   // atajo para el caso de uno solo
     avanzar(n) { for (let i = 0; i < n; i++) actualizar(DT); return enemigos.activos; }
   };

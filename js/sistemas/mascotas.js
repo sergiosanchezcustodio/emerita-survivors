@@ -32,6 +32,11 @@ const RADIO_DIBUJO = 5;
 // crear un array por chillido sería asignar en caliente.
 const BUFER = new Int32Array(400);
 
+// Cadencia del ciclo de las mascotas animadas. Mismo criterio que el bestiario:
+// una velocidad fija para todas, porque son bichos pequeños al lado del jugador
+// y afinarla por mascota no se notaría.
+const SEG_POR_FRAME = 1 / 10;
+
 export const Mascotas = {
   activas: null,           // una entrada por jugador, preasignada
   def: null,               // definición de la equipada, o null
@@ -41,7 +46,7 @@ export const Mascotas = {
     this.activas = new Array(MAX);
     for (let i = 0; i < MAX; i++) {
       this.activas[i] = { x: 0, y: 0, reloj: 0, fase: i * 1.7, viva: false,
-                          mirandoDerecha: true };
+                          mirandoDerecha: true, frame: 0, relojAnim: i * 0.13 };
     }
     this.releer();
   },
@@ -51,6 +56,13 @@ export const Mascotas = {
   releer() {
     this.id = MetaProgreso.mascotaEquipada || '';
     this.def = MASCOTAS[this.id] || null;
+    // Id del atlas y número de fotogramas, resueltos UNA vez por partida en vez
+    // de rehacer la cadena y consultar el atlas en cada uno de los sesenta
+    // pasos por segundo.
+    this.idAtlas = this.id
+      ? 'mascota' + this.id.charAt(0).toUpperCase() + this.id.slice(1) : '';
+    const meta = this.idAtlas ? Recursos.meta(this.idAtlas) : null;
+    this.frames = meta ? (meta.frames || 1) : 1;
     // Nerón: se deja escrito en MetaProgreso para que lo aplique `ganar()` una
     // sola vez, en vez de repetirlo en los tres sitios que reparten denarios.
     MetaProgreso.factorDenarios = this.def && this.def.factorDenarios
@@ -93,6 +105,16 @@ export const Mascotas = {
       if (avanceX > 0.05) m.mirandoDerecha = true;
       else if (avanceX < -0.05) m.mirandoDerecha = false;
 
+      // Ciclo de la mascota, si su dibujo es un GIF. Las que siguen siendo un
+      // PNG quieto tienen un solo fotograma y esto no hace nada.
+      if (this.frames > 1) {
+        m.relojAnim += dt;
+        while (m.relojAnim >= SEG_POR_FRAME) {
+          m.relojAnim -= SEG_POR_FRAME;
+          m.frame = (m.frame + 1) % this.frames;
+        }
+      }
+
       if (!habilidad) continue;          // pasiva: solo se dibuja
       m.reloj -= dt;
       if (m.reloj > 0) continue;
@@ -114,7 +136,7 @@ export const Mascotas = {
   dibujar(ctx, jugadores) {
     if (!this.def) return;
     const d = this.def;
-    const idAtlas = 'mascota' + this.id.charAt(0).toUpperCase() + this.id.slice(1);
+    const idAtlas = this.idAtlas;
     const meta = Recursos.meta(idAtlas);
 
     ctx.save();
@@ -137,7 +159,11 @@ export const Mascotas = {
         if (img) {
           const w = meta.w / ESCALA_ARTE;
           const h = meta.h / ESCALA_ARTE;
-          ctx.drawImage(img, 0, 0, meta.w, meta.h, m.x - w / 2, y - h, w, h);
+          // La copia espejada está volteada FOTOGRAMA A FOTOGRAMA (ver
+          // recursos.js), así que el índice vale igual en las dos y la
+          // animación no corre del revés al girar.
+          ctx.drawImage(img, m.frame * meta.w, 0, meta.w, meta.h,
+                        m.x - w / 2, y - h, w, h);
           continue;
         }
       }

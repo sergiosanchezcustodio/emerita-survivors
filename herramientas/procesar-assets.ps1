@@ -1720,14 +1720,25 @@ $CATALOGO = @(
     # Los altos van entre 10 y 14 contra los 26 del personaje: tienen que
     # leerse como una mascota que acompaña, no como otro personaje. La tortuga
     # es la más baja y el perro el más alto, que es lo que dice cada dibujo.
-    @{ src='mascotas\Hamster.png'; dst='mascotas\heladio.png';  id='mascotaHeladio';  alto=11; anchoFijo=0; tol=0 }
-    @{ src='mascotas\Tortuga.png'; dst='mascotas\escipion.png'; id='mascotaEscipion'; alto=10; anchoFijo=0; tol=0 }
-    @{ src='mascotas\Buho.png';    dst='mascotas\plinio.png';   id='mascotaPlinio';   alto=13; anchoFijo=0; tol=0 }
-    @{ src='mascotas\Gato.png';    dst='mascotas\neron.png';    id='mascotaNeron';    alto=12; anchoFijo=0; tol=0 }
-    @{ src='mascotas\PErro.png';   dst='mascotas\karim.png';    id='mascotaKarim';    alto=14; anchoFijo=0; tol=0 }
-    @{ src='mascotas\Gallina.png'; dst='mascotas\cleopatra.png';id='mascotaCleopatra';alto=13; anchoFijo=0; tol=0 }
-    @{ src='mascotas\Conejo.png';  dst='mascotas\oreo.png';     id='mascotaOreo';     alto=11; anchoFijo=0; tol=0 }
-    @{ src='mascotas\Pollito.png'; dst='mascotas\pollito.png';  id='mascotaPollito';  alto=12; anchoFijo=0; tol=0 }
+    #
+    # `gifSiExiste`: si al lado del PNG hay un GIF con el MISMO nombre, se usa
+    # el GIF y la mascota queda animada; si no, se usa el PNG y se queda quieta.
+    #
+    # Existe porque Sergio está entregando las animaciones DE UNA EN UNA —hoy
+    # solo está la del búho— y sin esto cada GIF nuevo obligaría a venir aquí a
+    # cambiar una línea. Con esto, dejar el archivo en resources/mascotas/ y
+    # volver a ejecutar la herramienta basta. Es la única regla implícita de
+    # todo el catálogo y se limita a las mascotas a propósito: en el bestiario,
+    # donde conviven PNG y GIF del mismo bicho, la elección está escrita a mano
+    # entrada por entrada y así se queda.
+    @{ src='mascotas\Hamster.png'; dst='mascotas\heladio.png';  id='mascotaHeladio';  alto=11; anchoFijo=0; tol=0; gifSiExiste=$true }
+    @{ src='mascotas\Tortuga.png'; dst='mascotas\escipion.png'; id='mascotaEscipion'; alto=10; anchoFijo=0; tol=0; gifSiExiste=$true }
+    @{ src='mascotas\Buho.png';    dst='mascotas\plinio.png';   id='mascotaPlinio';   alto=13; anchoFijo=0; tol=0; gifSiExiste=$true }
+    @{ src='mascotas\Gato.png';    dst='mascotas\neron.png';    id='mascotaNeron';    alto=12; anchoFijo=0; tol=0; gifSiExiste=$true }
+    @{ src='mascotas\PErro.png';   dst='mascotas\karim.png';    id='mascotaKarim';    alto=14; anchoFijo=0; tol=0; gifSiExiste=$true }
+    @{ src='mascotas\Gallina.png'; dst='mascotas\cleopatra.png';id='mascotaCleopatra';alto=13; anchoFijo=0; tol=0; gifSiExiste=$true }
+    @{ src='mascotas\Conejo.png';  dst='mascotas\oreo.png';     id='mascotaOreo';     alto=11; anchoFijo=0; tol=0; gifSiExiste=$true }
+    @{ src='mascotas\Pollito.png'; dst='mascotas\pollito.png';  id='mascotaPollito';  alto=12; anchoFijo=0; tol=0; gifSiExiste=$true }
 
     # --- Decoracion solida del nivel 1: columnas, antorchas, estatuas y
     # ruinas de resources/stages/1/objetos/. Ilustraciones estaticas sueltas
@@ -1796,6 +1807,19 @@ $atlas = [ordered]@{}
 foreach ($e in $CATALOGO) {
     $rutaSrc = Join-Path $ORIGEN $e.src
     $rutaDst = Join-Path $DESTINO $e.dst
+
+    # `gifSiExiste`: la entrada apunta a un PNG, pero si al lado hay un GIF con
+    # el mismo nombre manda el GIF. Ver la nota del bloque de mascotas: sirve
+    # para que las animaciones que van llegando de una en una entren solas.
+    if ($e.gifSiExiste) {
+        $candidato = [System.IO.Path]::ChangeExtension($rutaSrc, '.gif')
+        if (Test-Path $candidato) {
+            $rutaSrc = $candidato
+            $e = $e.Clone()      # no se toca el catálogo, solo esta pasada
+            $e.gif = $true
+        }
+    }
+
     if (-not (Test-Path $rutaSrc)) {
         $informe += [PSCustomObject]@{ Id=$e.id; Silueta='-'; Ratio='-'; Sprite='-'; Quitado='-'; Estado='NO EXISTE' }
         continue
@@ -2220,6 +2244,40 @@ foreach ($m in $MENUS) {
     $img.Dispose()
 }
 $informeMenus | Format-Table -AutoSize
+
+# ---------------------------------------------------------------------------
+# MUSICA
+# ---------------------------------------------------------------------------
+#
+# Las dos canciones del nivel 1. Se copian tal cual, igual que las
+# ilustraciones de menu: aqui no hay nada que procesar y recodificar solo
+# perderia calidad.
+#
+# El ORDEN de esta lista es el orden en que suenan, y de ahi vuelven a empezar.
+# Lo lee sistemas/audio.js por las rutas de assets/musica/.
+$MUSICA = @(
+    @{ src='musica\Musica_emerita_1.mp3'; dst='musica\emerita-1.mp3' }
+    @{ src='musica\Musica_emerita_2.mp3'; dst='musica\emerita-2.mp3' }
+)
+
+New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'musica') | Out-Null
+
+$informeMusica = @()
+foreach ($m in $MUSICA) {
+    $rutaSrc = Join-Path $ORIGEN $m.src
+    $rutaDst = Join-Path $DESTINO $m.dst
+    if (-not (Test-Path $rutaSrc)) {
+        $informeMusica += [PSCustomObject]@{ Pista=$m.dst; Tamano='-'; Estado='NO EXISTE' }
+        continue
+    }
+    Copy-Item $rutaSrc $rutaDst -Force
+    $informeMusica += [PSCustomObject]@{
+        Pista  = $m.dst
+        Tamano = "{0:N1} MB" -f ((Get-Item $rutaDst).Length / 1MB)
+        Estado = 'COPIADA'
+    }
+}
+$informeMusica | Format-Table -AutoSize
 
 $json = [ordered]@{ escalaArte = $ESCALA; entidades = $atlas } | ConvertTo-Json -Depth 5
 # UTF-8 SIN BOM: Set-Content -Encoding utf8 lo añade en PowerShell 5.1 y deja un
