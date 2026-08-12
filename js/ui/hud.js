@@ -121,6 +121,11 @@ const CARRIL_BORDE  = 'rgba(236,226,206,.22)';
 // buscas tu propia ficha entre cuatro.
 const COLOR_VIDA = '#c8443c';
 const COLOR_VIDA_ALTO = 'rgba(255,196,186,.40)';   // filo superior, da volumen
+// Escudo de la Égida, sobre la misma barra que la vida. Azul acero y no otro
+// rojo: tiene que distinguirse de la vida de un vistazo, porque se pierde y se
+// recupera solo mientras la vida no se mueve.
+const COLOR_ESCUDO = '#6fa8d6';
+const COLOR_ESCUDO_ALTO = 'rgba(220,240,255,.55)';
 
 // Experiencia en azul oscuro e IGUAL para los cuatro: es la única barra que mide
 // lo mismo para todo el mundo —cuánto falta para la siguiente elección— y
@@ -615,6 +620,27 @@ export function dibujarPaneles(ctx, jugadores) {
     const fracVida = Math.max(0, j.vida / j.vidaMaxima);
     dibujarBarra(ctx, bx, y + Y_VIDA, COLUMNA, ALTO_VIDA, fracVida,
                  COLOR_VIDA, COLOR_VIDA_ALTO);
+
+    // ESCUDO (potenciador Égida) POR ENCIMA de la barra de vida, en azul y sin
+    // carril propio. Compartir la barra y no tener una suya es lo correcto:
+    // ocupa lo que le toca sobre la MISMA escala que la vida, así que se lee de
+    // un vistazo cuánto aguantas en total. Una segunda barra debajo obligaría a
+    // sumar dos números en mitad de una horda.
+    //
+    // Solo aparece si hay escudo que enseñar: quien no haya comprado la Égida
+    // no ve un hueco vacío pidiendo ser rellenado.
+    if (j.escudo > 0) {
+      const fracEscudo = Math.min(1, j.escudo / j.vidaMaxima);
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(bx, y + Y_VIDA, COLUMNA, ALTO_VIDA, R_BARRA);
+      ctx.clip();
+      ctx.fillStyle = COLOR_ESCUDO;
+      ctx.fillRect(bx, y + Y_VIDA, COLUMNA * fracEscudo, ALTO_VIDA);
+      ctx.fillStyle = COLOR_ESCUDO_ALTO;
+      ctx.fillRect(bx, y + Y_VIDA + 0.5, COLUMNA * fracEscudo, 1);
+      ctx.restore();
+    }
 
     // SIN CIFRAS. La barra dice cuánta vida queda con su longitud y eso es todo
     // lo que hace falta mientras esquivas; el "83 / 115" encima obligaba a leer

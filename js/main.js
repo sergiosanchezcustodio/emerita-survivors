@@ -590,6 +590,56 @@ function capturarStats() {
   };
 }
 
+// --- Reanimación en cooperativo ----------------------------------------------
+//
+// Un jugador caído se levanta solo, pero LO RÁPIDO DEPENDE DE LA COMPAÑÍA: diez
+// segundos si alguien se queda junto a su ataúd, treinta si nadie va.
+//
+// Se lleva como PROGRESO de 0 a 1 y no como un contador de segundos fijado en
+// el momento de caer, y esa es toda la gracia de la mecánica. Con un contador
+// fijo, acercarse al ataúd de tu hermana no serviría de nada si ya se había
+// decidido "treinta" al caer. Con progreso, el reloj corre al triple mientras
+// alguien está al lado y se frena en cuanto se va: quedarse es una decisión
+// —dejas de matar y te quedas quieto donde ha caído, que suele ser el peor
+// sitio del mapa— y esa decisión es justo lo que hace cooperativo a un
+// cooperativo. Los extremos siguen siendo exactamente los que pidió Sergio: 10
+// segundos sin moverse de al lado, 30 sin acercarse nunca.
+const RADIO_REANIMAR = 60;     // unidades lógicas: hay que ir de verdad, no basta con estar en pantalla
+const REANIMAR_CERCA = 10;     // segundos con alguien dentro del radio
+const REANIMAR_LEJOS = 30;     // segundos sin nadie
+
+function reanimar(dt) {
+  // En solitario no hay reanimación: caer es perder, como hasta ahora.
+  if (jugadores.length < 2) return;
+
+  // HACE FALTA ALGUIEN EN PIE. Sin esta guarda la partida sería imposible de
+  // perder: con los cuatro caídos el contador seguiría corriendo y se
+  // levantarían solos a los treinta segundos, así que la pantalla de derrota
+  // no llegaría nunca.
+  let hayVivo = false;
+  for (let i = 0; i < jugadores.length; i++) {
+    if (!jugadores[i].abatido) { hayVivo = true; break; }
+  }
+  if (!hayVivo) return;
+
+  for (let i = 0; i < jugadores.length; i++) {
+    const j = jugadores[i];
+    if (!j.abatido) continue;
+
+    let acompanyado = false;
+    for (let k = 0; k < jugadores.length; k++) {
+      const o = jugadores[k];
+      if (k === i || o.abatido) continue;
+      const dx = o.x - j.x;
+      const dy = o.y - j.y;
+      if (dx * dx + dy * dy <= RADIO_REANIMAR * RADIO_REANIMAR) { acompanyado = true; break; }
+    }
+
+    j.reanimacion += dt / (acompanyado ? REANIMAR_CERCA : REANIMAR_LEJOS);
+    if (j.reanimacion >= 1) j.levantar();
+  }
+}
+
 // --- Lógica -----------------------------------------------------------------
 function actualizar(dt) {
   entrada.actualizar();
@@ -722,6 +772,7 @@ function actualizar(dt) {
   for (let i = 0; i < jugadores.length; i++) {
     jugadores[i].actualizar(dt, entrada.controles[i]);
   }
+  reanimar(dt);
   for (let i = 0; i < jugadores.length; i++) clamparXNivel(jugadores[i]);
   enemigos.mover(dt, jugadores, camara);
   proyectiles.mover(dt, estallar);

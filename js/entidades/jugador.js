@@ -51,6 +51,13 @@ const BASE = {
 const INVULNERABILIDAD = 0.5;
 const PARPADEO = 0.07;     // periodo del destello mientras dura
 
+// Escudo del potenciador Égida (datos/potenciadores.js). Dos números, no uno:
+// cuánto hay que aguantar SIN QUE TE TOQUEN para que empiece a rellenarse, y
+// cuánto tarda entonces en llenarse del todo. La espera es lo que hace que el
+// escudo premie salir del montón; sin ella sería vida máxima con otro nombre.
+const ESPERA_ESCUDO = 6;
+const RELLENO_ESCUDO = 4;
+
 export class Jugador {
   constructor(idPersonaje = 'eric') {
     const def = PERSONAJES[idPersonaje] || PERSONAJES.eric;
@@ -103,6 +110,21 @@ export class Jugador {
     this.inmortal = false;         // depuración: permite medir sin morir
     this.golpesRecibidos = 0;
 
+    // Reanimación en cooperativo. 0..1: al llegar a 1 el jugador se levanta.
+    // NO es un contador de segundos porque el ritmo al que sube depende de si
+    // hay alguien cerca del ataúd — ver reanimar() en main.js.
+    this.reanimacion = 0;
+
+    // Escudo del potenciador Égida. `escudo` es lo que queda ahora mismo y
+    // `relojEscudo` cuenta el tiempo desde el último golpe.
+    this.escudo = this.escudoMax;
+    this.relojEscudo = 0;
+    // Vidas extra de la Moneda de Caronte ya gastadas. Va APARTE del techo
+    // porque recalcularStats() rehace `resurreccionesMax` en cada subida de
+    // nivel: si el contador de gastadas viviera ahí, subir de nivel devolvería
+    // todas las vidas extra que ya se hubieran usado.
+    this.resurreccionesUsadas = 0;
+
     this.mirandoDerecha = true;
     this.andando = false;
     this.lateral = false;    // se mueve más en horizontal que en vertical
@@ -132,6 +154,11 @@ export class Jugador {
     this.bonusDanyo = 0;
     this.reduccionRecarga = 0;
     this.bonusArea = 0;
+    // Techos que llenan los potenciadores permanentes. Se reinician aquí, como
+    // todo lo demás, porque este método se vuelve a llamar en cada subida de
+    // nivel y si no se acumularían sobre sí mismos.
+    this.escudoMax = 0;
+    this.resurreccionesMax = 0;
 
     // Potenciadores permanentes (denarios, ver core/metaProgreso.js): la base
     // de la que arranca CUALQUIER personaje en CUALQUIER partida, así que se
@@ -156,6 +183,11 @@ export class Jugador {
     // La recarga no puede llegar a cero por muchas clepsidras que se acumulen.
     if (this.reduccionRecarga > 0.7) this.reduccionRecarga = 0.7;
 
+    // El escudo en curso no puede pasarse de su techo, pero tampoco se rellena
+    // aquí: recalcularStats() se llama en cada subida de nivel, y regalar el
+    // escudo entero en cada una lo convertiría en "sube de nivel para curarte".
+    if (this.escudo > this.escudoMax) this.escudo = this.escudoMax;
+
     // Al ampliar la vida máxima se conserva lo que faltaba, no el porcentaje:
     // si te quedaban 20 de 100, te quedan 20 de 120, no 24.
     if (vidaAnterior > 0 && this.vidaMaxima > vidaAnterior && this.vida !== undefined) {
@@ -177,15 +209,54 @@ export class Jugador {
   // frente a las serpientes durante los 20 minutos.
   recibirDanyo(cantidad) {
     if (this.abatido || this.invulnerable > 0 || this.inmortal) return false;
-    this.vida -= Math.max(1, cantidad - this.armadura);
+    let danyo = Math.max(1, cantidad - this.armadura);
+
+    // El ESCUDO se come el golpe antes que la vida, y cualquier impacto corta
+    // su recarga. Es lo contrario que la armadura: la armadura quita una
+    // cantidad fija a cada golpe y el escudo aguanta un total, así que una
+    // sirve contra la horda que pica de tres en tres y el otro contra el
+    // mordisco de un jefe.
+    this.relojEscudo = 0;
+    if (this.escudo > 0) {
+      const absorbido = Math.min(this.escudo, danyo);
+      this.escudo -= absorbido;
+      danyo -= absorbido;
+    }
+
+    this.vida -= danyo;
     this.invulnerable = INVULNERABILIDAD;
     this.golpesRecibidos++;
     GestorAudio.danyoJugador();
     if (this.vida <= 0) {
       this.vida = 0;
-      this.abatido = true;
+      // Moneda de Caronte: si queda alguna vida extra se gasta y se vuelve en
+      // el sitio, sin ataúd y sin esperar a nadie. Va ANTES de darse por
+      // abatido a propósito: en cooperativo, gastar la moneda es mejor que
+      // hacer que un compañero cruce media pantalla a levantarte.
+      if (this.resurreccionesUsadas < this.resurreccionesMax) {
+        this.resurreccionesUsadas++;
+        this.levantar();
+      } else {
+        this.abatido = true;
+        this.reanimacion = 0;
+      }
     }
     return true;
+  }
+
+  // Se levanta tras la cuenta de reanimación. A MEDIA VIDA y con los i-frames
+  // puestos: a vida llena, dejarse caer sería una forma barata de curarse, y
+  // sin invulnerabilidad se volvería a caer en el mismo frame, porque uno cae
+  // justo donde estaba rodeado.
+  levantar() {
+    this.abatido = false;
+    this.reanimacion = 0;
+    this.vida = Math.max(1, Math.round(this.vidaMaxima * 0.5));
+    this.invulnerable = INVULNERABILIDAD * 4;
+    // Se vuelve con el escudo entero: si volvieras con él a cero, los seis
+    // segundos de espera empezarían justo cuando más falta hace.
+    this.escudo = this.escudoMax;
+    this.relojEscudo = 0;
   }
 
   reiniciar() {
@@ -193,7 +264,11 @@ export class Jugador {
     this.vida = this.vidaMaxima;
     this.invulnerable = 0;
     this.abatido = false;
+    this.reanimacion = 0;
     this.golpesRecibidos = 0;
+    this.escudo = this.escudoMax;
+    this.relojEscudo = 0;
+    this.resurreccionesUsadas = 0;
   }
 
   actualizar(dt, entrada) {
@@ -210,6 +285,18 @@ export class Jugador {
     // un tic entero cada segundo se notaría como un parpadeo en la barra.
     if (this.regeneracion > 0 && this.vida < this.vidaMaxima) {
       this.vida = Math.min(this.vidaMaxima, this.vida + this.regeneracion * dt);
+    }
+
+    // Recarga del escudo. Solo tras ESPERA_ESCUDO segundos sin recibir ni un
+    // golpe, y luego progresiva. La espera es lo que hace que el escudo premie
+    // salir del montón en vez de quedarse dentro: si se rellenara al momento
+    // sería vida máxima disfrazada.
+    if (this.escudoMax > 0) {
+      this.relojEscudo += dt;
+      if (this.relojEscudo >= ESPERA_ESCUDO && this.escudo < this.escudoMax) {
+        this.escudo = Math.min(this.escudoMax,
+                               this.escudo + this.escudoMax * dt / RELLENO_ESCUDO);
+      }
     }
 
     const vx = entrada.ejeX * this.velocidad;
@@ -278,6 +365,49 @@ export class Jugador {
   // con el suavizado apagado, un destino fraccionario hace que el vecino más
   // próximo elija filas distintas cada frame y el sprite hierva.
   dibujar(ctx) {
+    // CAÍDO: en su sitio va su ATAÚD, no el personaje tumbado ni el personaje
+    // de pie como hasta ahora. Cada uno tiene el suyo y cuenta quién iba
+    // dentro —el del Atleti, el del hámster, el del capibara, el de la
+    // katana—, que en cooperativo es lo que dice a quién hay que ir a levantar
+    // sin leer un nombre desde el otro lado de la pantalla.
+    //
+    // Se dibuja SIN parpadeo de i-frames y sin espejo: un ataúd no mira a
+    // ningún lado y no está recibiendo golpes.
+    if (this.abatido) {
+      const metaAtaud = Recursos.meta(this.personaje + 'Ataud');
+      const imgAtaud = Recursos.imagen(this.personaje + 'Ataud');
+      if (!metaAtaud || !imgAtaud) return;
+      const axF = Math.round(this.xVista * ESCALA_ARTE);
+      const ayF = Math.round(this.yVista * ESCALA_ARTE);
+      ctx.drawImage(imgAtaud,
+        0, 0, metaAtaud.w, metaAtaud.h,
+        (axF - (metaAtaud.w >> 1)) / ESCALA_ARTE, (ayF - metaAtaud.h) / ESCALA_ARTE,
+        metaAtaud.w / ESCALA_ARTE, metaAtaud.h / ESCALA_ARTE);
+
+      // Cuánto queda para levantarse, en un arco a los pies del ataúd. Va en el
+      // MUNDO y no en el panel de la esquina a propósito: lo que hay que decidir
+      // mirándolo es si te da tiempo a llegar hasta ahí, y eso se decide mirando
+      // el sitio, no una esquina de la pantalla. Solo aparece si el contador ha
+      // arrancado, así que en solitario —donde no hay reanimación— no sale nada.
+      if (this.reanimacion > 0) {
+        const cx = axF / ESCALA_ARTE;
+        const cy = ayF / ESCALA_ARTE - 2;
+        const r = 9;
+        ctx.save();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(8,7,10,.65)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = '#e8c23a';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, this.reanimacion));
+        ctx.stroke();
+        ctx.restore();
+      }
+      return;
+    }
+
     // DOS HOJAS POR PERSONAJE SI EL ATLAS LAS TRAE: `<id>` mira a la derecha y
     // `<id>Izq` a la izquierda.
     //

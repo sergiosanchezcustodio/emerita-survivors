@@ -381,10 +381,25 @@ export const NIVEL = {
   // A propósito NO se ha metido decoración en la franja añadida, la más
   // externa: es la que sale del espejo y tiene su propio pliegue visible, y
   // llenarla de objetos solo llamaría la atención hacia él.
+  // MÁS ANTORCHAS (pedido de Sergio): de dos por tile a seis, tres por lado.
+  // Van todas sobre el borde de la calzada, alternando lado y repartidas en
+  // vertical con unas 90-130 unidades entre una y la siguiente, que a 430 de
+  // alto deja unas cuatro a la vista en cada momento sin que la calle parezca
+  // un pasillo de teas.
+  //
+  // Ojo a un efecto de lado que no es cosmético: la antorcha es DESTRUIBLE y
+  // suelta un consumible al caer (ver `esObjeto` en datos/enemigos.js), así que
+  // triplicarlas triplica también esa fuente de consumibles. Se deja así a
+  // propósito —romperlas cuesta tiempo y dejar de disparar a la horda— pero si
+  // al jugarlo salen demasiados cofres, esta lista es donde se recorta.
   decoracion: [
     { tipo: 'columna',   x: 186, y:  50 },
+    { tipo: 'antorcha1', x: 186, y: 150 },
     { tipo: 'antorcha1', x: 186, y: 250 },
-    { tipo: 'antorcha2', x: 367, y: 130 },
+    { tipo: 'antorcha2', x: 186, y: 340 },
+    { tipo: 'antorcha2', x: 367, y:  40 },
+    { tipo: 'antorcha1', x: 367, y: 130 },
+    { tipo: 'antorcha2', x: 367, y: 260 },
     { tipo: 'columna',   x: 367, y: 350 },
     { tipo: 'estatua2',  x: 141, y: 150 },
     { tipo: 'ruinas2',   x: 141, y: 380 },

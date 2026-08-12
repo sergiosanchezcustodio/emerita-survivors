@@ -249,6 +249,42 @@
                                                              }
                                               }
                                 },
+                      "ericAtaud":  {
+                                        "archivo":  "personajes/eric-ataud.png",
+                                        "w":  72,
+                                        "h":  104,
+                                        "anclaX":  36,
+                                        "anclaY":  104,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "lucyAtaud":  {
+                                        "archivo":  "personajes/lucy-ataud.png",
+                                        "w":  72,
+                                        "h":  104,
+                                        "anclaX":  36,
+                                        "anclaY":  104,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "saraAtaud":  {
+                                        "archivo":  "personajes/sara-ataud.png",
+                                        "w":  64,
+                                        "h":  104,
+                                        "anclaX":  32,
+                                        "anclaY":  104,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "vickyAtaud":  {
+                                         "archivo":  "personajes/vicky-ataud.png",
+                                         "w":  64,
+                                         "h":  104,
+                                         "anclaX":  32,
+                                         "anclaY":  104,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
                       "columna":  {
                                       "archivo":  "objetos/columna.png",
                                       "w":  56,

@@ -1690,6 +1690,24 @@ $CATALOGO = @(
     @{ src='characters\Vicky.png'; dst='personajes\vicky.png'; id='vicky'; alto=26; anchoFijo=0; tol=0
        gifAnim='characters\Vicky.gif'; idle=0; nQuieto=2; fpsAndar=14 }
 
+    # ATAUDES. Uno por personaje, y cada uno cuenta quien iba dentro: el del
+    # Atleti con su balon, el del hamster, el del capibara y el de la katana.
+    # Es lo que hace que valga la pena dibujar cuatro en vez de uno generico —
+    # en cooperativo, ver de quien es el ataud desde el otro lado de la pantalla
+    # dice a quien hay que ir a levantar sin tener que leer un nombre.
+    #
+    # Entradas SUELTAS, sin `cadera` ni `gifAnim`: no llevan retrato ni ciclo de
+    # animacion. Son un dibujo quieto que sustituye al sprite mientras el
+    # jugador esta caido, asi que caen por Procesar() como cualquier
+    # ilustracion. `plano` porque un ataud ni mira a un lado ni recibe golpes.
+    #
+    # Mismo `alto` que el personaje (26): mas bajo se leeria como un objeto mas
+    # del suelo, y lo que tiene que leerse es "aqui hay alguien caido".
+    @{ src='characters\Eric_ataud.png';  dst='personajes\eric-ataud.png';  id='ericAtaud';  alto=26; anchoFijo=0; tol=0; plano=$true }
+    @{ src='characters\Lucy_ataud.png';  dst='personajes\lucy-ataud.png';  id='lucyAtaud';  alto=26; anchoFijo=0; tol=0; plano=$true }
+    @{ src='characters\Sara_ataud.png';  dst='personajes\sara-ataud.png';  id='saraAtaud';  alto=26; anchoFijo=0; tol=0; plano=$true }
+    @{ src='characters\Vicky_ataud.png'; dst='personajes\vicky-ataud.png'; id='vickyAtaud'; alto=26; anchoFijo=0; tol=0; plano=$true }
+
     # --- Decoracion solida del nivel 1: columnas, antorchas, estatuas y
     # ruinas de resources/stages/1/objetos/. Ilustraciones estaticas sueltas
     # (sin gif/cadera/hoja), asi que caen directas por Procesar():
