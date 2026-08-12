@@ -17,7 +17,7 @@ import { VFX } from './sistemas/vfx.js';
 import { GestorAudio } from './sistemas/audio.js';
 import {
   separacion, contactoJugadores, impactosProyectiles, separarJugadores,
-  colisionarObstaculos, ajustes
+  colisionarObstaculos, colisionarAtaudes, ajustes
 } from './sistemas/colisiones.js';
 import { Obstaculos } from './sistemas/obstaculos.js';
 import { Recogibles } from './entidades/recogible.js';
@@ -30,7 +30,7 @@ import { dibujarCofre } from './ui/cofre.js';
 import { dibujarFicha } from './ui/ficha.js';
 import { dibujarMapa } from './ui/mapa.js';
 import { dibujarTienda } from './ui/tienda.js';
-import { dibujarFinal } from './ui/final.js';
+import { dibujarFinal, dibujarCartelFinal } from './ui/final.js';
 import { dibujarPaneles, dibujarReloj, dibujarBarraJefe } from './ui/hud.js';
 import { Pantallas, ocupantePersonaje } from './ui/pantallas.js';
 import { Capa } from './ui/capa.js';
@@ -215,6 +215,17 @@ let derrotaGuardada = false;
 // una victoria, no una derrota de última hora.
 let finalMostrado = null;
 let statsFinal = null;
+// La derrota va en DOS TIEMPOS y el resumen es el segundo.
+//
+// Antes salía el panel entero en el mismo frame en que caía el último jugador,
+// y eso tapaba justo lo que hay que ver: el ataúd, dónde ha caído y con qué
+// encima. Jugando solo era peor todavía —el ataúd propio no llegaba a verse
+// nunca—. Ahora primero se queda el mundo a la vista con un cartel arriba, y el
+// resumen se pide pulsando.
+//
+// `resumenFinal` es ese segundo tiempo. La victoria no lo usa: ahí no hay
+// ataúd que enseñar ni sitio que mirar, así que su panel sale directo.
+let resumenFinal = false;
 let zoomPantalla = 1;
 let tilesDibujados = 0;
 let indicePersonaje = 0;
@@ -586,6 +597,7 @@ function empezarPartida() {
   derrotaGuardada = false;
   finalMostrado = null;
   statsFinal = null;
+  resumenFinal = false;
   GestorAudio.iniciarMusica();
   irA(PANTALLA_JUEGO);
 }
@@ -762,6 +774,14 @@ function actualizar(dt) {
   }
   if (entrada.consumirFlanco('KeyR')) {
     for (let i = 0; i < jugadores.length; i++) jugadores[i].reiniciar();
+    // Y se retira la pantalla final. Sin esto, `finalMostrado` se quedaba
+    // puesto para siempre: levantar a los jugadores les devolvía el control
+    // pero el cartel seguía encima de la partida y no había forma de quitarlo
+    // sin recargar. Era el bug que hacía que la R "no hiciera nada".
+    finalMostrado = null;
+    statsFinal = null;
+    resumenFinal = false;
+    derrotaGuardada = false;
   }
   if (entrada.consumirFlanco('KeyL')) subirTodasLasArmas();
   if (entrada.consumirFlanco('KeyK')) equiparGladius();
@@ -828,6 +848,9 @@ function actualizar(dt) {
   separacion(enemigos, jugadores);
   Obstaculos.actualizar(camara.y, enemigos);
   colisionarObstaculos(Obstaculos, jugadores, enemigos);
+  // Los ataudes son solidos igual que una columna: el sitio donde ha caido un
+  // companero deja de ser sitio por el que se pasa.
+  colisionarAtaudes(jugadores, enemigos);
   contactoJugadores(enemigos, jugadores);
 
   // Las armas disparan DESPUÉS de reconstruir la rejilla: el arco melee la
@@ -917,6 +940,14 @@ function actualizar(dt) {
   } else if (!finalMostrado && derrota) {
     statsFinal = capturarStats();
     finalMostrado = 'derrota';
+    resumenFinal = false;      // primero el cartel; el resumen se pide
+  }
+
+  // Segundo tiempo de la derrota: cualquier tecla pasa del cartel al resumen.
+  // Se atiende AQUÍ y no arriba del todo porque el flanco que abre el resumen
+  // no puede ser el mismo golpe de tecla que acaba de matarte.
+  if (finalMostrado === 'derrota' && !resumenFinal && entrada.algunFlanco()) {
+    resumenFinal = true;
   }
 
   entrada.limpiarFlanco();
@@ -1146,7 +1177,11 @@ function dibujar(alpha) {
   // El cofre manda sobre todo lo demás: es el único que aparece sin haberlo
   // pedido, y si una subida de nivel simultánea se pintara encima nadie sabría
   // qué le acaba de tocar.
-  if (finalMostrado) dibujarFinal(ctxUi, ALTO_UI, finalMostrado === 'victoria', statsFinal);
+  // Derrota en dos tiempos: primero solo el cartel, con el mundo y los ataudes
+  // a la vista, y el resumen cuando se pide. La victoria va directa al resumen:
+  // alli no hay ataud que mirar.
+  if (finalMostrado === 'derrota' && !resumenFinal) dibujarCartelFinal(ctxUi, ALTO_UI, false);
+  else if (finalMostrado) dibujarFinal(ctxUi, ALTO_UI, finalMostrado === 'victoria', statsFinal);
   if (fichaAbierta >= 0) dibujarFicha(ctxUi, jugadores, fichaAbierta);
   else if (Progresion.cofreAbierto) dibujarCofre(ctxUi, jugadores);
   else if (Progresion.abierto) dibujarMenuNivel(ctxUi, jugadores);

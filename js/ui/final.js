@@ -21,6 +21,68 @@ const RELLENO = 16;
 const COLOR_VICTORIA = { titulo: '#e8c368', borde: '#e8c368', pie: '#d7c9a0' };
 const COLOR_DERROTA = { titulo: '#e8b0a4', borde: '#a04a3c', pie: '#a4837c' };
 
+// CARTEL de derrota: primer tiempo, antes del resumen. Solo la palabra y una
+// línea de "pulsa para seguir", SIN panel detrás.
+//
+// Que no haya panel es el punto entero: lo que hay debajo —el ataúd, dónde ha
+// caído, la horda que lo rodea— es lo que se quiere mirar en ese momento, y un
+// rectángulo opaco en el centro lo tapaba justo cuando más se mira. Jugando
+// solo el ataúd propio no llegaba a verse nunca.
+//
+// Arriba y no en el centro, por lo mismo: el centro es donde está el cuerpo.
+const ALTURA_CARTEL = 0.22;      // fracción del alto, medida desde arriba
+
+export function dibujarCartelFinal(ctx, alto, victoria) {
+  const color = victoria ? COLOR_VICTORIA : COLOR_DERROTA;
+  const y = alto * ALTURA_CARTEL;
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Reborde oscuro en vez de caja, como el resto de textos sobre el mundo (ver
+  // textoBorde en ui/capa.js): se lee sobre la arena, sobre la piedra y sobre
+  // una horda de ochocientos bichos sin tapar ninguno.
+  ctx.font = `44px ${FUENTE_TITULO}`;
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = 'rgba(6,5,10,.92)';
+  ctx.fillStyle = color.titulo;
+  const texto = victoria ? 'VICTORIA' : 'DERROTA';
+  const ancho = medirEspaciado(ctx, texto, 10);
+  trazarEspaciado(ctx, texto, ANCHO_UI / 2 - ancho / 2, y, 10);
+
+  ctx.font = `400 11px ${FUENTE}`;
+  ctx.lineWidth = 3.5;
+  ctx.strokeStyle = 'rgba(6,5,10,.92)';
+  ctx.fillStyle = color.pie;
+  const pie = 'Pulsa cualquier tecla para ver el resumen';
+  ctx.strokeText(pie, ANCHO_UI / 2, y + 36);
+  ctx.fillText(pie, ANCHO_UI / 2, y + 36);
+
+  ctx.restore();
+}
+
+// textoEspaciado de ui/capa.js solo rellena; aquí hace falta trazar el reborde
+// ANTES del relleno letra a letra, así que se separan medir y trazar.
+function medirEspaciado(ctx, txt, extra) {
+  let total = 0;
+  for (const c of txt) total += ctx.measureText(c).width + extra;
+  return total - extra;
+}
+
+function trazarEspaciado(ctx, txt, x, y, extra) {
+  const alineacion = ctx.textAlign;
+  ctx.textAlign = 'left';
+  let cx = x;
+  for (const c of txt) {
+    ctx.strokeText(c, cx, y);
+    ctx.fillText(c, cx, y);
+    cx += ctx.measureText(c).width + extra;
+  }
+  ctx.textAlign = alineacion;
+}
+
 function filaEstadistica(ctx, x, y, w, etiqueta, valor, t) {
   ctx.textAlign = 'left';
   ctx.font = `500 10px ${FUENTE}`;

@@ -1708,6 +1708,27 @@ $CATALOGO = @(
     @{ src='characters\Sara_ataud.png';  dst='personajes\sara-ataud.png';  id='saraAtaud';  alto=26; anchoFijo=0; tol=0; plano=$true }
     @{ src='characters\Vicky_ataud.png'; dst='personajes\vicky-ataud.png'; id='vickyAtaud'; alto=26; anchoFijo=0; tol=0; plano=$true }
 
+    # MASCOTAS. El `id` es el mismo de datos/mascotas.js, con el prefijo
+    # `mascota` para no chocar con nada del bestiario.
+    #
+    # Todas MIRAN A LA DERECHA en el original, que es lo que asume el motor, y
+    # NO llevan `plano`: la mascota gira con su jugador, así que necesita la
+    # copia espejada que precachea recursos.js. Se le cuela de paso la del
+    # destello de impacto, que no usa nadie, pero son ocho lienzos diminutos y
+    # no hay un `plano` a medias que diga "espejo sí, destello no".
+    #
+    # Los altos van entre 10 y 14 contra los 26 del personaje: tienen que
+    # leerse como una mascota que acompaña, no como otro personaje. La tortuga
+    # es la más baja y el perro el más alto, que es lo que dice cada dibujo.
+    @{ src='mascotas\Hamster.png'; dst='mascotas\heladio.png';  id='mascotaHeladio';  alto=11; anchoFijo=0; tol=0 }
+    @{ src='mascotas\Tortuga.png'; dst='mascotas\escipion.png'; id='mascotaEscipion'; alto=10; anchoFijo=0; tol=0 }
+    @{ src='mascotas\Buho.png';    dst='mascotas\plinio.png';   id='mascotaPlinio';   alto=13; anchoFijo=0; tol=0 }
+    @{ src='mascotas\Gato.png';    dst='mascotas\neron.png';    id='mascotaNeron';    alto=12; anchoFijo=0; tol=0 }
+    @{ src='mascotas\PErro.png';   dst='mascotas\karim.png';    id='mascotaKarim';    alto=14; anchoFijo=0; tol=0 }
+    @{ src='mascotas\Gallina.png'; dst='mascotas\cleopatra.png';id='mascotaCleopatra';alto=13; anchoFijo=0; tol=0 }
+    @{ src='mascotas\Conejo.png';  dst='mascotas\oreo.png';     id='mascotaOreo';     alto=11; anchoFijo=0; tol=0 }
+    @{ src='mascotas\Pollito.png'; dst='mascotas\pollito.png';  id='mascotaPollito';  alto=12; anchoFijo=0; tol=0 }
+
     # --- Decoracion solida del nivel 1: columnas, antorchas, estatuas y
     # ruinas de resources/stages/1/objetos/. Ilustraciones estaticas sueltas
     # (sin gif/cadera/hoja), asi que caen directas por Procesar():
@@ -1767,6 +1788,7 @@ $CUERPO_H = 760
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'enemigos')   | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'personajes') | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'objetos')    | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'mascotas')   | Out-Null
 
 $informe = @()
 $atlas = [ordered]@{}

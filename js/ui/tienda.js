@@ -2,6 +2,7 @@ import { ANCHO_UI, ALTO_UI } from '../core/constantes.js';
 import { FUENTE, FUENTE_TITULO, textoEspaciado, envolverTexto } from './capa.js';
 import { Tema, panel, cenefa } from './tema.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
+import { Recursos } from '../core/recursos.js';
 import { POTENCIADORES } from '../datos/potenciadores.js';
 import { MASCOTAS, ORDEN_MASCOTAS } from '../datos/mascotas.js';
 
@@ -146,11 +147,10 @@ export function dibujarTienda(ctx, cursor, pestanya) {
 //
 // Se parece a la de mejoras pero no es la misma lista: una mascota no tiene
 // niveles, así que en lugar de los puntitos lleva su ESTADO —el precio si no la
-// tienes, "EN USO" si la llevas puesta, "GUARDADA" si la tienes y no— y una
-// silueta de color a la izquierda que es la misma que se ve en la partida.
-//
-// El color y la inicial son provisionales, igual que en sistemas/mascotas.js:
-// cuando haya dibujos, aquí se cambia el círculo por el sprite.
+// tienes, "EN USO" si la llevas puesta, "guardada" si la tienes y no— y a la
+// izquierda EL MISMO DIBUJO que se ve en la partida, no un icono aparte: lo que
+// se elige aquí es el bicho que va a ir trotando al lado, y verlo antes de
+// pagarlo es medio motivo para comprarlo.
 const ALTO_FILA_MASCOTA = 26;
 const COLOR_EN_USO = '#7fd68a';
 
@@ -179,26 +179,48 @@ function dibujarMascotas(ctx, cursor) {
       ctx.fillRect(px + 4, y0 + i * ALTO_FILA_MASCOTA, ANCHO_PANEL - 8, ALTO_FILA_MASCOTA - 2);
     }
 
-    // Silueta. Apagada si no la tienes: se ve qué hay a la venta sin que
-    // parezca que ya es tuya.
-    ctx.globalAlpha = tiene ? 1 : 0.35;
-    ctx.beginPath();
-    ctx.arc(px + RELLENO + 6, yc, 7, 0, Math.PI * 2);
-    ctx.fillStyle = def.color;
-    ctx.fill();
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = enUso ? COLOR_EN_USO : 'rgba(8,7,10,.7)';
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(12,10,14,.8)';
-    ctx.font = `700 8px ${FUENTE}`;
-    ctx.textAlign = 'center';
-    ctx.fillText(def.inicial, px + RELLENO + 6, yc + 0.5);
+    // El mismo dibujo que se ve en la partida, encajado en su hueco. Apagado
+    // si no la tienes: se ve qué hay a la venta sin que parezca que ya es tuya.
+    // Sin suavizado, que es pixel art; se restaura después porque toda la capa
+    // de interfaz lo quiere encendido para el texto.
+    const idAtlas = 'mascota' + id.charAt(0).toUpperCase() + id.slice(1);
+    const meta = Recursos.meta(idAtlas);
+    const img = Recursos.imagen(idAtlas);
+    const cxIcono = px + RELLENO + 9;
+    ctx.globalAlpha = tiene ? 1 : 0.4;
+    if (meta && img) {
+      const esc = Math.min(20 / meta.w, 20 / meta.h);
+      const w = meta.w * esc;
+      const h = meta.h * esc;
+      const suavizado = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, 0, 0, meta.w, meta.h, cxIcono - w / 2, yc - h / 2, w, h);
+      ctx.imageSmoothingEnabled = suavizado;
+    } else {
+      ctx.beginPath();
+      ctx.arc(cxIcono, yc, 7, 0, Math.PI * 2);
+      ctx.fillStyle = def.color;
+      ctx.fill();
+      ctx.fillStyle = 'rgba(12,10,14,.8)';
+      ctx.font = `700 8px ${FUENTE}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(def.inicial, cxIcono, yc + 0.5);
+    }
     ctx.globalAlpha = 1;
+
+    // Marca de "puesta": un punto verde, que se lee antes que el texto de la
+    // derecha cuando se recorre la lista de arriba abajo.
+    if (enUso) {
+      ctx.beginPath();
+      ctx.arc(cxIcono + 9, yc - 8, 2.4, 0, Math.PI * 2);
+      ctx.fillStyle = COLOR_EN_USO;
+      ctx.fill();
+    }
 
     ctx.textAlign = 'left';
     ctx.font = `600 11px ${FUENTE}`;
     ctx.fillStyle = seleccionada ? '#ffffff' : (tiene ? t.titulo : t.texto);
-    ctx.fillText(def.nombre, px + RELLENO + 18, yc);
+    ctx.fillText(def.nombre, px + RELLENO + 24, yc);
 
     ctx.textAlign = 'right';
     ctx.font = `600 10px ${FUENTE}`;

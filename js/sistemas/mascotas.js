@@ -1,5 +1,6 @@
 import { MASCOTAS } from '../datos/mascotas.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
+import { Recursos } from '../core/recursos.js';
 import { ESCALA_ARTE } from '../core/constantes.js';
 import { enemigoMasCercano, enemigosEnRadio } from './colisiones.js';
 import { VFX } from './vfx.js';
@@ -39,7 +40,8 @@ export const Mascotas = {
   iniciar() {
     this.activas = new Array(MAX);
     for (let i = 0; i < MAX; i++) {
-      this.activas[i] = { x: 0, y: 0, reloj: 0, fase: i * 1.7, viva: false };
+      this.activas[i] = { x: 0, y: 0, reloj: 0, fase: i * 1.7, viva: false,
+                          mirandoDerecha: true };
     }
     this.releer();
   },
@@ -82,9 +84,14 @@ export const Mascotas = {
       const destinoX = j.x - (j.mirandoDerecha ? DISTANCIA : -DISTANCIA);
       const destinoY = j.y - 4;
       const k = Math.min(1, SUAVIZADO * dt);
-      m.x += (destinoX - m.x) * k;
+      const avanceX = (destinoX - m.x) * k;
+      m.x += avanceX;
       m.y += (destinoY - m.y) * k;
       m.fase += dt * 3;
+      // Mira hacia donde se mueve, con una zona muerta: sin ella, el temblor
+      // del suavizado cuando ya está en su sitio la haría girar sin parar.
+      if (avanceX > 0.05) m.mirandoDerecha = true;
+      else if (avanceX < -0.05) m.mirandoDerecha = false;
 
       if (!habilidad) continue;          // pasiva: solo se dibuja
       m.reloj -= dt;
@@ -94,29 +101,46 @@ export const Mascotas = {
     }
   },
 
-  // Dibujo PROVISIONAL: silueta de color con la inicial. No hay arte de
-  // mascotas todavía, y dejarlas invisibles habría sido peor que un círculo —
-  // media gracia de llevar a Karim es verlo correr al lado—. Cuando Sergio deje
-  // los dibujos, esto se cambia por un drawImage y los datos no se tocan.
+  // Un drawImage por mascota y su sombra. El id del atlas es el de la mascota
+  // con el prefijo `mascota` (ver el catálogo de procesar-assets.ps1).
+  //
+  // El VOLTEO sale de la copia espejada que precachea recursos.js, igual que en
+  // enemigos y jugador: todos los dibujos miran a la derecha y aquí se elige
+  // uno u otro según hacia dónde va el bicho, sin tocar la matriz del contexto.
+  //
+  // Si falta el sprite se cae a la silueta de color con la inicial, que es lo
+  // que hubo mientras no había arte: una mascota invisible sería peor que un
+  // círculo, porque media gracia de llevar a Karim es verlo correr al lado.
   dibujar(ctx, jugadores) {
     if (!this.def) return;
     const d = this.def;
+    const idAtlas = 'mascota' + this.id.charAt(0).toUpperCase() + this.id.slice(1);
+    const meta = Recursos.meta(idAtlas);
 
     ctx.save();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
     for (let i = 0; i < jugadores.length && i < MAX; i++) {
       const m = this.activas[i];
       if (!m.viva) continue;
       const y = m.y + Math.sin(m.fase) * FLOTE;
 
-      // Sombra en el suelo: sin ella el bicho parece pegado en el cristal.
+      // Sombra en el suelo: sin ella el bicho parece pegado al cristal.
+      const rSombra = meta ? meta.w / ESCALA_ARTE * 0.35 : RADIO_DIBUJO * 0.9;
       ctx.globalAlpha = 0.28;
       ctx.fillStyle = '#000000';
       ctx.beginPath();
-      ctx.ellipse(m.x, m.y + 2, RADIO_DIBUJO * 0.9, RADIO_DIBUJO * 0.4, 0, 0, Math.PI * 2);
+      ctx.ellipse(m.x, m.y + 1, rSombra, rSombra * 0.42, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
+
+      if (meta) {
+        const img = m.mirandoDerecha ? Recursos.imagen(idAtlas) : Recursos.espejo(idAtlas);
+        if (img) {
+          const w = meta.w / ESCALA_ARTE;
+          const h = meta.h / ESCALA_ARTE;
+          ctx.drawImage(img, 0, 0, meta.w, meta.h, m.x - w / 2, y - h, w, h);
+          continue;
+        }
+      }
 
       ctx.beginPath();
       ctx.arc(m.x, y, RADIO_DIBUJO, 0, Math.PI * 2);
@@ -125,9 +149,10 @@ export const Mascotas = {
       ctx.lineWidth = 1;
       ctx.strokeStyle = 'rgba(8,7,10,.75)';
       ctx.stroke();
-
       ctx.fillStyle = 'rgba(12,10,14,.8)';
-      ctx.font = `700 6px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '700 6px sans-serif';
       ctx.fillText(d.inicial, m.x, y + 0.5);
     }
     ctx.restore();

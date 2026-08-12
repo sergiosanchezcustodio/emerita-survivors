@@ -285,6 +285,70 @@
                                          "frames":  1,
                                          "plano":  true
                                      },
+                      "mascotaHeladio":  {
+                                             "archivo":  "mascotas/heladio.png",
+                                             "w":  40,
+                                             "h":  44,
+                                             "anclaX":  20,
+                                             "anclaY":  44,
+                                             "frames":  1
+                                         },
+                      "mascotaEscipion":  {
+                                              "archivo":  "mascotas/escipion.png",
+                                              "w":  64,
+                                              "h":  40,
+                                              "anclaX":  32,
+                                              "anclaY":  40,
+                                              "frames":  1
+                                          },
+                      "mascotaPlinio":  {
+                                            "archivo":  "mascotas/plinio.png",
+                                            "w":  64,
+                                            "h":  52,
+                                            "anclaX":  32,
+                                            "anclaY":  52,
+                                            "frames":  1
+                                        },
+                      "mascotaNeron":  {
+                                           "archivo":  "mascotas/neron.png",
+                                           "w":  48,
+                                           "h":  48,
+                                           "anclaX":  24,
+                                           "anclaY":  48,
+                                           "frames":  1
+                                       },
+                      "mascotaKarim":  {
+                                           "archivo":  "mascotas/karim.png",
+                                           "w":  64,
+                                           "h":  56,
+                                           "anclaX":  32,
+                                           "anclaY":  56,
+                                           "frames":  1
+                                       },
+                      "mascotaCleopatra":  {
+                                               "archivo":  "mascotas/cleopatra.png",
+                                               "w":  48,
+                                               "h":  52,
+                                               "anclaX":  24,
+                                               "anclaY":  52,
+                                               "frames":  1
+                                           },
+                      "mascotaOreo":  {
+                                          "archivo":  "mascotas/oreo.png",
+                                          "w":  48,
+                                          "h":  44,
+                                          "anclaX":  24,
+                                          "anclaY":  44,
+                                          "frames":  1
+                                      },
+                      "mascotaPollito":  {
+                                             "archivo":  "mascotas/pollito.png",
+                                             "w":  48,
+                                             "h":  48,
+                                             "anclaX":  24,
+                                             "anclaY":  48,
+                                             "frames":  1
+                                         },
                       "columna":  {
                                       "archivo":  "objetos/columna.png",
                                       "w":  56,

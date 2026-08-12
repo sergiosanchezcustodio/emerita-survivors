@@ -372,6 +372,53 @@ export function colisionarObstaculos(obstaculos, jugadores, enemigos) {
   }
 }
 
+// Ataúdes: el sitio donde ha caído un jugador es SÓLIDO, ni se pisa ni se
+// atraviesa. Misma resolución que un obstáculo del escenario, pero aparte
+// porque estos aparecen y desaparecen durante la partida y son cuatro como
+// mucho, así que ni pool ni rejilla propia: se recorre la lista de jugadores.
+//
+// El propio caído no se empuja a sí mismo —se quedaría vibrando dentro de su
+// ataúd— y tampoco se empuja a otro caído: dos ataúdes juntos no tienen por qué
+// separarse, y hacerlo los movería del sitio donde murieron, que es justo la
+// información que da un ataúd.
+//
+// RADIO_ATAUD sale del sprite: 72 físicos de ancho son 18 lógicos, y la mitad
+// es 9. Se queda por debajo (7) a propósito, porque el dibujo tiene chepa y
+// tomar la caja entera haría que el ataúd empujara desde donde no hay madera.
+const RADIO_ATAUD = 7;
+
+export function colisionarAtaudes(jugadores, enemigos) {
+  const rejilla = enemigos.rejilla;
+  const enemItems = enemigos.pool.items;
+  const inicio = rejilla.inicio;
+  const indices = rejilla.indices;
+  const columnas = rejilla.columnas;
+  const filas = rejilla.filas;
+
+  for (let k = 0; k < jugadores.length; k++) {
+    const caido = jugadores[k];
+    if (!caido.abatido) continue;
+
+    for (let i = 0; i < jugadores.length; i++) {
+      if (i === k || jugadores[i].abatido) continue;
+      empujarFueraDe(jugadores[i], caido.x, caido.y, RADIO_ATAUD);
+    }
+
+    const cx = rejilla.columnaDe(caido.x);
+    const cy = rejilla.filaDe(caido.y);
+    for (let fy = cy - 1; fy <= cy + 1; fy++) {
+      if (fy < 0 || fy >= filas) continue;
+      for (let fx = cx - 1; fx <= cx + 1; fx++) {
+        if (fx < 0 || fx >= columnas) continue;
+        const c = fy * columnas + fx;
+        for (let p = inicio[c]; p < inicio[c + 1]; p++) {
+          empujarFueraDe(enemItems[indices[p]], caido.x, caido.y, RADIO_ATAUD);
+        }
+      }
+    }
+  }
+}
+
 export function separacion(enemigos, jugadores) {
   const pool = enemigos.pool;
   const items = pool.items;
