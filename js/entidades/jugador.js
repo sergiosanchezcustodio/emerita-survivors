@@ -4,6 +4,7 @@ import { MetaProgreso } from '../core/metaProgreso.js';
 import { PERSONAJES } from '../datos/personajes.js';
 import { PASIVOS } from '../datos/pasivos.js';
 import { POTENCIADORES } from '../datos/potenciadores.js';
+import { MASCOTAS } from '../datos/mascotas.js';
 import { Progresion, xpNecesaria, REROLLS } from '../sistemas/progresion.js';
 import { GestorAudio } from '../sistemas/audio.js';
 
@@ -159,6 +160,18 @@ export class Jugador {
     // nivel y si no se acumularían sobre sí mismos.
     this.escudoMax = 0;
     this.resurreccionesMax = 0;
+    this.bonusXp = 0;              // Plinio el Búho
+
+    // MASCOTA equipada (datos/mascotas.js). Las pasivas declaran
+    // `campo`/`tipo`/`valor` igual que un pasivo o un potenciador, así que se
+    // aplican con el mismo bucle y no hacen falta ni un campo ni un mecanismo
+    // nuevos. Va la PRIMERA de las tres capas porque es lo que llevas puesto
+    // antes de empezar, igual que los potenciadores.
+    const mascota = MASCOTAS[MetaProgreso.mascotaEquipada];
+    if (mascota && mascota.campo) {
+      if (mascota.tipo === 'suma') this[mascota.campo] += mascota.valor;
+      else this[mascota.campo] *= (1 + mascota.valor);
+    }
 
     // Potenciadores permanentes (denarios, ver core/metaProgreso.js): la base
     // de la que arranca CUALQUIER personaje en CUALQUIER partida, así que se

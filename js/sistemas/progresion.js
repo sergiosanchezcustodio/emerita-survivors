@@ -176,6 +176,11 @@ export const Progresion = {
   // sube el equipo entero de golpe, y cada jugador vivo encola su propia
   // elección —lo que se comparte es el ritmo, no con qué juega cada uno—.
   ganarXp(jugador, cantidad, jugadores) {
+    // Plinio el Búho (datos/mascotas.js) sube la experiencia que entra. Se
+    // aplica AQUÍ y no en quien reparte la gema, porque quien la reparte no
+    // sabe de mascotas y hay tres sitios que dan experiencia.
+    if (jugador.bonusXp > 0) cantidad *= (1 + jugador.bonusXp);
+
     if (!jugadores || jugadores.length <= 1) {
       jugador.xp += cantidad;
       while (jugador.xp >= jugador.xpNecesaria) {

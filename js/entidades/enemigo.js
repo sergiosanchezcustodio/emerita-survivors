@@ -239,6 +239,13 @@ function crearEnemigo() {
     relojAtaque: 0,
     // Huida SIN vuelta: la de los que se largan cuando entra el jefe final.
     huidaTotal: false,
+    // Pánico TEMPORAL: segundos que le quedan de salir corriendo por el chillido
+    // del Pollito Fantasma (sistemas/mascotas.js). A diferencia de `huidaTotal`,
+    // esto se pasa: al llegar a cero vuelve al movimiento que tenía, que se
+    // guarda aquí mismo porque el sorteo de personalidad se hace una vez al
+    // aparecer y no habría forma de recuperarlo si se pisara.
+    panico: 0,
+    movPrevio: 0,
     // Dirección fija de los que cruzan sin perseguir (MOV_TRAVESIA) y de los
     // jefes en plena embestida (ver `embestida` más abajo): la reutilizan
     // porque las dos cosas son "recto, en esta dirección, sin perseguir".
@@ -387,6 +394,8 @@ export class Enemigos {
     // oleada dispararan a la vez, no serían seis enemigos, sería un solo evento.
     e.relojAtaque = def.ataque ? this._rng() * def.ataque.cadencia : 0;
     e.huidaTotal = false;
+    e.panico = 0;
+    e.movPrevio = 0;
 
     if (def.cofre) this.elitesVivos++;
     if (def.escolta) this.escoltasVivos++;
@@ -434,6 +443,20 @@ export class Enemigos {
       const e = items[k];
       e.xPrev = e.x;
       e.yPrev = e.y;
+
+      // --- Pánico temporal (el chillido del Pollito Fantasma) --------------
+      // Se consume aquí, al principio, y al agotarse devuelve al bicho el
+      // movimiento que tenía. Va antes de todo lo demás para que un enemigo que
+      // deja de tener pánico este mismo paso ya persiga con normalidad y no se
+      // quede un frame a medias.
+      if (e.panico > 0) {
+        e.panico -= dt;
+        if (e.panico <= 0) {
+          e.panico = 0;
+          e.mov = e.movPrevio;
+          e.cadenciaMov = CADENCIA_MOV[e.mov];
+        }
+      }
 
       // --- Embestida de jefe (Fase 6) ------------------------------------
       // La dispara sistemas/jefes.js: fija dirX/dirY y sube `velocidad`, y
@@ -847,6 +870,25 @@ export class Enemigos {
         k++;
       }
     }
+  }
+
+  // Pánico de UNO, y temporal. Lo usa el Pollito Fantasma
+  // (sistemas/mascotas.js): a diferencia de huidaGeneral, esto se pasa.
+  //
+  // Ni jefes ni objetos del escenario: a un jefe no lo espanta un pollo, y una
+  // antorcha no tiene piernas. Y no se reencola el pánico si ya lo tiene, solo
+  // se estira: un chillido encima de otro alarga el susto, no lo reinicia con
+  // un movimiento previo equivocado.
+  espantar(indice, duracion) {
+    const e = this.pool.items[indice];
+    if (!e || e.vida <= 0) return;
+    if (e.def.rol === 'jefe' || e.def.esObjeto || e.huidaTotal) return;
+    if (e.panico <= 0) {
+      e.movPrevio = e.mov;
+      e.mov = MOV_HUIDA;
+      e.cadenciaMov = CADENCIA_MOV[MOV_HUIDA];
+    }
+    if (duracion > e.panico) e.panico = duracion;
   }
 
   // Todos los que estén vivos salen huyendo, menos los jefes. Lo llama el

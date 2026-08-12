@@ -39,6 +39,8 @@ import {
   dibujarDepuracion, dibujarPausa
 } from './ui/depuracion.js';
 import { Director, aparecerTanda } from './sistemas/director.js';
+import { Mascotas } from './sistemas/mascotas.js';
+import { ORDEN_MASCOTAS } from './datos/mascotas.js';
 import { Jefes } from './sistemas/jefes.js';
 import { NIVEL } from './datos/niveles/merida.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from './datos/personajes.js';
@@ -173,9 +175,16 @@ let pantalla;
 // maneja siempre el puesto 3 aunque el 2 esté vacío.
 const puestos = new Array(4).fill(null);
 
-// Tienda de potenciadores (T desde el título). Un cursor y ya: comprar es
-// Enter, y con qué denarios se paga lo lleva MetaProgreso.
+// Tienda (T desde el título). DOS PESTAÑAS, potenciadores y mascotas, con las
+// flechas izquierda/derecha para cambiar y arriba/abajo para moverse dentro.
+// Una sola tienda con pestañas y no dos entradas distintas en el título: se
+// pagan con los mismos denarios y se miran en el mismo momento —antes de
+// jugar—, así que separarlas obligaría a salir de una para ver cuánto queda
+// para lo de la otra.
 const ID_POTENCIADORES = Object.keys(POTENCIADORES);
+const PESTANYA_POTENCIADORES = 0;
+const PESTANYA_MASCOTAS = 1;
+let pestanyaTienda = PESTANYA_POTENCIADORES;
 let cursorTienda = 0;
 
 // Cambiar de pantalla en un solo sitio. Hay dos cosas que van fuera del lienzo
@@ -433,11 +442,34 @@ function entradaTienda() {
     irA(PANTALLA_TITULO);
     return;
   }
-  const n = ID_POTENCIADORES.length;
+
+  // Cambiar de pestaña reinicia el cursor: las dos listas no tienen ni la
+  // misma longitud ni el mismo orden, así que conservar la fila solo llevaría
+  // a un sitio arbitrario.
+  if (entrada.consumirFlanco('ArrowRight') || entrada.consumirFlanco('ArrowLeft')) {
+    pestanyaTienda = pestanyaTienda === PESTANYA_POTENCIADORES
+                     ? PESTANYA_MASCOTAS : PESTANYA_POTENCIADORES;
+    cursorTienda = 0;
+    return;
+  }
+
+  const lista = pestanyaTienda === PESTANYA_MASCOTAS ? ORDEN_MASCOTAS : ID_POTENCIADORES;
+  const n = lista.length;
   if (entrada.consumirFlanco('ArrowDown')) cursorTienda = (cursorTienda + 1) % n;
   if (entrada.consumirFlanco('ArrowUp')) cursorTienda = (cursorTienda + n - 1) % n;
+
   if (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space')) {
-    MetaProgreso.comprarPotenciador(ID_POTENCIADORES[cursorTienda]);
+    if (pestanyaTienda === PESTANYA_MASCOTAS) {
+      // El mismo botón hace las dos cosas según toque: si no la tienes, la
+      // compra; si la tienes, la equipa (o la quita si ya la llevabas). Un
+      // segundo botón para equipar sería un botón que solo sirve la mitad de
+      // las veces.
+      const id = ORDEN_MASCOTAS[cursorTienda];
+      if (MetaProgreso.tieneMascota(id)) MetaProgreso.equiparMascota(id);
+      else MetaProgreso.comprarMascota(id);
+    } else {
+      MetaProgreso.comprarPotenciador(ID_POTENCIADORES[cursorTienda]);
+    }
   }
 }
 
@@ -546,6 +578,9 @@ function empezarPartida() {
     if (puestos[i]) anyadirJugador(ORDEN_PERSONAJES[puestos[i].personaje]);
   }
   camara.situar(jugadores[0].x, jugadores[0].y);
+  // Que mascota se lleva se decide en la tienda, no en la partida: se lee una
+  // vez aqui y ya no cambia hasta la siguiente.
+  Mascotas.releer();
   Director.reiniciar();
   enemigos.bajas = 0;
   derrotaGuardada = false;
@@ -773,6 +808,7 @@ function actualizar(dt) {
     jugadores[i].actualizar(dt, entrada.controles[i]);
   }
   reanimar(dt);
+  Mascotas.actualizar(dt, jugadores, ctxArmas);
   for (let i = 0; i < jugadores.length; i++) clamparXNivel(jugadores[i]);
   enemigos.mover(dt, jugadores, camara);
   proyectiles.mover(dt, estallar);
@@ -983,7 +1019,7 @@ function dibujar(alpha) {
   if (pantalla !== PANTALLA_JUEGO) {
     Capa.limpiar();
     if (pantalla === PANTALLA_TITULO) Pantallas.titulo(ctx, Capa.ctx);
-    else if (pantalla === PANTALLA_TIENDA) dibujarTienda(Capa.ctx, cursorTienda);
+    else if (pantalla === PANTALLA_TIENDA) dibujarTienda(Capa.ctx, cursorTienda, pestanyaTienda);
     else Pantallas.seleccion(ctx, Capa.ctx, puestos);
     return;
   }
@@ -1045,6 +1081,7 @@ function dibujar(alpha) {
   // Los disparos enemigos, por encima de todo lo del mundo: uno que viene tiene
   // que verse aunque cruce por detrás de un cíclope.
   disparos.dibujar(ctx, alpha);
+  Mascotas.dibujar(ctx, jugadores);
   if (activo.particulas) Particulas.dibujar(ctx, alpha);
   perfil.efectos = performance.now() - t;
 
@@ -1228,6 +1265,7 @@ async function arrancar() {
   // dibujarse y dejarse recoger. Ninguno de los dos sabe del otro más que esto.
   Director.objetos = cofres;
   Jefes.iniciar(rng);
+  Mascotas.iniciar();
 
   ctxArmas.enemigos = enemigos;
   ctxArmas.proyectiles = proyectiles;
@@ -1265,8 +1303,17 @@ async function arrancar() {
     ajustes, activo, perfil,
     anyadirJugador, quitarJugador,
     // Estado de las pantallas previas. Sirve para lo mismo que `avanzar`:
-    // reproducir una situación sin depender de que llegue la pulsación.
-    puestos, get pantalla() { return pantalla; },
+    // reproducir una situación sin depender de que llegue la pulsación. `irA`
+    // salta a una pantalla concreta —título 0, selección 1, juego 2, tienda 3—
+    // sin pasar por el menú, que es la única forma de probar la tienda o la
+    // selección desde la consola cuando el navegador no está dando el foco.
+    puestos, get pantalla() { return pantalla; }, irA,
+    PANTALLA: { titulo: PANTALLA_TITULO, seleccion: PANTALLA_SELECCION,
+                juego: PANTALLA_JUEGO, tienda: PANTALLA_TIENDA },
+    // Progreso META y mascotas. Se exponen para poder probar desde la consola
+    // sin jugar veinte partidas para reunir denarios, y para poder mirar qué
+    // hay guardado sin abrir el inspector de localStorage.
+    meta: MetaProgreso, mascotas: Mascotas,
     get jugador() { return jugadores[0]; },   // atajo para el caso de uno solo
     avanzar(n) { for (let i = 0; i < n; i++) actualizar(DT); return enemigos.activos; }
   };
