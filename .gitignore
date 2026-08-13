@@ -10,3 +10,11 @@ desktop.ini
 # para decidir en el momento, no para el historial del juego. Varios MB de
 # PNG/JPG por intento, muchos descartados.
 herramientas/candidatos/
+
+# Aplicación de escritorio empaquetada (herramientas/empaquetar.ps1). Son 530 MB
+# de Chromium, y una sola de sus DLL pesa 297: GitHub rechaza cualquier fichero
+# de más de 100 MB, y un binario metido en el historial se queda ahí para
+# siempre aunque después se borre. Lo que se versiona es el SCRIPT; el
+# ejecutable se genera cuando hace falta y se reparte como release.
+dist/
+herramientas/lanzador/cache/

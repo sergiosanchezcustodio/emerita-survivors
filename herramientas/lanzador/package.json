@@ -1,0 +1,16 @@
+{
+  "name": "emerita-survivors",
+  "version": "1.0.0",
+  "description": "Survivors-like ambientado en la Emerita Augusta romana",
+  "main": "index.html",
+  "window": {
+    "title": "Emerita Survivors",
+    "icon": "icono.png",
+    "width": 1280,
+    "height": 760,
+    "min_width": 640,
+    "min_height": 400,
+    "position": "center"
+  },
+  "chromium-args": "--allow-file-access-from-files --force-color-profile=srgb --autoplay-policy=no-user-gesture-required"
+}

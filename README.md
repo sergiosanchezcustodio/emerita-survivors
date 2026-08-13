@@ -13,12 +13,37 @@ python -m http.server 8000
 
 Abrir `http://localhost:8000`. No hay paso de build: es JS servido tal cual.
 
+## Aplicación de escritorio (Windows)
+
+```
+powershell -ExecutionPolicy Bypass -File herramientas\empaquetar.ps1
+```
+
+Deja en `dist/emerita-survivors-win64/` una carpeta con `Emerita Survivors.exe`
+que funciona a doble clic en cualquier PC con Windows: sin navegador, sin
+servidor y sin instalar nada. La primera vez descarga NW.js —Chromium
+empaquetado como aplicación, 200 MB— y lo deja en caché; las siguientes tardan
+segundos.
+
+El código del juego NO se compila ni se toca: los mismos `index.html`, `js/` y
+`assets/` que sirve el servidor local van tal cual dentro del ejecutable. Por eso
+esto es una carpeta aparte y no una forma distinta de construir el proyecto.
+
+**El resultado ocupa 520 MB y no entra en el repositorio**: una sola DLL de
+Chromium pesa 297 y GitHub rechaza ficheros de más de 100 MB. Lo que se versiona
+es el script; el ejecutable se genera cuando hace falta y se reparte como
+release. Con `-Zip` sale además el comprimido listo para enviar (200 MB).
+
 ## Estado
 
 Fases 1-8 del plan completas (`prompt-emerita-survivors.md`): movimiento y
 combate, oleadas, armas y progresión, escenario con objetos sólidos y ancho
-limitado, denarios y tienda de potenciadores, los tres jefes, presentación
-(HUD, audio procedural, pantalla final) y esta pasada de perfilado.
+limitado, los tres jefes y presentación completa.
+
+Y por encima del plan, lo pedido después: cooperativo local hasta cuatro
+jugadores con reanimación, mascotas con niveles, tienda de tres secciones
+—potenciadores, mascotas y jugadores—, ruleta en los cofres, resumen final por
+jugador, música compuesta y esta aplicación de escritorio.
 Perfilado en `js/sistemas/audio.js` § "Perfilado de rendimiento" más abajo.
 
 ## Arquitectura, en cuatro carpetas
