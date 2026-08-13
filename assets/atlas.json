@@ -726,8 +726,8 @@
                                                         "sierrasVotivas"
                                                     ]
                                       },
-                      "ruletaDisco":  {
-                                          "archivo":  "menus/ruleta-disco.png",
+                      "ruletaMarco":  {
+                                          "archivo":  "menus/ruleta-marco.png",
                                           "w":  640,
                                           "h":  693,
                                           "anclaX":  319,
@@ -736,16 +736,8 @@
                                           "plano":  true,
                                           "centroX":  319,
                                           "centroY":  327,
-                                          "radio":  285
-                                      },
-                      "ruletaMarco":  {
-                                          "archivo":  "menus/ruleta-marco.png",
-                                          "w":  640,
-                                          "h":  693,
-                                          "anclaX":  319,
-                                          "anclaY":  327,
-                                          "frames":  1,
-                                          "plano":  true
+                                          "radio":  281,
+                                          "radioCara":  251
                                       }
                   }
 }

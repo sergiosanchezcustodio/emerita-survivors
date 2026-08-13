@@ -48,10 +48,17 @@ const ALTO_CABECERA = 46;
 const ALTO_RESULTADO = 42;
 const ALTO_PIE = 22;
 
-// Radio al que se colocan los iconos, en fracción del radio de la rueda. 0,62
+// Radio al que se colocan los iconos, en fracción del radio de la rueda. 0,60
 // los deja centrados en la parte ancha del sector: más adentro se amontonan
 // contra el eje y más afuera se meten en el aro.
-const RADIO_ICONOS = 0.62;
+const RADIO_ICONOS = 0.60;
+
+// Y su tamaño, también en fracción del radio. Bajado de 0,30 a 0,225 a petición
+// de Sergio: a 0,30 el icono llegaba de un radio del sector al otro y se comía
+// las líneas que separan las porciones, así que la rueda se leía como un
+// amasijo de dibujos en vez de como ocho casillas con una cosa en cada una.
+const ICONO_POR_RADIO = 0.225;
+const ICONO_MAX = 13;
 
 // Vueltas que da cada rueda antes de pararse. Cuatro es lo que hace falta para
 // que se lea como "ha girado" y no como "ha saltado a su sitio".
@@ -79,35 +86,106 @@ function ruedaParada(i) {
   return Progresion.relojGiro >= duracionGiro(i);
 }
 
-// Una rueda con sus ocho iconos. `cx`,`cy` es el centro del DISCO, no el de la
+// Los ocho colores de la cara, muestreados del propio dibujo de Sergio y en su
+// orden: el rojo arriba y de ahí en el sentido de las agujas del reloj.
+const COLORES_SECTOR = [
+  '#e60205', '#fd7101', '#fdda04', '#05ca03',
+  '#00daef', '#004cfa', '#7809fb', '#fb1fc4'
+];
+const COLOR_LATON = '#d8a640';
+const COLOR_LATON_ALTO = '#ffe2a0';
+
+// LA CARA DE LA RUEDA SE TRAZA, NO SE GIRA.
+//
+// Esto empezó girando el dibujo entero de la ruleta y no valía: "al girar la
+// imagen se distorsiona y se rompe". El motivo no era el suavizado ni el tamaño,
+// era que LA RUEDA DIBUJADA NO ES UN CÍRCULO —su canto va de 528 a 541 píxeles
+// según por dónde se mida y el borde interior del aro es aún más irregular—, así
+// que al girarla su silueta giraba con ella: el canto ondulaba, el aro parecía
+// doble y una costura recorría la rueda. Ningún radio de corte lo arregla,
+// porque el problema es girar un dibujo hecho a mano que no es simétrico de
+// revolución.
+//
+// Así que gira lo único que puede girar sin romperse: ocho sectores trazados,
+// que son circulares por definición y no tienen píxeles que remuestrear. El
+// dibujo de Sergio se queda con la parte que NO gira y que es la que tiene
+// carácter —aro, tachones, puntero y soporte—, y se pinta encima recortado a un
+// círculo exacto (ver RecortarRuleta en la herramienta).
+function dibujarCara(ctx, cx, cy, radio, ang) {
+  const paso = TAU / CASILLAS_RULETA;
+
+  for (let k = 0; k < CASILLAS_RULETA; k++) {
+    // La casilla k está CENTRADA en su ángulo, que es lo que hace que la
+    // ganadora quede debajo del puntero y no a medio sector de él.
+    const a0 = ang + k * paso - paso / 2 - Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radio, a0, a0 + paso);
+    ctx.closePath();
+    ctx.fillStyle = COLORES_SECTOR[k];
+    ctx.fill();
+  }
+
+  // Los radios de latón que separan las porciones. Van DESPUÉS de los rellenos
+  // para que tapen la juntura entre sectores contiguos, que si no se ve como una
+  // línea dentada donde se tocan dos colores.
+  ctx.lineCap = 'butt';
+  ctx.lineWidth = Math.max(1.5, radio * 0.035);
+  ctx.strokeStyle = COLOR_LATON;
+  ctx.beginPath();
+  for (let k = 0; k < CASILLAS_RULETA; k++) {
+    const a = ang + (k + 0.5) * paso - Math.PI / 2;
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a) * radio, cy + Math.sin(a) * radio);
+  }
+  ctx.stroke();
+
+  // Sombra por dentro del aro: es lo que ata la cara trazada con el aro dibujado
+  // en vez de dejar los colores cortados a cuchillo contra el latón.
+  const grosor = Math.max(1.5, radio * 0.06);
+  ctx.lineWidth = grosor;
+  ctx.strokeStyle = 'rgba(52,26,8,.5)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, radio - grosor / 2, 0, TAU);
+  ctx.stroke();
+
+  // El eje, en el centro. Redondo y de latón, como en el dibujo: un anillo
+  // exterior, el cuerpo y un brillo pequeño arriba a la izquierda, que es lo que
+  // lo lee como una pieza abombada en vez de como un círculo pintado.
+  const rEje = Math.max(4, radio * 0.155);
+  ctx.beginPath();
+  ctx.arc(cx, cy, rEje, 0, TAU);
+  ctx.fillStyle = 'rgba(52,26,8,.75)';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, rEje * 0.82, 0, TAU);
+  ctx.fillStyle = COLOR_LATON;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx - rEje * 0.22, cy - rEje * 0.22, rEje * 0.34, 0, TAU);
+  ctx.fillStyle = COLOR_LATON_ALTO;
+  ctx.fill();
+}
+
+// Una rueda con sus ocho iconos. `cx`,`cy` es el centro del ARO, no el de la
 // imagen: el dibujo trae el soporte debajo, así que su centro geométrico cae por
 // debajo del eje de la rueda y alinear por ahí descuadraría las tres.
 function dibujarRueda(ctx, cx, cy, ancho, m, i) {
-  const disco = Recursos.meta('ruletaDisco');
-  const imgDisco = Recursos.imagen('ruletaDisco');
+  const marco = Recursos.meta('ruletaMarco');
   const imgMarco = Recursos.imagen('ruletaMarco');
-  if (!disco || !imgDisco) return;
+  if (!marco) return;
 
-  const esc = ancho / disco.w;
-  const w = disco.w * esc;
-  const h = disco.h * esc;
-  const ox = cx - disco.centroX * esc;      // esquina de la imagen
-  const oy = cy - disco.centroY * esc;
-  const radio = disco.radio * esc;
+  const esc = ancho / marco.w;
+  const radio = marco.radio * esc;          // canto exterior, para colocar iconos
+  const radioCara = marco.radioCara * esc;  // hasta donde llega lo que gira
   const ang = anguloRueda(i, m);
 
-  // El disco, girado sobre el eje de la rueda.
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(ang);
-  ctx.drawImage(imgDisco, 0, 0, disco.w, disco.h,
-                -disco.centroX * esc, -disco.centroY * esc, w, h);
-  ctx.restore();
+  dibujarCara(ctx, cx, cy, radioCara, ang);
 
-  // Los iconos ORBITAN con el disco pero se dibujan DERECHOS. Girarlos con su
+  // Los iconos ORBITAN con la cara pero se dibujan DERECHOS. Girarlos con su
   // sector sería más fiel a una ruleta física y peor de leer: media rueda
   // quedaría boca abajo, y lo que hay que reconocer aquí es un arma.
-  const rIcono = Math.min(16, radio * 0.30);
+  const rIcono = Math.min(ICONO_MAX, radio * ICONO_POR_RADIO);
   for (let k = 0; k < CASILLAS_RULETA; k++) {
     const c = m.casillas[k];
     if (!c.id) continue;
@@ -122,9 +200,18 @@ function dibujarRueda(ctx, cx, cy, ancho, m, i) {
     }
   }
 
-  // El marco —puntero y soporte— encima y quieto, que es la razón de que el
-  // dibujo venga partido en dos (ver PartirRuleta en la herramienta).
-  if (imgMarco) ctx.drawImage(imgMarco, 0, 0, disco.w, disco.h, ox, oy, w, h);
+  // El armazón encima y quieto: aro, tachones, puntero y soporte. Con suavizado
+  // explícito porque se reduce de 640 al ancho de la ventana, y a vecino más
+  // próximo una reducción por un factor roto se come filas enteras de píxeles.
+  if (imgMarco) {
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(imgMarco, 0, 0, marco.w, marco.h,
+                  cx - marco.centroX * esc, cy - marco.centroY * esc,
+                  marco.w * esc, marco.h * esc);
+    ctx.restore();
+  }
 
   // Parada: se enciende la casilla premiada. Sin esto, con ocho iconos en la
   // rueda hay que fiarse de dónde cae el puntero, y el puntero es fino.
@@ -172,8 +259,8 @@ function dibujarRuletas(ctx, jugadores, j) {
   const n = Progresion.nMejoras;
   const ancho = n > 1 ? ANCHO_RUEDA_TRES : ANCHO_RUEDA_UNA;
 
-  const disco = Recursos.meta('ruletaDisco');
-  const altoRueda = disco ? ancho * disco.h / disco.w : ancho;
+  const marco = Recursos.meta('ruletaMarco');
+  const altoRueda = marco ? ancho * marco.h / marco.w : ancho;
 
   const anchoVentana = RELLENO_VENTANA * 2 + n * ancho + (n - 1) * HUECO_RUEDA;
   const altoVentana = ALTO_CABECERA + altoRueda + ALTO_RESULTADO + ALTO_PIE;
@@ -209,9 +296,9 @@ function dibujarRuletas(ctx, jugadores, j) {
 
   cenefa(ctx, px + RELLENO_VENTANA, py + 32, anchoVentana - RELLENO_VENTANA * 2);
 
-  // El centro del DISCO, que no es el centro de la imagen: el soporte de madera
+  // El centro del ARO, que no es el centro de la imagen: el soporte de madera
   // cuelga por debajo del eje.
-  const yEje = py + ALTO_CABECERA + (disco ? disco.centroY * ancho / disco.w : altoRueda / 2);
+  const yEje = py + ALTO_CABECERA + (marco ? marco.centroY * ancho / marco.w : altoRueda / 2);
   for (let i = 0; i < n; i++) {
     const cx = px + RELLENO_VENTANA + ancho / 2 + i * (ancho + HUECO_RUEDA);
     dibujarRueda(ctx, cx, yEje, ancho, Progresion.mejoras[i], i);

@@ -794,73 +794,57 @@ public class Procesador {
     }
 
     // ---------------------------------------------------------------------
-    // Ruleta del cofre: se parte en DISCO y MARCO
+    // Ruleta del cofre: se guarda SOLO EL ARMAZON
     // ---------------------------------------------------------------------
     //
-    // La ilustracion trae la rueda, su soporte de madera y el puntero rojo de
-    // arriba en un solo dibujo. Para animarla hay que girar SOLO la rueda: si se
-    // girara la imagen entera, el soporte daria vueltas con ella y el puntero
-    // dejaria de apuntar a nada, que es justo lo unico que hace un puntero.
+    // La ilustracion trae la rueda entera -aro, puntero, soporte y las ocho
+    // porciones de color- en un solo dibujo. Para animarla hay que girar solo la
+    // cara; si se girase la imagen entera, el soporte daria vueltas con ella y el
+    // puntero dejaria de apuntar a nada.
     //
-    // Salen dos PNG DEL MISMO TAMANO, para que se superpongan sin cuentas: el
-    // disco lleva la rueda y el marco todo lo demas. El juego dibuja el disco
-    // girado sobre su centro y el marco encima, quieto.
+    // El primer intento fue partirla en dos por un circulo: disco que gira y
+    // marco que no. No funciono, y el motivo es que LA RUEDA DIBUJADA NO ES UN
+    // CIRCULO. Su canto va de 528 a 541 pixeles segun por donde se mida y el
+    // borde interior del aro es todavia mas irregular, asi que cualquier corte
+    // circular deja al disco con una silueta ondulada: al girar, el canto se
+    // movia, el aro parecia doble y aparecia una costura recorriendo la rueda.
+    // Se probaron cuatro radios y dos remiendos por simetria; ninguno lo arregla,
+    // porque el problema no es el corte sino que se esta girando un dibujo hecho
+    // a mano que no es simetrico de revolucion.
     //
-    // El circulo esta MEDIDO sobre el original y va aqui como proporcion, no
-    // como pixeles: asi el recorte sigue valiendo si el dibujo se reexporta a
-    // otro tamano. Se midio buscando la fila con mas pixeles opacos seguidos,
-    // que en una rueda es su diametro: centro (600,5, 615,5) y radio 528 sobre
-    // un lienzo de 1205x1305.
+    // Asi que aqui se guarda SOLO EL ARMAZON -aro, tachones, puntero y soporte-,
+    // que es la parte con caracter y la que NO gira, y la cara de colores la
+    // traza el juego con ocho sectores (ver ui/cofre.js). Un sector trazado es
+    // perfectamente circular por definicion: gire lo que gire, no hay silueta que
+    // ondule ni pixel que remuestrear. Y el dibujo de Sergio sigue siendo lo que
+    // se ve, porque el aro y el puntero son lo que se mira.
+    //
+    // Medidas tomadas sobre el original (1205x1305): centro (600,5, 615,5). El
+    // recorte se queda con TODO lo que este a mas de RADIO_HUECO del centro, y
+    // nada mas: sin filtros de color ni excepciones.
+    //
+    // El corte cae por DENTRO del aro pero por FUERA de donde su borde interior
+    // llega en el sitio en que mas se mete (el dibujo lo tiene entre el radio 419
+    // y el 466 segun el angulo). Se pierden unos pixeles del labio interior del
+    // aro por arriba, y a cambio el hueco es un circulo exacto: el borde de la
+    // cara queda perfectamente redondo en vez de heredar la ondulacion del
+    // dibujo, que es de lo que se quejaba Sergio.
     const double CENTRO_X = 600.5 / 1205.0;
     const double CENTRO_Y = 615.5 / 1305.0;
 
-    // 536 y no los 528 que mide el aro: el corte se lleva TAMBIEN la linea
-    // oscura del contorno exterior. Cortando justo por 528 esa linea se quedaba
-    // en el marco -o sea quieta-, y como el aro dibujado no es un circulo
-    // perfecto, al girar el disco asomaba por debajo como un arco fino y
-    // descolocado. Ocho pixeles de mas la meten entera en el disco y el problema
-    // desaparece por donde vino.
-    const double RADIO    = 536.0 / 1205.0;
+    // Radio EXTERIOR, el del canto de la rueda. Solo se publica para que el juego
+    // sepa a que escala colocar los iconos; el recorte no lo usa.
+    const double RADIO = 530.0 / 1205.0;
 
-    // El PUNTERO se manda al marco aunque caiga DENTRO del circulo. Su punta
-    // roja baja hasta y=155, o sea 68 pixeles por debajo del borde de la rueda,
-    // y sin esta excepcion se pondria a dar vueltas con ella. Al disco le queda
-    // una muesca en el borde de arriba que no se ve nunca: el marco se dibuja
-    // encima y ahi lo que hay es puntero.
-    const double PUNTERO_ALTO  = 165.0 / 1305.0;
-    const double PUNTERO_ANCHO =  70.0 / 1205.0;
+    // Desde aqui hacia afuera es aro en TODOS los angulos.
+    const double RADIO_HUECO = 466.0 / 1205.0;
 
-    // Y las PATAS del soporte, por lo mismo. Las dos suben por detras del aro y
-    // se meten dentro del circulo por abajo, a eso de las cuatro y las ocho: sin
-    // sacarlas, el disco giraba con dos manchas de madera dando vueltas por el
-    // aro. La franja se describe en fracciones del radio y esta medida para caer
-    // entera sobre el aro, sin tocar los sectores de color.
-    // La franja va de lado a lado y no solo a los costados: por el centro de
-    // abajo tambien asoma el cubo de laton donde apoya el eje. Son 78 grados de
-    // aro que quedan QUIETOS mientras el resto gira, y no se nota: un aro es
-    // igual mire por donde se mire, y los tres tachones de esa franja solo se
-    // distinguirian del resto si alguien parara la animacion a mitad.
-    const double PATAS_ABAJO = 0.78;   // desde el centro hacia abajo
-    const double PATAS_LADO  = 0.0;    // separacion minima del eje vertical
+    // Hasta aqui traza el juego la cara. Se pasa de largo a proposito por encima
+    // del hueco: donde el aro dibujado empieza mas tarde, la cara llega por
+    // debajo y no queda ni una rendija.
+    const double RADIO_CARA = 472.0 / 1205.0;
 
-    // Y una ultima cosa que se tira a la basura: la LINEA NEGRA del contorno
-    // exterior de la rueda que asoma por fuera del corte. El aro dibujado no es
-    // un circulo perfecto -sube unos pixeles por arriba-, asi que por mucho que
-    // se ajuste el radio siempre queda un trozo de contorno del lado del marco,
-    // y ahi se queda QUIETO: al girar el disco se veia asomar como un arco fino
-    // y descolocado en la mitad de arriba.
-    //
-    // Se borra en vez de repartirse porque el disco ya trae su propio contorno
-    // por dentro del corte: quitar el de fuera no deja a la rueda sin borde, deja
-    // de haber dos. Solo se tira lo NEGRO, solo en un anillo estrecho pegado al
-    // corte y solo en la MITAD DE ARRIBA, que es donde sobra: abajo, ese mismo
-    // anillo es por donde suben las patas, y borrarles el contorno las dejaba con
-    // dos tajos blancos.
-    const double ANILLO_CONTORNO = 1.06;
-    const int NEGRO_CONTORNO = 70;
-
-    public static string PartirRuleta(string entrada, string salidaDisco,
-                                      string salidaMarco, int anchoDest) {
+    public static string RecortarRuleta(string entrada, string salida, int anchoDest) {
         using (Bitmap src = new Bitmap(entrada)) {
             int w = src.Width, h = src.Height;
             BitmapData d = src.LockBits(new Rectangle(0, 0, w, h),
@@ -870,72 +854,31 @@ public class Procesador {
             Marshal.Copy(d.Scan0, px, 0, px.Length);
             src.UnlockBits(d);
 
-            double cx = w * CENTRO_X, cy = h * CENTRO_Y, r = w * RADIO;
-            double r2 = r * r;
-            double punteroY = h * PUNTERO_ALTO, punteroX = w * PUNTERO_ANCHO;
+            double cx = w * CENTRO_X, cy = h * CENTRO_Y;
+            double hueco = w * RADIO_HUECO;
+            double hueco2 = hueco * hueco;
 
-            byte[] disco = new byte[px.Length];
             byte[] marco = new byte[px.Length];
             for (int y = 0; y < h; y++) {
                 for (int x = 0; x < w; x++) {
                     int p = y * stride + x * 4;
                     double dx = x - cx, dy = y - cy;
-                    bool dentro = dx * dx + dy * dy <= r2;
-                    bool enPuntero = y < punteroY && Math.Abs(dx) < punteroX;
-                    bool enPatas = dy > r * PATAS_ABAJO && Math.Abs(dx) >= r * PATAS_LADO;
-
-                    if (dentro && (enPuntero || enPatas)) {
-                        // Trozo de soporte DENTRO de la rueda: puntero arriba,
-                        // patas abajo. Si se dejaran en hueco, el disco giraria
-                        // con mordiscos en el aro dando vueltas; se rellenan con
-                        // el pixel que hay a un CUARTO DE VUELTA, que a ese radio
-                        // es aro limpio por los dos costados. El aro es
-                        // simetrico, asi que el remiendo no se nota ni parado ni
-                        // girando.
-                        //
-                        // Un cuarto y no media vuelta: media vuelta manda el
-                        // puntero a mirar las patas y las patas a mirar el
-                        // puntero, y cada uno se remendaria con el agujero del
-                        // otro.
-                        int ox = (int)Math.Round(cx - dy);
-                        int oy = (int)Math.Round(cy + dx);
-                        if (ox >= 0 && oy >= 0 && ox < w && oy < h) {
-                            int o = oy * stride + ox * 4;
-                            disco[p]     = px[o];
-                            disco[p + 1] = px[o + 1];
-                            disco[p + 2] = px[o + 2];
-                            disco[p + 3] = px[o + 3];
-                        }
-                        marco[p]     = px[p];
-                        marco[p + 1] = px[p + 1];
-                        marco[p + 2] = px[p + 2];
-                        marco[p + 3] = px[p + 3];
-                        continue;
-                    }
-
-                    if (!dentro && dy < 0) {
-                        double d2 = dx * dx + dy * dy;
-                        int lum = (px[p + 2] * 30 + px[p + 1] * 59 + px[p] * 11) / 100;
-                        if (d2 <= r2 * ANILLO_CONTORNO * ANILLO_CONTORNO &&
-                            lum < NEGRO_CONTORNO) continue;      // contorno duplicado: fuera
-                    }
-
-                    byte[] destino = dentro ? disco : marco;
-                    destino[p]     = px[p];
-                    destino[p + 1] = px[p + 1];
-                    destino[p + 2] = px[p + 2];
-                    destino[p + 3] = px[p + 3];
+                    if (dx * dx + dy * dy < hueco2) continue;          // cara: la traza el juego
+                    marco[p]     = px[p];
+                    marco[p + 1] = px[p + 1];
+                    marco[p + 2] = px[p + 2];
+                    marco[p + 3] = px[p + 3];
                 }
             }
 
             int altoDest = (int)Math.Round((double)h * anchoDest / w);
-            Reducir(disco, w, h, stride, salidaDisco, anchoDest, altoDest);
-            Reducir(marco, w, h, stride, salidaMarco, anchoDest, altoDest);
+            Reducir(marco, w, h, stride, salida, anchoDest, altoDest);
 
             return anchoDest + "|" + altoDest + "|" +
                    (int)Math.Round(anchoDest * CENTRO_X) + "|" +
                    (int)Math.Round(altoDest * CENTRO_Y) + "|" +
-                   (int)Math.Round(anchoDest * RADIO);
+                   (int)Math.Round(anchoDest * RADIO) + "|" +
+                   (int)Math.Round(anchoDest * RADIO_CARA);
         }
     }
 
@@ -2734,37 +2677,34 @@ $informeMenus | Format-Table -AutoSize
 # RULETA DEL COFRE
 # ---------------------------------------------------------------------------
 #
-# Se parte en disco y marco para poder girar solo la rueda. Ver PartirRuleta:
-# ahi esta explicado el porque y de donde salen las medidas del circulo.
+# Se guarda solo el ARMAZON: aro, tachones, puntero y soporte. La cara de
+# colores la traza el juego. Ver RecortarRuleta, que es donde esta explicado por
+# que girar el dibujo no funcionaba.
 #
 # 640 de ancho y no el tamano original (1205): la ruleta se dibuja en la capa de
 # interfaz, que va a la resolucion real del monitor, y la mayor de las tres que
 # caben en la ventana del cofre pide unos 800 pixeles reales en una pantalla de
 # densidad doble. 640 es el punto en que deja de notarse la reduccion sin cargar
-# dos PNG de un mega para una ventana que sale cinco veces por partida.
+# un PNG de un mega para una ventana que sale cinco veces por partida.
 $rutaRuleta = Join-Path $ORIGEN 'menus\ruleta.png'
 if (Test-Path $rutaRuleta) {
-    $r = [Procesador]::PartirRuleta($rutaRuleta,
-            (Join-Path $DESTINO 'menus\ruleta-disco.png'),
+    $r = [Procesador]::RecortarRuleta($rutaRuleta,
             (Join-Path $DESTINO 'menus\ruleta-marco.png'), 640)
     $rp = $r -split '\|'
-    # `plano` en las dos: ni giran con el jugador ni reciben destello, asi que no
-    # hacen falta ni la copia espejada ni la blanqueada que precachea recursos.js.
+    # `plano`: ni gira con nadie ni recibe destello, asi que se ahorra la copia
+    # espejada y la blanqueada que precachea recursos.js.
     #
-    # `centroX`/`centroY`/`radio` son la geometria del circulo YA EN PIXELES del
-    # PNG generado. Van en el atlas y no como constantes en el JS a proposito: la
-    # medida se tomo sobre el dibujo, asi que vive con el dibujo. Si Sergio
-    # reexporta la ruleta a otro tamano, el juego no se entera.
-    $atlas['ruletaDisco'] = [ordered]@{
-        archivo='menus/ruleta-disco.png'; w=[int]$rp[0]; h=[int]$rp[1]
-        anclaX=[int]$rp[2]; anclaY=[int]$rp[3]; frames=1; plano=$true
-        centroX=[int]$rp[2]; centroY=[int]$rp[3]; radio=[int]$rp[4]
-    }
+    # `centroX`/`centroY`/`radio`/`radioCara` son la geometria del circulo YA EN
+    # PIXELES del PNG generado. Van en el atlas y no como constantes en el JS a
+    # proposito: la medida se tomo sobre el dibujo, asi que vive con el dibujo. Si
+    # Sergio reexporta la ruleta a otro tamano, el juego no se entera.
     $atlas['ruletaMarco'] = [ordered]@{
         archivo='menus/ruleta-marco.png'; w=[int]$rp[0]; h=[int]$rp[1]
         anclaX=[int]$rp[2]; anclaY=[int]$rp[3]; frames=1; plano=$true
+        centroX=[int]$rp[2]; centroY=[int]$rp[3]; radio=[int]$rp[4]; radioCara=[int]$rp[5]
     }
-    "Ruleta partida: $($rp[0])x$($rp[1])  centro ($($rp[2]),$($rp[3]))  radio $($rp[4])"
+    Remove-Item (Join-Path $DESTINO 'menus\ruleta-disco.png') -ErrorAction SilentlyContinue
+    "Ruleta recortada: $($rp[0])x$($rp[1])  centro ($($rp[2]),$($rp[3]))  radio $($rp[4])  cara $($rp[5])"
 } else {
     "AVISO: no esta resources/menus/ruleta.png; la ventana del cofre saldra sin rueda."
 }
