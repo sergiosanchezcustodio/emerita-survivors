@@ -1761,12 +1761,28 @@ $CATALOGO = @(
     # jugador esta caido, asi que caen por Procesar() como cualquier
     # ilustracion. `plano` porque un ataud ni mira a un lado ni recibe golpes.
     #
-    # Mismo `alto` que el personaje (26): mas bajo se leeria como un objeto mas
-    # del suelo, y lo que tiene que leerse es "aqui hay alguien caido".
-    @{ src='characters\Eric_ataud.png';  dst='personajes\eric-ataud.png';  id='ericAtaud';  alto=26; anchoFijo=0; tol=0; plano=$true }
-    @{ src='characters\Lucy_ataud.png';  dst='personajes\lucy-ataud.png';  id='lucyAtaud';  alto=26; anchoFijo=0; tol=0; plano=$true }
-    @{ src='characters\Sara_ataud.png';  dst='personajes\sara-ataud.png';  id='saraAtaud';  alto=26; anchoFijo=0; tol=0; plano=$true }
-    @{ src='characters\Vicky_ataud.png'; dst='personajes\vicky-ataud.png'; id='vickyAtaud'; alto=26; anchoFijo=0; tol=0; plano=$true }
+    # `tol=6`, MUCHISIMO mas bajo que el 30 por defecto, y es lo que arregla que
+    # el ataud de Eric saliera gris y emborronado.
+    #
+    # Estos dibujos no traen alfa: son opacos con FONDO BLANCO. Y el ataud de
+    # Eric es blanco tambien. Con la tolerancia normal el recorte por color
+    # entra con un umbral de 90 sobre la suma de los tres canales, o sea que
+    # cualquier gris claro cuenta como fondo: se comia el cuerpo del ataud por
+    # dentro, y despues Rematar rellenaba esos huecos con la media de los
+    # vecinos. De ahi el gris sucio y el aspecto de tener transparencias. Con
+    # umbral 18 solo desaparece el blanco de verdad y el contorno negro para la
+    # inundacion donde tiene que pararla.
+    #
+    # Y suben de 26 a 34 de alto. A 26 el original -448x595, con las rayas del
+    # Atleti de ocho pixeles- se reducia 5,7 veces y esas rayas quedaban en 1,3
+    # pixeles: no hay metodo de reduccion que las salve, se funden en un
+    # borron rojo. A 34 la reduccion baja a 4,4 y el escudo y las rayas
+    # sobreviven. Ademas un ataud es mas voluminoso que quien iba dentro, asi
+    # que verlo mas alto que el personaje se lee bien.
+    @{ src='characters\Eric_ataud.png';  dst='personajes\eric-ataud.png';  id='ericAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true }
+    @{ src='characters\Lucy_ataud.png';  dst='personajes\lucy-ataud.png';  id='lucyAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true }
+    @{ src='characters\Sara_ataud.png';  dst='personajes\sara-ataud.png';  id='saraAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true }
+    @{ src='characters\Vicky_ataud.png'; dst='personajes\vicky-ataud.png'; id='vickyAtaud'; alto=34; anchoFijo=0; tol=6; plano=$true }
 
     # MASCOTAS. El `id` es el mismo de datos/mascotas.js, con el prefijo
     # `mascota` para no chocar con nada del bestiario.

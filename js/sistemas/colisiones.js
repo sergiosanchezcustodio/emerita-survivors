@@ -382,10 +382,15 @@ export function colisionarObstaculos(obstaculos, jugadores, enemigos) {
 // separarse, y hacerlo los movería del sitio donde murieron, que es justo la
 // información que da un ataúd.
 //
-// RADIO_ATAUD sale del sprite: 72 físicos de ancho son 18 lógicos, y la mitad
-// es 9. Se queda por debajo (7) a propósito, porque el dibujo tiene chepa y
-// tomar la caja entera haría que el ataúd empujara desde donde no hay madera.
-const RADIO_ATAUD = 7;
+// RADIO_ATAUD sale del sprite. Al subir los ataúdes a 34 de alto para que no
+// se emborronaran (ver el catálogo de procesar-assets.ps1) pasaron a medir 96
+// físicos de ancho, o sea 24 lógicos: la mitad son 12.
+//
+// Se queda en 10, algo por debajo, porque la caja del sprite incluye cosas que
+// sobresalen y no son madera —la bufanda de Eric por la derecha, el balón por
+// abajo— y empujar desde ahí se notaría como un obstáculo invisible. 10 cubre
+// el cuerpo del ataúd, que es lo que se ve sólido.
+const RADIO_ATAUD = 10;
 
 export function colisionarAtaudes(jugadores, enemigos) {
   const rejilla = enemigos.rejilla;
