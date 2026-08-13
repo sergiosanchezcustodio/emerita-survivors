@@ -94,3 +94,36 @@ export const MASCOTAS = {
 export const ORDEN_MASCOTAS = [
   'heladio', 'escipion', 'karim', 'oreo', 'cleopatra', 'plinio', 'pollito', 'neron'
 ];
+
+// --- Niveles ----------------------------------------------------------------
+//
+// Cinco por mascota. El nivel 1 es comprarla; del 2 al 5 se sube en la misma
+// tienda, y cada escalón cuesta más.
+//
+// La mejora es UN SOLO NÚMERO para todas, no una tabla por mascota, y es a
+// propósito: cada mascota ya se diferencia por LO QUE HACE, que es la decisión
+// interesante. Si además cada una escalara distinto, elegir cuál subir dejaría
+// de ser "cuál me gusta más" para ser "cuál tiene mejores números", y eso ya lo
+// cubren los potenciadores.
+//
+// +25% por nivel sobre lo que haga: al 5 rinde el doble que al 1. En las
+// pasivas multiplica su `valor`; en las activas, el número que las define
+// —daño de Karim, cura de Cleopatra, denarios de Oreo, radio del Pollito—.
+export const MAX_NIVEL_MASCOTA = 5;
+export const MEJORA_POR_NIVEL = 0.25;
+
+// Cuánto rinde una mascota de nivel `nivel`, como multiplicador.
+export function factorMascota(nivel) {
+  if (!nivel || nivel < 1) return 0;
+  return 1 + (Math.min(nivel, MAX_NIVEL_MASCOTA) - 1) * MEJORA_POR_NIVEL;
+}
+
+// Precio del SIGUIENTE nivel. El primero es `coste` —comprarla— y los cuatro
+// siguientes van subiendo un 60% del precio base cada uno, así que completar
+// una mascota cuesta unas 3,4 veces lo que costó adoptarla.
+export function costeMascota(def, nivelActual) {
+  if (!def) return -1;
+  if (nivelActual >= MAX_NIVEL_MASCOTA) return -1;
+  if (nivelActual <= 0) return def.coste;
+  return Math.round(def.coste * 0.6 * nivelActual);
+}

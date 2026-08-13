@@ -4,7 +4,8 @@ import { Tema, panel, cenefa } from './tema.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
 import { Recursos } from '../core/recursos.js';
 import { POTENCIADORES } from '../datos/potenciadores.js';
-import { MASCOTAS, ORDEN_MASCOTAS } from '../datos/mascotas.js';
+import { MASCOTAS, ORDEN_MASCOTAS, MAX_NIVEL_MASCOTA } from '../datos/mascotas.js';
+import { PERSONAJES, ORDEN_PERSONAJES } from '../datos/personajes.js';
 
 // Tienda de potenciadores permanentes. Se abre desde el título (T) y no desde
 // dentro de la partida: son compras para SIEMPRE (progreso META, ver
@@ -17,11 +18,12 @@ import { MASCOTAS, ORDEN_MASCOTAS } from '../datos/mascotas.js';
 
 const IDS = Object.keys(POTENCIADORES);
 
-// 268 y no los 236 de cuando había cinco mejoras: con diez, tres de los nombres
-// nuevos ("Clepsidra eterna", "Onda expansiva", "Moneda de Caronte") se comían
-// la columna de puntos. Se ensancha el panel y se aparta la columna en vez de
-// acortar los nombres: el nombre es lo único que dice qué compras.
-const ANCHO_PANEL = 268;
+// Ha crecido dos veces por la misma razón: los nombres son lo único que dice
+// qué compras, así que cuando algo no cabe se ensancha el panel en vez de
+// acortarlos. Primero de 236 a 268, al pasar de cinco mejoras a diez; y ahora a
+// 320, al añadir la tercera pestaña —con MEJORAS, MASCOTAS y HÉROES en la
+// cabecera, el rótulo se comía la moneda de la derecha—.
+const ANCHO_PANEL = 320;
 const ALTO_FILA = 22;
 const RELLENO = 12;
 const CABECERA = 34;
@@ -30,7 +32,10 @@ const PIE = 16;
 
 const COLOR_DENARIO = '#e8b73a';
 const COLOR_MAX = '#7fd68a';
-const COL_DOTS = 132;       // columna donde empiezan los puntos de nivel
+const COL_DOTS = 150;       // columna donde empiezan los puntos de nivel
+// Las mascotas llevan icono a la izquierda, asi que su nombre arranca mas a la
+// derecha y sus puntos tienen que apartarse otro tanto.
+const COL_DOTS_MASCOTA = 176;
 
 function moneda(ctx, x, y, r) {
   ctx.beginPath();
@@ -58,11 +63,13 @@ function cabecera(ctx, px, py, pestanya) {
   // Las dos pestañas, la activa en claro. Se dibujan siempre las dos aunque
   // solo una esté viva: media gracia de una pestaña es que se vea que hay otra.
   ctx.textAlign = 'left';
-  ctx.font = `13px ${FUENTE_TITULO}`;
-  ctx.fillStyle = pestanya === 0 ? t.titulo : t.apagado;
-  const anchoPot = textoEspaciado(ctx, 'MEJORAS', px + RELLENO, yCab, 1.5);
-  ctx.fillStyle = pestanya === 1 ? t.titulo : t.apagado;
-  textoEspaciado(ctx, 'MASCOTAS', px + RELLENO + anchoPot + 12, yCab, 1.5);
+  ctx.font = `12px ${FUENTE_TITULO}`;
+  let cx = px + RELLENO;
+  const nombres = ['MEJORAS', 'MASCOTAS', 'HÉROES'];
+  for (let i = 0; i < nombres.length; i++) {
+    ctx.fillStyle = pestanya === i ? t.titulo : t.apagado;
+    cx += textoEspaciado(ctx, nombres[i], cx, yCab, 1.2) + 10;
+  }
 
   moneda(ctx, px + ANCHO_PANEL - RELLENO - 38, yCab, 6);
   ctx.textAlign = 'right';
@@ -75,6 +82,7 @@ function cabecera(ctx, px, py, pestanya) {
 
 export function dibujarTienda(ctx, cursor, pestanya) {
   if (pestanya === 1) return dibujarMascotas(ctx, cursor);
+  if (pestanya === 2) return dibujarHeroes(ctx, cursor);
 
   const t = Tema.actual;
   const n = IDS.length;
@@ -145,12 +153,16 @@ export function dibujarTienda(ctx, cursor, pestanya) {
 
 // --- Pestaña de mascotas -----------------------------------------------------
 //
-// Se parece a la de mejoras pero no es la misma lista: una mascota no tiene
-// niveles, así que en lugar de los puntitos lleva su ESTADO —el precio si no la
-// tienes, "EN USO" si la llevas puesta, "guardada" si la tienes y no— y a la
-// izquierda EL MISMO DIBUJO que se ve en la partida, no un icono aparte: lo que
-// se elige aquí es el bicho que va a ir trotando al lado, y verlo antes de
-// pagarlo es medio motivo para comprarlo.
+// Como la de mejoras: cada mascota tiene CINCO NIVELES y se suben aquí, así que
+// lleva los mismos puntitos y el precio del siguiente escalón.
+//
+// Lo que cambia es el icono: a la izquierda va EL MISMO DIBUJO que se ve en la
+// partida, no un símbolo aparte. Lo que se compra aquí es el bicho que va a ir
+// trotando al lado, y verlo antes de pagarlo es medio motivo para comprarlo.
+//
+// Aquí ya NO se equipa: cuál lleva cada jugador se decide en su propia pantalla,
+// después de elegir personaje, porque en cooperativo son hasta cuatro
+// decisiones distintas y esta lista solo tiene sitio para una.
 const ALTO_FILA_MASCOTA = 26;
 const COLOR_EN_USO = '#7fd68a';
 
@@ -169,8 +181,10 @@ function dibujarMascotas(ctx, cursor) {
   for (let i = 0; i < n; i++) {
     const id = ORDEN_MASCOTAS[i];
     const def = MASCOTAS[id];
-    const tiene = MetaProgreso.tieneMascota(id);
-    const enUso = MetaProgreso.mascotaEquipada === id;
+    const nivel = MetaProgreso.nivelMascota(id);
+    const tiene = nivel > 0;
+    const coste = MetaProgreso.costeMascota(id);
+    const alMaximo = coste < 0;
     const seleccionada = i === cursor;
     const yc = y0 + i * ALTO_FILA_MASCOTA + ALTO_FILA_MASCOTA / 2;
 
@@ -212,31 +226,28 @@ function dibujarMascotas(ctx, cursor) {
     }
     ctx.globalAlpha = 1;
 
-    // Marca de "puesta": un punto verde, que se lee antes que el texto de la
-    // derecha cuando se recorre la lista de arriba abajo.
-    if (enUso) {
-      ctx.beginPath();
-      ctx.arc(cxIcono + 9, yc - 8, 2.4, 0, Math.PI * 2);
-      ctx.fillStyle = COLOR_EN_USO;
-      ctx.fill();
-    }
 
     ctx.textAlign = 'left';
     ctx.font = `600 11px ${FUENTE}`;
     ctx.fillStyle = seleccionada ? '#ffffff' : (tiene ? t.titulo : t.texto);
     ctx.fillText(def.nombre, px + RELLENO + 24, yc);
 
+    // Los cinco niveles, igual que en las mejoras.
+    for (let k = 0; k < MAX_NIVEL_MASCOTA; k++) {
+      ctx.beginPath();
+      ctx.arc(px + COL_DOTS_MASCOTA + k * 9, yc, 2.6, 0, Math.PI * 2);
+      ctx.fillStyle = k < nivel ? (seleccionada ? '#ffffff' : t.filo) : 'rgba(255,255,255,.15)';
+      ctx.fill();
+    }
+
     ctx.textAlign = 'right';
     ctx.font = `600 10px ${FUENTE}`;
-    if (enUso) {
-      ctx.fillStyle = COLOR_EN_USO;
-      ctx.fillText('EN USO', px + ANCHO_PANEL - RELLENO - 4, yc);
-    } else if (tiene) {
-      ctx.fillStyle = t.apagado;
-      ctx.fillText('guardada', px + ANCHO_PANEL - RELLENO - 4, yc);
+    if (alMaximo) {
+      ctx.fillStyle = COLOR_MAX;
+      ctx.fillText('AL MÁXIMO', px + ANCHO_PANEL - RELLENO - 4, yc);
     } else {
-      ctx.fillStyle = MetaProgreso.denarios >= def.coste ? COLOR_DENARIO : t.apagado;
-      ctx.fillText(String(def.coste), px + ANCHO_PANEL - RELLENO - 4, yc);
+      ctx.fillStyle = MetaProgreso.denarios >= coste ? COLOR_DENARIO : t.apagado;
+      ctx.fillText(String(coste), px + ANCHO_PANEL - RELLENO - 4, yc);
     }
   }
 
@@ -251,9 +262,88 @@ function dibujarMascotas(ctx, cursor) {
 
   ctx.font = `500 9px ${FUENTE}`;
   ctx.fillStyle = t.apagado;
-  const accion = MetaProgreso.tieneMascota(ORDEN_MASCOTAS[cursor]) ? 'equipar' : 'comprar';
+  const accion = MetaProgreso.tieneMascota(ORDEN_MASCOTAS[cursor]) ? 'mejorar' : 'comprar';
   ctx.fillText(`↑↓ elegir   ←→ pestaña   Enter ${accion}   Esc volver`,
                px + ANCHO_PANEL / 2, py + alto - PIE / 2 + 2);
 
+  ctx.restore();
+}
+
+// --- Pestaña de héroes --------------------------------------------------------
+//
+// Hoy los cuatro salen como "TUYO" porque están todos a coste 0 (ver `coste` en
+// datos/personajes.js): fue una decisión de Sergio no ponerles precio a
+// personajes con los que sus hijas ya juegan. La sección existe montada y
+// funcionando, así que convertir cualquiera en comprable es subirle el número
+// en los datos y nada más.
+function dibujarHeroes(ctx, cursor) {
+  const t = Tema.actual;
+  const n = ORDEN_PERSONAJES.length;
+  const alto = CABECERA + n * ALTO_FILA_MASCOTA + ALTO_DESC + PIE + RELLENO;
+  const px = (ANCHO_UI - ANCHO_PANEL) / 2;
+  const py = (ALTO_UI - alto) / 2;
+
+  ctx.save();
+  panel(ctx, px, py, ANCHO_PANEL, alto, t.filo);
+  cabecera(ctx, px, py, 2);
+
+  const y0 = py + CABECERA;
+  for (let i = 0; i < n; i++) {
+    const id = ORDEN_PERSONAJES[i];
+    const def = PERSONAJES[id];
+    const tuyo = MetaProgreso.heroeDesbloqueado(id);
+    const seleccionada = i === cursor;
+    const yc = y0 + i * ALTO_FILA_MASCOTA + ALTO_FILA_MASCOTA / 2;
+
+    if (seleccionada) {
+      ctx.fillStyle = t.cartaElegida;
+      ctx.fillRect(px + 4, y0 + i * ALTO_FILA_MASCOTA, ANCHO_PANEL - 8, ALTO_FILA_MASCOTA - 2);
+    }
+
+    // El retrato del personaje, el mismo que usa su ficha.
+    const meta = Recursos.meta(id + 'Cara');
+    const img = Recursos.imagen(id + 'Cara');
+    const cxIcono = px + RELLENO + 9;
+    ctx.globalAlpha = tuyo ? 1 : 0.4;
+    if (meta && img) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cxIcono, yc, 9, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(img, 0, 0, meta.w, meta.h, cxIcono - 9, yc - 9, 18, 18);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.textAlign = 'left';
+    ctx.font = `600 11px ${FUENTE}`;
+    ctx.fillStyle = seleccionada ? '#ffffff' : (tuyo ? t.titulo : t.texto);
+    ctx.fillText(def.nombre, px + RELLENO + 24, yc);
+
+    ctx.textAlign = 'right';
+    ctx.font = `600 10px ${FUENTE}`;
+    if (tuyo) {
+      ctx.fillStyle = COLOR_MAX;
+      ctx.fillText('TUYO', px + ANCHO_PANEL - RELLENO - 4, yc);
+    } else {
+      const coste = MetaProgreso.costeHeroe(id);
+      ctx.fillStyle = MetaProgreso.denarios >= coste ? COLOR_DENARIO : t.apagado;
+      ctx.fillText(String(coste), px + ANCHO_PANEL - RELLENO - 4, yc);
+    }
+  }
+
+  const yDesc = y0 + n * ALTO_FILA_MASCOTA + 3;
+  const defSel = PERSONAJES[ORDEN_PERSONAJES[cursor]];
+  ctx.textAlign = 'center';
+  ctx.font = `400 9px ${FUENTE}`;
+  ctx.fillStyle = t.texto;
+  const lineas = envolverTexto(ctx, defSel.descripcion, ANCHO_PANEL - RELLENO * 2);
+  ctx.fillText(lineas[0] || '', px + ANCHO_PANEL / 2, yDesc);
+  if (lineas[1]) ctx.fillText(lineas[1], px + ANCHO_PANEL / 2, yDesc + 11);
+
+  ctx.font = `500 9px ${FUENTE}`;
+  ctx.fillStyle = t.apagado;
+  ctx.fillText('↑↓ elegir   ←→ pestaña   Esc volver',
+               px + ANCHO_PANEL / 2, py + alto - PIE / 2 + 2);
   ctx.restore();
 }

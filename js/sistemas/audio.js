@@ -189,6 +189,29 @@ const PISTAS = ['assets/musica/emerita-1.mp3', 'assets/musica/emerita-2.mp3'];
 // aquella eran cuatro notas sueltas y esto es una mezcla completa, así que al
 // mismo nivel se comía los efectos.
 const VOLUMEN_MUSICA = 0.42;
+const VOLUMEN_EFECTOS = 0.6;
+
+// Ajustes de VOLUMEN, guardados aparte del progreso META. Son de esta máquina,
+// no algo que se haya ganado jugando, así que "empezar de cero" no los toca.
+const CLAVE_VOL = 'emerita-volumen-v1';
+let _volMusica = VOLUMEN_MUSICA;
+let _volEfectos = VOLUMEN_EFECTOS;
+
+function cargarVolumenes() {
+  try {
+    const crudo = localStorage.getItem(CLAVE_VOL);
+    if (!crudo) return;
+    const d = JSON.parse(crudo);
+    if (typeof d.musica === 'number') _volMusica = Math.max(0, Math.min(1, d.musica));
+    if (typeof d.efectos === 'number') _volEfectos = Math.max(0, Math.min(1, d.efectos));
+  } catch { /* sin almacenamiento: se usan los de fábrica */ }
+}
+
+function guardarVolumenes() {
+  try {
+    localStorage.setItem(CLAVE_VOL, JSON.stringify({ musica: _volMusica, efectos: _volEfectos }));
+  } catch { /* sin almacenamiento: suena bien esta sesión y ya */ }
+}
 
 let _pistas = null;          // HTMLAudioElement por pista, creados una vez
 let _pistaActual = -1;
@@ -230,7 +253,7 @@ function prepararMusica() {
     } catch {
       // Sin enrutado al grafo se reproduce igual, solo que su volumen deja de
       // depender del maestro. Mejor eso que quedarse sin música.
-      a.volume = VOLUMEN_MUSICA;
+      a.volume = _volMusica;
     }
     // Al documento, ocultos. Para sonar no hace falta —un elemento suelto se
     // reproduce igual— pero así se pueden inspeccionar desde el navegador, que
@@ -290,11 +313,12 @@ export const GestorAudio = {
       gMaestro = ctx.createGain();
       gMaestro.gain.value = 1;
       gMaestro.connect(ctx.destination);
+      cargarVolumenes();
       gEfectos = ctx.createGain();
-      gEfectos.gain.value = 0.6;
+      gEfectos.gain.value = _volEfectos;
       gEfectos.connect(gMaestro);
       gMusica = ctx.createGain();
-      gMusica.gain.value = VOLUMEN_MUSICA;
+      gMusica.gain.value = _volMusica;
       gMusica.connect(gMaestro);
 
       // Un segundo de ruido blanco, generado UNA vez y reutilizado por todas
@@ -353,6 +377,30 @@ export const GestorAudio = {
   pararMusica() {
     _musicaActiva = false;
     pararPistas();
+  },
+
+  // --- Volumen, para la pantalla de configuración ---------------------------
+  //
+  // Se guarda en localStorage aparte del progreso META: es un ajuste de esta
+  // máquina, no algo que se haya ganado jugando, y mezclarlo con los denarios
+  // haría que "empezar de cero" te bajara el volumen.
+  //
+  // Si no hay AudioContext, los ajustes se recuerdan igual y se aplicarán en
+  // cuanto lo haya: el usuario no tiene por qué saber que el navegador todavía
+  // no ha desbloqueado el audio.
+  volumenMusica() { return _volMusica; },
+  volumenEfectos() { return _volEfectos; },
+
+  ajustarMusica(delta) {
+    _volMusica = Math.max(0, Math.min(1, Math.round((_volMusica + delta) * 10) / 10));
+    if (gMusica) gMusica.gain.value = _volMusica;
+    guardarVolumenes();
+  },
+
+  ajustarEfectos(delta) {
+    _volEfectos = Math.max(0, Math.min(1, Math.round((_volEfectos + delta) * 10) / 10));
+    if (gEfectos) gEfectos.gain.value = _volEfectos;
+    guardarVolumenes();
   },
 
   // Estado de la música, para poder mirarlo desde la consola sin adivinar por

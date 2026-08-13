@@ -1,4 +1,4 @@
-import { MASCOTAS } from '../datos/mascotas.js';
+import { MASCOTAS, factorMascota } from '../datos/mascotas.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
 import { Recursos } from '../core/recursos.js';
 import { ESCALA_ARTE } from '../core/constantes.js';
@@ -39,48 +39,68 @@ const SEG_POR_FRAME = 1 / 10;
 
 export const Mascotas = {
   activas: null,           // una entrada por jugador, preasignada
-  def: null,               // definición de la equipada, o null
-  id: '',
 
   iniciar() {
     this.activas = new Array(MAX);
     for (let i = 0; i < MAX; i++) {
-      this.activas[i] = { x: 0, y: 0, reloj: 0, fase: i * 1.7, viva: false,
-                          mirandoDerecha: true, frame: 0, relojAnim: i * 0.13 };
+      this.activas[i] = {
+        x: 0, y: 0, reloj: 0, fase: i * 1.7, viva: false,
+        mirandoDerecha: true, frame: 0, relojAnim: i * 0.13,
+        // UNA MASCOTA POR JUGADOR: cada puesto lleva la suya, su nivel y lo
+        // que necesita para dibujarse. Antes había una sola global.
+        id: '', def: null, nivel: 0, factor: 1, idAtlas: '', frames: 1
+      };
     }
-    this.releer();
+    this.releer(null);
   },
 
-  // Se llama al empezar la partida: fija qué mascota se lleva, según lo que
-  // haya elegido en la tienda. Durante la partida no cambia.
-  releer() {
-    this.id = MetaProgreso.mascotaEquipada || '';
-    this.def = MASCOTAS[this.id] || null;
-    // Id del atlas y número de fotogramas, resueltos UNA vez por partida en vez
-    // de rehacer la cadena y consultar el atlas en cada uno de los sesenta
-    // pasos por segundo.
-    this.idAtlas = this.id
-      ? 'mascota' + this.id.charAt(0).toUpperCase() + this.id.slice(1) : '';
-    const meta = this.idAtlas ? Recursos.meta(this.idAtlas) : null;
-    this.frames = meta ? (meta.frames || 1) : 1;
-    // Nerón: se deja escrito en MetaProgreso para que lo aplique `ganar()` una
-    // sola vez, en vez de repetirlo en los tres sitios que reparten denarios.
-    MetaProgreso.factorDenarios = this.def && this.def.factorDenarios
-                                  ? 1 + this.def.factorDenarios : 1;
+  // Se llama al empezar la partida con lo que se haya elegido en la pantalla de
+  // mascotas: un id por jugador, o cadena vacía para "ninguna". Durante la
+  // partida no cambia.
+  releer(elegidas) {
     if (!this.activas) return;
+    let factorDenarios = 1;
+
     for (let i = 0; i < MAX; i++) {
-      this.activas[i].reloj = 0;
-      this.activas[i].viva = false;
+      const m = this.activas[i];
+      const id = (elegidas && elegidas[i]) || '';
+      const nivel = id ? MetaProgreso.nivelMascota(id) : 0;
+
+      m.id = nivel > 0 ? id : '';
+      m.def = m.id ? MASCOTAS[m.id] : null;
+      m.nivel = nivel;
+      // Cuánto rinde su nivel. Se resuelve aquí y no en cada golpe: es un
+      // número por partida, no por paso.
+      m.factor = factorMascota(nivel);
+      // Id del atlas y número de fotogramas, resueltos UNA vez por partida en
+      // vez de rehacer la cadena y consultar el atlas sesenta veces por segundo.
+      m.idAtlas = m.id ? 'mascota' + m.id.charAt(0).toUpperCase() + m.id.slice(1) : '';
+      const meta = m.idAtlas ? Recursos.meta(m.idAtlas) : null;
+      m.frames = meta ? (meta.frames || 1) : 1;
+      m.reloj = 0;
+      m.viva = false;
+
+      // Nerón: el bonus de denarios NO se acumula si lo llevan varios. Los
+      // denarios son del equipo, no de cada jugador, así que sumar cuatro veces
+      // el mismo gato multiplicaría por 2,4 lo que gana la partida entera por
+      // una decisión que además está prohibida —no se puede repetir mascota—.
+      // Se queda con el mejor por si acaso.
+      if (m.def && m.def.factorDenarios) {
+        factorDenarios = Math.max(factorDenarios, 1 + m.def.factorDenarios * m.factor);
+      }
     }
+
+    // Se deja escrito en MetaProgreso para que lo aplique `ganar()` una sola
+    // vez, en vez de repetirlo en los tres sitios que reparten denarios.
+    MetaProgreso.factorDenarios = factorDenarios;
   },
 
   actualizar(dt, jugadores, ctx) {
-    if (!this.def) return;
-    const habilidad = HABILIDADES[this.def.habilidad];
-
     for (let i = 0; i < jugadores.length && i < MAX; i++) {
       const j = jugadores[i];
       const m = this.activas[i];
+      if (!m.def) continue;                    // este jugador no lleva mascota
+      const habilidad = HABILIDADES[m.def.habilidad];
 
       // Un jugador caído no tiene mascota al lado: se esconde y vuelve cuando
       // le levantan. Es la lectura correcta —el bicho no se queda pegado a un
@@ -107,19 +127,19 @@ export const Mascotas = {
 
       // Ciclo de la mascota, si su dibujo es un GIF. Las que siguen siendo un
       // PNG quieto tienen un solo fotograma y esto no hace nada.
-      if (this.frames > 1) {
+      if (m.frames > 1) {
         m.relojAnim += dt;
         while (m.relojAnim >= SEG_POR_FRAME) {
           m.relojAnim -= SEG_POR_FRAME;
-          m.frame = (m.frame + 1) % this.frames;
+          m.frame = (m.frame + 1) % m.frames;
         }
       }
 
       if (!habilidad) continue;          // pasiva: solo se dibuja
       m.reloj -= dt;
       if (m.reloj > 0) continue;
-      m.reloj = this.def.cada;
-      habilidad(this.def, m, j, ctx);
+      m.reloj = m.def.cada;
+      habilidad(m.def, m, j, ctx);
     }
   },
 
@@ -134,15 +154,13 @@ export const Mascotas = {
   // que hubo mientras no había arte: una mascota invisible sería peor que un
   // círculo, porque media gracia de llevar a Karim es verlo correr al lado.
   dibujar(ctx, jugadores) {
-    if (!this.def) return;
-    const d = this.def;
-    const idAtlas = this.idAtlas;
-    const meta = Recursos.meta(idAtlas);
-
     ctx.save();
     for (let i = 0; i < jugadores.length && i < MAX; i++) {
       const m = this.activas[i];
-      if (!m.viva) continue;
+      if (!m.viva || !m.def) continue;
+      const d = m.def;
+      const idAtlas = m.idAtlas;
+      const meta = Recursos.meta(idAtlas);
       const y = m.y + Math.sin(m.fase) * FLOTE;
 
       // Sombra en el suelo: sin ella el bicho parece pegado al cristal.
@@ -190,6 +208,9 @@ export const Mascotas = {
 // Firma común (def, mascota, jugador, ctx). `ctx` trae lo que haga falta del
 // mundo: enemigos, zonas y el rng. Añadir una mascota que reutilice una de
 // estas es añadir una entrada en datos/mascotas.js y nada más.
+// `m.factor` es cuanto rinde su NIVEL (1 al nivel 1, 2 al nivel 5). Se aplica
+// aqui, sobre el numero que define a cada mascota, y no en los datos: los datos
+// dicen cuanto hace la mascota, no cuanto la ha mejorado este jugador.
 const HABILIDADES = {
   // KARIM: muerde al más cercano. Daño directo y sin proyectil — la mordida se
   // resuelve en el sitio, así que no gasta pool de proyectiles ni puede fallar.
@@ -199,7 +220,7 @@ const HABILIDADES = {
     let dx = presa.x - m.x;
     let dy = presa.y - m.y;
     const dist = Math.hypot(dx, dy) || 1;
-    ctx.enemigos.danyar(presa, def.danyo, dx / dist, dy / dist, 60);
+    ctx.enemigos.danyar(presa, Math.round(def.danyo * m.factor), dx / dist, dy / dist, 60);
     // Se teletransporta a la presa: es un perro lanzándose, y verlo aparecer
     // junto al bicho al que acaba de morder vende el gesto sin animarlo.
     m.x = presa.x - dx / dist * 8;
@@ -212,14 +233,15 @@ const HABILIDADES = {
   // siente como una mascota, se siente como otro recogible.
   huevo(def, m, j, ctx) {
     if (j.vida >= j.vidaMaxima) { m.reloj = 1.5; return; }   // reintenta pronto
-    j.vida = Math.min(j.vidaMaxima, j.vida + def.cura);
-    VFX.numero(j.x, j.y - 22, def.cura, ctx.rng);
+    const cura = Math.round(def.cura * m.factor);
+    j.vida = Math.min(j.vidaMaxima, j.vida + cura);
+    VFX.numero(j.x, j.y - 22, cura, ctx.rng);
   },
 
   // OREO: denarios directos al bolsillo. No caen al suelo por lo mismo que el
   // huevo, y porque un denario tirado en el minuto 20 no lo recoge nadie.
   escarbar(def, m, j, ctx) {
-    MetaProgreso.ganar(def.denarios);
+    MetaProgreso.ganar(Math.round(def.denarios * m.factor));
   },
 
   // POLLITO: los de alrededor salen huyendo un rato. No hace daño: abre hueco,
@@ -228,8 +250,8 @@ const HABILIDADES = {
   // El búfer de índices está preasignado arriba, no se crea uno por chillido:
   // esto puede dispararse con la pantalla llena.
   espantar(def, m, j, ctx) {
-    const n = enemigosEnRadio(ctx.enemigos, m.x, m.y, def.radio, BUFER);
-    for (let i = 0; i < n; i++) ctx.enemigos.espantar(BUFER[i], def.duracion);
+    const n = enemigosEnRadio(ctx.enemigos, m.x, m.y, def.radio * m.factor, BUFER);
+    for (let i = 0; i < n; i++) ctx.enemigos.espantar(BUFER[i], def.duracion * m.factor);
     VFX.sacudir(1.5);
   }
 };

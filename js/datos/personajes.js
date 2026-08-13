@@ -15,12 +15,21 @@
 // cada uno tiene que venir del arma inicial, que es lo que cambia cómo juegas,
 // no de un 15% de vida que no se nota.
 
+// `coste` es lo que cuesta desbloquearlo en la tienda de personajes.
+//
+// LOS CUATRO ESTÁN A CERO, es decir, gratis y desbloqueados desde el principio.
+// Es una decisión de Sergio que sigue en pie: sus hijas ya juegan con Lucy,
+// Sara y Vicky, y poner precio ahora sería quitarles personajes que ya tienen.
+// La sección de la tienda existe igualmente, preparada, y convertir cualquiera
+// en comprable es poner aquí un número mayor que cero — no hay que tocar ni la
+// tienda ni el progreso.
 export const PERSONAJES = {
   eric: {
     nombre: 'Eric',
     sprite: 'eric',
     descripcion: 'Aguanta el tipo en primera línea.',
     arma: 'scutum',
+    coste: 0,
     mods: { vidaMaxima: 1.15, velocidad: 0.95, radioRecogida: 1.0 }
   },
   lucy: {
@@ -28,6 +37,7 @@ export const PERSONAJES = {
     sprite: 'lucy',
     descripcion: 'Frágil, pero no la alcanza nadie.',
     arma: 'pistola',
+    coste: 0,
     mods: { vidaMaxima: 0.85, velocidad: 1.15, radioRecogida: 1.0 }
   },
   sara: {
@@ -35,6 +45,7 @@ export const PERSONAJES = {
     sprite: 'sara',
     descripcion: 'Recoge el botín desde lejos.',
     arma: 'campoElectrico',
+    coste: 0,
     mods: { vidaMaxima: 1.0, velocidad: 1.0, radioRecogida: 1.45 }
   },
   vicky: {
@@ -42,6 +53,7 @@ export const PERSONAJES = {
     sprite: 'vicky',
     descripcion: 'La fuerza de voluntad lo es todo en esta vida, sin ella nos rendiríamos en la primera caída.',
     arma: 'katana',
+    coste: 0,
     mods: { vidaMaxima: 0.95, velocidad: 1.05, radioRecogida: 1.0 }
   }
 };

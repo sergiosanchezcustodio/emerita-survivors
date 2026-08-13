@@ -32,7 +32,7 @@ import { dibujarMapa } from './ui/mapa.js';
 import { dibujarTienda } from './ui/tienda.js';
 import { dibujarFinal, dibujarCartelFinal } from './ui/final.js';
 import { dibujarPaneles, dibujarReloj, dibujarBarraJefe } from './ui/hud.js';
-import { Pantallas, ocupantePersonaje } from './ui/pantallas.js';
+import { Pantallas, ocupantePersonaje, dibujarDespedida } from './ui/pantallas.js';
 import { Capa } from './ui/capa.js';
 import { Tema, olvidarDegradados } from './ui/tema.js';
 import {
@@ -164,6 +164,11 @@ const PANTALLA_TITULO = 0;
 const PANTALLA_SELECCION = 1;
 const PANTALLA_JUEGO = 2;
 const PANTALLA_TIENDA = 3;
+// Elegir mascota, DESPUÉS de elegir personaje. Solo se pasa por aquí si hay
+// alguna comprada: sin ninguna no hay nada que elegir y sería una pantalla que
+// solo sirve para pulsar otra vez.
+const PANTALLA_MASCOTAS = 4;
+const PANTALLA_CONFIG = 5;
 // Sin valor de arranque: lo pone `irA` al final de este bloque, porque el
 // estado de pantalla no es solo esta variable — arrastra la clase del body, y
 // dejarlos puestos por separado es tener dos verdades que se desincronizan.
@@ -175,17 +180,46 @@ let pantalla;
 // maneja siempre el puesto 3 aunque el 2 esté vacío.
 const puestos = new Array(4).fill(null);
 
-// Tienda (T desde el título). DOS PESTAÑAS, potenciadores y mascotas, con las
-// flechas izquierda/derecha para cambiar y arriba/abajo para moverse dentro.
-// Una sola tienda con pestañas y no dos entradas distintas en el título: se
+// Tienda. TRES PESTAÑAS —mejoras, mascotas y personajes— con las flechas
+// izquierda/derecha para cambiar y arriba/abajo para moverse dentro.
+//
+// Una sola tienda con pestañas y no tres entradas distintas en el menú: se
 // pagan con los mismos denarios y se miran en el mismo momento —antes de
 // jugar—, así que separarlas obligaría a salir de una para ver cuánto queda
 // para lo de la otra.
 const ID_POTENCIADORES = Object.keys(POTENCIADORES);
 const PESTANYA_POTENCIADORES = 0;
 const PESTANYA_MASCOTAS = 1;
+const PESTANYA_PERSONAJES = 2;
+const N_PESTANYAS = 3;
 let pestanyaTienda = PESTANYA_POTENCIADORES;
 let cursorTienda = 0;
+
+// --- Menú principal ---------------------------------------------------------
+// Sustituye al "pulsa cualquier tecla" del título.
+const MENU = [
+  { id: 'jugar',  texto: 'JUGAR' },
+  { id: 'tienda', texto: 'TIENDA' },
+  { id: 'config', texto: 'CONFIGURACIÓN' },
+  { id: 'salir',  texto: 'SALIR' }
+];
+let cursorMenu = 0;
+
+// --- Elección de mascota ----------------------------------------------------
+// Un id por jugador, en el mismo orden que `puestos`. Cadena vacía = ninguna.
+const mascotasElegidas = new Array(4).fill('');
+let cursorMascota = 0;
+// Índice del jugador al que le toca elegir. Se recorren en orden y cada uno
+// elige la suya; DOS NO PUEDEN LLEVAR LA MISMA, así que las ya cogidas se
+// saltan al mover el cursor.
+let turnoMascota = 0;
+
+// --- Configuración ----------------------------------------------------------
+let cursorConfig = 0;
+// Ventana de confirmación de "empezar de cero". Es un estado aparte y no un
+// flanco: borrar el progreso de todas las partidas jugadas no puede depender de
+// una tecla mal pulsada.
+let confirmarBorrado = false;
 
 // Cambiar de pantalla en un solo sitio. Hay dos cosas que van fuera del lienzo
 // y que hay que mover con el estado: la chuleta de atajos del pie, que en las
@@ -248,10 +282,10 @@ const activo = { suelo: true, particulas: true, numeros: true, efectos: true, de
 // `idPersonaje` lo trae la pantalla de selección. Sin él —al sumarse a mitad de
 // partida con J o al enchufar un mando— se reparte por orden, que es lo que se
 // hacía antes de que hubiera pantalla donde elegir.
-function anyadirJugador(idPersonaje) {
+function anyadirJugador(idPersonaje, idMascota) {
   if (jugadores.length >= MAX_JUGADORES) return null;
   const i = jugadores.length;
-  const j = new Jugador(idPersonaje || ORDEN_PERSONAJES[i % ORDEN_PERSONAJES.length]);
+  const j = new Jugador(idPersonaje || ORDEN_PERSONAJES[i % ORDEN_PERSONAJES.length], idMascota || '');
 
   // En abanico alrededor del primero, para que no nazcan uno dentro de otro.
   const ang = (i / MAX_JUGADORES) * Math.PI * 2;
@@ -338,10 +372,13 @@ function vigilarDensidad() {
 // visual es el mismo (y el mismo margen si la pantalla no encaja a zoom
 // entero exacto), pero así queda un control real dentro del juego.
 const botonPantallaCompleta = document.getElementById('pantallaCompleta');
-botonPantallaCompleta.addEventListener('click', () => {
+// Se saca a una funcion porque ahora lo piden dos sitios: este boton y la
+// pantalla de configuracion.
+function alternarPantallaCompleta() {
   if (document.fullscreenElement) document.exitFullscreen();
   else document.documentElement.requestFullscreen().catch(() => {});
-});
+}
+botonPantallaCompleta.addEventListener('click', alternarPantallaCompleta);
 addEventListener('fullscreenchange', () => {
   botonPantallaCompleta.textContent = document.fullscreenElement ? '⤢' : '⛶';
   botonPantallaCompleta.title = document.fullscreenElement
@@ -431,18 +468,202 @@ function tanda(cantidad, mezcla) {
 
 // --- Título y selección de personaje -----------------------------------------
 
+// MENÚ PRINCIPAL. Sustituye al "pulsa cualquier tecla" de antes: ahora hay
+// cuatro sitios a los que ir y hay que poder elegir.
+//
+// Se mueve con arriba/abajo o la cruceta, y también con el stick, porque el
+// menú es lo primero que toca alguien que acaba de enchufar un mando.
 function entradaTitulo() {
-  // Cualquier cosa vale. Es la misma decisión que la pantalla del cofre: no se
-  // pide una elección, se pide un "vamos", y obligar a buscar la tecla correcta
-  // para eso es fricción por nada.
-  // T abre la tienda de potenciadores. Se mira ANTES del "cualquier tecla
-  // vale" de abajo, o nunca se distinguiría de "empezar".
-  if (entrada.consumirFlanco('KeyT')) { irA(PANTALLA_TIENDA); return; }
+  const c = entrada.controles[0];
+  const eje = c ? c.flancoEje(false) : 0;      // vertical
+  const n = MENU.length;
 
-  if (!entrada.algunFlanco()) return;
-  puestos.fill(null);
-  puestos[0] = { personaje: 0, listo: false };
-  irA(PANTALLA_SELECCION);
+  if (entrada.consumirFlanco('ArrowDown') || (c && c.consumirBoton(13)) || eje > 0) {
+    cursorMenu = (cursorMenu + 1) % n;
+  }
+  if (entrada.consumirFlanco('ArrowUp') || (c && c.consumirBoton(12)) || eje < 0) {
+    cursorMenu = (cursorMenu + n - 1) % n;
+  }
+
+  // Atajo que ya existía y se conserva: T entra directo a la tienda.
+  if (entrada.consumirFlanco('KeyT')) { pestanyaTienda = PESTANYA_POTENCIADORES; cursorTienda = 0; irA(PANTALLA_TIENDA); return; }
+
+  const acepta = entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space') ||
+                 (c && c.consumirBoton(0));
+  if (!acepta) return;
+
+  switch (MENU[cursorMenu].id) {
+    case 'jugar':
+      puestos.fill(null);
+      puestos[0] = { personaje: primeroDesbloqueado(), listo: false };
+      irA(PANTALLA_SELECCION);
+      break;
+    case 'tienda':
+      pestanyaTienda = PESTANYA_POTENCIADORES;
+      cursorTienda = 0;
+      irA(PANTALLA_TIENDA);
+      break;
+    case 'config':
+      cursorConfig = 0;
+      confirmarBorrado = false;
+      irA(PANTALLA_CONFIG);
+      break;
+    case 'salir':
+      salirDelJuego();
+      break;
+  }
+}
+
+// SALIR de un juego que corre en una pestaña.
+//
+// `window.close()` solo funciona en ventanas que ha abierto un script, y esta
+// la ha abierto una persona escribiendo una dirección, así que el navegador lo
+// ignora en silencio. Se intenta igualmente —si alguien lanza el juego desde un
+// acceso directo en modo aplicación, sí cierra— y si no, se deja la pantalla
+// diciendo que ya se puede cerrar la pestaña. Fingir que el botón hace algo que
+// no puede hacer sería peor que decirlo.
+let despedida = false;
+function salirDelJuego() {
+  MetaProgreso.guardar();
+  GestorAudio.pararMusica();
+  despedida = true;
+  window.close();
+}
+
+// Primer personaje que se pueda usar. Hoy los cuatro están desbloqueados (ver
+// `coste` en datos/personajes.js), pero si alguno se pone de pago el menú no
+// puede arrancar con el cursor encima de uno que no es tuyo.
+function primeroDesbloqueado() {
+  for (let p = 0; p < ORDEN_PERSONAJES.length; p++) {
+    if (MetaProgreso.heroeDesbloqueado(ORDEN_PERSONAJES[p])) return p;
+  }
+  return 0;
+}
+
+// --- Elección de mascota ------------------------------------------------------
+// Se pasa por aquí después de elegir personaje y solo si hay alguna comprada.
+// Cada jugador elige la suya por turnos, y no se puede repetir: una mascota que
+// ya lleva otro se salta al mover el cursor.
+function entradaMascotas() {
+  const c = entrada.controles[turnoMascota] || entrada.controles[0];
+  // El teclado lleva al jugador 1 SIEMPRE, y además a cualquiera que no tenga
+  // mando enchufado. Aquí se puede y en la selección de personaje no, porque
+  // esto va POR TURNOS: solo hay un jugador eligiendo a la vez, así que el
+  // teclado no puede estar moviendo dos cursores.
+  //
+  // Sin esto, un segundo jugador añadido con J —que es como se prueba el
+  // cooperativo sin cuatro mandos— no podía elegir mascota y la pantalla se
+  // quedaba muerta, igual que pasaba con la de personajes antes de la tecla H.
+  const c0 = entrada.controles[0];
+  const teclado = turnoMascota === 0 || !(c && c.conectado);
+  const disponibles = mascotasDisponibles();
+  const n = disponibles.length;
+
+  if ((teclado && entrada.consumirFlanco('Escape')) || (c && c.consumirBoton(1))) {
+    // Atrás: al jugador anterior, o de vuelta a elegir personaje.
+    if (turnoMascota > 0) {
+      turnoMascota = turnoAnterior(turnoMascota);
+      mascotasElegidas[turnoMascota] = '';
+      cursorMascota = 0;
+    } else {
+      irA(PANTALLA_SELECCION);
+    }
+    return;
+  }
+
+  const eje = c ? c.flancoEje(true) : 0;
+  if ((teclado && entrada.consumirFlanco('ArrowRight')) || (c && c.consumirBoton(15)) || eje > 0) {
+    cursorMascota = (cursorMascota + 1) % (n + 1);
+  }
+  if ((teclado && entrada.consumirFlanco('ArrowLeft')) || (c && c.consumirBoton(14)) || eje < 0) {
+    cursorMascota = (cursorMascota + n) % (n + 1);
+  }
+
+  const acepta = (teclado && (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space'))) ||
+                 (c && c.consumirBoton(0));
+  if (!acepta) return;
+
+  // El último hueco de la lista es SIN MASCOTA. Existe porque llevar una es una
+  // elección, y una elección sin la opción de no elegir no lo es.
+  mascotasElegidas[turnoMascota] = cursorMascota < n ? disponibles[cursorMascota] : '';
+
+  const siguiente = turnoSiguiente(turnoMascota);
+  if (siguiente < 0) empezarPartida();
+  else { turnoMascota = siguiente; cursorMascota = 0; }
+}
+
+// Mascotas que este jugador puede elegir: las compradas menos las que ya lleva
+// otro. Se recalcula en cada paso y no se guarda, que son ocho elementos.
+function mascotasDisponibles() {
+  const libres = [];
+  for (const id of ORDEN_MASCOTAS) {
+    if (!MetaProgreso.tieneMascota(id)) continue;
+    let cogida = false;
+    for (let i = 0; i < mascotasElegidas.length; i++) {
+      if (i !== turnoMascota && mascotasElegidas[i] === id) { cogida = true; break; }
+    }
+    if (!cogida) libres.push(id);
+  }
+  return libres;
+}
+
+function turnoSiguiente(desde) {
+  for (let i = desde + 1; i < puestos.length; i++) if (puestos[i]) return i;
+  return -1;
+}
+
+function turnoAnterior(desde) {
+  for (let i = desde - 1; i >= 0; i--) if (puestos[i]) return i;
+  return 0;
+}
+
+// --- Configuración ------------------------------------------------------------
+// Vídeo, sonido y el botón de empezar de cero.
+const CONFIG = [
+  { id: 'musica',   texto: 'Música' },
+  { id: 'efectos',  texto: 'Efectos' },
+  { id: 'pantalla', texto: 'Pantalla completa' },
+  { id: 'borrar',   texto: 'Empezar de cero' }
+];
+
+function entradaConfig() {
+  // La ventana de confirmación se lleva TODA la entrada mientras está abierta:
+  // desde ahí solo se puede decir sí o no.
+  if (confirmarBorrado) {
+    const c0 = entrada.controles[0];
+    if (entrada.consumirFlanco('Escape') || entrada.consumirAtras()) { confirmarBorrado = false; return; }
+    if (entrada.consumirFlanco('Enter') || (c0 && c0.consumirBoton(0))) {
+      MetaProgreso.reiniciarTodo();
+      Mascotas.releer(null);
+      mascotasElegidas.fill('');
+      confirmarBorrado = false;
+    }
+    return;
+  }
+
+  const c = entrada.controles[0];
+  const n = CONFIG.length;
+  if (entrada.consumirFlanco('Escape') || entrada.consumirAtras()) { irA(PANTALLA_TITULO); return; }
+
+  const ejeV = c ? c.flancoEje(false) : 0;
+  if (entrada.consumirFlanco('ArrowDown') || (c && c.consumirBoton(13)) || ejeV > 0) {
+    cursorConfig = (cursorConfig + 1) % n;
+  }
+  if (entrada.consumirFlanco('ArrowUp') || (c && c.consumirBoton(12)) || ejeV < 0) {
+    cursorConfig = (cursorConfig + n - 1) % n;
+  }
+
+  const id = CONFIG[cursorConfig].id;
+  const ejeH = c ? c.flancoEje(true) : 0;
+  const menos = entrada.consumirFlanco('ArrowLeft') || (c && c.consumirBoton(14)) || ejeH < 0;
+  const mas = entrada.consumirFlanco('ArrowRight') || (c && c.consumirBoton(15)) || ejeH > 0;
+  const acepta = entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space') ||
+                 (c && c.consumirBoton(0));
+
+  if (id === 'musica' && (menos || mas)) GestorAudio.ajustarMusica(mas ? 0.1 : -0.1);
+  if (id === 'efectos' && (menos || mas)) GestorAudio.ajustarEfectos(mas ? 0.1 : -0.1);
+  if (id === 'pantalla' && (acepta || menos || mas)) alternarPantallaCompleta();
+  if (id === 'borrar' && acepta) confirmarBorrado = true;
 }
 
 // Tienda: un cursor, comprar con Enter, Esc o T para volver al título. Las
@@ -457,27 +678,28 @@ function entradaTienda() {
   // Cambiar de pestaña reinicia el cursor: las dos listas no tienen ni la
   // misma longitud ni el mismo orden, así que conservar la fila solo llevaría
   // a un sitio arbitrario.
-  if (entrada.consumirFlanco('ArrowRight') || entrada.consumirFlanco('ArrowLeft')) {
-    pestanyaTienda = pestanyaTienda === PESTANYA_POTENCIADORES
-                     ? PESTANYA_MASCOTAS : PESTANYA_POTENCIADORES;
-    cursorTienda = 0;
-    return;
+  if (entrada.consumirFlanco('ArrowRight')) {
+    pestanyaTienda = (pestanyaTienda + 1) % N_PESTANYAS; cursorTienda = 0; return;
+  }
+  if (entrada.consumirFlanco('ArrowLeft')) {
+    pestanyaTienda = (pestanyaTienda + N_PESTANYAS - 1) % N_PESTANYAS; cursorTienda = 0; return;
   }
 
-  const lista = pestanyaTienda === PESTANYA_MASCOTAS ? ORDEN_MASCOTAS : ID_POTENCIADORES;
+  const lista = pestanyaTienda === PESTANYA_MASCOTAS ? ORDEN_MASCOTAS
+              : pestanyaTienda === PESTANYA_PERSONAJES ? ORDEN_PERSONAJES
+              : ID_POTENCIADORES;
   const n = lista.length;
   if (entrada.consumirFlanco('ArrowDown')) cursorTienda = (cursorTienda + 1) % n;
   if (entrada.consumirFlanco('ArrowUp')) cursorTienda = (cursorTienda + n - 1) % n;
 
   if (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space')) {
+    // El mismo boton compra o SUBE DE NIVEL segun toque, en las tres pestanas.
+    // Para quien juega es el mismo gesto —pagar por tener mas— y separarlo en
+    // "comprar" y "mejorar" solo anadiria un concepto.
     if (pestanyaTienda === PESTANYA_MASCOTAS) {
-      // El mismo botón hace las dos cosas según toque: si no la tienes, la
-      // compra; si la tienes, la equipa (o la quita si ya la llevabas). Un
-      // segundo botón para equipar sería un botón que solo sirve la mitad de
-      // las veces.
-      const id = ORDEN_MASCOTAS[cursorTienda];
-      if (MetaProgreso.tieneMascota(id)) MetaProgreso.equiparMascota(id);
-      else MetaProgreso.comprarMascota(id);
+      MetaProgreso.comprarMascota(ORDEN_MASCOTAS[cursorTienda]);
+    } else if (pestanyaTienda === PESTANYA_PERSONAJES) {
+      MetaProgreso.comprarHeroe(ORDEN_PERSONAJES[cursorTienda]);
     } else {
       MetaProgreso.comprarPotenciador(ID_POTENCIADORES[cursorTienda]);
     }
@@ -577,7 +799,20 @@ function entradaSeleccion() {
 
   // --- Salida ---------------------------------------------------------------
   const presentes = puestos.filter(Boolean);
-  if (presentes.length > 0 && presentes.every((p) => p.listo)) empezarPartida();
+  if (presentes.length > 0 && presentes.every((p) => p.listo)) {
+    // Elegir mascota solo tiene sentido si hay alguna comprada. Sin ninguna se
+    // salta la pantalla entera y se entra a jugar: una pantalla cuya unica
+    // opcion es "ninguna" no es una eleccion, es un tramite.
+    if (MetaProgreso.algunaMascota()) {
+      mascotasElegidas.fill('');
+      turnoMascota = puestos.findIndex(Boolean);
+      cursorMascota = 0;
+      irA(PANTALLA_MASCOTAS);
+    } else {
+      mascotasElegidas.fill('');
+      empezarPartida();
+    }
+  }
 }
 
 // Crea de verdad a los jugadores elegidos y arranca. Hasta aquí no existía ni
@@ -585,13 +820,20 @@ function entradaSeleccion() {
 // `jugadores` estaba vacío a propósito, porque un jugador en pie durante el
 // título es un jugador al que ya le está corriendo el reloj.
 function empezarPartida() {
+  // Las mascotas van EN PARALELO a los jugadores, no por indice de puesto: si
+  // juega el puesto 0 y el 2, los jugadores son 0 y 1, y sus mascotas tienen
+  // que quedar en esas mismas posiciones o el jugador 1 saldria con la mascota
+  // que eligio el 2.
+  const mascotasPorJugador = [];
   for (let i = 0; i < puestos.length; i++) {
-    if (puestos[i]) anyadirJugador(ORDEN_PERSONAJES[puestos[i].personaje]);
+    if (!puestos[i]) continue;
+    mascotasPorJugador.push(mascotasElegidas[i] || '');
+    anyadirJugador(ORDEN_PERSONAJES[puestos[i].personaje], mascotasElegidas[i] || '');
   }
   camara.situar(jugadores[0].x, jugadores[0].y);
-  // Que mascota se lleva se decide en la tienda, no en la partida: se lee una
-  // vez aqui y ya no cambia hasta la siguiente.
-  Mascotas.releer();
+  // Que mascota lleva cada uno se decide en su pantalla y no cambia en toda la
+  // partida: se lee una vez aqui.
+  Mascotas.releer(mascotasPorJugador);
   Director.reiniciar();
   enemigos.bajas = 0;
   derrotaGuardada = false;
@@ -696,6 +938,8 @@ function actualizar(dt) {
   if (pantalla !== PANTALLA_JUEGO) {
     if (pantalla === PANTALLA_TITULO) entradaTitulo();
     else if (pantalla === PANTALLA_TIENDA) entradaTienda();
+    else if (pantalla === PANTALLA_MASCOTAS) entradaMascotas();
+    else if (pantalla === PANTALLA_CONFIG) entradaConfig();
     else entradaSeleccion();
     entrada.limpiarFlanco();
     return;
@@ -1049,8 +1293,15 @@ function dibujar(alpha) {
   // que ni se limpia el suelo ni se recorren pools que están vacíos.
   if (pantalla !== PANTALLA_JUEGO) {
     Capa.limpiar();
-    if (pantalla === PANTALLA_TITULO) Pantallas.titulo(ctx, Capa.ctx);
+    if (despedida) { Pantallas.titulo(ctx, Capa.ctx, null, 0); dibujarDespedida(Capa.ctx); return; }
+    if (pantalla === PANTALLA_TITULO) Pantallas.titulo(ctx, Capa.ctx, MENU, cursorMenu);
     else if (pantalla === PANTALLA_TIENDA) dibujarTienda(Capa.ctx, cursorTienda, pestanyaTienda);
+    else if (pantalla === PANTALLA_MASCOTAS) {
+      Pantallas.mascotas(ctx, Capa.ctx, mascotasDisponibles(), cursorMascota,
+                         turnoMascota, puestos, mascotasElegidas);
+    } else if (pantalla === PANTALLA_CONFIG) {
+      Pantallas.config(ctx, Capa.ctx, CONFIG, cursorConfig, confirmarBorrado);
+    }
     else Pantallas.seleccion(ctx, Capa.ctx, puestos);
     return;
   }
@@ -1343,6 +1594,12 @@ async function arrancar() {
     // sin pasar por el menú, que es la única forma de probar la tienda o la
     // selección desde la consola cuando el navegador no está dando el foco.
     puestos, get pantalla() { return pantalla; }, irA,
+    // Estado de las pantallas de menu, por el mismo motivo que `puestos`:
+    // poder reproducir una eleccion sin depender de que llegue la pulsacion.
+    mascotasElegidas, mascotasDisponibles,
+    get turnoMascota() { return turnoMascota; },
+    get cursorMenu() { return cursorMenu; },
+    get pestanyaTienda() { return pestanyaTienda; },
     PANTALLA: { titulo: PANTALLA_TITULO, seleccion: PANTALLA_SELECCION,
                 juego: PANTALLA_JUEGO, tienda: PANTALLA_TIENDA },
     // Progreso META y mascotas. Se exponen para poder probar desde la consola
