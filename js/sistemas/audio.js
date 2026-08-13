@@ -185,6 +185,16 @@ let _dronOsc = null, _dronGain = null;
 // permite pasar de una a la otra y volver a empezar.
 const PISTAS = ['assets/musica/emerita-1.mp3', 'assets/musica/emerita-2.mp3'];
 
+// La del MENÚ va aparte y suena en el título, la selección, la tienda y la
+// configuración. No entra en la lista de arriba porque no se encadena con las
+// otras: se repite sobre sí misma hasta que empieza la partida, que es cuando
+// el juego cambia de sitio y toca cambiar de música.
+//
+// Existe porque hasta ahora el menú estaba en silencio y la música solo
+// arrancaba al empezar a jugar: quien se quedaba mirando la tienda tenía la
+// impresión de que el juego se había colgado.
+const PISTA_MENU = 'assets/musica/menu.mp3';
+
 // El volumen de la música compuesta va por debajo del que tenía la procedural:
 // aquella eran cuatro notas sueltas y esto es una mezcla completa, así que al
 // mismo nivel se comía los efectos.
@@ -216,6 +226,9 @@ function guardarVolumenes() {
 let _pistas = null;          // HTMLAudioElement por pista, creados una vez
 let _pistaActual = -1;
 let _musicaFichero = false;  // ¿hay ficheros y han cargado?
+let _menu = null;            // la del menú, su propio elemento
+let _enMenu = false;         // qué música toca ahora mismo
+let _reintentoMenu = 0;      // ver musicaMenu(): reintento espaciado del play()
 
 function siguientePista() {
   if (!_pistas) return;
@@ -228,6 +241,17 @@ function siguientePista() {
   // tecla— sí sonará.
   const p = a.play();
   if (p && p.catch) p.catch(() => {});
+}
+
+// Engancha un <audio> al grafo para que su volumen dependa del maestro. Si el
+// navegador no deja (pasa con algunos orígenes), se le pone el volumen a mano:
+// mejor una pista que no obedece al ajuste que ninguna pista.
+function enchufar(a) {
+  try {
+    ctx.createMediaElementSource(a).connect(gMusica);
+  } catch {
+    a.volume = _volMusica;
+  }
 }
 
 // Prepara los elementos y los engancha al grafo. Devuelve si ha podido.
@@ -248,13 +272,9 @@ function prepararMusica() {
       _musicaFichero = false;
       pararPistas();
     });
-    try {
-      ctx.createMediaElementSource(a).connect(gMusica);
-    } catch {
-      // Sin enrutado al grafo se reproduce igual, solo que su volumen deja de
-      // depender del maestro. Mejor eso que quedarse sin música.
-      a.volume = _volMusica;
-    }
+    // Sin enrutado al grafo se reproduce igual, solo que su volumen deja de
+    // depender del maestro. Mejor eso que quedarse sin música.
+    enchufar(a);
     // Al documento, ocultos. Para sonar no hace falta —un elemento suelto se
     // reproduce igual— pero así se pueden inspeccionar desde el navegador, que
     // es la única forma cómoda de comprobar si una pista va por donde debe.
@@ -265,6 +285,29 @@ function prepararMusica() {
   }
   _musicaFichero = true;
   return true;
+}
+
+// La del menú, aparte. `loop = true` y no el encadenado del `ended` de las
+// otras: aquí solo hay una canción y repetirla es exactamente lo que se quiere.
+function prepararMenu() {
+  if (!ctx || _menu) return !!_menu;
+  const a = new Audio();
+  a.src = PISTA_MENU;
+  a.preload = 'auto';
+  a.loop = true;
+  a.addEventListener('error', () => { _menu = null; });
+  enchufar(a);
+  a.hidden = true;
+  a.dataset.pista = 'menu';
+  document.body.appendChild(a);
+  _menu = a;
+  return true;
+}
+
+function pararMenu() {
+  if (!_menu) return;
+  _menu.pause();
+  _menu.currentTime = 0;
 }
 
 function pararPistas() {
@@ -367,16 +410,49 @@ export const GestorAudio = {
   iniciarMusica() {
     if (!ctx) return;
     _musicaActiva = true;
+    _enMenu = false;
     _horizonte = ctx.currentTime;
+    pararMenu();
     if (prepararMusica()) {
       _pistaActual = -1;
       siguientePista();      // arranca por la primera y de ahí encadena
     }
   },
 
+  // MÚSICA DE MENÚ. La piden el título, la selección, la tienda y la
+  // configuración, y la piden CADA VEZ que se entra: es idempotente a
+  // propósito, así no hay que llevar la cuenta de qué pantalla venía antes
+  // —basta con decir "aquí suena la del menú" en cada una—.
+  // Se llama en CADA FOTOGRAMA de menú, y por eso comprueba si ya está sonando
+  // en vez de fiarse de un interruptor. Los navegadores bloquean el audio hasta
+  // el primer gesto del usuario, así que el primer `play()` —el del arranque,
+  // antes de que nadie haya tocado nada— se rechaza siempre; llamando en bucle,
+  // la música entra sola en cuanto se pulsa la primera tecla, sin que el menú
+  // tenga que enterarse de nada de esto.
+  //
+  // El reintento va ESPACIADO: insistir sesenta veces por segundo mientras el
+  // fichero carga llena la consola de "play() interrupted" sin adelantar nada.
+  musicaMenu() {
+    if (!ctx) return;
+    if (_enMenu && _menu && !_menu.paused) return;      // ya suena
+    const ahora = performance.now();
+    if (ahora - _reintentoMenu < 700) return;
+    _reintentoMenu = ahora;
+
+    _enMenu = true;
+    _musicaActiva = false;      // el repliegue procedural es para la partida
+    pararPistas();
+    if (prepararMenu()) {
+      const p = _menu.play();
+      if (p && p.catch) p.catch(() => {});
+    }
+  },
+
   pararMusica() {
     _musicaActiva = false;
+    _enMenu = false;
     pararPistas();
+    pararMenu();
   },
 
   // --- Volumen, para la pantalla de configuración ---------------------------
@@ -415,6 +491,7 @@ export const GestorAudio = {
                ? Math.round(_pistas[_pistaActual].currentTime) : 0,
       duracion: _pistas && _pistaActual >= 0
                 ? Math.round(_pistas[_pistaActual].duration) || 0 : 0,
+      menu: _enMenu,
       contexto: ctx ? ctx.state : 'sin AudioContext'
     };
   },

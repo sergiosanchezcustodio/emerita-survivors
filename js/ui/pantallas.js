@@ -32,7 +32,17 @@ import { GestorAudio } from '../sistemas/audio.js';
 // píxeles dobladas sí y no, que en las letras del logo se ve como un defecto.
 // Son pantallas quietas: no hay hormigueo que temer, solo un pelo de blandura.
 
-const RUTA_TITULO = 'assets/menus/titulo.png';
+const RUTA_TITULO = 'assets/menus/titulo.jpg';
+
+// Por dónde se recorta la ilustración del título. La imagen mide 1248x832
+// (proporción 3:2) y la pantalla es más apaisada, así que al llenar el ancho
+// sobran 100 unidades de alto que hay que quitar de algún sitio.
+//
+// Ni todo de abajo (0) ni centrado (0,5): a ras de arriba, la lápida con el
+// menú se iba contra el borde inferior y "SALIR" quedaba a un pelo del recorte
+// de una ventana baja; centrado, se comía la punta del remate del logo. Un
+// quinto por arriba es lo que deja las dos cosas dentro.
+const ANCLA_TITULO = 0.2;
 const RUTA_SELECCION = 'assets/menus/seleccion.png';
 
 // Píxeles del lienzo del mundo por unidad de interfaz. Las dos rejillas cubren
@@ -52,8 +62,30 @@ const ARCO_ANCHO = 268;
 const ARCO_Y = 274;
 const ARCO_ALTO = 462;
 
-// Botón START de la pantalla de título, ya dibujado en la ilustración.
-const START_X = 600, START_Y = 743, START_ANCHO = 330, START_ALTO = 84;
+// LAS CUATRO OPCIONES DEL MENÚ, medidas sobre la ilustración nueva
+// (Nueva_Pantalla_Start.jpg, 1248x832). Vienen pintadas en la lápida —JUGAR,
+// TIENDA, CONFIGURACIÓN y SALIR—, así que aquí NO se vuelven a escribir: lo
+// único que falta es decir cuál está señalada, y eso se hace ILUMINANDO SU
+// RECUADRO, que es lo que pidió Sergio.
+//
+// Es el mismo criterio que el resto de esta pantalla: no competir con el arte.
+// La versión anterior tenía que tapar el botón START horneado con una placa
+// opaca y volver a escribir las cuatro opciones encima, porque la ilustración
+// vieja solo traía un botón y hacían falta cuatro. Con el dibujo nuevo eso
+// sobra entero.
+//
+// Las `y` son el centro de cada renglón de texto y salen de buscar las filas
+// claras sobre la piedra; la `x` y el ancho son comunes, centrados en la
+// lápida, y dan un recuadro que le queda holgado a CONFIGURACIÓN, que es la
+// palabra más larga.
+const OPCION_X = 636;
+const OPCION_ANCHO = 232;
+const OPCIONES_TITULO = [
+  { y: 509, alto: 52 },     // JUGAR, más grande que las otras en el dibujo
+  { y: 561, alto: 32 },     // TIENDA
+  { y: 601, alto: 32 },     // CONFIGURACIÓN
+  { y: 641, alto: 32 }      // SALIR
+];
 
 const Imagenes = { titulo: null, seleccion: null };
 
@@ -166,7 +198,7 @@ function fondo(ctxMundo, img, e) {
 // de coincidir.
 export function fondoTitulo(ctxMundo) {
   const img = Imagenes.titulo;
-  fondo(ctxMundo, img, cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, 0));
+  fondo(ctxMundo, img, cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, ANCLA_TITULO));
 }
 
 // Latido lento para lo que pide una pulsación. Va con performance.now() y no
@@ -179,87 +211,54 @@ function latido(periodo, minimo) {
 }
 
 // --- Título ------------------------------------------------------------------
-// El botón START que trae la ilustración se aprovecha como marco de la primera
-// opción: no se tapa, se usa. Las otras tres van debajo con el mismo aire
-// —cartela oscura y letras claras— pero sin marco dorado, porque el arte solo
-// trae uno y repetirlo cuatro veces se leería como un parche.
-const ALTO_OPCION = 26;
-const HUECO_OPCION = 4;
-
+// El menú entero viene pintado en la lápida de la ilustración. Lo único que se
+// añade aquí es el recuadro encendido de la opción señalada y la línea de
+// ayuda: ver OPCIONES_TITULO arriba.
 function dibujarTitulo(ctxMundo, ctxUi, menu, cursor) {
   const img = Imagenes.titulo;
-  const e = cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, 0);
+  const e = cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, ANCLA_TITULO);
   fondo(ctxMundo, img, e);
 
   dibujarOro(ctxUi);
   if (!img || !menu) return;
 
-  const r = enUi(e, START_X, START_Y, START_ANCHO, START_ALTO);
   const t = Tema.actual;
-
-  // El bloque de opciones se apoya en el BORDE INFERIOR del botón dibujado y
-  // crece hacia arriba. Así el menú ocupa el sitio donde el ojo ya espera
-  // encontrar el botón, en vez de aparecer flotando en otra parte.
-  const alto = menu.length * ALTO_OPCION + (menu.length - 1) * HUECO_OPCION;
-  // 30 de margen por debajo del botón dibujado: ahí va la línea de ayuda, y el
-  // lienzo mide 1080 de alto FIJOS —en una ventana más baja se recorta centrado
-  // (ver ESCALA_ARTE en core/constantes.js)—, así que lo que quede pegado al
-  // borde inferior es lo primero que deja de verse.
-  const y0 = Math.max(12, r.y + r.h - alto - 30);
+  const i = Math.max(0, Math.min(OPCIONES_TITULO.length - 1, cursor));
+  const o = OPCIONES_TITULO[i];
+  const r = enUi(e, OPCION_X - OPCION_ANCHO / 2, o.y - o.alto / 2, OPCION_ANCHO, o.alto);
 
   ctxUi.save();
-  ctxUi.textAlign = 'center';
-  ctxUi.textBaseline = 'middle';
 
-  // PLACA QUE TAPA EL BOTÓN HORNEADO. Hace falta: el "START" está pintado en la
-  // ilustración y no se puede quitar, así que sin taparlo asomaba por detrás de
-  // la última opción y se leían las dos palabras superpuestas. Cubre el bloque
-  // entero y el botón, con margen, y va lo bastante opaca como para que no se
-  // adivine lo que hay debajo.
-  const pad = 6;
-  const yTapa = Math.min(y0, r.y) - pad;
-  const altoTapa = Math.max(y0 + alto, r.y + r.h) - yTapa + pad;
-  ctxUi.fillStyle = 'rgba(9,8,11,.93)';
+  // EL RECUADRO ENCENDIDO. Va con 'lighter', es decir SUMANDO luz sobre la
+  // piedra, no pintando un color encima: sobre una lápida gris cualquier relleno
+  // opaco se lee como un parche, y sumando luz parece que la propia piedra está
+  // iluminada. El latido lento es lo que hace que se vea que ESO es lo que se
+  // mueve cuando cambias de opción.
+  const pulso = latido(1500, 0.45);
+  ctxUi.globalCompositeOperation = 'lighter';
+  ctxUi.globalAlpha = 0.17 * pulso;
+  ctxUi.fillStyle = '#ffd9a0';
   ctxUi.beginPath();
-  ctxUi.roundRect(r.x - pad, yTapa, r.w + pad * 2, altoTapa, 8);
+  ctxUi.roundRect(r.x, r.y, r.w, r.h, 6);
   ctxUi.fill();
-  ctxUi.lineWidth = 1;
-  ctxUi.strokeStyle = 'rgba(238,240,243,.12)';
+  ctxUi.restore();
+
+  ctxUi.save();
+  ctxUi.lineWidth = 2;
+  ctxUi.strokeStyle = `rgba(255, 214, 130, ${0.55 + 0.35 * pulso})`;
+  ctxUi.beginPath();
+  ctxUi.roundRect(r.x, r.y, r.w, r.h, 6);
   ctxUi.stroke();
 
-  for (let i = 0; i < menu.length; i++) {
-    const y = y0 + i * (ALTO_OPCION + HUECO_OPCION);
-    const elegida = i === cursor;
-
-    ctxUi.globalAlpha = elegida ? 0.88 : 0.55;
-    ctxUi.fillStyle = 'rgba(10,8,12,.9)';
-    ctxUi.beginPath();
-    ctxUi.roundRect(r.x, y, r.w, ALTO_OPCION, 5);
-    ctxUi.fill();
-    ctxUi.globalAlpha = 1;
-    ctxUi.lineWidth = elegida ? 1.8 : 1;
-    ctxUi.strokeStyle = elegida ? t.filo : 'rgba(238,240,243,.18)';
-    ctxUi.stroke();
-
-    // La elegida se ENCIENDE con 'lighter', igual que hacía el latido del botón
-    // original: suma luz sobre la piedra en vez de taparla con otro color.
-    if (elegida) {
-      ctxUi.save();
-      ctxUi.globalCompositeOperation = 'lighter';
-      ctxUi.globalAlpha = 0.11 * latido(1400, 0.25);
-      ctxUi.fillStyle = '#ffd9a0';
-      ctxUi.fill();
-      ctxUi.restore();
-    }
-
-    ctxUi.font = `15px ${FUENTE_TITULO}`;
-    ctxUi.fillStyle = elegida ? t.titulo : t.texto;
-    textoEspaciado(ctxUi, menu[i].texto, ANCHO_UI / 2, y + ALTO_OPCION / 2, 3);
-  }
-
+  // Línea de ayuda, pegada por debajo de la última opción. El desplazamiento va
+  // en píxeles de la ILUSTRACIÓN y se convierte con `enUi`, no en unidades de
+  // interfaz: así sigue cayendo en el mismo sitio de la lápida pase lo que pase
+  // con el encaje de la imagen.
+  const ayuda = enUi(e, OPCION_X, OPCIONES_TITULO[OPCIONES_TITULO.length - 1].y + 40, 0, 0);
+  ctxUi.textAlign = 'center';
+  ctxUi.textBaseline = 'middle';
   ctxUi.font = `500 10px ${FUENTE}`;
-  textoBorde(ctxUi, '↑↓ elegir     Enter/A aceptar',
-             ANCHO_UI / 2, y0 + alto + 13, t.apagado, 3);
+  textoBorde(ctxUi, '↑↓ elegir     Enter/A aceptar', ANCHO_UI / 2, ayuda.y, t.apagado, 3);
   ctxUi.restore();
 }
 
@@ -540,7 +539,7 @@ function dibujarMascotas(ctxMundo, ctxUi, disponibles, cursor, turno, puestos, e
 // oscurecido: es una pantalla de ajustes, no un sitio del juego.
 function dibujarConfig(ctxMundo, ctxUi, opciones, cursor, confirmando) {
   const img = Imagenes.titulo;
-  const e = cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, 0);
+  const e = cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, ANCLA_TITULO);
   fondo(ctxMundo, img, e);
 
   const t = Tema.actual;

@@ -120,6 +120,34 @@ export const NIVEL_EVOLUCION = 8;
 const PROB_TRIPLE = 0.1;
 const MAX_MEJORAS = 3;
 
+// --- Ruleta del cofre ---------------------------------------------------------
+//
+// El cofre ya no suelta el resultado de golpe: lo SORTEA a la vista, en una
+// rueda con las candidatas pintadas encima, y se para en la que ha tocado. Es
+// la misma decisión de siempre —el cofre no cambia tu construcción, la
+// engorda— pero enseñada en vez de anunciada: con la lista delante se ve QUÉ
+// podía haber salido, que es lo que convierte un aviso en un premio.
+//
+// El resultado lo sigue decidiendo el RNG aquí abajo, ANTES de que la rueda dé
+// una sola vuelta. La animación es una animación: la ruleta se coloca para caer
+// donde ya se ha decidido, no al revés. Con eso, dos partidas con la misma
+// semilla siguen dando el mismo cofre (criterio 10 del plan).
+//
+// OCHO CASILLAS porque ocho son los sectores del dibujo de Sergio
+// (resources/menus/ruleta.png). Si el jugador lleva menos de ocho cosas
+// mejorables, las candidatas se REPITEN hasta llenar la rueda: una rueda con
+// huecos parece rota, y repetir es lo que hace cualquier ruleta de premios de
+// verdad. Si lleva más de ocho, se enseñan ocho de ellas —siempre incluyendo la
+// ganadora, claro—.
+export const CASILLAS_RULETA = 8;
+
+// Cuánto gira cada rueda. La segunda y la tercera paran más tarde que la
+// primera para que el premio gordo se lea de una en una en vez de las tres a la
+// vez, que es medio motivo para que un triple se sienta como un triple.
+const GIRO_BASE = 1.5;
+const GIRO_ESCALON = 0.55;
+export function duracionGiro(i) { return GIRO_BASE + i * GIRO_ESCALON; }
+
 // Ofertas preasignadas: se rellenan, no se construyen. Subir de nivel cincuenta
 // veces por partida y por jugador no puede dejar basura por el camino.
 function crearOferta() {
@@ -142,6 +170,12 @@ export const Progresion = {
   // cofre no puede dejar basura por el camino.
   mejoras: [],
   nMejoras: 0,
+  // Reloj de la animación de las ruletas, en segundos desde que se abrió el
+  // cofre. Vive aquí y no en ui/cofre.js porque la interfaz solo dibuja: lo
+  // adelanta main.js en el paso de lógica, que es de paso lo que hace que la
+  // animación vaya al mismo ritmo aunque el navegador pierda fotogramas.
+  relojGiro: 0,
+  giroTotal: 0,
   animando: 0,           // segundos que le quedan a la ruleta; 0 = se puede elegir
   _rng: null,
   _candidatas: [],       // buffer de trabajo, reutilizado
@@ -151,7 +185,15 @@ export const Progresion = {
     this.opciones = new Array(OPCIONES);
     for (let i = 0; i < OPCIONES; i++) this.opciones[i] = crearOferta();
     this.mejoras = new Array(MAX_MEJORAS);
-    for (let i = 0; i < MAX_MEJORAS; i++) this.mejoras[i] = { nombre: '', clase: '', nivel: 0 };
+    for (let i = 0; i < MAX_MEJORAS; i++) {
+      // `casillas` se preasigna con el resto: la rueda se rellena en caliente,
+      // al abrir el cofre, y ahí no se puede asignar memoria.
+      const casillas = new Array(CASILLAS_RULETA);
+      for (let k = 0; k < CASILLAS_RULETA; k++) casillas[k] = { clase: '', id: '' };
+      this.mejoras[i] = { nombre: '', clase: '', id: '', nivel: 0, casillas, ganadora: 0 };
+    }
+    this.relojGiro = 0;
+    this.giroTotal = 0;
     this.cola.length = 0;
     this.actual = null;
     this.origen = 'nivel';
@@ -340,24 +382,71 @@ export const Progresion = {
     for (let i = 0; i < cuantas; i++) {
       const cand = this._mejorablesDe(jugador);
       if (cand.length === 0) break;
-      const elegida = cand[(this._rng() * cand.length) | 0];
+      const iGanadora = (this._rng() * cand.length) | 0;
+      const elegida = cand[iGanadora];
       this._aplicar(jugador, elegida);
       const m = this.mejoras[this.nMejoras++];
       m.nombre = elegida.nombre;
       m.clase = elegida.clase;
+      m.id = elegida.id;
       m.nivel = elegida.nivelActual + 1;
+      this._llenarRuleta(m, cand, iGanadora);
     }
 
-    // Todo al máximo: se paga en vida, que nunca sobra.
+    // El reloj se pone a cero AQUÍ y no al dibujar: la rueda tiene que empezar a
+    // girar en el mismo paso en que se abre el cofre. Y `giroTotal` se fija
+    // ANTES del repliegue del vino de abajo, que no lleva ruleta: si se pusiera
+    // después habría que acordarse de dejarlo a cero en ese caso.
+    this.relojGiro = 0;
+    this.giroTotal = this.nMejoras > 0 ? duracionGiro(this.nMejoras - 1) : 0;
+
+    // Todo al máximo: se paga en vida, que nunca sobra. Sin ruleta —no hay nada
+    // que sortear cuando no queda nada que subir—, así que la ventana sale con
+    // su panel de siempre.
     if (this.nMejoras === 0) {
       jugador.vida = Math.min(jugador.vidaMaxima, jugador.vida + 30);
       const m = this.mejoras[this.nMejoras++];
       m.nombre = 'Vino de Emerita';
       m.clase = 'curacion';
+      m.id = '';
       m.nivel = 0;
     }
     return 'mejoras';
   },
+
+  // Reparte las candidatas por las ocho casillas de la rueda dejando la
+  // ganadora en una casilla AL AZAR, que es lo que hace que la rueda no pare
+  // siempre en el mismo sitio aunque el premio se repita.
+  //
+  // El reparto es cíclico desde un desplazamiento calculado hacia atrás: se
+  // elige primero en qué casilla va a caer y luego se coloca la lista para que
+  // ahí esté la ganadora. Al revés —repartir y buscar dónde ha quedado— habría
+  // que tratar aparte el caso de más de ocho candidatas, donde alguna se queda
+  // fuera de la rueda y podría quedarse fuera justo la que gana.
+  _llenarRuleta(m, cand, iGanadora) {
+    const n = cand.length;
+    m.ganadora = (this._rng() * CASILLAS_RULETA) | 0;
+    const desplazamiento = ((iGanadora - m.ganadora) % n + n) % n;
+    for (let k = 0; k < CASILLAS_RULETA; k++) {
+      const c = cand[(desplazamiento + k) % n];
+      m.casillas[k].clase = c.clase;
+      m.casillas[k].id = c.id;
+    }
+  },
+
+  // Adelanta la animación de las ruletas. Devuelve si alguna sigue girando.
+  girarCofre(dt) {
+    if (this.relojGiro < this.giroTotal) {
+      this.relojGiro = Math.min(this.giroTotal, this.relojGiro + dt);
+    }
+    return this.relojGiro < this.giroTotal;
+  },
+
+  // Al grano. La primera pulsación durante el giro no cierra la ventana: la
+  // termina. Quien ya ha visto veinte cofres no tiene por qué esperar tres
+  // segundos, y quien lo ve por primera vez no se lo salta sin querer al pulsar
+  // para cerrar.
+  saltarGiro() { this.relojGiro = this.giroTotal; },
 
   // Lo que YA LLEVA el jugador y todavía admite un nivel más. El cofre solo
   // reparte entre esto: ni armas nuevas, ni pasivos nuevos, ni evoluciones
@@ -383,7 +472,12 @@ export const Progresion = {
     return cand;
   },
 
-  cerrarCofre() { this.cofre = null; this.nMejoras = 0; },
+  cerrarCofre() {
+    this.cofre = null;
+    this.nMejoras = 0;
+    this.relojGiro = 0;
+    this.giroTotal = 0;
+  },
 
   // ¿Lo que hay en pantalla es una evolución o un puñado de mejoras? La pantalla
   // del cofre pinta una cosa u otra con esto.

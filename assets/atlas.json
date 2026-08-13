@@ -662,6 +662,27 @@
                                                         "katana",
                                                         "sierrasVotivas"
                                                     ]
+                                      },
+                      "ruletaDisco":  {
+                                          "archivo":  "menus/ruleta-disco.png",
+                                          "w":  640,
+                                          "h":  693,
+                                          "anclaX":  319,
+                                          "anclaY":  327,
+                                          "frames":  1,
+                                          "plano":  true,
+                                          "centroX":  319,
+                                          "centroY":  327,
+                                          "radio":  285
+                                      },
+                      "ruletaMarco":  {
+                                          "archivo":  "menus/ruleta-marco.png",
+                                          "w":  640,
+                                          "h":  693,
+                                          "anclaX":  319,
+                                          "anclaY":  327,
+                                          "frames":  1,
+                                          "plano":  true
                                       }
                   }
 }

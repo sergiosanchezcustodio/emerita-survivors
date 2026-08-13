@@ -1074,7 +1074,17 @@ function actualizar(dt) {
   // cierra con cualquier tecla, así que si los atajos fueran antes, cerrarlo con
   // el 2 soltaría además quinientas serpientes.
   if (Progresion.cofreAbierto) {
-    if (entrada.algunFlanco()) Progresion.cerrarCofre();
+    // Las ruletas giran con el PASO DE LÓGICA y no con el reloj de pared: van
+    // al mismo ritmo aunque el navegador pierda fotogramas, y con la misma
+    // semilla el cofre se ve exactamente igual dos partidas seguidas.
+    const girando = Progresion.girarCofre(dt);
+    if (entrada.algunFlanco()) {
+      // La primera pulsación mientras giran NO cierra: las termina. Quien ya ha
+      // visto veinte cofres no tiene por qué esperar tres segundos, y quien lo
+      // ve por primera vez no se lo salta sin querer al ir a cerrar.
+      if (girando) Progresion.saltarGiro();
+      else Progresion.cerrarCofre();
+    }
     entrada.limpiarFlanco();
     return;
   }
@@ -1431,6 +1441,11 @@ function dibujar(alpha) {
   // lienzo del juego entero y los resaltados van en la capa de interfaz, así
   // que ni se limpia el suelo ni se recorren pools que están vacíos.
   if (pantalla !== PANTALLA_JUEGO) {
+    // La música del menú, en todas las pantallas previas. Se pide cada
+    // fotograma y no al cambiar de pantalla a propósito: hasta que el usuario no
+    // toca una tecla el navegador no deja sonar nada, y así entra sola en cuanto
+    // lo hace sin que ninguna pantalla tenga que saberlo (ver musicaMenu).
+    GestorAudio.musicaMenu();
     Capa.limpiar();
     if (despedida) { Pantallas.titulo(ctx, Capa.ctx, null, 0); dibujarDespedida(Capa.ctx); return; }
     if (pantalla === PANTALLA_TITULO) Pantallas.titulo(ctx, Capa.ctx, MENU, cursorMenu);
