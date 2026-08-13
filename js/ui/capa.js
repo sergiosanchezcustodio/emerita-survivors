@@ -1,4 +1,4 @@
-import { ANCHO_FISICO, ALTO_FISICO, ANCHO_UI } from '../core/constantes.js';
+import { ANCHO_FISICO, ALTO_FISICO, ANCHO_UI, ALTO_UI } from '../core/constantes.js';
 
 // Capa de interfaz: un lienzo APARTE del juego, a resolución de pantalla.
 //
@@ -50,6 +50,16 @@ export const Capa = {
   ctx: null,
   escala: 1,             // píxeles de dispositivo por unidad de interfaz
 
+  // Alto REALMENTE VISIBLE, en unidades de interfaz.
+  //
+  // La capa mide siempre ALTO_UI de alto, pero el lienzo se centra en la ventana
+  // y en una más baja se RECORTA por arriba y por abajo: lo que se pinte cerca
+  // de un borde no llega a verse. Da igual mientras la interfaz sea un panel en
+  // el centro, y deja de dar igual en cuanto una pantalla ocupa el alto entero
+  // —la tienda y el resumen final—, que es quien consulta esto para no dejar el
+  // pie fuera de la ventana.
+  altoVisible: ALTO_UI,
+
   iniciar(lienzo) {
     this.lienzo = lienzo;
     // `alpha: true` obligatorio: por debajo está el juego y hay que verlo.
@@ -74,6 +84,11 @@ export const Capa = {
     // lienzo entero partiendo de esa rejilla fija, así que se corrige por la
     // proporción entre ambas en vez de asumir que son la misma cosa.
     this.escala = (this.lienzo.width) / ANCHO_UI;
+
+    // Lo que cabe de los `altoCss` píxeles del lienzo dentro de la ventana,
+    // devuelto en las mismas unidades en que dibuja todo lo demás.
+    const visible = Math.min(window.innerHeight || altoCss, altoCss);
+    this.altoVisible = ALTO_UI * visible / altoCss;
   },
 
   // Se llama al principio de cada frame. Cambiar el tamaño de un lienzo resetea

@@ -1,6 +1,6 @@
 import { ANCHO_UI, ALTO_UI, ANCHO_FISICO } from '../core/constantes.js';
 import { Recursos } from '../core/recursos.js';
-import { FUENTE, FUENTE_TITULO, textoBorde, textoEspaciado } from './capa.js';
+import { Capa, FUENTE, FUENTE_TITULO, textoBorde, textoEspaciado } from './capa.js';
 import { Tema, panel, cenefa } from './tema.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from '../datos/personajes.js';
 import { ARMAS } from '../datos/armas.js';
@@ -87,9 +87,10 @@ const COLOR_ORO = '#e8b73a';
 
 export function dibujarOro(ctxUi) {
   const x = ANCHO_UI - 18;
-  // 30 y no 24: el lienzo mide 540 de alto FIJAS y en una ventana más baja se
-  // recorta centrado, así que a 24 la moneda salía descabezada.
-  const y = 30;
+  // Se aparta del borde SUPERIOR REAL, no del borde del lienzo: la capa mide
+  // 540 de alto siempre, pero en una ventana más baja se recorta centrada (ver
+  // Capa.altoVisible) y a 24 fijas la moneda salía descabezada.
+  const y = Math.max(24, (ALTO_UI - Capa.altoVisible) / 2 + 18);
   ctxUi.save();
   ctxUi.textAlign = 'right';
   ctxUi.textBaseline = 'middle';

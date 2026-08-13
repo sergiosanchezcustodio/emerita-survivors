@@ -532,6 +532,12 @@ public class Procesador {
 
             int factor = FactorNativo(marcos, w, h, stride);
 
+            // El GIF puede venir SIN alfa util: todo el lienzo pintado de un
+            // color claro y solo un reborde transparente. Se le quita antes de
+            // medir nada -- si no, la caja comun sale del lienzo entero y el
+            // bicho se guarda con su recuadro blanco puesto.
+            QuitarFondoOpaco(marcos, w, h, stride);
+
             // --- Caja comun a todos los fotogramas -------------------------
             int minX = w, minY = h, maxX = -1, maxY = -1;
             for (int f = 0; f < nf; f++) {
@@ -687,6 +693,104 @@ public class Procesador {
             sal.Save(archivo, ImageFormat.Png);
         }
         return frameW + "|" + h + "|" + total;
+    }
+
+    // ---------------------------------------------------------------------
+    // Fondo opaco de un GIF exportado sin transparencia
+    // ---------------------------------------------------------------------
+    //
+    // El GIF de Plinio el Buho viene con su alfa y se ve perfecto; los de Oreo
+    // el Conejo y el Pollito Fantasma vienen con el lienzo entero pintado de
+    // blanco y solo un reborde de un pixel transparente. Como todo lo demas
+    // esta opaco, la caja comun salia siendo el lienzo entero y el bicho se
+    // guardaba con su recuadro blanco -- que es como se veian en la tienda.
+    //
+    // POR INUNDACION DESDE EL BORDE, no por color. Es LA decision de esta
+    // funcion: el conejo es blanco. Borrar "todo lo que se parezca al blanco"
+    // le comeria la barriga, el rabo y media cara. Inundando desde fuera solo
+    // se borra el blanco que se puede alcanzar sin cruzar el contorno del
+    // dibujo, y el de dentro se queda donde esta.
+    //
+    // No hace falta decir que GIF lo necesita y cual no: si el borde ya viene
+    // transparente no hay color de fondo que inundar y la funcion no toca nada.
+    // Asi Plinio pasa por aqui sin enterarse.
+    //
+    // TOLERANCIA PEQUENA (12 por canal). Estos GIF son pixel art ampliado por
+    // bloques enteros, sin interpolar, asi que el fondo es UN color plano y el
+    // contorno del bicho es un salto brusco: no hay degradado que perseguir, y
+    // una tolerancia grande solo sirve para colarse por un pixel claro del
+    // contorno y vaciar el sprite por dentro.
+    const int TOL_FONDO = 12;
+
+    static void QuitarFondoOpaco(byte[][] marcos, int w, int h, int stride) {
+        for (int m = 0; m < marcos.Length; m++) {
+            byte[] px = marcos[m];
+
+            // Color del fondo: el opaco mas repetido del borde del lienzo.
+            // Contarlos y no fiarse de la esquina evita que una firma, una
+            // sombra o un pixel suelto en la esquina decidan por todo el marco.
+            Dictionary<int, int> votos = new Dictionary<int, int>();
+            int opacos = 0, borde = 0;
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++) {
+                    if (x != 0 && y != 0 && x != w - 1 && y != h - 1) continue;
+                    borde++;
+                    int p = y * stride + x * 4;
+                    if (px[p + 3] < 128) continue;
+                    opacos++;
+                    int llave = (px[p + 2] << 16) | (px[p + 1] << 8) | px[p];
+                    int n; votos.TryGetValue(llave, out n);
+                    votos[llave] = n + 1;
+                }
+
+            // Borde practicamente transparente: el GIF ya trae su alfa.
+            if (opacos * 100 < borde * 10) continue;
+
+            int ganador = -1, mejor = 0;
+            foreach (KeyValuePair<int, int> v in votos)
+                if (v.Value > mejor) { mejor = v.Value; ganador = v.Key; }
+            if (ganador < 0) continue;
+
+            int fr = (ganador >> 16) & 255, fg = (ganador >> 8) & 255, fb = ganador & 255;
+
+            // Inundacion en cuatro direcciones desde todo el borde. Solo avanza
+            // por pixeles que sean fondo (o que ya estuvieran transparentes),
+            // asi que se para en cuanto toca el contorno del dibujo.
+            bool[] visto = new bool[w * h];
+            Queue<int> cola = new Queue<int>();
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++) {
+                    if (x != 0 && y != 0 && x != w - 1 && y != h - 1) continue;
+                    int i = y * w + x;
+                    if (visto[i]) continue;
+                    if (!EsFondo(px, y * stride + x * 4, fr, fg, fb)) continue;
+                    visto[i] = true;
+                    cola.Enqueue(i);
+                }
+
+            while (cola.Count > 0) {
+                int i = cola.Dequeue();
+                int x = i % w, y = i / w;
+                px[y * stride + x * 4 + 3] = 0;
+                for (int d = 0; d < 4; d++) {
+                    int nx = x + (d == 0 ? 1 : d == 1 ? -1 : 0);
+                    int ny = y + (d == 2 ? 1 : d == 3 ? -1 : 0);
+                    if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                    int j = ny * w + nx;
+                    if (visto[j]) continue;
+                    if (!EsFondo(px, ny * stride + nx * 4, fr, fg, fb)) continue;
+                    visto[j] = true;
+                    cola.Enqueue(j);
+                }
+            }
+        }
+    }
+
+    static bool EsFondo(byte[] px, int p, int fr, int fg, int fb) {
+        if (px[p + 3] < 128) return true;                  // ya transparente
+        return Math.Abs(px[p + 2] - fr) <= TOL_FONDO &&
+               Math.Abs(px[p + 1] - fg) <= TOL_FONDO &&
+               Math.Abs(px[p]     - fb) <= TOL_FONDO;
     }
 
     // Mayor N tal que la imagen sea un escalado entero NxN de otra mas pequena.

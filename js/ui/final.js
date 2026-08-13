@@ -1,5 +1,5 @@
 import { ANCHO_UI, ALTO_UI } from '../core/constantes.js';
-import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
+import { Capa, FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
 import { Tema, cenefa } from './tema.js';
 import { Recursos } from '../core/recursos.js';
 import { ARMAS } from '../datos/armas.js';
@@ -125,16 +125,27 @@ function filaEstadistica(ctx, x, y, w, etiqueta, valor, color) {
 }
 
 // --- Medidas de la rejilla ----------------------------------------------------
-// Igual que en la tienda: nada pegado al borde. El lienzo mide 540 de alto
-// FIJAS y una ventana más baja recorta por arriba y por abajo, así que el
-// titular y el pie se quedan por dentro de esa franja.
-const Y_TITULO = 46;
-const Y_CENEFA = 70;
-const Y_CIFRAS = 92;
-const Y_CARTAS = 142;
-const ALTO_CARTA = 308;
+// Igual que en la tienda: el reparto vertical se calcula en cada dibujo. La capa
+// mide 540 de alto siempre, pero el lienzo se centra en la ventana y en una más
+// baja se recorta por arriba y por abajo (ver Capa.altoVisible). Con medidas
+// fijas, el titular y la línea de "pulsa para volver al menú" se cortaban.
 const HUECO_CARTA = 18;
-const Y_PIE = 508;
+const ALTO_MAXIMO_CARTA = 308;
+
+function rejilla() {
+  const recorte = Math.max(0, (ALTO_UI - Capa.altoVisible) / 2);
+  const arriba = recorte + 10;
+  const abajo = ALTO_UI - recorte - 10;
+  const cartas = arriba + 132;
+  return {
+    titulo: arriba + 36,
+    cenefa: arriba + 60,
+    cifras: arriba + 82,
+    cartas,
+    altoCarta: Math.min(ALTO_MAXIMO_CARTA, Math.max(150, abajo - 22 - cartas)),
+    pie: abajo
+  };
+}
 
 const RADIO_ICONO = 11;
 const PASO_ICONO = 26;
@@ -145,9 +156,9 @@ const PASO_ICONO = 26;
 // y cada jugador trae { id, nombre, nivel, golpes, resurrecciones, enPie,
 // mascota, armas: [{id, nivel}], pasivos: {id: nivel} }.
 export function dibujarFinal(ctx, alto, victoria, stats) {
-  const t = Tema.actual;
   const color = victoria ? COLOR_VICTORIA : COLOR_DERROTA;
   const fichas = (stats && stats.jugadores) || [];
+  const r = rejilla();
 
   ctx.save();
 
@@ -163,8 +174,8 @@ export function dibujarFinal(ctx, alto, victoria, stats) {
   ctx.textBaseline = 'middle';
   ctx.font = `38px ${FUENTE_TITULO}`;
   ctx.fillStyle = color.titulo;
-  textoEspaciado(ctx, victoria ? 'VICTORIA' : 'DERROTA', ANCHO_UI / 2, Y_TITULO, 8);
-  cenefa(ctx, 140, Y_CENEFA, ANCHO_UI - 280);
+  textoEspaciado(ctx, victoria ? 'VICTORIA' : 'DERROTA', ANCHO_UI / 2, r.titulo, 8);
+  cenefa(ctx, 140, r.cenefa, ANCHO_UI - 280);
 
   // --- Cifras de equipo ----------------------------------------------------
   // Van arriba y separadas de las fichas porque son de todos: el tiempo que
@@ -176,7 +187,7 @@ export function dibujarFinal(ctx, alto, victoria, stats) {
   const pasoCifra = 190;
   const x0Cifra = ANCHO_UI / 2 - (etiquetas.length - 1) * pasoCifra / 2;
   for (let i = 0; i < etiquetas.length; i++) {
-    cifra(ctx, x0Cifra + i * pasoCifra, Y_CIFRAS, etiquetas[i], valores[i], colores[i]);
+    cifra(ctx, x0Cifra + i * pasoCifra, r.cifras, etiquetas[i], valores[i], colores[i]);
   }
 
   // --- Una ficha por jugador ------------------------------------------------
@@ -188,25 +199,26 @@ export function dibujarFinal(ctx, alto, victoria, stats) {
   const x0 = (ANCHO_UI - total) / 2;
 
   for (let i = 0; i < fichas.length; i++) {
-    dibujarFicha(ctx, fichas[i], i, x0 + i * (ancho + HUECO_CARTA), Y_CARTAS, ancho);
+    dibujarFicha(ctx, fichas[i], i, x0 + i * (ancho + HUECO_CARTA), r.cartas, ancho,
+                 r.altoCarta);
   }
 
   ctx.textAlign = 'center';
   ctx.font = `400 11px ${FUENTE}`;
   ctx.fillStyle = color.pie;
-  ctx.fillText('Pulsa cualquier tecla para volver al menú', ANCHO_UI / 2, Y_PIE);
+  ctx.fillText('Pulsa cualquier tecla para volver al menú', ANCHO_UI / 2, r.pie);
 
   ctx.restore();
 }
 
-function dibujarFicha(ctx, f, indice, x, y, ancho) {
+function dibujarFicha(ctx, f, indice, x, y, ancho, altoCarta) {
   const t = Tema.actual;
   const acento = COLOR_JUGADOR[indice % COLOR_JUGADOR.length];
   const cx = x + ancho / 2;
   const relleno = 14;
 
   ctx.beginPath();
-  ctx.roundRect(x, y, ancho, ALTO_CARTA, 7);
+  ctx.roundRect(x, y, ancho, altoCarta, 7);
   ctx.fillStyle = 'rgba(18,18,23,.85)';
   ctx.fill();
   ctx.lineWidth = 1.5;

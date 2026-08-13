@@ -1,6 +1,7 @@
 import { ANCHO_UI, ALTO_UI } from '../core/constantes.js';
 import { FUENTE, FUENTE_TITULO, textoEspaciado, envolverTexto } from './capa.js';
 import { Tema, cenefa } from './tema.js';
+import { Capa } from './capa.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
 import { Recursos } from '../core/recursos.js';
 import { POTENCIADORES } from '../datos/potenciadores.js';
@@ -38,20 +39,38 @@ const IDS = Object.keys(POTENCIADORES);
 // core/constantes.js). Las tres secciones comparten cabecera, columnas y pie:
 // cambiar de sección no mueve NADA de sitio, solo cambia lo que hay en las
 // filas.
-//
-// NADA PEGADO AL BORDE. El lienzo mide 540 unidades de alto FIJAS y en una
-// ventana más baja que eso se RECORTA CENTRADO (ver ESCALA_ARTE en
-// core/constantes.js): en la ventana de este portátil se pierden unas veinte
-// unidades por arriba y otras veinte por abajo. La primera versión ponía las
-// secciones en la 32 y el pie en la 518, y las dos se quedaban a medio cortar.
 const MARGEN = 54;
-const Y_PESTANYAS = 38;
-const Y_CENEFA = 52;
-const Y_CABECERA = 76;        // rótulos de columna
-const Y_REGLA = 86;
-const Y_FILAS = 94;
-const Y_DESC = 478;           // descripción larga de lo señalado
-const Y_PIE = 508;
+
+// El REPARTO VERTICAL se calcula en cada dibujo y no con constantes fijas,
+// porque el alto disponible no es siempre el mismo. La capa mide 540 unidades
+// de alto, pero el lienzo se centra en la ventana y en una más baja se recorta
+// por arriba y por abajo (ver Capa.altoVisible): con medidas fijas, el rótulo
+// de las secciones y la línea de ayuda del pie se quedaban cortados por la
+// mitad en cuanto Sergio bajaba la ventana un dedo.
+//
+// Las filas se estrujan hasta caber. Una tabla con la última fila fuera de la
+// pantalla no es una tabla, y en la tienda la última fila es Nerón el Gato, que
+// cuesta 150 denarios y conviene poder verlo.
+const ALTO_MINIMO_FILA = 20;
+
+function rejilla(nFilas, altoMaxFila) {
+  const recorte = Math.max(0, (ALTO_UI - Capa.altoVisible) / 2);
+  const arriba = recorte + 10;
+  const abajo = ALTO_UI - recorte - 10;
+  const filas = arriba + 60;
+  const desc = abajo - 30;
+  const hueco = Math.max(0, desc - 14 - filas);
+  return {
+    pestanyas: arriba + 8,
+    cenefa: arriba + 22,
+    cabecera: arriba + 44,     // rótulos de columna
+    regla: arriba + 54,
+    filas,
+    alto: Math.min(altoMaxFila, Math.max(ALTO_MINIMO_FILA, hueco / nFilas)),
+    desc,                       // descripción larga de lo señalado
+    pie: abajo
+  };
+}
 
 // Columnas. El icono va a la IZQUIERDA del todo porque es lo que se reconoce
 // antes de leer: con diez potenciadores en la lista, el dibujo distingue la fila
@@ -185,7 +204,7 @@ function efectoDePersonaje(def) {
 
 // --- Armazón: fondo, secciones, cabecera de tabla y pie ----------------------
 
-function armazon(ctx, seccion) {
+function armazon(ctx, seccion, r) {
   const t = Tema.actual;
 
   ctx.fillStyle = 'rgba(6,5,10,.82)';
@@ -200,31 +219,31 @@ function armazon(ctx, seccion) {
     const activa = seccion === i;
     ctx.font = `${activa ? 17 : 15}px ${FUENTE_TITULO}`;
     ctx.fillStyle = activa ? t.titulo : t.apagado;
-    const w = textoEspaciado(ctx, NOMBRES[i], cx, Y_PESTANYAS, 1.6);
+    const w = textoEspaciado(ctx, NOMBRES[i], cx, r.pestanyas, 1.6);
     if (activa) {
       ctx.fillStyle = t.filo;
-      ctx.fillRect(cx, Y_PESTANYAS + 12, w, 2);
+      ctx.fillRect(cx, r.pestanyas + 12, w, 2);
     }
     cx += w + 26;
   }
 
   dibujarOro(ctx);
-  cenefa(ctx, MARGEN, Y_CENEFA, ANCHO_UI - MARGEN * 2);
+  cenefa(ctx, MARGEN, r.cenefa, ANCHO_UI - MARGEN * 2);
 
   // Títulos de columna. En versalitas pequeñas y apagadas: rotulan sin competir
   // con el contenido de las filas.
   ctx.font = `600 9px ${FUENTE}`;
   ctx.fillStyle = t.apagado;
   ctx.textAlign = 'left';
-  textoEspaciado(ctx, 'OBJETO', MARGEN, Y_CABECERA, 1.4);
-  textoEspaciado(ctx, 'NIVEL', X_NIVEL, Y_CABECERA, 1.4);
-  textoEspaciado(ctx, 'EFECTO', X_EFECTO, Y_CABECERA, 1.4);
+  textoEspaciado(ctx, 'OBJETO', MARGEN, r.cabecera, 1.4);
+  textoEspaciado(ctx, 'NIVEL', X_NIVEL, r.cabecera, 1.4);
+  textoEspaciado(ctx, 'EFECTO', X_EFECTO, r.cabecera, 1.4);
   ctx.textAlign = 'right';
-  ctx.fillText('PRECIO', X_PRECIO, Y_CABECERA);
+  ctx.fillText('PRECIO', X_PRECIO, r.cabecera);
 
   ctx.globalAlpha = 0.35;
   ctx.fillStyle = t.filo;
-  ctx.fillRect(MARGEN, Y_REGLA, ANCHO_UI - MARGEN * 2, 1);
+  ctx.fillRect(MARGEN, r.regla, ANCHO_UI - MARGEN * 2, 1);
   ctx.globalAlpha = 1;
 }
 
@@ -236,51 +255,60 @@ function resalte(ctx, y, alto) {
 
 // Descripción larga de lo señalado y línea de ayuda. Cambia con el cursor, así
 // que las filas se quedan compactas y solo se lee una a la vez.
-function pie(ctx, descripcion, accion) {
+function pie(ctx, r, descripcion, accion) {
   const t = Tema.actual;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = `400 11px ${FUENTE}`;
   ctx.fillStyle = t.texto;
   const lineas = envolverTexto(ctx, descripcion, ANCHO_UI - MARGEN * 4);
-  ctx.fillText(lineas[0] || '', ANCHO_UI / 2, Y_DESC);
-  if (lineas[1]) ctx.fillText(lineas[1], ANCHO_UI / 2, Y_DESC + 14);
+  ctx.fillText(lineas[0] || '', ANCHO_UI / 2, r.desc);
+  if (lineas[1]) ctx.fillText(lineas[1], ANCHO_UI / 2, r.desc + 14);
 
   ctx.font = `500 10px ${FUENTE}`;
   ctx.fillStyle = t.apagado;
   ctx.fillText(`↑↓ elegir     ←→ sección     Enter/A ${accion}     Esc/B volver`,
-               ANCHO_UI / 2, Y_PIE);
+               ANCHO_UI / 2, r.pie);
 }
 
 // --- Reparto ------------------------------------------------------------------
 
 export function dibujarTienda(ctxMundo, ctx, cursor, seccion) {
+  const nFilas = seccion === 1 ? ORDEN_MASCOTAS.length
+               : seccion === 2 ? ORDEN_PERSONAJES.length
+               : IDS.length;
+  const altoMax = seccion === 1 ? ALTO_MASCOTA
+                : seccion === 2 ? ALTO_PERSONAJE
+                : ALTO_POTENCIADOR;
+  const r = rejilla(nFilas, altoMax);
+
   fondoTitulo(ctxMundo);
   ctx.save();
-  armazon(ctx, seccion);
-  if (seccion === 1) filasMascotas(ctx, cursor);
-  else if (seccion === 2) filasPersonajes(ctx, cursor);
-  else filasPotenciadores(ctx, cursor);
+  armazon(ctx, seccion, r);
+  if (seccion === 1) filasMascotas(ctx, cursor, r);
+  else if (seccion === 2) filasPersonajes(ctx, cursor, r);
+  else filasPotenciadores(ctx, cursor, r);
   ctx.restore();
 }
 
 // --- Potenciadores ------------------------------------------------------------
 const ALTO_POTENCIADOR = 36;
 
-function filasPotenciadores(ctx, cursor) {
+function filasPotenciadores(ctx, cursor, r) {
   const t = Tema.actual;
+  const radio = Math.min(14, r.alto * 0.4);
   for (let i = 0; i < IDS.length; i++) {
     const id = IDS[i];
     const def = POTENCIADORES[id];
     const nivel = MetaProgreso.nivelPotenciador(id);
     const coste = MetaProgreso.costePotenciador(id);
     const elegida = i === cursor;
-    const y = Y_FILAS + i * ALTO_POTENCIADOR;
-    const yc = y + ALTO_POTENCIADOR / 2 - 2;
+    const y = r.filas + i * r.alto;
+    const yc = y + r.alto / 2 - 2;
 
-    if (elegida) resalte(ctx, y, ALTO_POTENCIADOR);
+    if (elegida) resalte(ctx, y, r.alto);
 
-    iconoPotenciador(ctx, id, def, X_ICONO, yc, 14);
+    iconoPotenciador(ctx, id, def, X_ICONO, yc, radio);
 
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
@@ -300,7 +328,7 @@ function filasPotenciadores(ctx, cursor) {
     precio(ctx, yc, coste, 'AL MÁXIMO');
   }
 
-  pie(ctx, POTENCIADORES[IDS[cursor]].descripcion,
+  pie(ctx, r, POTENCIADORES[IDS[cursor]].descripcion,
       MetaProgreso.nivelPotenciador(IDS[cursor]) > 0 ? 'mejorar' : 'comprar');
 }
 
@@ -315,8 +343,9 @@ function filasPotenciadores(ctx, cursor) {
 // distintas y esta lista solo tiene sitio para una.
 const ALTO_MASCOTA = 44;
 
-function filasMascotas(ctx, cursor) {
+function filasMascotas(ctx, cursor, r) {
   const t = Tema.actual;
+  const lado = Math.min(34, r.alto * 0.78);
   for (let i = 0; i < ORDEN_MASCOTAS.length; i++) {
     const id = ORDEN_MASCOTAS[i];
     const def = MASCOTAS[id];
@@ -324,17 +353,17 @@ function filasMascotas(ctx, cursor) {
     const tiene = nivel > 0;
     const coste = MetaProgreso.costeMascota(id);
     const elegida = i === cursor;
-    const y = Y_FILAS + i * ALTO_MASCOTA;
-    const yc = y + ALTO_MASCOTA / 2 - 2;
+    const y = r.filas + i * r.alto;
+    const yc = y + r.alto / 2 - 2;
 
-    if (elegida) resalte(ctx, y, ALTO_MASCOTA);
+    if (elegida) resalte(ctx, y, r.alto);
 
     // Apagada si no la tienes: se ve qué hay a la venta sin que parezca tuya.
     ctx.globalAlpha = tiene ? 1 : 0.4;
     const idAtlas = 'mascota' + id.charAt(0).toUpperCase() + id.slice(1);
-    if (!sprite(ctx, idAtlas, X_ICONO, yc, 34)) {
+    if (!sprite(ctx, idAtlas, X_ICONO, yc, lado)) {
       ctx.beginPath();
-      ctx.arc(X_ICONO, yc, 13, 0, Math.PI * 2);
+      ctx.arc(X_ICONO, yc, lado * 0.38, 0, Math.PI * 2);
       ctx.fillStyle = def.color;
       ctx.fill();
       ctx.fillStyle = 'rgba(12,10,14,.8)';
@@ -361,7 +390,7 @@ function filasMascotas(ctx, cursor) {
   }
 
   const id = ORDEN_MASCOTAS[cursor];
-  pie(ctx, MASCOTAS[id].descripcion, MetaProgreso.tieneMascota(id) ? 'mejorar' : 'adoptar');
+  pie(ctx, r, MASCOTAS[id].descripcion, MetaProgreso.tieneMascota(id) ? 'mejorar' : 'adoptar');
 }
 
 // --- Jugadores ----------------------------------------------------------------
@@ -373,17 +402,18 @@ function filasMascotas(ctx, cursor) {
 // los datos y nada más.
 const ALTO_PERSONAJE = 58;
 
-function filasPersonajes(ctx, cursor) {
+function filasPersonajes(ctx, cursor, r) {
   const t = Tema.actual;
+  const radio = Math.min(22, r.alto * 0.38);
   for (let i = 0; i < ORDEN_PERSONAJES.length; i++) {
     const id = ORDEN_PERSONAJES[i];
     const def = PERSONAJES[id];
     const tuyo = MetaProgreso.heroeDesbloqueado(id);
     const elegida = i === cursor;
-    const y = Y_FILAS + i * ALTO_PERSONAJE;
-    const yc = y + ALTO_PERSONAJE / 2 - 2;
+    const y = r.filas + i * r.alto;
+    const yc = y + r.alto / 2 - 2;
 
-    if (elegida) resalte(ctx, y, ALTO_PERSONAJE);
+    if (elegida) resalte(ctx, y, r.alto);
 
     // El retrato, el mismo que usa su ficha, recortado en círculo.
     ctx.globalAlpha = tuyo ? 1 : 0.4;
@@ -392,12 +422,13 @@ function filasPersonajes(ctx, cursor) {
     if (meta && img) {
       ctx.save();
       ctx.beginPath();
-      ctx.arc(X_ICONO, yc, 22, 0, Math.PI * 2);
+      ctx.arc(X_ICONO, yc, radio, 0, Math.PI * 2);
       ctx.clip();
-      ctx.drawImage(img, 0, 0, meta.w, meta.h, X_ICONO - 22, yc - 22, 44, 44);
+      ctx.drawImage(img, 0, 0, meta.w, meta.h,
+                    X_ICONO - radio, yc - radio, radio * 2, radio * 2);
       ctx.restore();
       ctx.beginPath();
-      ctx.arc(X_ICONO, yc, 22, 0, Math.PI * 2);
+      ctx.arc(X_ICONO, yc, radio, 0, Math.PI * 2);
       ctx.lineWidth = 1.5;
       ctx.strokeStyle = elegida ? t.filo : 'rgba(255,255,255,.2)';
       ctx.stroke();
@@ -428,6 +459,6 @@ function filasPersonajes(ctx, cursor) {
   }
 
   const id = ORDEN_PERSONAJES[cursor];
-  pie(ctx, PERSONAJES[id].descripcion,
+  pie(ctx, r, PERSONAJES[id].descripcion,
       MetaProgreso.heroeDesbloqueado(id) ? 'ya es tuyo' : 'comprar');
 }
