@@ -349,6 +349,78 @@
                                              "anclaY":  48,
                                              "frames":  16
                                          },
+                      "mascotaHeladioFicha":  {
+                                                  "archivo":  "mascotas/heladio-ficha.png",
+                                                  "w":  136,
+                                                  "h":  160,
+                                                  "anclaX":  68,
+                                                  "anclaY":  160,
+                                                  "frames":  1,
+                                                  "plano":  true
+                                              },
+                      "mascotaEscipionFicha":  {
+                                                   "archivo":  "mascotas/escipion-ficha.png",
+                                                   "w":  264,
+                                                   "h":  160,
+                                                   "anclaX":  132,
+                                                   "anclaY":  160,
+                                                   "frames":  1,
+                                                   "plano":  true
+                                               },
+                      "mascotaPlinioFicha":  {
+                                                 "archivo":  "mascotas/plinio-ficha.png",
+                                                 "w":  200,
+                                                 "h":  160,
+                                                 "anclaX":  100,
+                                                 "anclaY":  160,
+                                                 "frames":  1,
+                                                 "plano":  true
+                                             },
+                      "mascotaNeronFicha":  {
+                                                "archivo":  "mascotas/neron-ficha.png",
+                                                "w":  160,
+                                                "h":  160,
+                                                "anclaX":  80,
+                                                "anclaY":  160,
+                                                "frames":  1,
+                                                "plano":  true
+                                            },
+                      "mascotaKarimFicha":  {
+                                                "archivo":  "mascotas/karim-ficha.png",
+                                                "w":  168,
+                                                "h":  160,
+                                                "anclaX":  84,
+                                                "anclaY":  160,
+                                                "frames":  1,
+                                                "plano":  true
+                                            },
+                      "mascotaCleopatraFicha":  {
+                                                    "archivo":  "mascotas/cleopatra-ficha.png",
+                                                    "w":  128,
+                                                    "h":  160,
+                                                    "anclaX":  64,
+                                                    "anclaY":  160,
+                                                    "frames":  1,
+                                                    "plano":  true
+                                                },
+                      "mascotaOreoFicha":  {
+                                               "archivo":  "mascotas/oreo-ficha.png",
+                                               "w":  160,
+                                               "h":  160,
+                                               "anclaX":  80,
+                                               "anclaY":  160,
+                                               "frames":  1,
+                                               "plano":  true
+                                           },
+                      "mascotaPollitoFicha":  {
+                                                  "archivo":  "mascotas/pollito-ficha.png",
+                                                  "w":  152,
+                                                  "h":  160,
+                                                  "anclaX":  76,
+                                                  "anclaY":  160,
+                                                  "frames":  1,
+                                                  "plano":  true
+                                              },
                       "columna":  {
                                       "archivo":  "objetos/columna.png",
                                       "w":  56,

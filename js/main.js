@@ -958,8 +958,7 @@ function capturarStats() {
       golpes: j.golpesRecibidos,
       resurrecciones: j.resurreccionesUsadas,
       enPie: !j.abatido,
-      mascota: j.mascotaId && MASCOTAS[j.mascotaId]
-               ? MASCOTAS[j.mascotaId].nombre.split(' ')[0] : '',
+      mascota: j.mascotaId && MASCOTAS[j.mascotaId] ? MASCOTAS[j.mascotaId].corto : '',
       armas: j.arsenal ? j.arsenal.equipadas.map((a) => ({ id: a.id, nivel: a.nivel })) : [],
       pasivos: { ...j.pasivos }
     }))

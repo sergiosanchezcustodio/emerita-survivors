@@ -472,23 +472,23 @@ function dibujarMascotas(ctxMundo, ctxUi, disponibles, cursor, turno, puestos, e
     ctxUi.stroke();
 
     if (dm) {
-      // El bicho, a tamaño de carta y sin suavizado. Fotograma 0: aquí no hace
-      // falta animar, hace falta reconocerlo.
-      const idAtlas = 'mascota' + id.charAt(0).toUpperCase() + id.slice(1);
+      // El RETRATO del bicho (`mascota<Id>Ficha`), no el sprite que corre por el
+      // mundo: aquí no hace falta animar, hace falta reconocerlo. Y el sprite
+      // del mundo mide once unidades de alto, así que meterlo en un hueco de 52
+      // era AMPLIARLO por 1,18 —un factor roto— y el pixel art salía con filas
+      // dobladas sí y no. El retrato viene a 160 y siempre se reduce.
+      const idAtlas = 'mascota' + id.charAt(0).toUpperCase() + id.slice(1) + 'Ficha';
       const meta = Recursos.meta(idAtlas);
       const imgM = Recursos.imagen(idAtlas);
       if (meta && imgM) {
-        const esc = Math.min(52 / meta.w, 52 / meta.h);
+        const esc = Math.min((CARTA_MASCOTA - 12) / meta.w, 52 / meta.h);
         const w = meta.w * esc, h = meta.h * esc;
-        const suave = ctxUi.imageSmoothingEnabled;
-        ctxUi.imageSmoothingEnabled = false;
         ctxUi.drawImage(imgM, 0, 0, meta.w, meta.h,
                         x + (CARTA_MASCOTA - w) / 2, yCarta + 12 + (52 - h) / 2, w, h);
-        ctxUi.imageSmoothingEnabled = suave;
       }
       ctxUi.font = `600 9px ${FUENTE}`;
       ctxUi.fillStyle = elegida ? '#ffffff' : t.texto;
-      ctxUi.fillText(dm.nombre.split(' ')[0], x + CARTA_MASCOTA / 2, yCarta + 78);
+      ctxUi.fillText(dm.corto, x + CARTA_MASCOTA / 2, yCarta + 78);
 
       // Nivel en puntos: se lee de un vistazo cuánto le queda por mejorar.
       for (let k = 0; k < MAX_NIVEL_MASCOTA; k++) {
@@ -518,7 +518,7 @@ function dibujarMascotas(ctxMundo, ctxUi, disponibles, cursor, turno, puestos, e
   const yaElegidas = [];
   for (let i = 0; i < elegidas.length; i++) {
     if (i !== turno && elegidas[i]) {
-      yaElegidas.push(`P${i + 1}: ${MASCOTAS[elegidas[i]].nombre.split(' ')[0]}`);
+      yaElegidas.push(`P${i + 1}: ${MASCOTAS[elegidas[i]].corto}`);
     }
   }
   if (yaElegidas.length) {

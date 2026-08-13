@@ -1979,6 +1979,39 @@ $CATALOGO = @(
     @{ src='mascotas\Conejo.png';  dst='mascotas\oreo.png';     id='mascotaOreo';     alto=11; anchoFijo=0; tol=0; gifSiExiste=$true }
     @{ src='mascotas\Pollito.png'; dst='mascotas\pollito.png';  id='mascotaPollito';  alto=12; anchoFijo=0; tol=0; gifSiExiste=$true }
 
+    # RETRATO DE MENU, uno por mascota. El mismo bicho otra vez, pero SIEMPRE
+    # desde el PNG —nunca desde el GIF— y a 40 de alto en vez de a 11.
+    #
+    # Son dos cosas distintas y por eso son dos entradas. El sprite de arriba es
+    # para el MUNDO: mide once unidades porque tiene que leerse como un bicho
+    # pequeno trotando al lado del personaje, y va animado. Esto es para los
+    # MENUS —la tienda y la pantalla de elegir mascota—, donde no hay nada que
+    # animar y lo que hace falta es reconocer al bicho y que se vea bien.
+    #
+    # Reutilizar el sprite del mundo era lo que habia y se veia mal, y no por el
+    # fondo: a once unidades de alto, encajarlo en la casilla de la tienda es
+    # reescalarlo por un factor roto -0,77 en la tienda, 1,18 en la seleccion- y
+    # ahi el pixel art pierde filas enteras o las dobla a medias. Con el retrato
+    # a 40, la casilla siempre REDUCE desde algo mas grande, que es la unica
+    # direccion en la que una imagen no se estropea.
+    #
+    # Desde el PNG y no desde el GIF porque los PNG los ha dibujado Sergio con
+    # su fondo transparente y con mas detalle; los GIF de Oreo y el Pollito
+    # traen el lienzo pintado de blanco y hay que recortarselo (ver
+    # QuitarFondoOpaco), y por bien que salga el recorte no le devuelve el
+    # acabado del original.
+    #
+    # `plano` porque un retrato de menu ni gira ni recibe destello: se ahorra el
+    # espejo y el tinte que precachea recursos.js.
+    @{ src='mascotas\Hamster.png'; dst='mascotas\heladio-ficha.png';  id='mascotaHeladioFicha';  alto=40; anchoFijo=0; tol=0; plano=$true }
+    @{ src='mascotas\Tortuga.png'; dst='mascotas\escipion-ficha.png'; id='mascotaEscipionFicha'; alto=40; anchoFijo=0; tol=0; plano=$true }
+    @{ src='mascotas\Buho.png';    dst='mascotas\plinio-ficha.png';   id='mascotaPlinioFicha';   alto=40; anchoFijo=0; tol=0; plano=$true }
+    @{ src='mascotas\Gato.png';    dst='mascotas\neron-ficha.png';    id='mascotaNeronFicha';    alto=40; anchoFijo=0; tol=0; plano=$true }
+    @{ src='mascotas\PErro.png';   dst='mascotas\karim-ficha.png';    id='mascotaKarimFicha';    alto=40; anchoFijo=0; tol=0; plano=$true }
+    @{ src='mascotas\Gallina.png'; dst='mascotas\cleopatra-ficha.png';id='mascotaCleopatraFicha';alto=40; anchoFijo=0; tol=0; plano=$true }
+    @{ src='mascotas\Conejo.png';  dst='mascotas\oreo-ficha.png';     id='mascotaOreoFicha';     alto=40; anchoFijo=0; tol=0; plano=$true }
+    @{ src='mascotas\Pollito.png'; dst='mascotas\pollito-ficha.png';  id='mascotaPollitoFicha';  alto=40; anchoFijo=0; tol=0; plano=$true }
+
     # --- Decoracion solida del nivel 1: columnas, antorchas, estatuas y
     # ruinas de resources/stages/1/objetos/. Ilustraciones estaticas sueltas
     # (sin gif/cadera/hoja), asi que caen directas por Procesar():

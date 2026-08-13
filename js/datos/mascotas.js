@@ -22,6 +22,12 @@
 // Las ACTIVAS declaran `habilidad` —el nombre de una función de
 // sistemas/mascotas.js— y `cada`, los segundos entre una vez y la siguiente.
 //
+// `corto` es el nombre a secas, para los sitios donde no cabe el completo (la
+// carta de elegir mascota, la ficha del resumen final). Es un campo y no un
+// `nombre.split(' ')[0]` porque ese apaño enseñaba "El" en la carta del Pollito
+// Fantasma: partir por el espacio funciona hasta que un nombre empieza por
+// artículo, y aquí ya hay uno.
+//
 // `efecto` es la versión CORTA para la columna de la tabla de la tienda, donde
 // solo hay sitio para una línea. Es el efecto del nivel 1: los cinco niveles
 // multiplican ese número (ver factorMascota), y meter el rango entero en la
@@ -37,6 +43,7 @@ export const MASCOTAS = {
   // --- Pasivas -------------------------------------------------------------
   heladio: {
     nombre: 'Heladio el Hámster',
+    corto: 'Heladio',
     descripcion: 'Recoge gemas desde mucho más lejos. Todo al carrillo.',
     campo: 'radioRecogida', tipo: 'factor', valor: 0.45,
     efecto: '+45% recogida',
@@ -44,6 +51,7 @@ export const MASCOTAS = {
   },
   escipion: {
     nombre: 'Escipión la Tortuga',
+    corto: 'Escipión',
     descripcion: 'Su caparazón te presta +2 de armadura.',
     campo: 'armadura', tipo: 'suma', valor: 2,
     efecto: '+2 armadura',
@@ -51,6 +59,7 @@ export const MASCOTAS = {
   },
   plinio: {
     nombre: 'Plinio el Búho',
+    corto: 'Plinio',
     descripcion: 'Te lo explica todo: +20% de experiencia.',
     campo: 'bonusXp', tipo: 'suma', valor: 0.2,
     efecto: '+20% experiencia',
@@ -63,6 +72,7 @@ export const MASCOTAS = {
     // un `campo` del jugador: los denarios no son una estadística de la
     // partida, son lo que queda cuando termina.
     nombre: 'Nerón el Gato',
+    corto: 'Nerón',
     descripcion: 'Le gusta el oro: +35% de denarios en cada partida.',
     factorDenarios: 0.35,
     efecto: '+35% denarios',
@@ -72,6 +82,7 @@ export const MASCOTAS = {
   // --- Activas -------------------------------------------------------------
   karim: {
     nombre: 'Karim el Perro',
+    corto: 'Karim',
     descripcion: 'Se lanza a morder al enemigo más cercano.',
     habilidad: 'morder', cada: 1.8, danyo: 14, alcance: 90,
     efecto: '14 de daño cada 1,8 s',
@@ -79,6 +90,7 @@ export const MASCOTAS = {
   },
   cleopatra: {
     nombre: 'Cleopatra la Gallina',
+    corto: 'Cleopatra',
     descripcion: 'Pone un huevo cada poco. El huevo te cura.',
     habilidad: 'huevo', cada: 9, cura: 9,
     efecto: 'Cura 9 cada 9 s',
@@ -86,6 +98,7 @@ export const MASCOTAS = {
   },
   oreo: {
     nombre: 'Oreo el Conejo',
+    corto: 'Oreo',
     descripcion: 'Escarba sin parar y desentierra denarios.',
     habilidad: 'escarbar', cada: 11, denarios: 3,
     efecto: '+3 denarios cada 11 s',
@@ -96,6 +109,7 @@ export const MASCOTAS = {
     // nadie, abre hueco. Con la horda del minuto 20 encima, abrir hueco vale
     // más que matar a cuatro.
     nombre: 'El Pollito Fantasma',
+    corto: 'Pollito',
     descripcion: 'Un chillido de ultratumba y la horda de alrededor huye.',
     habilidad: 'espantar', cada: 12, radio: 95, duracion: 2.5,
     efecto: 'Espanta 2,5 s cada 12 s',

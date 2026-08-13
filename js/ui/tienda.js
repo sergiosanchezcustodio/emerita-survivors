@@ -119,20 +119,33 @@ function precio(ctx, y, coste, textoLleno) {
   ctx.fillText(String(coste), X_PRECIO, y);
 }
 
-// Sprite del atlas encajado en un cuadrado, SIN suavizado (es pixel art) y
-// siempre el fotograma 0: las mascotas animadas son una tira de fotogramas en
-// un solo PNG, así que dibujarla entera saldría como una fila de conejos.
-function sprite(ctx, idAtlas, cx, cy, lado) {
+// Retrato de menú de una mascota, encajado en su hueco.
+//
+// Usa el RETRATO (`mascota<Id>Ficha`, ver el catálogo de
+// herramientas/procesar-assets.ps1) y no el sprite que corre por el mundo. Son
+// dos dibujos del mismo bicho a dos tamaños distintos porque sirven para dos
+// cosas distintas: en el mundo hace falta un bicho de once unidades de alto y
+// animado, y aquí hace falta reconocerlo y que se vea bien. Aquí no hay nada
+// que animar.
+//
+// CON SUAVIZADO, al revés que el arte del mundo, y es el mismo criterio que el
+// retrato de los personajes: el retrato viene a 160 píxeles de alto y el hueco
+// pide unos 136, así que siempre se REDUCE. Reducir a vecino más próximo por un
+// factor roto tira filas enteras de píxeles, que era exactamente lo que le
+// pasaba al conejo cuando esto reutilizaba el sprite de once unidades.
+//
+// El hueco es más ancho que alto a propósito: Escipión la Tortuga es casi el
+// doble de ancha que alta, y encajarla en un cuadrado la dejaba diminuta al
+// lado del resto para no salirse por los lados.
+function retrato(ctx, id, cx, cy, ancho, alto) {
+  const idAtlas = 'mascota' + id.charAt(0).toUpperCase() + id.slice(1) + 'Ficha';
   const meta = Recursos.meta(idAtlas);
   const img = Recursos.imagen(idAtlas);
   if (!meta || !img) return false;
-  const esc = Math.min(lado / meta.w, lado / meta.h);
+  const esc = Math.min(ancho / meta.w, alto / meta.h);
   const w = meta.w * esc;
   const h = meta.h * esc;
-  const suavizado = ctx.imageSmoothingEnabled;
-  ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, 0, 0, meta.w, meta.h, cx - w / 2, cy - h / 2, w, h);
-  ctx.imageSmoothingEnabled = suavizado;
   return true;
 }
 
@@ -345,7 +358,8 @@ const ALTO_MASCOTA = 44;
 
 function filasMascotas(ctx, cursor, r) {
   const t = Tema.actual;
-  const lado = Math.min(34, r.alto * 0.78);
+  const alto = Math.min(34, r.alto * 0.78);
+  const ancho = alto * 1.35;
   for (let i = 0; i < ORDEN_MASCOTAS.length; i++) {
     const id = ORDEN_MASCOTAS[i];
     const def = MASCOTAS[id];
@@ -360,10 +374,9 @@ function filasMascotas(ctx, cursor, r) {
 
     // Apagada si no la tienes: se ve qué hay a la venta sin que parezca tuya.
     ctx.globalAlpha = tiene ? 1 : 0.4;
-    const idAtlas = 'mascota' + id.charAt(0).toUpperCase() + id.slice(1);
-    if (!sprite(ctx, idAtlas, X_ICONO, yc, lado)) {
+    if (!retrato(ctx, id, X_ICONO, yc, ancho, alto)) {
       ctx.beginPath();
-      ctx.arc(X_ICONO, yc, lado * 0.38, 0, Math.PI * 2);
+      ctx.arc(X_ICONO, yc, alto * 0.38, 0, Math.PI * 2);
       ctx.fillStyle = def.color;
       ctx.fill();
       ctx.fillStyle = 'rgba(12,10,14,.8)';
