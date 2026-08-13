@@ -30,7 +30,8 @@ public class Procesador {
 
     // Devuelve: siluetaW|siluetaH|ratio|frameW|frameH|anclaX|anclaY|pctOpaco|fondo
     public static string Procesar(string entrada, string salida, int altoLog,
-                                  int escala, int tol, int anchoLogFijo) {
+                                  int escala, int tol, int anchoLogFijo,
+                                  bool dominante) {
 
         // --- 1. Carga normalizada a 32bpp ARGB -----------------------------
         Contexto c = new Contexto();
@@ -146,41 +147,27 @@ public class Procesador {
             destW = frameW; destH = frameH; offX = 0; offY = 0;
         }
 
-        // --- 5. Reduccion por media de area con alfa premultiplicado -------
-        // GDI+ mezclaria el color de fondo de los pixeles ya transparentes y
-        // dejaria halos. Promediando ponderado por alfa eso no ocurre.
+        // --- 5. Reduccion ---------------------------------------------------
+        // Dos metodos, y la eleccion la hace el catalogo con `dominante`:
+        //
+        //   media de area  — lo normal. Para ilustraciones con volumen y
+        //     degradados, que es casi todo el bestiario.
+        //   color dominante — para dibujo de TINTAS PLANAS con detalle fino,
+        //     donde promediar inventa colores que no estan y lo emborrona.
+        //     Ver EscalarDominante: es lo que salva el escudo del ataud.
+        //
+        // Este bucle estaba escrito aqui a mano y era el mismo que
+        // EscalarBloque, asi que ahora se llama a la funcion y no hay dos
+        // copias de la misma reduccion que puedan separarse.
         byte[] dst = new byte[frameW * 4 * frameH];
         int dStride = frameW * 4;
 
-        for (int y = 0; y < destH; y++) {
-            int sy0 = minY + (int)((long)y * silH / destH);
-            int sy1 = minY + (int)((long)(y + 1) * silH / destH);
-            if (sy1 <= sy0) sy1 = sy0 + 1;
-            for (int x = 0; x < destW; x++) {
-                int sx0 = minX + (int)((long)x * silW / destW);
-                int sx1 = minX + (int)((long)(x + 1) * silW / destW);
-                if (sx1 <= sx0) sx1 = sx0 + 1;
-
-                long sA = 0, sR = 0, sG = 0, sB = 0;
-                int n = 0;
-                for (int sy = sy0; sy < sy1; sy++) {
-                    for (int sx = sx0; sx < sx1; sx++) {
-                        int p = sy * stride + sx * 4;
-                        int a = b[p + 3];
-                        sA += a;
-                        sB += b[p] * a; sG += b[p + 1] * a; sR += b[p + 2] * a;
-                        n++;
-                    }
-                }
-                int q = (offY + y) * dStride + (offX + x) * 4;
-                if (sA == 0) { dst[q] = 0; dst[q + 1] = 0; dst[q + 2] = 0; dst[q + 3] = 0; }
-                else {
-                    dst[q]     = (byte)(sB / sA);
-                    dst[q + 1] = (byte)(sG / sA);
-                    dst[q + 2] = (byte)(sR / sA);
-                    dst[q + 3] = (byte)(sA / n);
-                }
-            }
+        if (dominante) {
+            EscalarDominante(b, stride, w, h, minX, minY, silW, silH,
+                             dst, dStride, offX, offY, destW, destH);
+        } else {
+            EscalarBloque(b, stride, w, h, minX, minY, silW, silH,
+                          dst, dStride, offX, offY, destW, destH);
         }
 
         // --- 6. Remate: endurecer el alfa y tapar agujeros -----------------
@@ -1585,6 +1572,78 @@ public class Procesador {
         return regiones.Count + "|" + lado + "|" + informe.ToString();
     }
 
+    // ---------------------------------------------------------------------
+    // Reduccion por COLOR DOMINANTE
+    // ---------------------------------------------------------------------
+    //
+    // Alternativa a la media de area para dibujo de COLORES PLANOS. En vez de
+    // promediar el bloque de origen, se queda con el color que mas se repite
+    // dentro de el.
+    //
+    // Por que hace falta: promediar inventa colores que no estan en el dibujo.
+    // En una ilustracion con volumen y degradados eso es justo lo que se
+    // quiere, pero en una de tintas planas destroza los detalles pequenos. El
+    // escudo del Atleti del ataud de Eric es el caso de libro: mide unos
+    // 130x150 en el original y acaba en 28x32, asi que cada pixel de destino
+    // promedia mas de veinte de origen. Con rayas rojas y blancas de dos
+    // pixeles y estrellas blancas de tres, la media daba un rosa sucio uniforme
+    // y el escudo se volvia una mancha. Con el dominante, cada pixel del
+    // resultado es un color que EXISTE en el escudo, asi que la diagonal se
+    // mantiene azul, las rayas rojas y las estrellas blancas.
+    //
+    // Los colores se agrupan en cubos de 16 niveles por canal antes de votar: a
+    // pelo, dos rojos que difieren en un valor contarian como colores distintos
+    // y ninguno ganaria. Se devuelve la MEDIA de los pixeles del cubo ganador,
+    // no el centro del cubo, para no cuantizar la paleta de paso.
+    //
+    // El alfa NO se vota, se promedia: es lo que mantiene el borde suave que
+    // luego endurece Rematar. Votarlo daria un contorno dentado.
+    static void EscalarDominante(byte[] px, int stride, int w, int h,
+                                 int sx0, int sy0, int sw, int sh,
+                                 byte[] dst, int dStride, int dx0, int dy0, int dw, int dh) {
+        Dictionary<int, long[]> votos = new Dictionary<int, long[]>();
+        for (int y = 0; y < dh; y++) {
+            int ay0 = sy0 + (int)((long)y * sh / dh);
+            int ay1 = sy0 + (int)((long)(y + 1) * sh / dh);
+            if (ay1 <= ay0) ay1 = ay0 + 1;
+            for (int x = 0; x < dw; x++) {
+                int ax0 = sx0 + (int)((long)x * sw / dw);
+                int ax1 = sx0 + (int)((long)(x + 1) * sw / dw);
+                if (ax1 <= ax0) ax1 = ax0 + 1;
+
+                votos.Clear();
+                long sumaA = 0; int n = 0;
+                for (int sy = ay0; sy < ay1; sy++) {
+                    if (sy < 0 || sy >= h) { n++; continue; }
+                    for (int sx = ax0; sx < ax1; sx++) {
+                        if (sx < 0 || sx >= w) { n++; continue; }
+                        int p = sy * stride + sx * 4;
+                        int a = px[p + 3];
+                        sumaA += a; n++;
+                        if (a < 128) continue;          // lo transparente no vota color
+                        int clave = (px[p + 2] / 16) * 4096 + (px[p + 1] / 16) * 64 + (px[p] / 16);
+                        long[] v;
+                        if (!votos.TryGetValue(clave, out v)) { v = new long[4]; votos[clave] = v; }
+                        v[0] += px[p + 2]; v[1] += px[p + 1]; v[2] += px[p]; v[3]++;
+                    }
+                }
+
+                int q = (dy0 + y) * dStride + (dx0 + x) * 4;
+                long mejor = 0; long[] ganador = null;
+                foreach (KeyValuePair<int, long[]> kv in votos) {
+                    if (kv.Value[3] > mejor) { mejor = kv.Value[3]; ganador = kv.Value; }
+                }
+                if (ganador == null) { dst[q] = 0; dst[q+1] = 0; dst[q+2] = 0; dst[q+3] = 0; }
+                else {
+                    dst[q]     = (byte)(ganador[2] / ganador[3]);   // B
+                    dst[q + 1] = (byte)(ganador[1] / ganador[3]);   // G
+                    dst[q + 2] = (byte)(ganador[0] / ganador[3]);   // R
+                    dst[q + 3] = (byte)(sumaA / n);
+                }
+            }
+        }
+    }
+
     // Reduccion por media de area con alfa premultiplicado. Premultiplicar no es
     // un detalle: sin ello, los pixeles transparentes aportan su color (a menudo
     // negro) a la media y el sprite sale con un halo oscuro en todo el contorno.
@@ -1779,10 +1838,10 @@ $CATALOGO = @(
     # borron rojo. A 34 la reduccion baja a 4,4 y el escudo y las rayas
     # sobreviven. Ademas un ataud es mas voluminoso que quien iba dentro, asi
     # que verlo mas alto que el personaje se lee bien.
-    @{ src='characters\Eric_ataud.png';  dst='personajes\eric-ataud.png';  id='ericAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true }
-    @{ src='characters\Lucy_ataud.png';  dst='personajes\lucy-ataud.png';  id='lucyAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true }
-    @{ src='characters\Sara_ataud.png';  dst='personajes\sara-ataud.png';  id='saraAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true }
-    @{ src='characters\Vicky_ataud.png'; dst='personajes\vicky-ataud.png'; id='vickyAtaud'; alto=34; anchoFijo=0; tol=6; plano=$true }
+    @{ src='characters\Eric_ataud.png';  dst='personajes\eric-ataud.png';  id='ericAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true; dominante=$true }
+    @{ src='characters\Lucy_ataud.png';  dst='personajes\lucy-ataud.png';  id='lucyAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true; dominante=$true }
+    @{ src='characters\Sara_ataud.png';  dst='personajes\sara-ataud.png';  id='saraAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true; dominante=$true }
+    @{ src='characters\Vicky_ataud.png'; dst='personajes\vicky-ataud.png'; id='vickyAtaud'; alto=34; anchoFijo=0; tol=6; plano=$true; dominante=$true }
 
     # MASCOTAS. El `id` es el mismo de datos/mascotas.js, con el prefijo
     # `mascota` para no chocar con nada del bestiario.
@@ -1955,7 +2014,7 @@ foreach ($e in $CATALOGO) {
 
     $tolAsset = if ($e.tol -gt 0) { $e.tol } else { $TOL }
     try {
-        $r = [Procesador]::Procesar($rutaSrc, $rutaDst, $e.alto, $ESCALA, $tolAsset, $e.anchoFijo)
+        $r = [Procesador]::Procesar($rutaSrc, $rutaDst, $e.alto, $ESCALA, $tolAsset, $e.anchoFijo, [bool]$e.dominante)
     } catch {
         $informe += [PSCustomObject]@{ Id=$e.id; Silueta='-'; Ratio='-'; Sprite='-'; Quitado='-'; Estado='ERROR' }
         continue
