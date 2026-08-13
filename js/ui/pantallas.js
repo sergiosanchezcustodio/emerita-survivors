@@ -87,7 +87,9 @@ const COLOR_ORO = '#e8b73a';
 
 export function dibujarOro(ctxUi) {
   const x = ANCHO_UI - 18;
-  const y = 24;
+  // 30 y no 24: el lienzo mide 540 de alto FIJAS y en una ventana más baja se
+  // recorta centrado, así que a 24 la moneda salía descabezada.
+  const y = 30;
   ctxUi.save();
   ctxUi.textAlign = 'right';
   ctxUi.textBaseline = 'middle';
@@ -150,6 +152,20 @@ function fondo(ctxMundo, img, e) {
   ctxMundo.imageSmoothingQuality = 'high';
   ctxMundo.drawImage(img, e.x * K, e.y * K, e.ancho * K, e.alto * K);
   ctxMundo.imageSmoothingEnabled = false;
+}
+
+// La ilustración del título, sola, para que otra pantalla la use de decorado.
+// La pide la TIENDA, que desde que ocupa el lienzo entero ya no es un panel
+// flotando sobre lo que hubiera detrás: sin fondo propio se quedaba sobre el
+// último fotograma dibujado, que podía ser la partida anterior.
+//
+// Vive aquí y no en tienda.js porque el encaje de la ilustración (`cubrir`, el
+// ancla vertical, el repliegue sin imagen) ya está resuelto en este módulo, y
+// dos sitios calculándolo por su cuenta es la forma segura de que un día dejen
+// de coincidir.
+export function fondoTitulo(ctxMundo) {
+  const img = Imagenes.titulo;
+  fondo(ctxMundo, img, cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, 0));
 }
 
 // Latido lento para lo que pide una pulsación. Va con performance.now() y no

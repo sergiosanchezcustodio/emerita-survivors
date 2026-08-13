@@ -8,39 +8,64 @@
 // de partida: un pasivo lo llevas un rato y compite con otros siete huecos;
 // esto se acumula sin límite de ranuras y sin que termine la partida.
 //
-// Cinco niveles, no diez: el coste ya crece por sí solo (`costeBase` +
-// `incremento` por nivel ya comprado) y diez pasos habría sido subir de
-// precio para siempre sin que el propio numerito se notara.
+// Cinco niveles, no diez: diez pasos habría sido subir de precio para siempre
+// sin que el propio numerito se notara.
+//
+// EL PRECIO DOBLA EN CADA NIVEL (petición de Sergio): `costeBase * 2^nivel`, así
+// que completar uno cuesta 31 veces su precio de salida. El primer nivel es
+// barato y se compra en dos partidas; el quinto es una meta de muchas. Antes
+// crecía sumando una cantidad fija y los últimos niveles salían casi al mismo
+// precio que los primeros, con lo que subir del 4 al 5 no se sentía como una
+// conquista sino como el siguiente recibo.
+//
+// `icono` nombra el objeto de datos/pasivos.js cuyo dibujo se reutiliza en la
+// tienda. No hay arte propio de potenciadores y no hace falta: la Vitalidad y
+// el Ánfora suben lo mismo, así que compartir dibujo AYUDA a leerlo. Los dos
+// que no tienen equivalente —Égida y Moneda de Caronte son mecánicas que no
+// existen como pasivo de partida— se dibujan con un glifo vectorial.
+//
+// `efecto` es la versión corta para la columna de la tabla. `descripcion` sigue
+// existiendo para el renglón de abajo, que tiene sitio para la frase entera.
 export const POTENCIADORES = {
   vitalidad: {
     nombre: 'Vitalidad',
     descripcion: '+4% de vida máxima, en toda partida futura',
     campo: 'vidaMaxima', tipo: 'factor', valor: 0.04,
-    maxNivel: 5, costeBase: 20, incremento: 15
+    efecto: '+4% vida máxima',
+    icono: 'anfora',
+    maxNivel: 5, costeBase: 40
   },
   premura: {
     nombre: 'Premura',
     descripcion: '+2% de velocidad, en toda partida futura',
     campo: 'velocidad', tipo: 'factor', valor: 0.02,
-    maxNivel: 5, costeBase: 20, incremento: 15
+    efecto: '+2% velocidad',
+    icono: 'sandalias',
+    maxNivel: 5, costeBase: 40
   },
   coraza: {
     nombre: 'Coraza',
     descripcion: '+1 de armadura, en toda partida futura',
     campo: 'armadura', tipo: 'suma', valor: 1,
-    maxNivel: 5, costeBase: 25, incremento: 20
+    efecto: '+1 armadura',
+    icono: 'lorica',
+    maxNivel: 5, costeBase: 50
   },
   codicia: {
     nombre: 'Codicia',
     descripcion: '+5% de radio de recogida, en toda partida futura',
     campo: 'radioRecogida', tipo: 'factor', valor: 0.05,
-    maxNivel: 5, costeBase: 15, incremento: 10
+    efecto: '+5% recogida',
+    icono: 'piedraIman',
+    maxNivel: 5, costeBase: 30
   },
   furia: {
     nombre: 'Furia',
     descripcion: '+3% de daño, en toda partida futura',
     campo: 'bonusDanyo', tipo: 'suma', valor: 0.03,
-    maxNivel: 5, costeBase: 30, incremento: 25
+    efecto: '+3% daño',
+    icono: 'anilloAugusto',
+    maxNivel: 5, costeBase: 60
   },
 
   // --- Los cinco que pidió Sergio ------------------------------------------
@@ -54,19 +79,25 @@ export const POTENCIADORES = {
     nombre: 'Clepsidra eterna',
     descripcion: '-1.5% de recarga, en toda partida futura',
     campo: 'reduccionRecarga', tipo: 'suma', valor: 0.015,
-    maxNivel: 5, costeBase: 30, incremento: 25
+    efecto: '-1.5% recarga',
+    icono: 'clepsidra',
+    maxNivel: 5, costeBase: 60
   },
   onda: {
     nombre: 'Onda expansiva',
     descripcion: '+2% de área de efecto, en toda partida futura',
     campo: 'bonusArea', tipo: 'suma', valor: 0.02,
-    maxNivel: 5, costeBase: 25, incremento: 20
+    efecto: '+2% área',
+    icono: 'antorcha',
+    maxNivel: 5, costeBase: 50
   },
   panacea: {
     nombre: 'Panacea',
     descripcion: '+0.15 de vida por segundo, en toda partida futura',
     campo: 'regeneracion', tipo: 'suma', valor: 0.15,
-    maxNivel: 5, costeBase: 35, incremento: 30
+    efecto: '+0.15 vida/s',
+    icono: 'coronaLaurel',
+    maxNivel: 5, costeBase: 70
   },
 
   // ESCUDO: mecánica nueva, no un campo que ya existiera. Absorbe daño ANTES
@@ -79,7 +110,8 @@ export const POTENCIADORES = {
     nombre: 'Égida',
     descripcion: '+6 de escudo, se recarga solo si no te golpean',
     campo: 'escudoMax', tipo: 'suma', valor: 6,
-    maxNivel: 5, costeBase: 40, incremento: 35
+    efecto: '+6 escudo',
+    maxNivel: 5, costeBase: 80
   },
 
   // RESURRECCIÓN: una vida extra por nivel. Al caer se gasta una y vuelves en
@@ -87,14 +119,25 @@ export const POTENCIADORES = {
   //
   // ES EL MÁS CARO CON DIFERENCIA, y no por capricho: cinco niveles son cinco
   // vidas extra, y eso es exactamente la clase de cosa que puede volver la
-  // partida imposible de perder en los primeros quince minutos. Subirlo entero
-  // cuesta 900 denarios —muchas partidas—, así que llega tarde y como
-  // recompensa de largo plazo. Aun así es el número que más conviene mirar la
-  // primera vez que se juegue con él: si sobra, se recorta aquí y ya está.
+  // partida imposible de perder en los primeros quince minutos. Con el precio
+  // doblando por nivel, subirlo entero cuesta 3.720 denarios —muchísimas
+  // partidas—, así que llega tarde y como recompensa de largo plazo. Aun así es
+  // el número que más conviene mirar la primera vez que se juegue con él: si
+  // sobra, se recorta aquí y ya está.
   faroDeLaMuerte: {
     nombre: 'Moneda de Caronte',
     descripcion: 'Una vida extra por nivel: vuelves a media vida donde caíste',
     campo: 'resurreccionesMax', tipo: 'suma', valor: 1,
-    maxNivel: 5, costeBase: 60, incremento: 60
+    efecto: '1 vida extra',
+    maxNivel: 5, costeBase: 120
   }
 };
+
+// Precio del SIGUIENTE nivel: dobla en cada escalón, así que del 1 al 5 se paga
+// base + 2·base + 4·base + 8·base + 16·base = 31 veces el precio de salida.
+// Devuelve -1 si ya está al máximo.
+export function costePotenciador(def, nivelActual) {
+  if (!def) return -1;
+  if (nivelActual >= def.maxNivel) return -1;
+  return def.costeBase * Math.pow(2, nivelActual);
+}

@@ -1,4 +1,4 @@
-import { POTENCIADORES } from '../datos/potenciadores.js';
+import { POTENCIADORES, costePotenciador } from '../datos/potenciadores.js';
 import { MASCOTAS, MAX_NIVEL_MASCOTA, costeMascota } from '../datos/mascotas.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from '../datos/personajes.js';
 
@@ -163,11 +163,7 @@ export const MetaProgreso = {
   nivelPotenciador(id) { return this.potenciadores[id] || 0; },
 
   costePotenciador(id) {
-    const def = POTENCIADORES[id];
-    if (!def) return Infinity;
-    const nivel = this.nivelPotenciador(id);
-    if (nivel >= def.maxNivel) return -1;      // ya al máximo
-    return def.costeBase + def.incremento * nivel;
+    return costePotenciador(POTENCIADORES[id], this.nivelPotenciador(id));
   },
 
   comprarPotenciador(id) {

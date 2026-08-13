@@ -40,7 +40,7 @@ import {
 } from './ui/depuracion.js';
 import { Director, aparecerTanda } from './sistemas/director.js';
 import { Mascotas } from './sistemas/mascotas.js';
-import { ORDEN_MASCOTAS } from './datos/mascotas.js';
+import { MASCOTAS, ORDEN_MASCOTAS } from './datos/mascotas.js';
 import { Jefes } from './sistemas/jefes.js';
 import { NIVEL } from './datos/niveles/merida.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from './datos/personajes.js';
@@ -180,10 +180,10 @@ let pantalla;
 // maneja siempre el puesto 3 aunque el 2 esté vacío.
 const puestos = new Array(4).fill(null);
 
-// Tienda. TRES PESTAÑAS —mejoras, mascotas y personajes— con las flechas
-// izquierda/derecha para cambiar y arriba/abajo para moverse dentro.
+// Tienda. TRES SECCIONES —potenciadores, mascotas y jugadores— con izquierda y
+// derecha para cambiar y arriba/abajo para moverse dentro. Ver ui/tienda.js.
 //
-// Una sola tienda con pestañas y no tres entradas distintas en el menú: se
+// Una sola tienda con secciones y no tres entradas distintas en el menú: se
 // pagan con los mismos denarios y se miran en el mismo momento —antes de
 // jugar—, así que separarlas obligaría a salir de una para ver cuánto queda
 // para lo de la otra.
@@ -227,9 +227,20 @@ let confirmarBorrado = false;
 // aquí y no repartida por el bucle.
 function irA(nueva) {
   pantalla = nueva;
-  document.body.classList.toggle('enMenu', nueva !== PANTALLA_JUEGO);
+  refrescarChuleta();
 }
-irA(PANTALLA_TITULO);
+
+// La chuleta de atajos vive FUERA del lienzo (es texto del documento), así que
+// ningún velo la tapa: se quita o se pone con una clase del body y punto.
+//
+// Sobra en todo lo que no sea la partida en marcha, y el RESUMEN FINAL es una de
+// esas cosas aunque el estado siga siendo PANTALLA_JUEGO: ocupa la pantalla
+// entera y la chuleta se le colaba por debajo del pie.
+function refrescarChuleta() {
+  const enMenu = pantalla !== PANTALLA_JUEGO || resumenFinal ||
+                 finalMostrado === 'victoria';
+  document.body.classList.toggle('enMenu', enMenu);
+}
 
 let pausado = false;
 // Índice del jugador cuya ficha está abierta, o -1. Se abre con Select en el
@@ -260,6 +271,23 @@ let statsFinal = null;
 // `resumenFinal` es ese segundo tiempo. La victoria no lo usa: ahí no hay
 // ataúd que enseñar ni sitio que mirar, así que su panel sale directo.
 let resumenFinal = false;
+// Segundos que lleva el resumen en pantalla. Del resumen se sale al menú con
+// cualquier tecla, y sin esta espera el mismo golpe de tecla que lo abre lo
+// cerraría: entre la pulsación que pide el resumen y la siguiente vuelta del
+// bucle no hay ni 17 ms, y quien pulsa dos veces seguidas —que es lo que hace
+// todo el mundo al morir— no llegaría a verlo.
+let relojResumen = 0;
+const ESPERA_RESUMEN = 0.6;
+// Denarios que había ANTES de empezar. El resumen enseña lo ganado en la
+// partida, y eso es una resta: MetaProgreso.denarios es el montón acumulado de
+// todas las partidas jugadas.
+let denariosAlEmpezar = 0;
+
+// La pantalla de arranque. Va AQUÍ y no junto a `irA` porque `refrescarChuleta`
+// consulta `resumenFinal` y `finalMostrado`, que se declaran unas líneas más
+// arriba con `let`: llamarla antes de esas declaraciones revienta con un error
+// de zona muerta temporal y el juego no arranca.
+irA(PANTALLA_TITULO);
 let zoomPantalla = 1;
 let tilesDibujados = 0;
 let indicePersonaje = 0;
@@ -666,22 +694,54 @@ function entradaConfig() {
   if (id === 'borrar' && acepta) confirmarBorrado = true;
 }
 
-// Tienda: un cursor, comprar con Enter, Esc o T para volver al título. Las
+// Tienda: un cursor, comprar con Enter/A, Esc/B o T para volver al título. Las
 // compras son denarios de progreso META (core/metaProgreso.js) — para
 // siempre, no de esta partida — así que no hay nada que deshacer al salir.
+//
+// SE MANEJA CON EL MANDO ENTERO, no solo con las flechas del teclado: cruceta
+// (botones 12-15 del mapeo estándar) y STICK IZQUIERDO. El stick hace falta
+// aparte porque no es un botón sino un eje continuo, así que "moverlo abajo" no
+// es un evento; `flancoEje` le pone histéresis y lo convierte en uno (ver
+// core/entrada.js). Sin esto, quien acabara de enchufar un mando llegaba a la
+// tienda y no podía moverse por ella.
+//
+// Los flancos se consumen TODOS antes de decidir nada. Encadenarlos con `||`
+// cortocircuita —si el primero es cierto, el segundo no llega a consumirse— y
+// esa pulsación se quedaría en la cola para dispararse en la pantalla siguiente.
 function entradaTienda() {
-  if (entrada.consumirFlanco('Escape') || entrada.consumirFlanco('KeyT')) {
+  const c = entrada.controles[0];
+  // Una sola llamada por eje y frame: `flancoEje` guarda estado y llamarlo dos
+  // veces se comería su propio flanco.
+  const ejeV = c ? c.flancoEje(false) : 0;
+  const ejeH = c ? c.flancoEje(true) : 0;
+
+  const tDer = entrada.consumirFlanco('ArrowRight');
+  const tIzq = entrada.consumirFlanco('ArrowLeft');
+  const tAbajo = entrada.consumirFlanco('ArrowDown');
+  const tArriba = entrada.consumirFlanco('ArrowUp');
+  const tEnter = entrada.consumirFlanco('Enter');
+  const tEspacio = entrada.consumirFlanco('Space');
+  const tEscape = entrada.consumirFlanco('Escape');
+  const tTienda = entrada.consumirFlanco('KeyT');
+  const mAtras = entrada.consumirAtras();
+  const mDer = c ? c.consumirBoton(15) : false;
+  const mIzq = c ? c.consumirBoton(14) : false;
+  const mAbajo = c ? c.consumirBoton(13) : false;
+  const mArriba = c ? c.consumirBoton(12) : false;
+  const mAcepta = c ? c.consumirBoton(0) : false;
+
+  if (tEscape || tTienda || mAtras) {
     irA(PANTALLA_TITULO);
     return;
   }
 
-  // Cambiar de pestaña reinicia el cursor: las dos listas no tienen ni la
+  // Cambiar de sección reinicia el cursor: las tres listas no tienen ni la
   // misma longitud ni el mismo orden, así que conservar la fila solo llevaría
   // a un sitio arbitrario.
-  if (entrada.consumirFlanco('ArrowRight')) {
+  if (tDer || mDer || ejeH > 0) {
     pestanyaTienda = (pestanyaTienda + 1) % N_PESTANYAS; cursorTienda = 0; return;
   }
-  if (entrada.consumirFlanco('ArrowLeft')) {
+  if (tIzq || mIzq || ejeH < 0) {
     pestanyaTienda = (pestanyaTienda + N_PESTANYAS - 1) % N_PESTANYAS; cursorTienda = 0; return;
   }
 
@@ -689,10 +749,10 @@ function entradaTienda() {
               : pestanyaTienda === PESTANYA_PERSONAJES ? ORDEN_PERSONAJES
               : ID_POTENCIADORES;
   const n = lista.length;
-  if (entrada.consumirFlanco('ArrowDown')) cursorTienda = (cursorTienda + 1) % n;
-  if (entrada.consumirFlanco('ArrowUp')) cursorTienda = (cursorTienda + n - 1) % n;
+  if (tAbajo || mAbajo || ejeV > 0) cursorTienda = (cursorTienda + 1) % n;
+  if (tArriba || mArriba || ejeV < 0) cursorTienda = (cursorTienda + n - 1) % n;
 
-  if (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space')) {
+  if (tEnter || tEspacio || mAcepta) {
     // El mismo boton compra o SUBE DE NIVEL segun toque, en las tres pestanas.
     // Para quien juega es el mismo gesto —pagar por tener mas— y separarlo en
     // "comprar" y "mejorar" solo anadiria un concepto.
@@ -840,6 +900,8 @@ function empezarPartida() {
   finalMostrado = null;
   statsFinal = null;
   resumenFinal = false;
+  relojResumen = 0;
+  denariosAlEmpezar = MetaProgreso.denarios;
   GestorAudio.iniciarMusica();
   irA(PANTALLA_JUEGO);
 }
@@ -862,21 +924,85 @@ function clamparXNivel(e) {
   if (e.x < limIzq) e.x = limIzq; else if (e.x > limDer) e.x = limDer;
 }
 
-// Foto fija del resumen de la partida (Fase 7, sección 14 del plan), tomada
-// UNA vez en el instante en que se gana o se pierde. El arsenal es del
-// jugador 1: nivel y bajas ya son cifras de equipo con cooperativo, pero el
-// inventario es personal de cada uno y no cabrían los cuatro en la misma
-// pantalla.
+// Foto fija del resumen de la partida, tomada UNA vez en el instante en que se
+// gana o se pierde.
+//
+// Trae DOS COSAS DISTINTAS y conviene no mezclarlas: las cifras de equipo
+// —tiempo, bajas, denarios— y una ficha POR JUGADOR. Antes solo salía el
+// jugador 1, y en cooperativo eso deja fuera a tres personas que acaban de jugar
+// la misma partida; ahora el resumen ocupa la pantalla entera y caben las cuatro
+// columnas (ver ui/final.js).
+//
+// Es una COPIA, no una vista de los objetos vivos: el mundo sigue corriendo por
+// debajo del cartel de derrota, así que apuntar a `jugadores` dejaría un resumen
+// que cambia mientras se lee. Aquí sí se puede asignar memoria —la partida ya ha
+// terminado, no estamos en el bucle—.
 function capturarStats() {
-  const j = jugadores[0];
   return {
-    tiempo: Director.reloj,
-    nivel: j.nivel,
+    // Los SEGUNDOS (Director.t), no el "mm:ss" ya montado que devuelve
+    // Director.reloj: el resumen es quien decide cómo se escribe un tiempo, y
+    // pasarle la cadena hecha ata las dos cosas por ninguna razón.
+    tiempo: Director.t,
     bajas: enemigos.bajas,
-    denarios: MetaProgreso.denarios,
-    armas: j.arsenal ? j.arsenal.equipadas.map((a) => ({ id: a.id })) : [],
-    pasivos: { ...j.pasivos }
+    // Lo GANADO en esta partida, no el montón entero. El total sigue estando
+    // (MONEDERO, al lado), pero lo que quiere saber quien acaba de jugar es qué
+    // le ha rentado ESTA partida, y ese número no estaba en ninguna parte: el
+    // panel viejo enseñaba el acumulado con el rótulo "DENARIOS", que es
+    // justamente el que se lee como "lo que has sacado".
+    denarios: MetaProgreso.denarios - denariosAlEmpezar,
+    monedero: MetaProgreso.denarios,
+    jugadores: jugadores.map((j) => ({
+      id: j.id,
+      nombre: j.def.nombre,
+      nivel: j.nivel,
+      golpes: j.golpesRecibidos,
+      resurrecciones: j.resurreccionesUsadas,
+      enPie: !j.abatido,
+      mascota: j.mascotaId && MASCOTAS[j.mascotaId]
+               ? MASCOTAS[j.mascotaId].nombre.split(' ')[0] : '',
+      armas: j.arsenal ? j.arsenal.equipadas.map((a) => ({ id: a.id, nivel: a.nivel })) : [],
+      pasivos: { ...j.pasivos }
+    }))
   };
+}
+
+// VOLVER AL MENÚ desde el resumen final, que es lo que pidió Sergio: antes de
+// aquí solo se salía recargando la página.
+//
+// Desmonta la partida entera a mano. No basta con cambiar de pantalla: los pools
+// siguen llenos de la horda del minuto veinte, `jugadores` sigue teniendo a los
+// cuatro y `empezarPartida` los AÑADE en vez de sustituirlos, así que la segunda
+// partida arrancaría con ocho personajes y la horda anterior encima.
+//
+// Los pools se vacían, NO se recrean: vaciar un pool es poner su contador de
+// activos a cero (ver core/pool.js), así que esto no asigna memoria y la
+// siguiente partida arranca sin esperar a nada.
+function volverAlMenu() {
+  MetaProgreso.guardar();
+  GestorAudio.pararMusica();
+
+  enemigos.vaciar(); proyectiles.vaciar(); zonas.vaciar(); disparos.vaciar();
+  cofres.vaciar(); recogibles.vaciar(); Jefes.vaciar();
+  Particulas.vaciar(); VFX.vaciar();
+
+  jugadores.length = 0;
+  arsenales.length = 0;
+  Mascotas.releer(null);
+  Progresion.iniciar(rng);
+  Director.reiniciar();
+
+  finalMostrado = null;
+  statsFinal = null;
+  resumenFinal = false;
+  relojResumen = 0;
+  derrotaGuardada = false;
+  pausado = false;
+  fichaAbierta = -1;
+  mapaAbierto = false;
+
+  puestos.fill(null);
+  cursorMenu = 0;
+  irA(PANTALLA_TITULO);
 }
 
 // --- Reanimación en cooperativo ----------------------------------------------
@@ -1025,7 +1151,9 @@ function actualizar(dt) {
     finalMostrado = null;
     statsFinal = null;
     resumenFinal = false;
+    relojResumen = 0;
     derrotaGuardada = false;
+    refrescarChuleta();
   }
   if (entrada.consumirFlanco('KeyL')) subirTodasLasArmas();
   if (entrada.consumirFlanco('KeyK')) equiparGladius();
@@ -1180,6 +1308,7 @@ function actualizar(dt) {
   if (!finalMostrado && Director.terminado) {
     statsFinal = capturarStats();
     finalMostrado = 'victoria';
+    refrescarChuleta();
     MetaProgreso.guardar();
   } else if (!finalMostrado && derrota) {
     statsFinal = capturarStats();
@@ -1190,8 +1319,19 @@ function actualizar(dt) {
   // Segundo tiempo de la derrota: cualquier tecla pasa del cartel al resumen.
   // Se atiende AQUÍ y no arriba del todo porque el flanco que abre el resumen
   // no puede ser el mismo golpe de tecla que acaba de matarte.
-  if (finalMostrado === 'derrota' && !resumenFinal && entrada.algunFlanco()) {
-    resumenFinal = true;
+  //
+  // Y del resumen se sale AL MENÚ PRINCIPAL, que es el tercer y último tiempo.
+  // La victoria se salta el cartel y entra por la segunda rama desde el primer
+  // frame: allí no hay ataúd que mirar.
+  if (finalMostrado === 'derrota' && !resumenFinal) {
+    if (entrada.algunFlanco()) { resumenFinal = true; relojResumen = 0; refrescarChuleta(); }
+  } else if (finalMostrado) {
+    relojResumen += dt;
+    if (relojResumen >= ESPERA_RESUMEN && entrada.algunFlanco()) {
+      entrada.limpiarFlanco();
+      volverAlMenu();
+      return;
+    }
   }
 
   entrada.limpiarFlanco();
@@ -1295,7 +1435,7 @@ function dibujar(alpha) {
     Capa.limpiar();
     if (despedida) { Pantallas.titulo(ctx, Capa.ctx, null, 0); dibujarDespedida(Capa.ctx); return; }
     if (pantalla === PANTALLA_TITULO) Pantallas.titulo(ctx, Capa.ctx, MENU, cursorMenu);
-    else if (pantalla === PANTALLA_TIENDA) dibujarTienda(Capa.ctx, cursorTienda, pestanyaTienda);
+    else if (pantalla === PANTALLA_TIENDA) dibujarTienda(ctx, Capa.ctx, cursorTienda, pestanyaTienda);
     else if (pantalla === PANTALLA_MASCOTAS) {
       Pantallas.mascotas(ctx, Capa.ctx, mascotasDisponibles(), cursorMascota,
                          turnoMascota, puestos, mascotasElegidas);
@@ -1593,7 +1733,7 @@ async function arrancar() {
     // salta a una pantalla concreta —título 0, selección 1, juego 2, tienda 3—
     // sin pasar por el menú, que es la única forma de probar la tienda o la
     // selección desde la consola cuando el navegador no está dando el foco.
-    puestos, get pantalla() { return pantalla; }, irA,
+    puestos, get pantalla() { return pantalla; }, irA, volverAlMenu,
     // Estado de las pantallas de menu, por el mismo motivo que `puestos`:
     // poder reproducir una eleccion sin depender de que llegue la pulsacion.
     mascotasElegidas, mascotasDisponibles,

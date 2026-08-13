@@ -22,6 +22,12 @@
 // Las ACTIVAS declaran `habilidad` —el nombre de una función de
 // sistemas/mascotas.js— y `cada`, los segundos entre una vez y la siguiente.
 //
+// `efecto` es la versión CORTA para la columna de la tabla de la tienda, donde
+// solo hay sitio para una línea. Es el efecto del nivel 1: los cinco niveles
+// multiplican ese número (ver factorMascota), y meter el rango entero en la
+// celda la volvía ilegible justo en la pantalla que se mira para decidir.
+// `descripcion` sigue siendo la frase larga del renglón de abajo.
+//
 // `color` es provisional: mientras no haya sprites, sistemas/mascotas.js dibuja
 // a la mascota como una silueta de ese color con su inicial. En cuanto Sergio
 // deje los dibujos en resources/mascotas/, se cambia el dibujado y estos datos
@@ -33,18 +39,21 @@ export const MASCOTAS = {
     nombre: 'Heladio el Hámster',
     descripcion: 'Recoge gemas desde mucho más lejos. Todo al carrillo.',
     campo: 'radioRecogida', tipo: 'factor', valor: 0.45,
+    efecto: '+45% recogida',
     coste: 60, color: '#e8a75a', inicial: 'H'
   },
   escipion: {
     nombre: 'Escipión la Tortuga',
     descripcion: 'Su caparazón te presta +2 de armadura.',
     campo: 'armadura', tipo: 'suma', valor: 2,
+    efecto: '+2 armadura',
     coste: 90, color: '#7fa860', inicial: 'E'
   },
   plinio: {
     nombre: 'Plinio el Búho',
     descripcion: 'Te lo explica todo: +20% de experiencia.',
     campo: 'bonusXp', tipo: 'suma', valor: 0.2,
+    efecto: '+20% experiencia',
     coste: 120, color: '#b0956a', inicial: 'P'
   },
   neron: {
@@ -56,6 +65,7 @@ export const MASCOTAS = {
     nombre: 'Nerón el Gato',
     descripcion: 'Le gusta el oro: +35% de denarios en cada partida.',
     factorDenarios: 0.35,
+    efecto: '+35% denarios',
     coste: 150, color: '#5a5a66', inicial: 'N'
   },
 
@@ -64,18 +74,21 @@ export const MASCOTAS = {
     nombre: 'Karim el Perro',
     descripcion: 'Se lanza a morder al enemigo más cercano.',
     habilidad: 'morder', cada: 1.8, danyo: 14, alcance: 90,
+    efecto: '14 de daño cada 1,8 s',
     coste: 100, color: '#c08a4a', inicial: 'K'
   },
   cleopatra: {
     nombre: 'Cleopatra la Gallina',
     descripcion: 'Pone un huevo cada poco. El huevo te cura.',
     habilidad: 'huevo', cada: 9, cura: 9,
+    efecto: 'Cura 9 cada 9 s',
     coste: 130, color: '#e0d0a0', inicial: 'C'
   },
   oreo: {
     nombre: 'Oreo el Conejo',
     descripcion: 'Escarba sin parar y desentierra denarios.',
     habilidad: 'escarbar', cada: 11, denarios: 3,
+    efecto: '+3 denarios cada 11 s',
     coste: 110, color: '#d8d8d8', inicial: 'O'
   },
   pollito: {
@@ -85,6 +98,7 @@ export const MASCOTAS = {
     nombre: 'El Pollito Fantasma',
     descripcion: 'Un chillido de ultratumba y la horda de alrededor huye.',
     habilidad: 'espantar', cada: 12, radio: 95, duracion: 2.5,
+    efecto: 'Espanta 2,5 s cada 12 s',
     coste: 140, color: '#cfe8ff', inicial: 'F'
   }
 };
