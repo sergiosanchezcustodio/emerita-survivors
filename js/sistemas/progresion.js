@@ -117,7 +117,6 @@ export const DURACION_TIRADA = 0.6;
 export const NIVEL_EVOLUCION = 8;
 
 // Cuántas veces de cada diez un cofre sube TRES cosas en vez de una.
-const PROB_TRIPLE = 0.1;
 const MAX_MEJORAS = 3;
 
 // --- Ruleta del cofre ---------------------------------------------------------
@@ -349,7 +348,7 @@ export const Progresion = {
   get cofreAbierto() { return this.cofre !== null; },
 
   // Abre un cofre. Devuelve 'evolucion' o 'eleccion' según lo que haya salido.
-  abrirCofre(jugador, jugadores) {
+  abrirCofre(jugador, jugadores, especial) {
     // 1. ¿Evolución? Se mira primero y, si sale, se lleva el cofre entero. Esta
     //    sí se concede sola: no tendría sentido ofrecer una evolución como una
     //    de tres opciones cuando llegar a ella ha costado ocho niveles de un
@@ -373,11 +372,15 @@ export const Progresion = {
     //    engorda. Con qué juegas se decide subiendo de nivel; el tesoro solo
     //    premia el riesgo de haber ido a por un élite.
     //
-    //    Una de cada diez veces sube TRES cosas en vez de una. Es lo que hace
-    //    que abrir un cofre tenga una pizca de lotería sin que ninguno sea malo.
+    //    Uno de cada diez cofres sube TRES cosas en vez de una, y ya se sabe
+    //    CUÁL es desde que cae al suelo: el especial tiene su propio dibujo (ver
+    //    PROB_ESPECIAL en entidades/cofre.js). Antes se sorteaba aquí, al
+    //    abrirlo, y eso era lo que tenía que cambiar para que los dos cofres
+    //    puedan verse distintos — cuál te ha tocado ya no es una sorpresa al
+    //    abrirlo, es una razón para cruzar la pantalla a por él.
     this.cofre = jugador;
     this.nMejoras = 0;
-    const cuantas = this._rng() < PROB_TRIPLE ? 3 : 1;
+    const cuantas = especial ? 3 : 1;
 
     for (let i = 0; i < cuantas; i++) {
       const cand = this._mejorablesDe(jugador);

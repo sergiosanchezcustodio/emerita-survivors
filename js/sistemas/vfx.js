@@ -83,6 +83,21 @@ export const VFX = {
     if (amplitud > this.sacudida) this.sacudida = amplitud;
   },
 
+  // ESCARCHA: velo frío sobre toda la pantalla mientras el Reloj de Emerita
+  // tiene parada a la horda (entidades/cofre.js).
+  //
+  // Hace falta un aviso: los enemigos se quedan clavados, y sin nada que lo
+  // explique lo primero que piensa cualquiera es que el juego se ha colgado. Un
+  // velo azulado que se va apagando dice "esto lo has hecho tú" y además cuenta
+  // cuánto queda, porque se desvanece con el efecto.
+  escarcha: 0,
+  escarchaTotal: 0,
+
+  helar(segundos) {
+    this.escarcha = segundos;
+    this.escarchaTotal = segundos;
+  },
+
   // Segundo cinturón de seguridad, independiente de quién lo pida: por muy a
   // menudo que llegue la petición, no se congela más de una vez cada
   // ESPERA_HITSTOP. Un hitstop es un signo de puntuación; encadenados dejan de
@@ -95,6 +110,7 @@ export const VFX = {
 
   actualizar(dt) {
     this._presupuesto = 0;             // se renueva cada paso
+    if (this.escarcha > 0) this.escarcha = Math.max(0, this.escarcha - dt);
     // Corre también durante la congelación: es quien la deja expirar. Por eso
     // el bucle llama a VFX.actualizar aunque salte el resto de la lógica.
     if (this._esperaHitstop > 0) this._esperaHitstop -= dt;
@@ -124,6 +140,8 @@ export const VFX = {
 
   vaciar() {
     if (this.pool) this.pool.vaciar();
+    this.escarcha = 0;
+    this.escarchaTotal = 0;
     this.sacudida = 0;
     this.desvioX = 0;
     this.desvioY = 0;
@@ -143,6 +161,25 @@ export const VFX = {
   //
   // offX/offY: desplazamiento de cámara YA redondeado a píxel físico, el mismo
   // que usa el mundo. Así el número se ancla al enemigo sin bailar respecto a él.
+  // El velo, en la CAPA DE INTERFAZ y no en el lienzo del juego: la interfaz va
+  // a la resolución real del monitor y una banda de color a media opacidad sale
+  // limpia; en el lienzo del mundo saldría ampliada por el zoom entero.
+  //
+  // Un solo rectángulo. Se pensó en un degradado radial —viñeta de hielo por los
+  // bordes— y no compensa: `createLinearGradient` asigna memoria y esto se pinta
+  // durante seis segundos seguidos a sesenta por segundo.
+  dibujarEscarcha(ctx, ancho, alto) {
+    if (this.escarcha <= 0) return;
+    // Entra de golpe y se va despacio: el fogonazo del principio es lo que dice
+    // que ha pasado algo, y el resto solo tiene que recordar que sigue pasando.
+    const u = this.escarchaTotal > 0 ? this.escarcha / this.escarchaTotal : 0;
+    ctx.save();
+    ctx.globalAlpha = 0.10 + 0.16 * u * u;
+    ctx.fillStyle = '#9fd8ff';
+    ctx.fillRect(0, 0, ancho, alto);
+    ctx.restore();
+  },
+
   dibujarNumeros(ctx, offX, offY) {
     const items = this.pool.items;
     const n = this.pool.activos;

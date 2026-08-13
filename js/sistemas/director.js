@@ -1,8 +1,6 @@
 import { ANCHO_LOGICO, ALTO_LOGICO } from '../core/constantes.js';
 import { Recursos } from '../core/recursos.js';
-import {
-  LLAMARADA as TIPO_LLAMARADA, IMAN as TIPO_IMAN, COMIDA as TIPO_COMIDA
-} from '../entidades/cofre.js';
+import { tipoConsumible } from '../entidades/cofre.js';
 import { Jefes } from './jefes.js';
 
 // Mismo margen que MARGEN_NIVEL en main.js: no se importa de ahí porque
@@ -481,18 +479,11 @@ export const Director = {
         const ang = this.rng() * Math.PI * 2;
         const d = CONSUMIBLE_DIST_MIN +
                   this.rng() * (CONSUMIBLE_DIST_MAX - CONSUMIBLE_DIST_MIN);
-        // REPARTO. El imán salía dos de cada tres veces y era demasiado: es el
-        // más vistoso —la pantalla entera de gemas volando— pero también el que
-        // menos decisión pide, y verlo todo el rato lo convertía en ruido.
-        // Ahora es el más raro de los tres, y los que salen a menudo son los que
-        // resuelven un apuro: comida y fuego.
-        //
-        //   comida     45%   la ayuda de siempre, la que se busca con la vida baja
-        //   llamarada  40%   ocho segundos de barrer, para abrir un cerco
-        //   imán       15%   el golpe de suerte
-        const dado = this.rng();
-        const tipo = dado < 0.45 ? TIPO_COMIDA
-                   : (dado < 0.85 ? TIPO_LLAMARADA : TIPO_IMAN);
+        // El REPARTO vive en entidades/cofre.js, que es de donde salen los
+        // objetos. Aquí había una copia con sus propios porcentajes y el otro
+        // sitio que reparte —la antorcha que se rompe— tenía otra: al añadir el
+        // reloj y las monedas habría hecho falta acertar a tocar las dos.
+        const tipo = tipoConsumible(this.rng());
         // Con el nivel de ancho limitado, un punto en anillo alrededor de la
         // cámara puede caer en el hueco vacío de fuera del mapa: se recorta a
         // los límites del suelo igual que se hace con jugadores y enemigos.

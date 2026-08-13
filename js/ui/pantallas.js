@@ -74,17 +74,22 @@ const ARCO_ALTO = 462;
 // vieja solo traía un botón y hacían falta cuatro. Con el dibujo nuevo eso
 // sobra entero.
 //
-// Las `y` son el centro de cada renglón de texto y salen de buscar las filas
-// claras sobre la piedra; la `x` y el ancho son comunes, centrados en la
-// lápida, y dan un recuadro que le queda holgado a CONFIGURACIÓN, que es la
-// palabra más larga.
-const OPCION_X = 636;
-const OPCION_ANCHO = 232;
+// Medidas tomadas sobre el propio dibujo, ampliándolo con una rejilla encima:
+// las `y` son el centro de cada renglón y la `x` el centro de las CUATRO
+// palabras, que no es el centro de la lápida.
+//
+// Esa diferencia era el fallo de la primera versión: se puso el recuadro en el
+// centro geométrico de la piedra (636) y las palabras están centradas diez
+// píxeles más a la izquierda (627), así que sobraba margen por la derecha y se
+// notaba. El ancho también se ha recortado: 232 le venía muy grande incluso a
+// CONFIGURACIÓN, que mide 170 y es la más larga.
+const OPCION_X = 627;
+const OPCION_ANCHO = 198;
 const OPCIONES_TITULO = [
-  { y: 509, alto: 52 },     // JUGAR, más grande que las otras en el dibujo
+  { y: 507, alto: 52 },     // JUGAR, más grande que las otras en el dibujo
   { y: 561, alto: 32 },     // TIENDA
-  { y: 601, alto: 32 },     // CONFIGURACIÓN
-  { y: 641, alto: 32 }      // SALIR
+  { y: 600, alto: 32 },     // CONFIGURACIÓN
+  { y: 639, alto: 32 }      // SALIR
 ];
 
 const Imagenes = { titulo: null, seleccion: null };
@@ -222,7 +227,6 @@ function dibujarTitulo(ctxMundo, ctxUi, menu, cursor) {
   dibujarOro(ctxUi);
   if (!img || !menu) return;
 
-  const t = Tema.actual;
   const i = Math.max(0, Math.min(OPCIONES_TITULO.length - 1, cursor));
   const o = OPCIONES_TITULO[i];
   const r = enUi(e, OPCION_X - OPCION_ANCHO / 2, o.y - o.alto / 2, OPCION_ANCHO, o.alto);
@@ -243,22 +247,16 @@ function dibujarTitulo(ctxMundo, ctxUi, menu, cursor) {
   ctxUi.fill();
   ctxUi.restore();
 
+  // SIN LÍNEA DE AYUDA. La quitó Sergio y tiene razón: cuatro opciones en una
+  // lápida con una de ellas encendida no necesitan que nadie explique que se
+  // sube, se baja y se pulsa. Donde sí sigue estando es en las pantallas que
+  // tienen atajos que no se adivinan —la tienda, la selección—.
   ctxUi.save();
   ctxUi.lineWidth = 2;
   ctxUi.strokeStyle = `rgba(255, 214, 130, ${0.55 + 0.35 * pulso})`;
   ctxUi.beginPath();
   ctxUi.roundRect(r.x, r.y, r.w, r.h, 6);
   ctxUi.stroke();
-
-  // Línea de ayuda, pegada por debajo de la última opción. El desplazamiento va
-  // en píxeles de la ILUSTRACIÓN y se convierte con `enUi`, no en unidades de
-  // interfaz: así sigue cayendo en el mismo sitio de la lápida pase lo que pase
-  // con el encaje de la imagen.
-  const ayuda = enUi(e, OPCION_X, OPCIONES_TITULO[OPCIONES_TITULO.length - 1].y + 40, 0, 0);
-  ctxUi.textAlign = 'center';
-  ctxUi.textBaseline = 'middle';
-  ctxUi.font = `500 10px ${FUENTE}`;
-  textoBorde(ctxUi, '↑↓ elegir     Enter/A aceptar', ANCHO_UI / 2, ayuda.y, t.apagado, 3);
   ctxUi.restore();
 }
 

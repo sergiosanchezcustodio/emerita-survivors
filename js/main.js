@@ -21,7 +21,7 @@ import {
 } from './sistemas/colisiones.js';
 import { Obstaculos } from './sistemas/obstaculos.js';
 import { Recogibles } from './entidades/recogible.js';
-import { Cofres, COFRE, LLAMARADA, IMAN, COMIDA } from './entidades/cofre.js';
+import { Cofres, COFRE, LLAMARADA, IMAN, COMIDA, RELOJ, MONEDAS } from './entidades/cofre.js';
 import { Disparos } from './entidades/disparo.js';
 import { Zonas } from './entidades/zonaDanyo.js';
 import { Progresion } from './sistemas/progresion.js';
@@ -422,6 +422,14 @@ addEventListener('fullscreenchange', () => {
 // Cuánto cura la comida y cuánto dura el lanzallamas prestado.
 const CURA_COMIDA = 20;
 const DURACION_LLAMARADA = 8;
+// El Reloj de Emerita para a la horda entera. Seis segundos son los que pidió
+// Sergio y son muchos: dan para cruzar un cerco andando, rematar a un élite o
+// levantar a quien se ha quedado en el suelo. Por eso es el consumible más raro
+// de los cinco (ver tipoConsumible en entidades/cofre.js).
+const PARALISIS_RELOJ = 6;
+// Las monedas se cobran FUERA de la partida: van al progreso META y siguen ahí
+// mañana. Es el único consumible que no cambia nada de lo que está pasando.
+const DENARIOS_MONEDAS = 10;
 const CADENCIA_LLAMARADA = 0.16;
 const DANYO_LLAMARADA = 26;
 
@@ -439,6 +447,23 @@ function usarConsumible(jugador, tipo) {
 
   if (tipo === COMIDA) {
     jugador.vida = Math.min(jugador.vidaMaxima, jugador.vida + CURA_COMIDA);
+    return;
+  }
+
+  if (tipo === RELOJ) {
+    // Se para la horda ENTERA, esté donde esté: no es un área alrededor de quien
+    // lo recoge. Un radio convertiría el objeto en "colócate bien antes de
+    // cogerlo", y lo que tiene que ser es el botón de pánico que te saca del
+    // peor momento de la partida.
+    enemigos.paralizarTodos(PARALISIS_RELOJ);
+    VFX.helar(PARALISIS_RELOJ);
+    GestorAudio.abrirCofre();
+    return;
+  }
+
+  if (tipo === MONEDAS) {
+    MetaProgreso.ganar(DENARIOS_MONEDAS);
+    GestorAudio.abrirCofre();
     return;
   }
 
@@ -1535,6 +1560,7 @@ function dibujar(alpha) {
   // ve bien.
   const tNum = performance.now();
   if (activo.numeros) VFX.dibujarNumeros(ctxUi, offX, offY);
+  VFX.dibujarEscarcha(ctxUi, ANCHO_UI, ALTO_UI);
   perfil.texto = performance.now() - tNum;
 
   if (verDepuracion) {
@@ -1688,9 +1714,9 @@ async function arrancar() {
   // Quién abre el cofre y qué pasa entonces se decide aquí, no en la entidad:
   // así el cofre no sabe nada de la progresión y la progresión no sabe nada de
   // que existan cofres tirados por el suelo.
-  cofres.alRecoger = (jugador, tipo) => {
+  cofres.alRecoger = (jugador, tipo, especial) => {
     if (tipo === COFRE) {
-      Progresion.abrirCofre(jugador, jugadores);
+      Progresion.abrirCofre(jugador, jugadores, especial);
       MetaProgreso.ganar(DENARIOS_COFRE);
       GestorAudio.abrirCofre();
     } else usarConsumible(jugador, tipo);

@@ -2196,6 +2196,28 @@ $CATALOGO = @(
     @{ src='mascotas\Conejo.png';  dst='mascotas\oreo-ficha.png';     id='mascotaOreoFicha';     alto=40; anchoFijo=0; tol=0; plano=$true }
     @{ src='mascotas\Pollito.png'; dst='mascotas\pollito-ficha.png';  id='mascotaPollitoFicha';  alto=40; anchoFijo=0; tol=0; plano=$true }
 
+    # OBJETOS DEL SUELO: los dos cofres y los cinco consumibles que sueltan las
+    # antorchas al romperse. Hasta ahora se dibujaban por codigo -una caja de 14
+    # pixeles con herrajes, una llama de curvas- porque no habia arte; ahora lo
+    # hay, y un dibujo de Sergio se lee de un vistazo con la pantalla llena de
+    # bichos, que es exactamente donde hay que encontrarlos.
+    #
+    # DOS COFRES distintos porque son dos premios distintos: el sencillo sube un
+    # nivel y el especial sube TRES. Antes los dos se veian igual y cual te habia
+    # tocado solo se sabia al abrirlo; ahora se sabe desde que cae al suelo, que
+    # es cuando decides si merece la pena ir a por el.
+    #
+    # `plano` en todos: son objetos del suelo, no giran con nadie ni reciben
+    # destello al ser golpeados, asi que se ahorran la copia espejada y la
+    # blanqueada que precachea recursos.js.
+    @{ src='objetos\cofre_sencillo.png'; dst='objetos\cofre-simple.png';   id='cofreSimple';   alto=16; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\cofre_especial.png'; dst='objetos\cofre-especial.png'; id='cofreEspecial'; alto=18; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\fuego.png';          dst='objetos\obj-fuego.png';      id='objFuego';      alto=14; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\cupcake.png';        dst='objetos\obj-comida.png';     id='objComida';     alto=14; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\iman.png';           dst='objetos\obj-iman.png';       id='objIman';       alto=14; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\reloj.png';          dst='objetos\obj-reloj.png';      id='objReloj';      alto=15; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\monedas.png';        dst='objetos\obj-monedas.png';    id='objMonedas';    alto=13; anchoFijo=0; tol=0; plano=$true }
+
     # --- Decoracion solida del nivel 1: columnas, antorchas, estatuas y
     # ruinas de resources/stages/1/objetos/. Ilustraciones estaticas sueltas
     # (sin gif/cadera/hoja), asi que caen directas por Procesar():

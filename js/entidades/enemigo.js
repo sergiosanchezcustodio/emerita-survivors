@@ -9,7 +9,7 @@ import { GestorAudio } from '../sistemas/audio.js';
 import {
   Particulas, COLOR_SANGRE, COLOR_POLVO, COLOR_CHISPA
 } from '../sistemas/particulas.js';
-import { LLAMARADA, IMAN, COMIDA } from './cofre.js';
+import { tipoConsumible } from './cofre.js';
 
 // Denarios por baja (progreso META, ver core/metaProgreso.js): proporcionales
 // a lo que ya vale el enemigo en XP, con un suelo de 1 para que hasta una
@@ -246,6 +246,11 @@ function crearEnemigo() {
     // aparecer y no habría forma de recuperarlo si se pisara.
     panico: 0,
     movPrevio: 0,
+    // PARALIZADO: segundos que le quedan clavado en el sitio por el Reloj de
+    // Emerita (entidades/cofre.js). No es pánico ni huida — no se mueve, no
+    // dispara y no se anima. Es lo mismo para todos, jefes incluidos: son seis
+    // segundos y el objeto es de los que salen una vez cada varias partidas.
+    paralizado: 0,
     // Dirección fija de los que cruzan sin perseguir (MOV_TRAVESIA) y de los
     // jefes en plena embestida (ver `embestida` más abajo): la reutilizan
     // porque las dos cosas son "recto, en esta dirección, sin perseguir".
@@ -395,6 +400,7 @@ export class Enemigos {
     e.relojAtaque = def.ataque ? this._rng() * def.ataque.cadencia : 0;
     e.huidaTotal = false;
     e.panico = 0;
+    e.paralizado = 0;
     e.movPrevio = 0;
 
     if (def.cofre) this.elitesVivos++;
@@ -443,6 +449,20 @@ export class Enemigos {
       const e = items[k];
       e.xPrev = e.x;
       e.yPrev = e.y;
+
+      // --- PARALIZADO (el Reloj de Emerita) --------------------------------
+      // Lo primero de todo, por delante del pánico y de la embestida de un
+      // jefe: mientras dura no hay NADA que un enemigo pueda hacer. Ni
+      // perseguir, ni disparar, ni pasar de fotograma — se queda tal cual, que
+      // es la mitad de lo que hace que el objeto se note.
+      //
+      // `xPrev`/`yPrev` ya están puestos arriba, así que la interpolación del
+      // render lo deja quieto en vez de arrastrarlo desde donde venía.
+      if (e.paralizado > 0) {
+        e.paralizado = Math.max(0, e.paralizado - dt);
+        if (e.destello > 0) e.destello -= dt;
+        continue;
+      }
 
       // --- Pánico temporal (el chillido del Pollito Fantasma) --------------
       // Se consume aquí, al principio, y al agotarse devuelve al bicho el
@@ -765,11 +785,7 @@ export class Enemigos {
       if (e.def.esObjeto) {
         MetaProgreso.ganar(DENARIOS_ANTORCHA);
         GestorAudio.muerteEnemigo();
-        if (this.cofres) {
-          const dado = this._rng();
-          const tipo = dado < 0.45 ? COMIDA : (dado < 0.8 ? LLAMARADA : IMAN);
-          this.cofres.soltar(e.x, e.y, tipo);
-        }
+        if (this.cofres) this.cofres.soltar(e.x, e.y, tipoConsumible(this._rng()));
         const apretadoObjeto = Particulas.saturado();
         Particulas.estallido(e.x, e.y - 4, apretadoObjeto ? 3 : 6, 60, 0.35, 1.5,
                              COLOR_CHISPA, 0.8, this._rng);
@@ -889,6 +905,20 @@ export class Enemigos {
       e.cadenciaMov = CADENCIA_MOV[MOV_HUIDA];
     }
     if (duracion > e.panico) e.panico = duracion;
+  }
+
+  // Para el tiempo a TODA la horda. Lo llama el Reloj de Emerita al recogerse.
+  //
+  // A todos de verdad, jefes incluidos: es un objeto raro, dura seis segundos y
+  // el momento en que más falta hace es justo cuando hay un jefe encima. Se
+  // saltan solo los objetos del escenario, que no se mueven de todas formas.
+  paralizarTodos(duracion) {
+    const items = this.pool.items;
+    for (let k = 0; k < this.pool.activos; k++) {
+      const e = items[k];
+      if (e.def.esObjeto) continue;
+      if (duracion > e.paralizado) e.paralizado = duracion;
+    }
   }
 
   // Todos los que estén vivos salen huyendo, menos los jefes. Lo llama el

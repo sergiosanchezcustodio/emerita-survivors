@@ -421,6 +421,69 @@
                                                   "frames":  1,
                                                   "plano":  true
                                               },
+                      "cofreSimple":  {
+                                          "archivo":  "objetos/cofre-simple.png",
+                                          "w":  72,
+                                          "h":  64,
+                                          "anclaX":  36,
+                                          "anclaY":  64,
+                                          "frames":  1,
+                                          "plano":  true
+                                      },
+                      "cofreEspecial":  {
+                                            "archivo":  "objetos/cofre-especial.png",
+                                            "w":  80,
+                                            "h":  72,
+                                            "anclaX":  40,
+                                            "anclaY":  72,
+                                            "frames":  1,
+                                            "plano":  true
+                                        },
+                      "objFuego":  {
+                                       "archivo":  "objetos/obj-fuego.png",
+                                       "w":  48,
+                                       "h":  56,
+                                       "anclaX":  24,
+                                       "anclaY":  56,
+                                       "frames":  1,
+                                       "plano":  true
+                                   },
+                      "objComida":  {
+                                        "archivo":  "objetos/obj-comida.png",
+                                        "w":  48,
+                                        "h":  56,
+                                        "anclaX":  24,
+                                        "anclaY":  56,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "objIman":  {
+                                      "archivo":  "objetos/obj-iman.png",
+                                      "w":  56,
+                                      "h":  56,
+                                      "anclaX":  28,
+                                      "anclaY":  56,
+                                      "frames":  1,
+                                      "plano":  true
+                                  },
+                      "objReloj":  {
+                                       "archivo":  "objetos/obj-reloj.png",
+                                       "w":  48,
+                                       "h":  60,
+                                       "anclaX":  24,
+                                       "anclaY":  60,
+                                       "frames":  1,
+                                       "plano":  true
+                                   },
+                      "objMonedas":  {
+                                         "archivo":  "objetos/obj-monedas.png",
+                                         "w":  64,
+                                         "h":  52,
+                                         "anclaX":  32,
+                                         "anclaY":  52,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
                       "columna":  {
                                       "archivo":  "objetos/columna.png",
                                       "w":  56,

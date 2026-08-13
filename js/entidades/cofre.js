@@ -1,4 +1,6 @@
 import { Pool } from '../core/pool.js';
+import { ESCALA_ARTE } from '../core/constantes.js';
+import { Recursos } from '../core/recursos.js';
 
 // Cofres. Los sueltan los élites al morir (mantícora y serpiente dorada) y son
 // la ÚNICA vía a las evoluciones, según la sección 9 del plan.
@@ -12,8 +14,13 @@ import { Pool } from '../core/pool.js';
 //   - No caducan ni se reciclan por lejanía. Un cofre que desaparece porque te
 //     empujaron al otro lado sería un premio que el juego te quita.
 //
-// Se dibujan por código, como las gemas: es una caja de 14x11 con herrajes. Un
-// sprite a este tamaño no aportaría nada y sí un blit y una entrada de atlas.
+// Cada uno tiene SU DIBUJO, de los que ha hecho Sergio (resources/objetos/).
+// Antes se trazaban por código —una caja con herrajes, una llama de curvas, una
+// herradura— porque no había arte; ahora lo hay y se lee mucho antes con la
+// pantalla llena de bichos, que es justo donde hay que encontrarlos.
+//
+// El halo se queda: es lo único que se ve desde el otro extremo de la pantalla,
+// y ningún sprite de catorce píxeles compite con eso.
 
 // Radio de recogida. Fijo a propósito, sin depender del radioRecogida del
 // jugador: la Piedra imán amplía el alcance de las GEMAS, y dejar que también
@@ -26,18 +33,21 @@ const RADIO_RECOGIDA = 13;
 const IMPULSO = 46;
 const ROZAMIENTO = 4.2;
 
+// Solo para la sombra de contacto: el tamaño de lo que se dibuja lo pone ahora
+// cada sprite (ver el catálogo de herramientas/procesar-assets.ps1).
 const ANCHO = 14;
-const ALTO = 11;
 
-const COLOR_MADERA = '#6d4526';
-const COLOR_MADERA_ALTA = '#8a5a31';
 const COLOR_BRONCE = '#d8a640';
-const COLOR_BRONCE_ALTO = '#ffe2a0';
 const COLOR_SOMBRA = 'rgba(0,0,0,.30)';
-// Color del halo por tipo: bronce el cofre, fuego la llamarada, azul el imán.
-// El halo es lo único que se ve desde lejos con la pantalla llena, así que es
-// donde tiene que estar la diferencia.
-const COLOR_HALO = ['#d8a640', '#ff7a2a', '#5aa9e6', '#7fd68a'];
+// Color del halo por tipo, en el orden de las constantes de abajo. Es lo único
+// que se ve desde lejos con la pantalla llena, así que es donde tiene que estar
+// la diferencia: bronce el cofre, fuego la llamarada, azul el imán, verde la
+// comida, blanco helado el reloj y oro las monedas.
+const COLOR_HALO = ['#d8a640', '#ff7a2a', '#5aa9e6', '#7fd68a', '#bfe8ff', '#ffd45a'];
+
+// Sprite de cada tipo. El cofre tiene DOS —sencillo y especial— y por eso no
+// entra en esta tabla; se elige en el dibujado.
+const SPRITE = ['', 'objFuego', 'objIman', 'objComida', 'objReloj', 'objMonedas'];
 
 // TIPOS DE OBJETO DEL SUELO. El cofre es uno más desde que existen los
 // consumibles, y comparten pool porque comparten todo lo demás: caen del mismo
@@ -51,12 +61,42 @@ export const COFRE = 0;
 export const LLAMARADA = 1;
 export const IMAN = 2;
 export const COMIDA = 3;
+// Los dos que pidió Sergio con sus dibujos. El RELOJ para el tiempo de la horda
+// entera durante unos segundos y las MONEDAS dan denarios, que es el único
+// consumible que deja algo DESPUÉS de la partida (ver core/metaProgreso.js).
+export const RELOJ = 4;
+export const MONEDAS = 5;
+
+// De qué es cada consumible que cae. UNA SOLA TABLA para los dos sitios que
+// reparten —la antorcha que se rompe (entidades/enemigo.js) y el goteo del
+// director (sistemas/director.js)—: con una copia en cada uno, tocar el reparto
+// en un sitio lo dejaba desajustado en el otro, que es como estaba.
+//
+// El orden no es casual, va de lo corriente a lo gordo. El reloj es el más raro
+// porque parar la horda seis segundos resuelve el peor momento de una partida, y
+// las monedas van por delante de él porque no cambian la partida en curso: lo
+// suyo se cobra al terminar.
+export function tipoConsumible(dado) {
+  if (dado < 0.30) return COMIDA;
+  if (dado < 0.55) return LLAMARADA;
+  if (dado < 0.74) return IMAN;
+  if (dado < 0.91) return MONEDAS;
+  return RELOJ;
+}
+
+// Uno de cada diez cofres es ESPECIAL y sube tres niveles en vez de uno. Se
+// decide AQUÍ, al caer, y no al abrirlo: ahora los dos cofres se ven distintos
+// desde el suelo, así que hay que saberlo antes de que nadie lo recoja. Es media
+// gracia del cambio — cuál te ha tocado ya no es una sorpresa al abrirlo, es una
+// razón para cruzar la pantalla a por él.
+const PROB_ESPECIAL = 0.1;
 
 function crearCofre() {
   return {
     x: 0, y: 0, xPrev: 0, yPrev: 0,
     vx: 0, vy: 0,
     tipo: COFRE,
+    especial: false,      // solo los cofres: el de tres niveles
     fase: 0,              // latido del halo
     vida: 0               // segundos desde que cayó, para el rebote de entrada
   };
@@ -101,6 +141,7 @@ export class Cofres {
     c.fase = 0;
     c.vida = 0;
     c.tipo = tipo;
+    c.especial = tipo === COFRE && this._rng() < PROB_ESPECIAL;
     return c;
   }
 
@@ -137,8 +178,9 @@ export class Cofres {
 
       if (recogido) {
         const tipo = c.tipo;
+        const especial = c.especial;
         this.pool.liberarEn(k);            // sin avanzar k
-        if (this.alRecoger) this.alRecoger(recogido, tipo);
+        if (this.alRecoger) this.alRecoger(recogido, tipo, especial);
         return recogido;
       }
       k++;
@@ -148,15 +190,14 @@ export class Cofres {
 
   vaciar() { this.pool.vaciar(); }
 
-  // Caja con tapa, fleje de bronce y cerradura, más un halo que late. El halo no
-  // es adorno: con la pantalla llena de cuerpos, un objeto de catorce píxeles en
-  // el suelo no se encuentra, y este hay que encontrarlo.
+  // Halo que late, sombra de contacto y el sprite encima. El halo no es adorno:
+  // con la pantalla llena de cuerpos, un objeto de catorce píxeles en el suelo
+  // no se encuentra, y estos hay que encontrarlos.
   dibujar(ctx, alpha) {
     const items = this.pool.items;
     const n = this.pool.activos;
     if (n === 0) return;
 
-    const mitad = ANCHO / 2;
     ctx.save();
     for (let k = 0; k < n; k++) {
       const c = items[k];
@@ -164,8 +205,8 @@ export class Cofres {
       const y = c.yPrev + (c.y - c.yPrev) * alpha;
       const late = Math.sin(c.fase);
 
-      // Halo. Alfa bajo y radio que respira; a plena opacidad taparía a los
-      // enemigos que pasan por encima justo donde hay que mirar.
+      // Alfa bajo y radio que respira; a plena opacidad taparía a los enemigos
+      // que pasan por encima justo donde hay que mirar.
       ctx.globalAlpha = 0.20 + 0.10 * late;
       ctx.fillStyle = COLOR_HALO[c.tipo] || COLOR_BRONCE;
       ctx.beginPath();
@@ -173,95 +214,35 @@ export class Cofres {
       ctx.fill();
       ctx.globalAlpha = 1;
 
-      // Sombra de contacto: sin ella el cofre flota sobre la arena.
+      // Sombra de contacto: sin ella el objeto flota sobre la arena.
       ctx.fillStyle = COLOR_SOMBRA;
       ctx.beginPath();
-      ctx.ellipse(x, y + 1, mitad * 0.9, 2.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, y + 1, ANCHO * 0.45, 2.5, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      if (c.tipo !== COFRE) { this._dibujarConsumible(ctx, c, x, y, late); continue; }
-
-      const cy = y - ALTO;
-      ctx.fillStyle = COLOR_MADERA;
-      ctx.fillRect(x - mitad, cy + 4, ANCHO, ALTO - 4);
-      // Tapa abombada, un escalón más clara: da el volumen sin degradados.
-      ctx.fillStyle = COLOR_MADERA_ALTA;
-      ctx.fillRect(x - mitad, cy, ANCHO, 4);
-
-      // Herrajes: fleje horizontal bajo la tapa y vertical con cerradura.
-      ctx.fillStyle = COLOR_BRONCE;
-      ctx.fillRect(x - mitad, cy + 3, ANCHO, 1.5);
-      ctx.fillRect(x - 1.5, cy, 3, ALTO);
-      ctx.fillStyle = COLOR_BRONCE_ALTO;
-      ctx.fillRect(x - 1, cy + 4, 2, 2);
-
-      // Filo de luz superior, del mismo material que el halo: ata las dos cosas.
-      ctx.fillStyle = COLOR_BRONCE_ALTO;
-      ctx.globalAlpha = 0.5 + 0.3 * late;
-      ctx.fillRect(x - mitad, cy, ANCHO, 1);
-      ctx.globalAlpha = 1;
+      const id = c.tipo === COFRE
+                 ? (c.especial ? 'cofreEspecial' : 'cofreSimple')
+                 : SPRITE[c.tipo];
+      const meta = Recursos.meta(id);
+      const img = Recursos.imagen(id);
+      if (meta && img) {
+        // Mismo cuadre a píxel físico entero que usan los enemigos y los
+        // obstáculos: sin esto el sprite tiembla al desplazarse la cámara
+        // aunque el objeto esté quieto en el suelo.
+        const cxF = Math.round(x * ESCALA_ARTE);
+        const cyF = Math.round(y * ESCALA_ARTE);
+        ctx.drawImage(img,
+          (cxF - (meta.w >> 1)) / ESCALA_ARTE, (cyF - meta.h) / ESCALA_ARTE,
+          meta.w / ESCALA_ARTE, meta.h / ESCALA_ARTE);
+      } else {
+        // Sin dibujo cargado: un disco del color de su halo. Feo, pero se ve y
+        // se puede recoger, que es lo que no puede fallar.
+        ctx.fillStyle = COLOR_HALO[c.tipo] || COLOR_BRONCE;
+        ctx.beginPath();
+        ctx.arc(x, y - 6, 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     ctx.restore();
-  }
-
-  // Consumibles. Se dibujan por código como el cofre y las gemas: son formas de
-  // doce píxeles y un sprite no aportaría nada.
-  //
-  // Cada uno tiene su SILUETA, no solo su color: con la pantalla llena de
-  // enemigos, distinguir dos discos por el tono es pedir demasiado. La llama es
-  // puntiaguda y sube; el imán es una herradura y es ancho.
-  _dibujarConsumible(ctx, c, x, y, late) {
-    const cy = y - 9;
-    if (c.tipo === LLAMARADA) {
-      ctx.fillStyle = '#ff5a1a';
-      ctx.beginPath();
-      ctx.moveTo(x, cy - 7 - late);
-      ctx.quadraticCurveTo(x + 6, cy, x, cy + 6);
-      ctx.quadraticCurveTo(x - 6, cy, x, cy - 7 - late);
-      ctx.fill();
-      ctx.fillStyle = '#ffd45a';
-      ctx.beginPath();
-      ctx.moveTo(x, cy - 3);
-      ctx.quadraticCurveTo(x + 3, cy + 1, x, cy + 5);
-      ctx.quadraticCurveTo(x - 3, cy + 1, x, cy - 3);
-      ctx.fill();
-      return;
-    }
-    if (c.tipo === COMIDA) {
-      // Pan y algo dentro: una hogaza partida. Verde el halo, como todo lo que
-      // cura en este juego.
-      ctx.fillStyle = '#c9903f';
-      ctx.beginPath();
-      ctx.ellipse(x, cy + 1, 7, 5, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#e8c58a';
-      ctx.beginPath();
-      ctx.ellipse(x, cy - 1, 6.5, 4, 0, Math.PI, 0);
-      ctx.fill();
-      ctx.strokeStyle = '#8a5a2a';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x - 3.5, cy - 2.5); ctx.lineTo(x - 1.5, cy - 0.5);
-      ctx.moveTo(x + 0.5, cy - 3); ctx.lineTo(x + 2.5, cy - 1);
-      ctx.stroke();
-      return;
-    }
-    // Imán: herradura con las dos puntas marcadas.
-    ctx.strokeStyle = '#5aa9e6';
-    ctx.lineWidth = 3.5;
-    ctx.lineCap = 'butt';
-    ctx.beginPath();
-    ctx.arc(x, cy, 5.5, Math.PI, 0);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x - 5.5, cy); ctx.lineTo(x - 5.5, cy + 4);
-    ctx.moveTo(x + 5.5, cy); ctx.lineTo(x + 5.5, cy + 4);
-    ctx.stroke();
-    ctx.strokeStyle = '#e8e8e8';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(x - 5.5, cy + 3.5); ctx.lineTo(x - 5.5, cy + 5.5);
-    ctx.moveTo(x + 5.5, cy + 3.5); ctx.lineTo(x + 5.5, cy + 5.5);
-    ctx.stroke();
   }
 }
