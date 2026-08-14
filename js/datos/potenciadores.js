@@ -33,14 +33,28 @@
 // glifos. Ya lo hay, y un potenciador que se compra para siempre merece no
 // parecer un objeto de partida.
 //
-// `efecto` es la versión corta para la columna de la tabla. `descripcion` sigue
-// existiendo para el renglón de abajo, que tiene sitio para la frase entera.
+// CÓMO SE ESCRIBE EL EFECTO EN LA TIENDA. Antes había un `efecto` con la frase
+// ya montada —'+4% vida máxima'— y era un número copiado a mano del `valor` de
+// al lado: dos sitios que decir lo mismo y uno de los dos quedándose viejo el
+// día que se toque el balance. Y sobre todo no servía para lo que pidió Sergio,
+// que la columna diga LO QUE LLEVAS y LO QUE DARÍA EL SIGUIENTE NIVEL: para eso
+// hay que multiplicar, y de una frase no se multiplica.
+//
+// Así que la frase se monta a partir del `valor` de verdad:
+//
+//   escala    por cuánto se multiplica para enseñarlo (100 si se dice en %)
+//   unidad    lo que va pegado a la cifra
+//   concepto  lo que va detrás, redactado para que valga con cualquier número
+//   signo     '-' en los que restan; si no se pone, '+'
+//
+// `descripcion` sigue existiendo para el renglón de abajo, que tiene sitio para
+// la frase entera.
 export const POTENCIADORES = {
   vitalidad: {
     nombre: 'Vitalidad',
     descripcion: '+4% de vida máxima, en toda partida futura',
     campo: 'vidaMaxima', tipo: 'factor', valor: 0.04,
-    efecto: '+4% vida máxima',
+    escala: 100, unidad: '%', concepto: 'de vida máxima',
     arte: 'potVitalidad',
     maxNivel: 5, costeBase: 400
   },
@@ -48,7 +62,7 @@ export const POTENCIADORES = {
     nombre: 'Premura',
     descripcion: '+2% de velocidad, en toda partida futura',
     campo: 'velocidad', tipo: 'factor', valor: 0.02,
-    efecto: '+2% velocidad',
+    escala: 100, unidad: '%', concepto: 'de velocidad',
     arte: 'potPremura',
     maxNivel: 5, costeBase: 400
   },
@@ -56,7 +70,7 @@ export const POTENCIADORES = {
     nombre: 'Coraza',
     descripcion: '+1 de armadura, en toda partida futura',
     campo: 'armadura', tipo: 'suma', valor: 1,
-    efecto: '+1 armadura',
+    escala: 1, unidad: '', concepto: 'de armadura',
     arte: 'potCoraza',
     maxNivel: 5, costeBase: 500
   },
@@ -64,7 +78,7 @@ export const POTENCIADORES = {
     nombre: 'Codicia',
     descripcion: '+5% de radio de recogida, en toda partida futura',
     campo: 'radioRecogida', tipo: 'factor', valor: 0.05,
-    efecto: '+5% recogida',
+    escala: 100, unidad: '%', concepto: 'de radio de recogida',
     arte: 'potCodicia',
     maxNivel: 5, costeBase: 300
   },
@@ -72,7 +86,7 @@ export const POTENCIADORES = {
     nombre: 'Furia',
     descripcion: '+3% de daño, en toda partida futura',
     campo: 'bonusDanyo', tipo: 'suma', valor: 0.03,
-    efecto: '+3% daño',
+    escala: 100, unidad: '%', concepto: 'de daño',
     arte: 'potFuria',
     maxNivel: 5, costeBase: 600
   },
@@ -88,7 +102,7 @@ export const POTENCIADORES = {
     nombre: 'Clepsidra eterna',
     descripcion: '-1.5% de recarga, en toda partida futura',
     campo: 'reduccionRecarga', tipo: 'suma', valor: 0.015,
-    efecto: '-1.5% recarga',
+    escala: 100, unidad: '%', concepto: 'de recarga', signo: '-',
     arte: 'potClepsidra',
     maxNivel: 5, costeBase: 600
   },
@@ -96,7 +110,7 @@ export const POTENCIADORES = {
     nombre: 'Onda expansiva',
     descripcion: '+2% de área de efecto, en toda partida futura',
     campo: 'bonusArea', tipo: 'suma', valor: 0.02,
-    efecto: '+2% área',
+    escala: 100, unidad: '%', concepto: 'de área',
     arte: 'potOnda',
     maxNivel: 5, costeBase: 500
   },
@@ -104,7 +118,7 @@ export const POTENCIADORES = {
     nombre: 'Panacea',
     descripcion: '+0.15 de vida por segundo, en toda partida futura',
     campo: 'regeneracion', tipo: 'suma', valor: 0.15,
-    efecto: '+0.15 vida/s',
+    escala: 1, unidad: '', concepto: 'de vida por segundo',
     arte: 'potPanacea',
     maxNivel: 5, costeBase: 700
   },
@@ -119,7 +133,7 @@ export const POTENCIADORES = {
     nombre: 'Égida',
     descripcion: '+6 de escudo, se recarga solo si no te golpean',
     campo: 'escudoMax', tipo: 'suma', valor: 6,
-    efecto: '+6 escudo',
+    escala: 1, unidad: '', concepto: 'de escudo',
     arte: 'potEgida',
     maxNivel: 5, costeBase: 800
   },
@@ -138,7 +152,7 @@ export const POTENCIADORES = {
     nombre: 'Moneda de Caronte',
     descripcion: 'Una vida extra por nivel: vuelves a media vida donde caíste',
     campo: 'resurreccionesMax', tipo: 'suma', valor: 1,
-    efecto: '1 vida extra',
+    escala: 1, unidad: '', concepto: 'de vida extra',
     arte: 'potCaronte',
     maxNivel: 5, costeBase: 1200
   }

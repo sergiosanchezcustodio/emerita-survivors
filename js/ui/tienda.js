@@ -3,7 +3,7 @@ import { Tema } from './tema.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
 import { Recursos } from '../core/recursos.js';
 import { POTENCIADORES } from '../datos/potenciadores.js';
-import { MASCOTAS, ORDEN_MASCOTAS, MAX_NIVEL_MASCOTA } from '../datos/mascotas.js';
+import { MASCOTAS, ORDEN_MASCOTAS, MAX_NIVEL_MASCOTA, factorMascota } from '../datos/mascotas.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from '../datos/personajes.js';
 import { ARMAS } from '../datos/armas.js';
 import {
@@ -33,6 +33,56 @@ const COLOR_MAX = '#7fd68a';
 const NOMBRES = ['POTENCIADORES', 'MASCOTAS', 'JUGADORES'];
 
 // --- Piezas sueltas -----------------------------------------------------------
+
+// LO QUE LLEVAS Y LO QUE DARÍA EL SIGUIENTE NIVEL, que es lo que pidió Sergio
+// para esta columna. Antes decía siempre lo que da UN nivel —"+4% vida
+// máxima"— y con eso, llevando tres comprados, no había forma de saber ni lo
+// que tenías ni si merecía la pena el cuarto sin hacer la multiplicación de
+// cabeza.
+//
+// Sin comprar todavía sale una sola cifra: no hay nada acumulado, y un "0 → +4%"
+// es una resta que no hace falta. Al máximo también sale una sola, porque no hay
+// siguiente.
+//
+// Los números salen del `valor` de verdad del catálogo, no de una frase escrita
+// al lado (ver la cabecera de datos/potenciadores.js): así no pueden decir una
+// cosa distinta de la que se aplica.
+// Precisión por tamaño y coma decimal, que es como se escriben los números en
+// el resto del juego: a partir de diez, los decimales no dicen nada y estorban
+// —"+68%" se lee y "+67,5%" se descifra—; por debajo son justo lo que hay que
+// ver, porque la Panacea da 0,15 de vida por segundo y redondearlo a 0,2 sería
+// enseñar un número que el juego no aplica.
+function cifra(v, unidad, signo, enteros) {
+  let n;
+  if (enteros || Math.abs(v) >= 10) n = Math.round(v);
+  else n = Math.round(v * 100) / 100;
+  return (signo || '+') + String(n).replace('.', ',') + unidad;
+}
+
+function efectoEscalonado(porNivel, nivel, maximo, unidad, concepto, signo, enteros) {
+  const ahora = cifra(porNivel * Math.max(1, nivel), unidad, signo, enteros);
+  if (nivel === 0 || nivel >= maximo) return `${ahora} ${concepto}`;
+  return `${ahora} → ${cifra(porNivel * (nivel + 1), unidad, signo, enteros)} ${concepto}`;
+}
+
+// Un potenciador crece en línea recta: cada nivel suma otro `valor`.
+function efectoPotenciador(def, nivel) {
+  return efectoEscalonado(def.valor * def.escala, nivel, def.maxNivel,
+                          def.unidad, def.concepto, def.signo, false);
+}
+
+// Una mascota no: su número base se multiplica por `factorMascota`, que va de 1
+// al nivel 1 hasta 2 al nivel 5. Por eso aquí se calculan los dos extremos en
+// vez de multiplicar por el nivel.
+function efectoMascota(def, nivel) {
+  const base = def[def.campoEfecto] * def.escala;
+  const ahora = cifra(base * factorMascota(Math.max(1, nivel)),
+                      def.unidad, def.signo, def.enteros);
+  if (nivel === 0 || nivel >= MAX_NIVEL_MASCOTA) return `${ahora} ${def.concepto}`;
+  const luego = cifra(base * factorMascota(nivel + 1), def.unidad, def.signo, def.enteros);
+  return `${ahora} → ${luego} ${def.concepto}`;
+}
+
 
 // Precio, "AL MÁXIMO" o "TUYO", siempre pegado al borde derecho. En apagado
 // cuando no llega el dinero: se ve lo que cuesta y se ve que hoy no.
@@ -165,12 +215,10 @@ function filasPotenciadores(ctx, cursor, r) {
 
     puntos(ctx, X_NIVEL + RADIO_PUNTO, yc, nivel, def.maxNivel, elegida);
 
+    ctx.textAlign = 'left';
     ctx.font = `600 11px ${FUENTE}`;
     ctx.fillStyle = nivel > 0 ? t.titulo : t.texto;
-    // Lo que da CADA nivel, y al lado lo que llevas acumulado. Sin el acumulado
-    // no hay forma de saber si los cuatro niveles que ya pagaste hacen algo.
-    ctx.fillText(def.efecto + (nivel > 0 ? `   (llevas ${nivel} de ${def.maxNivel})` : ''),
-                 X_EFECTO, yc);
+    ctx.fillText(efectoPotenciador(def, nivel), X_EFECTO, yc);
 
     precio(ctx, yc, coste, 'AL MÁXIMO');
   }
@@ -225,9 +273,10 @@ function filasMascotas(ctx, cursor, r) {
 
     puntos(ctx, X_NIVEL + RADIO_PUNTO, yc, nivel, MAX_NIVEL_MASCOTA, elegida);
 
+    ctx.textAlign = 'left';
     ctx.font = `600 11px ${FUENTE}`;
     ctx.fillStyle = tiene ? t.titulo : t.texto;
-    ctx.fillText(def.efecto, X_EFECTO, yc);
+    ctx.fillText(efectoMascota(def, nivel), X_EFECTO, yc);
 
     precio(ctx, yc, coste, 'AL MÁXIMO');
   }

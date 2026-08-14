@@ -28,10 +28,21 @@
 // Fantasma: partir por el espacio funciona hasta que un nombre empieza por
 // artículo, y aquí ya hay uno.
 //
-// `efecto` es la versión CORTA para la columna de la tabla de la tienda, donde
-// solo hay sitio para una línea. Es el efecto del nivel 1: los cinco niveles
-// multiplican ese número (ver factorMascota), y meter el rango entero en la
-// celda la volvía ilegible justo en la pantalla que se mira para decidir.
+// CÓMO SE ESCRIBE EL EFECTO EN LA TIENDA. Igual que en los potenciadores (ver
+// datos/potenciadores.js): la frase no está escrita, se monta, porque Sergio
+// pidió que la columna diga LO QUE LLEVAS y LO QUE DARÍA EL SIGUIENTE NIVEL, y
+// de una frase escrita a mano no se multiplica.
+//
+//   campoEfecto  qué número de los de arriba es el que crece con el nivel. No es
+//                el mismo en todas: en las pasivas es `valor` y en las activas
+//                el que las define, que es justo el que multiplica
+//                sistemas/mascotas.js por `factorMascota`.
+//   escala       por cuánto se multiplica para enseñarlo (100 si se dice en %)
+//   unidad       lo que va pegado a la cifra
+//   concepto     lo que va detrás, redactado para valer con cualquier número
+//   enteros      lo redondea el juego al aplicarlo, así que se enseña redondeado
+//                (daño, cura y denarios pasan por Math.round; los segundos no)
+//
 // `descripcion` sigue siendo la frase larga del renglón de abajo.
 //
 // `color` es provisional: mientras no haya sprites, sistemas/mascotas.js dibuja
@@ -46,7 +57,7 @@ export const MASCOTAS = {
     corto: 'Heladio',
     descripcion: 'Recoge gemas desde mucho más lejos. Todo al carrillo.',
     campo: 'radioRecogida', tipo: 'factor', valor: 0.45,
-    efecto: '+45% recogida',
+    campoEfecto: 'valor', escala: 100, unidad: '%', concepto: 'de radio de recogida',
     coste: 600, color: '#e8a75a', inicial: 'H'
   },
   escipion: {
@@ -54,7 +65,7 @@ export const MASCOTAS = {
     corto: 'Escipión',
     descripcion: 'Su caparazón te presta +2 de armadura.',
     campo: 'armadura', tipo: 'suma', valor: 2,
-    efecto: '+2 armadura',
+    campoEfecto: 'valor', escala: 1, unidad: '', concepto: 'de armadura',
     coste: 900, color: '#7fa860', inicial: 'E'
   },
   plinio: {
@@ -62,7 +73,7 @@ export const MASCOTAS = {
     corto: 'Plinio',
     descripcion: 'Te lo explica todo: +20% de experiencia.',
     campo: 'bonusXp', tipo: 'suma', valor: 0.2,
-    efecto: '+20% experiencia',
+    campoEfecto: 'valor', escala: 100, unidad: '%', concepto: 'de experiencia',
     coste: 1200, color: '#b0956a', inicial: 'P'
   },
   neron: {
@@ -75,7 +86,7 @@ export const MASCOTAS = {
     corto: 'Nerón',
     descripcion: 'Le gusta el oro: +35% de denarios en cada partida.',
     factorDenarios: 0.35,
-    efecto: '+35% denarios',
+    campoEfecto: 'factorDenarios', escala: 100, unidad: '%', concepto: 'de denarios',
     coste: 1500, color: '#5a5a66', inicial: 'N'
   },
 
@@ -85,7 +96,7 @@ export const MASCOTAS = {
     corto: 'Karim',
     descripcion: 'Se lanza a morder al enemigo más cercano.',
     habilidad: 'morder', cada: 1.8, danyo: 14, alcance: 90,
-    efecto: '14 de daño cada 1,8 s',
+    campoEfecto: 'danyo', escala: 1, unidad: '', concepto: 'de daño cada 1,8 s', enteros: true,
     coste: 1000, color: '#c08a4a', inicial: 'K'
   },
   cleopatra: {
@@ -93,7 +104,7 @@ export const MASCOTAS = {
     corto: 'Cleopatra',
     descripcion: 'Pone un huevo cada poco. El huevo te cura.',
     habilidad: 'huevo', cada: 9, cura: 9,
-    efecto: 'Cura 9 cada 9 s',
+    campoEfecto: 'cura', escala: 1, unidad: '', concepto: 'de cura cada 9 s', enteros: true,
     coste: 1300, color: '#e0d0a0', inicial: 'C'
   },
   oreo: {
@@ -101,7 +112,7 @@ export const MASCOTAS = {
     corto: 'Oreo',
     descripcion: 'Escarba sin parar y desentierra denarios.',
     habilidad: 'escarbar', cada: 11, denarios: 3,
-    efecto: '+3 denarios cada 11 s',
+    campoEfecto: 'denarios', escala: 1, unidad: '', concepto: 'denarios cada 11 s', enteros: true,
     coste: 1100, color: '#d8d8d8', inicial: 'O'
   },
   pollito: {
@@ -112,7 +123,7 @@ export const MASCOTAS = {
     corto: 'Pollito',
     descripcion: 'Un chillido de ultratumba y la horda de alrededor huye.',
     habilidad: 'espantar', cada: 12, radio: 95, duracion: 2.5,
-    efecto: 'Espanta 2,5 s cada 12 s',
+    campoEfecto: 'duracion', escala: 1, unidad: ' s', concepto: 'de huida cada 12 s',
     coste: 1400, color: '#cfe8ff', inicial: 'F'
   }
 };
