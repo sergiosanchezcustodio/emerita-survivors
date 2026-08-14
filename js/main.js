@@ -1597,6 +1597,10 @@ function dibujar(alpha) {
   // que verse aunque cruce por detrás de un cíclope.
   disparos.dibujar(ctx, alpha);
   Mascotas.dibujar(ctx, jugadores);
+  // Los avisos de disparo van DESPUÉS de la horda: son de los pocos adornos que
+  // tienen que verse por encima de los cuerpos, porque avisan de algo que va a
+  // pasar y llegar tarde a verlos es no verlos.
+  if (activo.efectos) enemigos.dibujarAvisos(ctx, alpha);
   if (activo.particulas) Particulas.dibujar(ctx, alpha);
   // Las marcas de golpe van DESPUÉS de las partículas y con ellas en el lienzo
   // del mundo: son lo último del impacto y tienen que quedar por encima.

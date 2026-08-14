@@ -411,13 +411,41 @@ export class Disparos {
 
       const late = 1 + Math.sin(d.fase) * 0.12;
 
+      // ESTELA HACIA ATRÁS. Un disco no dice a dónde va, y saber a dónde va un
+      // proyectil enemigo es media esquiva: con la pantalla llena, para cuando
+      // deduces el rumbo mirándolo dos frames ya te ha dado. La cola apunta de
+      // dónde viene, así que la línea de peligro se lee en un vistazo.
+      const v = Math.hypot(d.vx, d.vy);
+      if (v > 1) {
+        const ux = d.vx / v, uy = d.vy / v;
+        const largo = d.radio * 4.5;
+        ctx.globalAlpha = 0.35;
+        ctx.strokeStyle = d.color;
+        ctx.lineCap = 'round';
+        ctx.lineWidth = d.radio * 1.1;
+        ctx.beginPath();
+        ctx.moveTo(x - ux * largo, y - uy * largo);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+
       ctx.globalAlpha = 0.30;
       ctx.fillStyle = d.color;
       ctx.beginPath();
       ctx.arc(x, y, d.radio * 2.1 * late, 0, Math.PI * 2);
       ctx.fill();
 
+      // FILO OSCURO. Es lo que impide que un proyectil enemigo se confunda con
+      // los efectos del jugador, que se dibujan sumando luz: sobre una pantalla
+      // llena de destellos claros, lo que tiene contorno negro es lo que te
+      // puede matar.
       ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.arc(x, y, d.radio * late + 1.2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(14,8,10,.85)';
+      ctx.fill();
+
+      ctx.fillStyle = d.color;
       ctx.beginPath();
       ctx.arc(x, y, d.radio * late, 0, Math.PI * 2);
       ctx.fill();

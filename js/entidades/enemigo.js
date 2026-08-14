@@ -176,6 +176,12 @@ function seno(a) { return SENO[((a * ESCALA_SENO) | 0) & (N_SENO - 1)]; }
 // instante, que es justo lo que el recurso debe subrayar.
 const VIDA_HITSTOP = 150;
 
+// Segundos de aviso antes de que un enemigo dispare. Tres décimas: lo justo
+// para verlo y apartarse si estabas mirando, no tanto como para que el enemigo
+// deje de ser una amenaza. Ver dibujarAvisos.
+const AVISO_ATAQUE = 0.3;
+const COLOR_AVISO = '#ff9a5a';
+
 // Cubos de la ordenación por Y, uno por unidad lógica de alto visible.
 const CUBOS_Y = MARGEN_ARRIBA + ALTO_LOGICO + MARGEN_ABAJO;
 
@@ -986,6 +992,53 @@ export class Enemigos {
   // `obstaculos` es opcional (columnas, antorchas, estatuas, ruinas —
   // sistemas/obstaculos.js): son estáticos, así que solo aportan su posición
   // y su propio método `dibujar(ctx)`, exactamente como un Jugador.
+  // AVISO DE ATAQUE: el que va a disparar se enciende antes de hacerlo.
+  //
+  // El cíclope y el charco ya avisaban con su círculo en el suelo, pero un
+  // disparo normal salía sin previo aviso: con ochocientos bichos en pantalla,
+  // el proyectil que te mata aparece de una nube de sprites y no hay forma de
+  // haberlo visto venir. Esto no lo hace más fácil —el disparo sale igual— lo
+  // hace JUSTO: la información está, y esquivar pasa a ser cosa tuya.
+  //
+  // Se dibuja aparte del blit de la horda y no dentro, para no meter una rama
+  // por enemigo en el bucle más caliente del juego. El recorrido es sobre todos
+  // los activos, pero lo primero que mira es si el bicho tiene ataque a
+  // distancia, y eso lo tienen cuatro de veinte.
+  dibujarAvisos(ctx, alpha) {
+    const items = this.pool.items;
+    const n = this.pool.activos;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < n; k++) {
+      const e = items[k];
+      if (!e.def.ataque || e.vida <= 0 || e.paralizado > 0) continue;
+      const falta = e.relojAtaque;
+      if (falta > AVISO_ATAQUE || falta <= 0) continue;
+
+      // De 0 a 1 según se acerca el disparo: el aro se cierra y se enciende.
+      const t = 1 - falta / AVISO_ATAQUE;
+      const x = e.xPrev + (e.x - e.xPrev) * alpha;
+      const y = e.yPrev + (e.y - e.yPrev) * alpha - e.meta.h / ESCALA_ARTE * 0.5;
+      const r = 14 - t * 8;
+
+      ctx.globalAlpha = 0.20 + t * 0.45;
+      ctx.strokeStyle = COLOR_AVISO;
+      ctx.lineWidth = 1 + t * 1.8;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Y un punto que crece en el centro, que es lo que se ve cuando el aro ya
+      // está encima del bicho y no se distingue de su silueta.
+      ctx.globalAlpha = t * 0.6;
+      ctx.fillStyle = COLOR_AVISO;
+      ctx.beginPath();
+      ctx.arc(x, y, 1 + t * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   dibujar(ctx, camara, alpha, jugadores, obstaculos) {
     const items = this.pool.items;
     const n = this.pool.activos;
