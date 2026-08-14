@@ -67,41 +67,6 @@ export function olvidarDegradados() { CACHE.length = 0; }
 
 // --- Ornamentos --------------------------------------------------------------
 
-// Greca romana: una hilera de llaves cuadradas. Se traza a mano con segmentos
-// rectos —nada de imágenes— para que valga a cualquier tamaño y se tiña con el
-// color del tema.
-//
-// Cada llave es una espiral cuadrada independiente en vez de un meandro
-// continuo. A este tamaño (7 unidades de alto) un meandro corrido se cierra
-// sobre sí mismo y se lee como una línea gruesa y sucia; separadas, se distingue
-// la forma. Se centra el sobrante para que la cenefa no quede coja por un lado.
-function greca(ctx, x, y, ancho, alto, color) {
-  const modulo = alto * 1.3;
-  const paso = modulo + alto * 0.5;
-  const n = Math.floor((ancho + alto * 0.5) / paso);
-  if (n < 2) return;
-
-  const x0 = x + (ancho - (n * paso - alto * 0.5)) / 2;
-
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = Math.max(1, alto * 0.16);
-  ctx.lineJoin = 'miter';
-  ctx.lineCap = 'butt';
-  ctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const bx = x0 + i * paso;
-    ctx.moveTo(bx, y + alto);
-    ctx.lineTo(bx, y);
-    ctx.lineTo(bx + modulo, y);
-    ctx.lineTo(bx + modulo, y + alto);
-    ctx.lineTo(bx + modulo * 0.38, y + alto);
-    ctx.lineTo(bx + modulo * 0.38, y + alto * 0.42);
-  }
-  ctx.stroke();
-  ctx.restore();
-}
-
 // Escuadras en las cuatro esquinas. Es lo que da la lectura de "placa" sin
 // necesidad de un marco grueso: dos trazos por esquina y el ojo cierra el resto.
 function escuadras(ctx, x, y, ancho, alto, color, brazo) {
@@ -153,14 +118,16 @@ export function panel(ctx, x, y, ancho, alto, acento) {
   ctx.restore();
 }
 
-// Cenefa de separación bajo la cabecera. Devuelve el alto que ha ocupado, para
-// que quien la pide no tenga que saber cuánto mide cada ornamento.
+// Separación bajo una cabecera. Devuelve el alto que ha ocupado, para que quien
+// la pide no tenga que saber cuánto mide.
+//
+// ANTES ERA UNA GRECA: una hilera de llaves cuadradas, el meandro romano de
+// toda la vida. La quitó Sergio de todas las ventanas —"no queda bien"— y con
+// razón: a seis unidades de alto y repetida en ocho sitios, lo que aportaba de
+// ambientación no compensaba lo que pesaba en pantallas que ya tienen mucho que
+// leer. Se queda la raya fina, que es lo que de verdad hacía falta: separar.
 export function cenefa(ctx, x, y, ancho) {
   const t = Tema.actual;
-  if (t.ornamento === 'romano') {
-    greca(ctx, x, y, ancho, 6, t.filo);
-    return 6;
-  }
   ctx.save();
   ctx.strokeStyle = t.filo;
   ctx.globalAlpha = 0.45;

@@ -7,7 +7,7 @@ import { MASCOTAS, ORDEN_MASCOTAS, MAX_NIVEL_MASCOTA } from '../datos/mascotas.j
 import { PERSONAJES, ORDEN_PERSONAJES } from '../datos/personajes.js';
 import { ARMAS } from '../datos/armas.js';
 import {
-  rejilla, armazon, resalte, puntos, descripcion,
+  rejilla, armazon, resalte, puntos, descripcion, nombreFila,
   MARGEN, X_ICONO, X_NOMBRE, X_NIVEL, X_EFECTO, X_VALOR, RADIO_PUNTO
 } from './tabla.js';
 
@@ -161,15 +161,11 @@ function filasPotenciadores(ctx, cursor, r) {
 
     iconoPotenciador(ctx, def, X_ICONO, yc, radio);
 
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.font = `600 13px ${FUENTE}`;
-    ctx.fillStyle = elegida ? '#ffffff' : t.titulo;
-    ctx.fillText(def.nombre, X_NOMBRE, yc);
+    nombreFila(ctx, def.nombre, X_NOMBRE, yc, elegida ? '#ffffff' : t.titulo);
 
     puntos(ctx, X_NIVEL + RADIO_PUNTO, yc, nivel, def.maxNivel, elegida);
 
-    ctx.font = `500 11px ${FUENTE}`;
+    ctx.font = `600 11px ${FUENTE}`;
     ctx.fillStyle = nivel > 0 ? t.titulo : t.texto;
     // Lo que da CADA nivel, y al lado lo que llevas acumulado. Sin el acumulado
     // no hay forma de saber si los cuatro niveles que ya pagaste hacen algo.
@@ -224,15 +220,12 @@ function filasMascotas(ctx, cursor, r) {
     }
     ctx.globalAlpha = 1;
 
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.font = `600 13px ${FUENTE}`;
-    ctx.fillStyle = elegida ? '#ffffff' : (tiene ? t.titulo : t.texto);
-    ctx.fillText(def.nombre, X_NOMBRE, yc);
+    nombreFila(ctx, def.nombre, X_NOMBRE, yc,
+               elegida ? '#ffffff' : (tiene ? t.titulo : t.texto));
 
     puntos(ctx, X_NIVEL + RADIO_PUNTO, yc, nivel, MAX_NIVEL_MASCOTA, elegida);
 
-    ctx.font = `500 11px ${FUENTE}`;
+    ctx.font = `600 11px ${FUENTE}`;
     ctx.fillStyle = tiene ? t.titulo : t.texto;
     ctx.fillText(def.efecto, X_EFECTO, yc);
 
@@ -285,11 +278,8 @@ function filasPersonajes(ctx, cursor, r) {
     }
     ctx.globalAlpha = 1;
 
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.font = `600 14px ${FUENTE}`;
-    ctx.fillStyle = elegida ? '#ffffff' : (tuyo ? t.titulo : t.texto);
-    ctx.fillText(def.nombre, X_NOMBRE, yc - 8);
+    nombreFila(ctx, def.nombre, X_NOMBRE, yc - 8,
+               elegida ? '#ffffff' : (tuyo ? t.titulo : t.texto));
 
     // Su arma exclusiva, que es lo que de verdad diferencia a un personaje de
     // otro: los `mods` mueven los números, el arma cambia a qué se juega.
@@ -301,7 +291,8 @@ function filasPersonajes(ctx, cursor, r) {
     // Un personaje no tiene niveles: se tiene o no se tiene. Un solo punto.
     puntos(ctx, X_NIVEL + RADIO_PUNTO, yc, tuyo ? 1 : 0, 1, elegida);
 
-    ctx.font = `500 11px ${FUENTE}`;
+    ctx.textAlign = 'left';
+    ctx.font = `600 11px ${FUENTE}`;
     ctx.fillStyle = tuyo ? t.titulo : t.texto;
     ctx.fillText(efectoDePersonaje(def), X_EFECTO, yc);
 

@@ -3,7 +3,7 @@ import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
 import { Tema, panel } from './tema.js';
 import { GestorAudio } from '../sistemas/audio.js';
 import {
-  rejilla, armazon, resalte, puntos, descripcion,
+  rejilla, armazon, resalte, puntos, descripcion, nombreFila,
   X_ICONO, X_NOMBRE, X_NIVEL, X_EFECTO, X_VALOR, RADIO_PUNTO
 } from './tabla.js';
 
@@ -156,16 +156,14 @@ export function dibujarConfig(ctxMundo, ctx, opciones, cursor, confirmando) {
 
     icono(ctx, o.id, X_ICONO, yc, radio);
 
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.font = `600 13px ${FUENTE}`;
-    ctx.fillStyle = peligro ? COLOR_PELIGRO : (elegida ? '#ffffff' : t.titulo);
-    ctx.fillText(o.texto, X_NOMBRE, yc);
+    nombreFila(ctx, o.texto, X_NOMBRE, yc,
+               peligro ? COLOR_PELIGRO : (elegida ? '#ffffff' : t.titulo));
 
     const n = nivel(o.id);
     if (n >= 0) puntos(ctx, X_NIVEL + RADIO_PUNTO, yc, n, PASOS_VOLUMEN, elegida);
 
-    ctx.font = `500 11px ${FUENTE}`;
+    ctx.textAlign = 'left';
+    ctx.font = `600 11px ${FUENTE}`;
     ctx.fillStyle = t.texto;
     ctx.fillText(txt.efecto, X_EFECTO, yc);
 

@@ -121,24 +121,50 @@ export const Pantallas = {
 // La moneda es el áureo de Augusto que dibujó Sergio. Antes era un círculo
 // trazado con una "D" dentro, que era lo que había mientras no hubiera arte.
 const COLOR_ORO = '#e8b73a';
-const LADO_MONEDA = 21;
+const LADO_MONEDA = 17;
 
-export function dibujarOro(ctxUi) {
-  const x = ANCHO_UI - 18;
-  // Se aparta del borde SUPERIOR REAL, no del borde del lienzo: la capa mide
-  // 540 de alto siempre, y si alguna vez se recorta (ver Capa.altoVisible) a 24
-  // fijas la moneda saldría descabezada.
-  const y = Math.max(24, (ALTO_UI - Capa.altoVisible) / 2 + 18);
+export function dibujarOro(ctxUi, yPedida) {
+  const x = ANCHO_UI - 16;
+  // Por defecto se aparta del borde SUPERIOR REAL, no del del lienzo: la capa
+  // mide 540 de alto siempre, y si alguna vez se recorta (ver Capa.altoVisible)
+  // una medida fija saldría descabezada.
+  //
+  // Las pantallas de tabla —tienda y configuración— pasan su propia `y` para
+  // que la moneda caiga a la altura de las pestañas en vez de flotando por
+  // encima. Ahí estaba el problema que vio Sergio: colocada por su cuenta, se
+  // metía en la fila de pestañas de unas ventanas y en los adornos de la
+  // ilustración de otras.
+  const y = yPedida !== undefined
+            ? yPedida
+            : Math.max(22, (ALTO_UI - Capa.altoVisible) / 2 + 16);
   const cifra = String(MetaProgreso.denarios);
 
   ctxUi.save();
   ctxUi.textAlign = 'right';
   ctxUi.textBaseline = 'middle';
-  ctxUi.font = `700 18px ${FUENTE}`;
-  textoBorde(ctxUi, cifra, x, y, COLOR_ORO, 4);
+  ctxUi.font = `700 15px ${FUENTE}`;
 
-  // La moneda, a la izquierda de la cifra y centrada en su misma línea.
-  const cx = x - ctxUi.measureText(cifra).width - LADO_MONEDA / 2 - 6;
+  // CARTELA DETRÁS. Es lo que arregla el pisotón que vio Sergio: la ilustración
+  // del título tiene el asta del estandarte justo donde cae la moneda, y la de
+  // selección tiene el arco de piedra. Un reborde oscuro en el texto no basta
+  // cuando lo de debajo es un dibujo con detalle; una cartela discreta sí, y
+  // además ata la moneda y la cifra en una sola pieza en vez de dejarlas
+  // flotando sobre lo que haya.
+  const anchoCifra = ctxUi.measureText(cifra).width;
+  const anchoPlaca = anchoCifra + LADO_MONEDA + 20;
+  ctxUi.beginPath();
+  ctxUi.roundRect(x - anchoPlaca + 6, y - 13, anchoPlaca, 26, 13);
+  ctxUi.fillStyle = 'rgba(10,8,12,.62)';
+  ctxUi.fill();
+  ctxUi.lineWidth = 1;
+  ctxUi.strokeStyle = 'rgba(232,183,58,.28)';
+  ctxUi.stroke();
+
+  textoBorde(ctxUi, cifra, x, y, COLOR_ORO, 3);
+
+  // La moneda, a la izquierda de la cifra y centrada en su misma línea. Bajó de
+  // 21 a 17: al lado de un número de 15 se veía como un plato.
+  const cx = x - anchoCifra - LADO_MONEDA / 2 - 5;
   const meta = Recursos.meta('monedaHud');
   const img = Recursos.imagen('monedaHud');
   if (meta && img) {
@@ -147,8 +173,8 @@ export function dibujarOro(ctxUi) {
     const h = meta.h * esc;
     ctxUi.drawImage(img, 0, 0, meta.w, meta.h, cx - w / 2, y - h / 2, w, h);
   } else {
-    // Sin el dibujo cargado, el círculo de siempre. No es adorno: sin moneda,
-    // el número de arriba a la derecha no dice de qué es.
+    // Sin el dibujo cargado, un disco. No es adorno: sin moneda, el número de
+    // arriba a la derecha no dice de qué es.
     const r = LADO_MONEDA / 2.6;
     ctxUi.beginPath();
     ctxUi.arc(cx, y, r, 0, Math.PI * 2);
@@ -157,10 +183,6 @@ export function dibujarOro(ctxUi) {
     ctxUi.lineWidth = 1.5;
     ctxUi.strokeStyle = 'rgba(20,14,4,.65)';
     ctxUi.stroke();
-    ctxUi.fillStyle = 'rgba(20,14,4,.6)';
-    ctxUi.textAlign = 'center';
-    ctxUi.font = `700 11px ${FUENTE_TITULO}`;
-    ctxUi.fillText('D', cx, y + 0.5);
   }
   ctxUi.restore();
 }
