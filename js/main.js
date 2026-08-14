@@ -466,6 +466,8 @@ const PARALISIS_RELOJ = 6;
 // Las monedas se cobran FUERA de la partida: van al progreso META y siguen ahí
 // mañana. Es el único consumible que no cambia nada de lo que está pasando.
 const DENARIOS_MONEDAS = 10;
+// Lo que da la tecla D en la tienda. Atajo de prueba: ver entradaTienda.
+const DENARIOS_PRUEBA = 1000;
 const CADENCIA_LLAMARADA = 0.16;
 const DANYO_LLAMARADA = 26;
 
@@ -784,6 +786,7 @@ function entradaTienda() {
   const tEspacio = entrada.consumirFlanco('Space');
   const tEscape = entrada.consumirFlanco('Escape');
   const tTienda = entrada.consumirFlanco('KeyT');
+  const tDinero = entrada.consumirFlanco('KeyD');
   const mAtras = entrada.consumirAtras();
   const mDer = c ? c.consumirBoton(15) : false;
   const mIzq = c ? c.consumirBoton(14) : false;
@@ -794,6 +797,20 @@ function entradaTienda() {
   if (tEscape || tTienda || mAtras) {
     irA(PANTALLA_TITULO);
     return;
+  }
+
+  // D: MIL DENARIOS. Atajo de PRUEBA, como los del 1 al 8 de la partida, y por
+  // eso vive en la tienda y no en el menú: es para poder comprobar que una
+  // compra hace lo que dice sin jugarse veinte partidas antes de llegar a
+  // pagarla. Se guarda en el acto porque lo primero que se hace después de
+  // probar una compra es recargar para ver si se quedó.
+  //
+  // Está sin anunciar en ninguna pantalla a propósito: quien no sepa que existe
+  // no se la encuentra sin querer, que es lo que se le pide a un atajo que
+  // regala dinero.
+  if (tDinero) {
+    MetaProgreso.ganar(DENARIOS_PRUEBA);
+    MetaProgreso.guardar();
   }
 
   // Cambiar de sección reinicia el cursor: las tres listas no tienen ni la

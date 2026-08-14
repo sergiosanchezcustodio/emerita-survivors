@@ -484,6 +484,15 @@
                                          "frames":  1,
                                          "plano":  true
                                      },
+                      "monedaHud":  {
+                                        "archivo":  "objetos/moneda-hud.png",
+                                        "w":  80,
+                                        "h":  80,
+                                        "anclaX":  40,
+                                        "anclaY":  80,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
                       "columna":  {
                                       "archivo":  "objetos/columna.png",
                                       "w":  56,

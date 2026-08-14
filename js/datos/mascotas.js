@@ -47,7 +47,7 @@ export const MASCOTAS = {
     descripcion: 'Recoge gemas desde mucho más lejos. Todo al carrillo.',
     campo: 'radioRecogida', tipo: 'factor', valor: 0.45,
     efecto: '+45% recogida',
-    coste: 300, color: '#e8a75a', inicial: 'H'
+    coste: 600, color: '#e8a75a', inicial: 'H'
   },
   escipion: {
     nombre: 'Escipión la Tortuga',
@@ -55,7 +55,7 @@ export const MASCOTAS = {
     descripcion: 'Su caparazón te presta +2 de armadura.',
     campo: 'armadura', tipo: 'suma', valor: 2,
     efecto: '+2 armadura',
-    coste: 450, color: '#7fa860', inicial: 'E'
+    coste: 900, color: '#7fa860', inicial: 'E'
   },
   plinio: {
     nombre: 'Plinio el Búho',
@@ -63,7 +63,7 @@ export const MASCOTAS = {
     descripcion: 'Te lo explica todo: +20% de experiencia.',
     campo: 'bonusXp', tipo: 'suma', valor: 0.2,
     efecto: '+20% experiencia',
-    coste: 600, color: '#b0956a', inicial: 'P'
+    coste: 1200, color: '#b0956a', inicial: 'P'
   },
   neron: {
     // La única que toca el progreso META en vez de la partida: multiplica los
@@ -76,7 +76,7 @@ export const MASCOTAS = {
     descripcion: 'Le gusta el oro: +35% de denarios en cada partida.',
     factorDenarios: 0.35,
     efecto: '+35% denarios',
-    coste: 750, color: '#5a5a66', inicial: 'N'
+    coste: 1500, color: '#5a5a66', inicial: 'N'
   },
 
   // --- Activas -------------------------------------------------------------
@@ -86,7 +86,7 @@ export const MASCOTAS = {
     descripcion: 'Se lanza a morder al enemigo más cercano.',
     habilidad: 'morder', cada: 1.8, danyo: 14, alcance: 90,
     efecto: '14 de daño cada 1,8 s',
-    coste: 500, color: '#c08a4a', inicial: 'K'
+    coste: 1000, color: '#c08a4a', inicial: 'K'
   },
   cleopatra: {
     nombre: 'Cleopatra la Gallina',
@@ -94,7 +94,7 @@ export const MASCOTAS = {
     descripcion: 'Pone un huevo cada poco. El huevo te cura.',
     habilidad: 'huevo', cada: 9, cura: 9,
     efecto: 'Cura 9 cada 9 s',
-    coste: 650, color: '#e0d0a0', inicial: 'C'
+    coste: 1300, color: '#e0d0a0', inicial: 'C'
   },
   oreo: {
     nombre: 'Oreo el Conejo',
@@ -102,7 +102,7 @@ export const MASCOTAS = {
     descripcion: 'Escarba sin parar y desentierra denarios.',
     habilidad: 'escarbar', cada: 11, denarios: 3,
     efecto: '+3 denarios cada 11 s',
-    coste: 550, color: '#d8d8d8', inicial: 'O'
+    coste: 1100, color: '#d8d8d8', inicial: 'O'
   },
   pollito: {
     // El único que da control de masas en vez de daño o recursos: no mata a
@@ -113,7 +113,7 @@ export const MASCOTAS = {
     descripcion: 'Un chillido de ultratumba y la horda de alrededor huye.',
     habilidad: 'espantar', cada: 12, radio: 95, duracion: 2.5,
     efecto: 'Espanta 2,5 s cada 12 s',
-    coste: 700, color: '#cfe8ff', inicial: 'F'
+    coste: 1400, color: '#cfe8ff', inicial: 'F'
   }
 };
 
@@ -150,10 +150,10 @@ export function factorMascota(nivel) {
 // siguientes van subiendo un 60% del precio base cada uno, así que completar
 // una mascota cuesta siete veces lo que costó adoptarla.
 //
-// Los `coste` de arriba se multiplicaron por cinco junto con los de los
-// potenciadores (ver datos/potenciadores.js): se ganan unos dos mil denarios por
-// partida y con los precios de antes las ocho mascotas se completaban con lo de
-// tres tardes.
+// Los `coste` de arriba se multiplicaron por diez junto con los de los
+// potenciadores (ver datos/potenciadores.js), en dos pasadas de ajuste: se ganan
+// unos dos mil denarios por partida y con los precios originales las ocho
+// mascotas se completaban con lo de tres tardes.
 export function costeMascota(def, nivelActual) {
   if (!def) return -1;
   if (nivelActual >= MAX_NIVEL_MASCOTA) return -1;

@@ -117,38 +117,55 @@ export const Pantallas = {
   }
 };
 
-// Monedas acumuladas, arriba a la derecha. Lo pidió Sergio para el menú y de
-// paso vale para cualquier pantalla previa: es el número que decide si merece
-// la pena entrar en la tienda, así que tiene que verse ANTES de entrar.
+// Monedas acumuladas, arriba a la derecha. Sale en TODAS las pantallas de menú
+// —título, selección de personaje, mascotas, tienda y configuración— porque es
+// el número que decide si merece la pena entrar en la tienda, y eso hay que
+// saberlo antes de entrar, no dentro.
+//
+// La moneda es el áureo de Augusto que dibujó Sergio. Antes era un círculo
+// trazado con una "D" dentro, que era lo que había mientras no hubiera arte.
 const COLOR_ORO = '#e8b73a';
+const LADO_MONEDA = 21;
 
 export function dibujarOro(ctxUi) {
   const x = ANCHO_UI - 18;
   // Se aparta del borde SUPERIOR REAL, no del borde del lienzo: la capa mide
-  // 540 de alto siempre, pero en una ventana más baja se recorta centrada (ver
-  // Capa.altoVisible) y a 24 fijas la moneda salía descabezada.
+  // 540 de alto siempre, y si alguna vez se recorta (ver Capa.altoVisible) a 24
+  // fijas la moneda saldría descabezada.
   const y = Math.max(24, (ALTO_UI - Capa.altoVisible) / 2 + 18);
+  const cifra = String(MetaProgreso.denarios);
+
   ctxUi.save();
   ctxUi.textAlign = 'right';
   ctxUi.textBaseline = 'middle';
   ctxUi.font = `700 18px ${FUENTE}`;
-  textoBorde(ctxUi, String(MetaProgreso.denarios), x, y, COLOR_ORO, 4);
+  textoBorde(ctxUi, cifra, x, y, COLOR_ORO, 4);
 
-  // La moneda, a la izquierda de la cifra. Un círculo con su "D" de denario,
-  // el mismo dibujo que ya usa la tienda.
-  const r = 8;
-  const cx = x - ctxUi.measureText(String(MetaProgreso.denarios)).width - r - 6;
-  ctxUi.beginPath();
-  ctxUi.arc(cx, y, r, 0, Math.PI * 2);
-  ctxUi.fillStyle = COLOR_ORO;
-  ctxUi.fill();
-  ctxUi.lineWidth = 1.5;
-  ctxUi.strokeStyle = 'rgba(20,14,4,.65)';
-  ctxUi.stroke();
-  ctxUi.fillStyle = 'rgba(20,14,4,.6)';
-  ctxUi.textAlign = 'center';
-  ctxUi.font = `700 11px ${FUENTE_TITULO}`;
-  ctxUi.fillText('D', cx, y + 0.5);
+  // La moneda, a la izquierda de la cifra y centrada en su misma línea.
+  const cx = x - ctxUi.measureText(cifra).width - LADO_MONEDA / 2 - 6;
+  const meta = Recursos.meta('monedaHud');
+  const img = Recursos.imagen('monedaHud');
+  if (meta && img) {
+    const esc = Math.min(LADO_MONEDA / meta.w, LADO_MONEDA / meta.h);
+    const w = meta.w * esc;
+    const h = meta.h * esc;
+    ctxUi.drawImage(img, 0, 0, meta.w, meta.h, cx - w / 2, y - h / 2, w, h);
+  } else {
+    // Sin el dibujo cargado, el círculo de siempre. No es adorno: sin moneda,
+    // el número de arriba a la derecha no dice de qué es.
+    const r = LADO_MONEDA / 2.6;
+    ctxUi.beginPath();
+    ctxUi.arc(cx, y, r, 0, Math.PI * 2);
+    ctxUi.fillStyle = COLOR_ORO;
+    ctxUi.fill();
+    ctxUi.lineWidth = 1.5;
+    ctxUi.strokeStyle = 'rgba(20,14,4,.65)';
+    ctxUi.stroke();
+    ctxUi.fillStyle = 'rgba(20,14,4,.6)';
+    ctxUi.textAlign = 'center';
+    ctxUi.font = `700 11px ${FUENTE_TITULO}`;
+    ctxUi.fillText('D', cx, y + 0.5);
+  }
   ctxUi.restore();
 }
 
@@ -288,6 +305,7 @@ function dibujarSeleccion(ctxMundo, ctxUi, puestos) {
   const e = cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, 0.5);
   fondo(ctxMundo, img, e);
 
+  dibujarOro(ctxUi);
   const t = Tema.actual;
   ctxUi.save();
 
@@ -549,6 +567,9 @@ function dibujarConfig(ctxMundo, ctxUi, opciones, cursor, confirmando) {
   ctxUi.save();
   ctxUi.fillStyle = 'rgba(6,5,10,.6)';
   ctxUi.fillRect(0, 0, ANCHO_UI, ALTO_UI);
+  ctxUi.restore();
+  dibujarOro(ctxUi);
+  ctxUi.save();
   panel(ctxUi, px, py, ancho, alto, t.filo);
 
   ctxUi.textAlign = 'center';

@@ -2161,6 +2161,15 @@ $CATALOGO = @(
     @{ src='objetos\reloj.png';          dst='objetos\obj-reloj.png';      id='objReloj';      alto=15; anchoFijo=0; tol=0; plano=$true }
     @{ src='objetos\monedas.png';        dst='objetos\obj-monedas.png';    id='objMonedas';    alto=13; anchoFijo=0; tol=0; plano=$true }
 
+    # LA MONEDA DEL CONTADOR, la que sale arriba a la derecha en los menus junto
+    # a los denarios que llevas. No es un objeto del suelo: no se recoge ni se
+    # dibuja en el mundo, vive en la capa de interfaz.
+    #
+    # Y por eso va mas grande que los demas -20 en vez de 13-: la interfaz se
+    # dibuja a la resolucion real del monitor, no a la del arte, asi que un icono
+    # de 13 tendria que ampliarse para acompanar a un numero de 18 pixeles.
+    @{ src='objetos\moneda.png';         dst='objetos\moneda-hud.png';     id='monedaHud';     alto=20; anchoFijo=0; tol=0; plano=$true }
+
     # --- Decoracion solida del nivel 1: columnas, antorchas, estatuas y
     # ruinas de resources/stages/1/objetos/. Ilustraciones estaticas sueltas
     # (sin gif/cadera/hoja), asi que caen directas por Procesar():
