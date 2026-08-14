@@ -18,6 +18,13 @@
 // precio que los primeros, con lo que subir del 4 al 5 no se sentía como una
 // conquista sino como el siguiente recibo.
 //
+// Y TODA LA TABLA SE MULTIPLICÓ POR CINCO, también a petición de Sergio: se
+// ganan del orden de dos mil denarios por partida —casi uno por baja, ver
+// MULT_DENARIOS en entidades/enemigo.js— y con los precios de antes la tienda
+// entera se completaba en una docena de partidas. Aquí no hay más ajuste que
+// este: los diez números de abajo son lo único que decide cuánto dura la
+// progresión de largo plazo.
+//
 // `icono` nombra el objeto de datos/pasivos.js cuyo dibujo se reutiliza en la
 // tienda. No hay arte propio de potenciadores y no hace falta: la Vitalidad y
 // el Ánfora suben lo mismo, así que compartir dibujo AYUDA a leerlo. Los dos
@@ -33,7 +40,7 @@ export const POTENCIADORES = {
     campo: 'vidaMaxima', tipo: 'factor', valor: 0.04,
     efecto: '+4% vida máxima',
     icono: 'anfora',
-    maxNivel: 5, costeBase: 40
+    maxNivel: 5, costeBase: 200
   },
   premura: {
     nombre: 'Premura',
@@ -41,7 +48,7 @@ export const POTENCIADORES = {
     campo: 'velocidad', tipo: 'factor', valor: 0.02,
     efecto: '+2% velocidad',
     icono: 'sandalias',
-    maxNivel: 5, costeBase: 40
+    maxNivel: 5, costeBase: 200
   },
   coraza: {
     nombre: 'Coraza',
@@ -49,7 +56,7 @@ export const POTENCIADORES = {
     campo: 'armadura', tipo: 'suma', valor: 1,
     efecto: '+1 armadura',
     icono: 'lorica',
-    maxNivel: 5, costeBase: 50
+    maxNivel: 5, costeBase: 250
   },
   codicia: {
     nombre: 'Codicia',
@@ -57,7 +64,7 @@ export const POTENCIADORES = {
     campo: 'radioRecogida', tipo: 'factor', valor: 0.05,
     efecto: '+5% recogida',
     icono: 'piedraIman',
-    maxNivel: 5, costeBase: 30
+    maxNivel: 5, costeBase: 150
   },
   furia: {
     nombre: 'Furia',
@@ -65,7 +72,7 @@ export const POTENCIADORES = {
     campo: 'bonusDanyo', tipo: 'suma', valor: 0.03,
     efecto: '+3% daño',
     icono: 'anilloAugusto',
-    maxNivel: 5, costeBase: 60
+    maxNivel: 5, costeBase: 300
   },
 
   // --- Los cinco que pidió Sergio ------------------------------------------
@@ -81,7 +88,7 @@ export const POTENCIADORES = {
     campo: 'reduccionRecarga', tipo: 'suma', valor: 0.015,
     efecto: '-1.5% recarga',
     icono: 'clepsidra',
-    maxNivel: 5, costeBase: 60
+    maxNivel: 5, costeBase: 300
   },
   onda: {
     nombre: 'Onda expansiva',
@@ -89,7 +96,7 @@ export const POTENCIADORES = {
     campo: 'bonusArea', tipo: 'suma', valor: 0.02,
     efecto: '+2% área',
     icono: 'antorcha',
-    maxNivel: 5, costeBase: 50
+    maxNivel: 5, costeBase: 250
   },
   panacea: {
     nombre: 'Panacea',
@@ -97,7 +104,7 @@ export const POTENCIADORES = {
     campo: 'regeneracion', tipo: 'suma', valor: 0.15,
     efecto: '+0.15 vida/s',
     icono: 'coronaLaurel',
-    maxNivel: 5, costeBase: 70
+    maxNivel: 5, costeBase: 350
   },
 
   // ESCUDO: mecánica nueva, no un campo que ya existiera. Absorbe daño ANTES
@@ -111,7 +118,7 @@ export const POTENCIADORES = {
     descripcion: '+6 de escudo, se recarga solo si no te golpean',
     campo: 'escudoMax', tipo: 'suma', valor: 6,
     efecto: '+6 escudo',
-    maxNivel: 5, costeBase: 80
+    maxNivel: 5, costeBase: 400
   },
 
   // RESURRECCIÓN: una vida extra por nivel. Al caer se gasta una y vuelves en
@@ -120,16 +127,16 @@ export const POTENCIADORES = {
   // ES EL MÁS CARO CON DIFERENCIA, y no por capricho: cinco niveles son cinco
   // vidas extra, y eso es exactamente la clase de cosa que puede volver la
   // partida imposible de perder en los primeros quince minutos. Con el precio
-  // doblando por nivel, subirlo entero cuesta 3.720 denarios —muchísimas
-  // partidas—, así que llega tarde y como recompensa de largo plazo. Aun así es
-  // el número que más conviene mirar la primera vez que se juegue con él: si
-  // sobra, se recorta aquí y ya está.
+  // doblando por nivel, subirlo entero cuesta 18.600 denarios —diez partidas
+  // largas solo para esto—, así que llega tarde y como recompensa de mucho
+  // plazo. Aun así es el número que más conviene mirar la primera vez que se
+  // juegue con él: si sobra, se recorta aquí y ya está.
   faroDeLaMuerte: {
     nombre: 'Moneda de Caronte',
     descripcion: 'Una vida extra por nivel: vuelves a media vida donde caíste',
     campo: 'resurreccionesMax', tipo: 'suma', valor: 1,
     efecto: '1 vida extra',
-    maxNivel: 5, costeBase: 120
+    maxNivel: 5, costeBase: 600
   }
 };
 
