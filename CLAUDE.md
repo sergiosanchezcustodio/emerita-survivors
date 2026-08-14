@@ -20,6 +20,7 @@
 - Abrir http://localhost:8000
 - `.\herramientas\procesar-assets.ps1` — convierte `resources/` en sprites
 - `.\herramientas\ver-assets.ps1 <ruta>` — describe imágenes sin abrirlas
+- `.\herramientas\instalar-lanzador.ps1` — deja el comando `emerita` en su sitio
 
 ## Coste de contexto (no negociable)
 El coste de un resultado de herramienta es su tamaño **multiplicado por las
