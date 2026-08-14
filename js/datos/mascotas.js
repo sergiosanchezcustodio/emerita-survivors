@@ -45,6 +45,11 @@
 //
 // `descripcion` sigue siendo la frase larga del renglón de abajo.
 //
+// `vuela` lo llevan las dos que no pisan el suelo: el búho y el pollito
+// fantasma. Solo esas dos flotan y se balancean al andar; las otras seis van a
+// ras de suelo, que es lo que pidió Sergio —con su animación de andar ya se leen
+// como que caminan, y el balanceo las hacía parecer levitando—.
+//
 // `color` es provisional: mientras no haya sprites, sistemas/mascotas.js dibuja
 // a la mascota como una silueta de ese color con su inicial. En cuanto Sergio
 // deje los dibujos en resources/mascotas/, se cambia el dibujado y estos datos
@@ -74,6 +79,7 @@ export const MASCOTAS = {
     descripcion: 'Te lo explica todo: +20% de experiencia.',
     campo: 'bonusXp', tipo: 'suma', valor: 0.2,
     campoEfecto: 'valor', escala: 100, unidad: '%', concepto: 'de experiencia',
+    vuela: true,
     coste: 1200, color: '#b0956a', inicial: 'P'
   },
   neron: {
@@ -124,6 +130,7 @@ export const MASCOTAS = {
     descripcion: 'Un chillido de ultratumba y la horda de alrededor huye.',
     habilidad: 'espantar', cada: 12, radio: 95, duracion: 2.5,
     campoEfecto: 'duracion', escala: 1, unidad: ' s', concepto: 'de huida cada 12 s',
+    vuela: true,
     coste: 1400, color: '#cfe8ff', inicial: 'F'
   }
 };

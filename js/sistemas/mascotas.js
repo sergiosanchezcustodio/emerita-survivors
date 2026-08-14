@@ -161,16 +161,18 @@ export const Mascotas = {
       const d = m.def;
       const idAtlas = m.idAtlas;
       const meta = Recursos.meta(idAtlas);
-      const y = m.y + Math.sin(m.fase) * FLOTE;
 
-      // Sombra en el suelo: sin ella el bicho parece pegado al cristal.
-      const rSombra = meta ? meta.w / ESCALA_ARTE * 0.35 : RADIO_DIBUJO * 0.9;
-      ctx.globalAlpha = 0.28;
-      ctx.fillStyle = '#000000';
-      ctx.beginPath();
-      ctx.ellipse(m.x, m.y + 1, rSombra, rSombra * 0.42, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
+      // SOLO FLOTAN LAS QUE VUELAN. El balanceo lo tenían las ocho, y a las que
+      // andan las dejaba levitando: ya tienen su animación de patas, que es lo
+      // que cuenta que caminan, y el vaivén encima las despegaba del suelo. El
+      // búho y el pollito fantasma sí lo conservan, que es lo que dice que no
+      // pisan (ver `vuela` en datos/mascotas.js).
+      //
+      // Y NINGUNA LLEVA SOMBRA. La tenían para no parecer pegadas al cristal,
+      // pero no la lleva nadie más —ni los personajes ni los enemigos— así que
+      // la mascota era lo único del mundo con una elipse negra debajo, y eso se
+      // notaba más que el problema que resolvía.
+      const y = d.vuela ? m.y + Math.sin(m.fase) * FLOTE : m.y;
 
       if (meta) {
         const img = m.mirandoDerecha ? Recursos.imagen(idAtlas) : Recursos.espejo(idAtlas);
