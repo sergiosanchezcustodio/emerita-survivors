@@ -65,6 +65,36 @@ export const Obstaculos = {
   // `esObjeto`) para heredar gratis el daño de cualquier arma, el choque
   // sólido y la muerte con su efecto. El resto de la decoración (columnas,
   // estatuas, ruinas) sigue el camino de siempre.
+  // Saca a `e` de cualquier obstáculo en el que haya caído dentro.
+  //
+  // Lo usan los objetos del suelo: un consumible que aparece detrás de una
+  // columna o dentro de unas ruinas es un objeto que no se puede recoger, porque
+  // el jugador no puede llegar hasta él —el obstáculo le frena antes—. Sergio se
+  // encontró varios así.
+  //
+  // Recorre los obstáculos activos y no la rejilla porque son una decena por
+  // pantalla como mucho (ver la nota de arriba), y esto se llama unas pocas
+  // veces por segundo, no por entidad y frame.
+  apartar(e, margen) {
+    const items = this.items;
+    for (let k = 0; k < this.activos; k++) {
+      const o = items[k];
+      const dx = e.x - o.x;
+      const dy = e.y - o.y;
+      const r = o.radio + margen;
+      const d2 = dx * dx + dy * dy;
+      if (d2 >= r * r) continue;
+      if (d2 > 0.0001) {
+        const d = Math.sqrt(d2);
+        const f = (r - d) / d;
+        e.x += dx * f;
+        e.y += dy * f;
+      } else {
+        e.x += r;                 // justo en el eje: sale por la derecha
+      }
+    }
+  },
+
   actualizar(camaraY, enemigos) {
     const altoTile = Recursos.altoSuelo;
     if (!altoTile || !this._plantilla || this._plantilla.length === 0) {

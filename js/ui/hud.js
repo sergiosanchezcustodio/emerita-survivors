@@ -386,11 +386,27 @@ function repartoDe(idHoja) {
 // `ctx.shadowBlur`/`shadowColor` puestos por quien llama SÍ afectan al blit
 // —drawImage respeta la sombra del contexto igual que fill/stroke— así que el
 // resplandor de "al máximo" de ui/ficha.js sigue funcionando igual.
+// A partir de este radio se tira de la hoja GRANDE.
+//
+// Las ranuras de la ficha piden 8 o 9 y ahí la hoja de 32 va casi a uno por uno.
+// La ruleta del cofre pide 13, que en un monitor de densidad doble son más de
+// cien píxeles reales: ampliar 32 hasta ahí es multiplicar por más de tres, y a
+// vecino más próximo eso son bloques de tres y de cuatro píxeles mezclados. Es
+// lo que se veía como iconos sucios y descuadrados en la ruleta.
+const RADIO_HD = 11;
+
 function blitHoja(ctx, idHoja, hueco, x, y, r) {
-  const img = Recursos.imagen(idHoja);
-  const meta = Recursos.meta(idHoja);
+  // Con la hoja grande hay que SUAVIZAR: viene a 96 y se dibuja a menos, o sea
+  // que se reduce, y reducir a vecino más próximo tira filas enteras. Es el caso
+  // contrario al de la hoja pequeña, que se amplía y ahí el suavizado es lo que
+  // emborrona.
+  const grande = r >= RADIO_HD && Recursos.meta(idHoja + 'Hd');
+  const id = grande ? idHoja + 'Hd' : idHoja;
+  const img = Recursos.imagen(id);
+  const meta = Recursos.meta(id);
+  if (!img || !meta) return;
   const suavizado = ctx.imageSmoothingEnabled;
-  ctx.imageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = !!grande;
   const d = r * 2;
   ctx.drawImage(img, hueco * meta.w, 0, meta.w, meta.h, x - r, y - r, d, d);
   ctx.imageSmoothingEnabled = suavizado;
@@ -412,7 +428,44 @@ export function dibujarIconoArma(ctx, x, y, r, idArma, color) {
   blitIcono(ctx, c, x, y, r);
 }
 
+// EL OBJETO DE PARTIDA Y EL POTENCIADOR DE LA TIENDA, EL MISMO DIBUJO.
+//
+// Son la misma cosa contada dos veces —el Ánfora sube la vida y la Vitalidad
+// sube la vida— y hasta ahora tenían dibujos distintos: el objeto salía de la
+// hoja de iconos de 32 y el potenciador del PNG grande que dibujó Sergio para la
+// tienda. Lo pidió él y tiene razón; además el PNG está a 112 y se ve mucho
+// mejor allí donde el icono se dibuja grande.
+//
+// Los dos que no tienen pareja —la Égida y la Moneda de Caronte son mecánicas
+// que no existen como objeto de partida— no aparecen aquí porque nunca se piden
+// por este camino.
+const ARTE_PASIVO = {
+  anfora: 'potVitalidad',
+  sandalias: 'potPremura',
+  lorica: 'potCoraza',
+  piedraIman: 'potCodicia',
+  anilloAugusto: 'potFuria',
+  clepsidra: 'potClepsidra',
+  antorcha: 'potOnda',
+  coronaLaurel: 'potPanacea'
+};
+
 export function dibujarIconoPasivo(ctx, x, y, r, idPasivo, color) {
+  const arte = ARTE_PASIVO[idPasivo];
+  if (arte) {
+    const meta = Recursos.meta(arte);
+    const img = Recursos.imagen(arte);
+    if (meta && img) {
+      const esc = Math.min(r * 2 / meta.w, r * 2 / meta.h);
+      const w = meta.w * esc;
+      const h = meta.h * esc;
+      const suavizado = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = true;     // se reduce desde 112: ver blitHoja
+      ctx.drawImage(img, 0, 0, meta.w, meta.h, x - w / 2, y - h / 2, w, h);
+      ctx.imageSmoothingEnabled = suavizado;
+      return;
+    }
+  }
   const hueco = repartoDe('iconosObjetos').get(idPasivo);
   if (hueco !== undefined) return blitHoja(ctx, 'iconosObjetos', hueco, x, y, r);
 
@@ -559,6 +612,43 @@ export function dibujarReloj(ctx) {
     ctx.font = `600 11px ${FUENTE}`;
     textoBorde(ctx, Director.aviso, cx, 26, COLOR_AVISO, 3);
     ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+
+// LO GANADO EN ESTA PARTIDA, arriba a la derecha.
+//
+// Los de la partida y no el montón acumulado, que es lo que pidió Sergio y es lo
+// correcto: el total ya sale en todos los menús y ahí es donde sirve —para
+// decidir qué comprar—. Mientras se juega, lo que dice algo es cuánto llevas
+// sacado en esta partida, porque es lo que se pierde si te matan pronto.
+//
+// La cifra la calcula main.js restando lo que había al empezar; aquí solo se
+// pinta. Sin cartela, al revés que el contador de los menús: sobre el mundo un
+// recuadro opaco tapa juego, y un reborde basta porque el número es corto.
+export function dibujarDenariosPartida(ctx, ganados) {
+  ctx.save();
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  const x = ANCHO_UI - 14;
+  const y = 16;
+
+  ctx.font = `700 15px ${FUENTE}`;
+  const ancho = ctx.measureText(String(ganados)).width;
+  textoBorde(ctx, String(ganados), x, y, '#e8b73a', 3.5);
+
+  const meta = Recursos.meta('monedaHud');
+  const img = Recursos.imagen('monedaHud');
+  const lado = 15;
+  const cx = x - ancho - lado / 2 - 5;
+  if (meta && img) {
+    const esc = Math.min(lado / meta.w, lado / meta.h);
+    const w = meta.w * esc;
+    const h = meta.h * esc;
+    const suavizado = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(img, 0, 0, meta.w, meta.h, cx - w / 2, y - h / 2, w, h);
+    ctx.imageSmoothingEnabled = suavizado;
   }
   ctx.restore();
 }

@@ -31,9 +31,9 @@ import { dibujarFicha } from './ui/ficha.js';
 import { dibujarMapa } from './ui/mapa.js';
 import { dibujarTienda } from './ui/tienda.js';
 import { dibujarFinal, dibujarCartelFinal } from './ui/final.js';
-import { dibujarPaneles, dibujarReloj, dibujarBarraJefe } from './ui/hud.js';
+import { dibujarPaneles, dibujarReloj, dibujarBarraJefe, dibujarDenariosPartida } from './ui/hud.js';
 import { Pantallas, ocupantePersonaje, dibujarDespedida } from './ui/pantallas.js';
-import { dibujarConfig } from './ui/configuracion.js';
+import { dibujarConfig, dibujarConfirmacion } from './ui/configuracion.js';
 import { Capa } from './ui/capa.js';
 import { Tema, olvidarDegradados } from './ui/tema.js';
 import {
@@ -198,11 +198,19 @@ let cursorTienda = 0;
 
 // --- Menú principal ---------------------------------------------------------
 // Sustituye al "pulsa cualquier tecla" del título.
+// Las cuatro opciones de la lápida más el botón de la esquina.
+//
+// `esquina` saca a "empezar de cero" del bloque del menú y lo manda abajo a la
+// derecha, separado de todo lo demás. Sigue en la misma lista y en el mismo
+// recorrido del cursor —se llega bajando desde SALIR— porque un botón al que no
+// se puede llegar con el mando no es un botón, pero visualmente no se mezcla con
+// lo que se pulsa a diario.
 const MENU = [
   { id: 'jugar',  texto: 'JUGAR' },
   { id: 'tienda', texto: 'TIENDA' },
   { id: 'config', texto: 'CONFIGURACIÓN' },
-  { id: 'salir',  texto: 'SALIR' }
+  { id: 'salir',  texto: 'SALIR' },
+  { id: 'borrar', texto: 'EMPEZAR DE CERO', esquina: true }
 ];
 let cursorMenu = 0;
 
@@ -566,6 +574,20 @@ function tanda(cantidad, mezcla) {
 // Se mueve con arriba/abajo o la cruceta, y también con el stick, porque el
 // menú es lo primero que toca alguien que acaba de enchufar un mando.
 function entradaTitulo() {
+  // La confirmación de borrar se lleva TODA la entrada mientras está abierta:
+  // desde ahí solo se puede decir sí o no.
+  if (confirmarBorrado) {
+    const c0 = entrada.controles[0];
+    if (entrada.consumirFlanco('Escape') || entrada.consumirAtras()) { confirmarBorrado = false; return; }
+    if (entrada.consumirFlanco('Enter') || (c0 && c0.consumirBoton(0))) {
+      MetaProgreso.reiniciarTodo();
+      Mascotas.releer(null);
+      mascotasElegidas.fill('');
+      confirmarBorrado = false;
+    }
+    return;
+  }
+
   const c = entrada.controles[0];
   const eje = c ? c.flancoEje(false) : 0;      // vertical
   const n = MENU.length;
@@ -602,6 +624,9 @@ function entradaTitulo() {
       break;
     case 'salir':
       salirDelJuego();
+      break;
+    case 'borrar':
+      confirmarBorrado = true;
       break;
   }
 }
@@ -711,31 +736,30 @@ function turnoAnterior(desde) {
 
 // --- Configuración ------------------------------------------------------------
 // Vídeo, sonido y el botón de empezar de cero.
+// Los ajustes. "Empezar de cero" ya no está aquí: se fue al menú principal como
+// botón de su esquina (ver MENU), que es donde lo quería Sergio. Y tiene razón:
+// borrar el progreso de todas las partidas no es un ajuste que se toque al lado
+// del volumen, y menos ahora que esta pantalla se abre TAMBIÉN desde dentro de
+// una partida en marcha.
 const CONFIG = [
   { id: 'musica',   texto: 'Música' },
   { id: 'efectos',  texto: 'Efectos' },
   { id: 'pantalla', texto: 'Pantalla completa' },
-  { id: 'borrar',   texto: 'Empezar de cero' }
+  { id: 'volver',   texto: 'Volver' }
 ];
 
-function entradaConfig() {
-  // La ventana de confirmación se lleva TODA la entrada mientras está abierta:
-  // desde ahí solo se puede decir sí o no.
-  if (confirmarBorrado) {
-    const c0 = entrada.controles[0];
-    if (entrada.consumirFlanco('Escape') || entrada.consumirAtras()) { confirmarBorrado = false; return; }
-    if (entrada.consumirFlanco('Enter') || (c0 && c0.consumirBoton(0))) {
-      MetaProgreso.reiniciarTodo();
-      Mascotas.releer(null);
-      mascotasElegidas.fill('');
-      confirmarBorrado = false;
-    }
-    return;
-  }
+// La configuración abierta DESDE LA PARTIDA. No es una pantalla más del bucle
+// —el estado sigue siendo PANTALLA_JUEGO, con el mundo congelado detrás— porque
+// salir de ella tiene que devolver a la pausa, no al menú.
+let configEnPartida = false;
 
+// La misma lista de ajustes se usa desde el menú y desde dentro de una partida.
+// `cerrar` es lo único que cambia: en el menú vuelve al título y en la partida
+// vuelve a la pausa.
+function entradaConfig(cerrar) {
   const c = entrada.controles[0];
   const n = CONFIG.length;
-  if (entrada.consumirFlanco('Escape') || entrada.consumirAtras()) { irA(PANTALLA_TITULO); return; }
+  if (entrada.consumirFlanco('Escape') || entrada.consumirAtras()) { cerrar(); return; }
 
   const ejeV = c ? c.flancoEje(false) : 0;
   if (entrada.consumirFlanco('ArrowDown') || (c && c.consumirBoton(13)) || ejeV > 0) {
@@ -755,7 +779,7 @@ function entradaConfig() {
   if (id === 'musica' && (menos || mas)) GestorAudio.ajustarMusica(mas ? 0.1 : -0.1);
   if (id === 'efectos' && (menos || mas)) GestorAudio.ajustarEfectos(mas ? 0.1 : -0.1);
   if (id === 'pantalla' && (acepta || menos || mas)) alternarPantallaCompleta();
-  if (id === 'borrar' && acepta) confirmarBorrado = true;
+  if (id === 'volver' && acepta) cerrar();
 }
 
 // Tienda: un cursor, comprar con Enter/A, Esc/B o T para volver al título. Las
@@ -1075,6 +1099,7 @@ function volverAlMenu() {
   relojResumen = 0;
   derrotaGuardada = false;
   pausado = false;
+  configEnPartida = false;
   fichaAbierta = -1;
   mapaAbierto = false;
 
@@ -1143,7 +1168,7 @@ function actualizar(dt) {
     if (pantalla === PANTALLA_TITULO) entradaTitulo();
     else if (pantalla === PANTALLA_TIENDA) entradaTienda();
     else if (pantalla === PANTALLA_MASCOTAS) entradaMascotas();
-    else if (pantalla === PANTALLA_CONFIG) entradaConfig();
+    else if (pantalla === PANTALLA_CONFIG) entradaConfig(() => irA(PANTALLA_TITULO));
     else entradaSeleccion();
     entrada.limpiarFlanco();
     return;
@@ -1190,10 +1215,29 @@ function actualizar(dt) {
 
   if (entrada.consumirFlanco('F3')) verDepuracion = !verDepuracion;
   if (entrada.consumirFlanco('F4')) mapaAbierto = !mapaAbierto;
+  // LA CONFIGURACIÓN, DESDE DENTRO DE LA PARTIDA. Se abre con la pausa puesta y
+  // se cierra volviendo a ella, no al menú: quien la abre está jugando y quiere
+  // seguir jugando. El estado sigue siendo PANTALLA_JUEGO con el mundo
+  // congelado detrás; esto es una ventana más, como la ficha o el mapa.
+  if (configEnPartida) {
+    entradaConfig(() => { configEnPartida = false; });
+    entrada.limpiarFlanco();
+    return;
+  }
+
   if (entrada.consumirFlanco('Escape', 9)) pausado = !pausado;
   // B en el mando SOLO cierra la pausa, nunca la abre: "atrás" no es un botón
   // de menú, así que si el juego no está pausado no hace nada.
   else if (pausado && entrada.consumirAtras()) pausado = false;
+  // Y con la pausa puesta, O abre los ajustes. Una tecla y no una opción de
+  // menú porque la pausa es un cartel, no una lista: convertirla en menú por un
+  // solo destino sería más ceremonia de la que hace falta.
+  if (pausado && (entrada.consumirFlanco('KeyO') || (entrada.controles[0] && entrada.controles[0].consumirBoton(3)))) {
+    configEnPartida = true;
+    cursorConfig = 0;
+    entrada.limpiarFlanco();
+    return;
+  }
   if (entrada.consumirFlanco('KeyC')) {
     // Cambia el personaje del jugador 1; los demás llevan el suyo.
     indicePersonaje = (indicePersonaje + 1) % ORDEN_PERSONAJES.length;
@@ -1505,7 +1549,7 @@ function equiparGladius() {
 // nivel, el aviso de evolución y el hitstop. Todos comparten la misma vía: en
 // `actualizar` se sale antes de tocar la simulación.
 function mundoCongelado() {
-  return pausado || fichaAbierta >= 0 || mapaAbierto || Progresion.abierto ||
+  return pausado || configEnPartida || fichaAbierta >= 0 || mapaAbierto || Progresion.abierto ||
          Progresion.cofreAbierto || VFX.congelado > 0;
 }
 
@@ -1527,7 +1571,12 @@ function dibujar(alpha) {
     GestorAudio.musicaMenu();
     Capa.limpiar();
     if (despedida) { Pantallas.titulo(ctx, Capa.ctx, null, 0); dibujarDespedida(Capa.ctx); return; }
-    if (pantalla === PANTALLA_TITULO) Pantallas.titulo(ctx, Capa.ctx, MENU, cursorMenu);
+    if (pantalla === PANTALLA_TITULO) {
+      Pantallas.titulo(ctx, Capa.ctx, MENU, cursorMenu);
+      // El "empezar de cero" vive en el título desde que dejó de ser un ajuste,
+      // así que su ventana de confirmación también.
+      if (confirmarBorrado) dibujarConfirmacion(Capa.ctx);
+    }
     else if (pantalla === PANTALLA_TIENDA) dibujarTienda(ctx, Capa.ctx, cursorTienda, pestanyaTienda);
     else if (pantalla === PANTALLA_MASCOTAS) {
       Pantallas.mascotas(ctx, Capa.ctx, mascotasDisponibles(), cursorMascota,
@@ -1657,6 +1706,7 @@ function dibujar(alpha) {
   }
   dibujarPaneles(ctxUi, jugadores);
   dibujarReloj(ctxUi);
+  dibujarDenariosPartida(ctxUi, MetaProgreso.denarios - denariosAlEmpezar);
   // Un mismo Jefes.info() alimenta la barra Y decide si suena la música de
   // jefe: es el único punto donde main.js sabe si hay uno en pie ahora mismo.
   const infoJefe = Jefes.info(enemigos);
@@ -1677,6 +1727,7 @@ function dibujar(alpha) {
   if (fichaAbierta >= 0) dibujarFicha(ctxUi, jugadores, fichaAbierta);
   else if (Progresion.cofreAbierto) dibujarCofre(ctxUi, jugadores);
   else if (Progresion.abierto) dibujarMenuNivel(ctxUi, jugadores);
+  else if (configEnPartida) dibujarConfig(null, ctxUi, CONFIG, cursorConfig, false);
   else if (pausado) dibujarPausa(ctxUi, ALTO_UI);
   else if (mapaAbierto) dibujarMapa(ctxUi, jugadores, enemigos, cofres, camara);
   perfil.interfaz = performance.now() - t;
@@ -1742,6 +1793,10 @@ function dibujarSuelo(izq, arr) {
 // Denarios por cofre de verdad (no consumible): un botín fijo, aparte de lo
 // que ya da —evolución o mejoras— por sí mismo.
 const DENARIOS_COFRE = 15;
+// El radio con el que se recoge un objeto del suelo (ver RADIO_RECOGIDA en
+// entidades/cofre.js). Se usa aquí como margen al apartarlo de un obstáculo:
+// dejarlo pegado al borde de una columna sería dejarlo igual de inalcanzable.
+const RADIO_RECOGIDA_COFRE = 13;
 
 async function arrancar() {
   MetaProgreso.iniciar();
@@ -1775,6 +1830,17 @@ async function arrancar() {
   // Quién abre el cofre y qué pasa entonces se decide aquí, no en la entidad:
   // así el cofre no sabe nada de la progresión y la progresión no sabe nada de
   // que existan cofres tirados por el suelo.
+  // Que nada de lo que cae quede donde no se pueda coger: fuera del ancho del
+  // nivel o metido detrás de una columna. El margen es el radio de recogida del
+  // cofre, así que no basta con que el objeto esté fuera del obstáculo —tiene
+  // que estar lo bastante fuera como para que el jugador llegue a tocarlo—.
+  cofres.recolocar = (c) => {
+    clamparXNivel(c);
+    Obstaculos.apartar(c, RADIO_RECOGIDA_COFRE);
+    c.xPrev = c.x;
+    c.yPrev = c.y;
+  };
+
   cofres.alRecoger = (jugador, tipo, especial) => {
     if (tipo === COFRE) {
       Progresion.abrirCofre(jugador, jugadores, especial);

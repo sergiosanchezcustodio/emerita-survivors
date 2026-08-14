@@ -110,6 +110,10 @@ export class Cofres {
     // fuera para que esta entidad no dependa de la progresión, igual que los
     // enemigos no dependen de los recogibles.
     this.alRecoger = null;
+    // Y a quién preguntar si el sitio donde ha caído vale. Se enchufa desde
+    // fuera por lo mismo que `alRecoger`: esta entidad no sabe que existen ni
+    // los obstáculos ni los bordes del nivel, y no tiene por qué.
+    this.recolocar = null;
   }
 
   get activos() { return this.pool.activos; }
@@ -142,6 +146,7 @@ export class Cofres {
     c.vida = 0;
     c.tipo = tipo;
     c.especial = tipo === COFRE && this._rng() < PROB_ESPECIAL;
+    if (this.recolocar) this.recolocar(c);
     return c;
   }
 
@@ -165,6 +170,10 @@ export class Cofres {
         c.vx *= frenado;
         c.vy *= frenado;
         if (Math.abs(c.vx) < 1 && Math.abs(c.vy) < 1) { c.vx = 0; c.vy = 0; }
+        // Mientras se desliza puede meterse debajo de una columna o salirse del
+        // mapa: se comprueba en cada paso y no solo al caer, porque el salto de
+        // salida lo lanza a medio cuerpo de donde murió el enemigo.
+        if (this.recolocar) this.recolocar(c);
       }
 
       let recogido = null;

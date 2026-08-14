@@ -148,5 +148,5 @@ function pantallaDeAviso(ctx, alto, borde, titulo, colorTitulo, pie, colorPie) {
 export function dibujarPausa(ctx, alto) {
   const t = Tema.actual;
   pantallaDeAviso(ctx, alto, t.filo, 'PAUSA', t.titulo,
-                  'ESC o Start para continuar', t.texto);
+                  'ESC o Start seguir     ·     O o Y ajustes', t.texto);
 }

@@ -298,11 +298,29 @@ function apartarDelJugador(items, rejilla, jugador) {
         const d2 = dx * dx + dy * dy;
         if (d2 >= r * r) continue;
 
+        // LAS ANTORCHAS NO SE MUEVEN: se aparta el JUGADOR.
+        //
+        // Son decoración con vida (`esObjeto`, ver datos/enemigos.js) y ya están
+        // marcadas como inamovibles —masa 999 e `inmuneEmpuje`— así que ni la
+        // horda ni un golpe las desplazan. Faltaba este sitio: el jugador las
+        // empujaba por delante como si arrastrara una farola, que es lo que vio
+        // Sergio. Ahora se resuelve al revés, igual que contra una columna.
+        //
+        // El invariante de arriba se mantiene: sigue sin haber penetración, solo
+        // cambia cuál de los dos cuerpos cede.
+        const inamovible = e.def.esObjeto;
         if (d2 > 0.0001) {
           const d = Math.sqrt(d2);
           const f = (r - d) / d;         // escala el propio delta, sin normalizar
-          e.x += dx * f;
-          e.y += dy * f;
+          if (inamovible) {
+            jugador.x -= dx * f;
+            jugador.y -= dy * f;
+          } else {
+            e.x += dx * f;
+            e.y += dy * f;
+          }
+        } else if (inamovible) {
+          jugador.x -= r;
         } else {
           e.x += r;                      // justo encima: sale por la derecha
         }

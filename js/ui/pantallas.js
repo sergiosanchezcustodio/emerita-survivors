@@ -272,6 +272,15 @@ function dibujarTitulo(ctxMundo, ctxUi, menu, cursor) {
   dibujarOro(ctxUi);
   if (!img || !menu) return;
 
+  // EL BOTÓN DE LA ESQUINA. Va con los demás en la lista del menú —se llega
+  // bajando desde SALIR, porque un botón al que no se llega con el mando no es
+  // un botón— pero se dibuja abajo a la derecha y aparte, que es donde lo quería
+  // Sergio: borrar el progreso de todas las partidas no se pulsa por error si no
+  // está donde se pulsa lo de todos los días.
+  const esquina = menu.findIndex((m) => m.esquina);
+  if (esquina >= 0) dibujarBotonEsquina(ctxUi, menu[esquina], cursor === esquina);
+  if (cursor === esquina) return;
+
   const i = Math.max(0, Math.min(OPCIONES_TITULO.length - 1, cursor));
   const o = OPCIONES_TITULO[i];
   const r = enUi(e, OPCION_X - OPCION_ANCHO / 2, o.y - o.alto / 2, OPCION_ANCHO, o.alto);
@@ -302,6 +311,33 @@ function dibujarTitulo(ctxMundo, ctxUi, menu, cursor) {
   ctxUi.beginPath();
   ctxUi.roundRect(r.x, r.y, r.w, r.h, 6);
   ctxUi.stroke();
+  ctxUi.restore();
+}
+
+// Botón de la esquina inferior derecha. Apagado y rojo: tiene que verse que
+// está y a la vez que no es de los que se pulsan.
+function dibujarBotonEsquina(ctxUi, opcion, elegido) {
+  const t = Tema.actual;
+  const recorte = Math.max(0, (ALTO_UI - Capa.altoVisible) / 2);
+  ctxUi.save();
+  ctxUi.textAlign = 'right';
+  ctxUi.textBaseline = 'middle';
+  ctxUi.font = `500 11px ${FUENTE}`;
+
+  const y = ALTO_UI - recorte - 20;
+  const x = ANCHO_UI - 18;
+  const ancho = ctxUi.measureText(opcion.texto).width + 26;
+
+  ctxUi.beginPath();
+  ctxUi.roundRect(x - ancho, y - 11, ancho, 22, 11);
+  ctxUi.fillStyle = elegido ? 'rgba(64,20,18,.9)' : 'rgba(10,8,12,.6)';
+  ctxUi.fill();
+  ctxUi.lineWidth = elegido ? 1.8 : 1;
+  ctxUi.strokeStyle = elegido ? '#e8907c' : 'rgba(232,144,124,.35)';
+  ctxUi.stroke();
+
+  ctxUi.fillStyle = elegido ? '#ffd9d0' : 'rgba(232,144,124,.75)';
+  ctxUi.fillText(opcion.texto, x - 13, y + 0.5);
   ctxUi.restore();
 }
 

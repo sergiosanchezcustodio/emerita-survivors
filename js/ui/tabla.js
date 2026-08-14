@@ -102,11 +102,16 @@ function trazarPestanya(ctx, x, y, w, h) {
 //
 // `columnas` son los cuatro rótulos, de los que el último va alineado a la
 // derecha porque su columna también lo está.
+// `ctxMundo` a null: NO se pinta la ilustración del título detrás. Lo pide la
+// configuración cuando se abre EN PARTIDA, donde detrás está el mundo congelado
+// y sustituirlo por la lápida del menú sería sacar al jugador de donde está.
 export function armazon(ctxMundo, ctx, r, secciones, activa, columnas) {
   const t = Tema.actual;
 
-  fondoTitulo(ctxMundo);
-  ctx.fillStyle = 'rgba(6,5,10,.82)';
+  if (ctxMundo) fondoTitulo(ctxMundo);
+  // Más opaco sin ilustración detrás: ahí lo que hay es la partida, y una tabla
+  // que deja ver la horda moviéndose por debajo no se lee.
+  ctx.fillStyle = ctxMundo ? 'rgba(6,5,10,.82)' : 'rgba(6,5,10,.93)';
   ctx.fillRect(0, 0, ANCHO_UI, ALTO_UI);
 
   ctx.textBaseline = 'middle';

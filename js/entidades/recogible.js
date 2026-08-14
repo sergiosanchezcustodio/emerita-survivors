@@ -1,19 +1,24 @@
 import { Pool } from '../core/pool.js';
+import { ESCALA_ARTE } from '../core/constantes.js';
+import { Recursos } from '../core/recursos.js';
 import { GestorAudio } from '../sistemas/audio.js';
 
 // Gemas de experiencia. Pool preasignado, como todo lo demás.
 //
-// Se dibujan por código: son rombos de 6-10 píxeles con un punto de luz. Un
-// sprite a este tamaño no aportaría nada y sí un blit más por gema.
+// Cada una tiene su dibujo (`arte`), de los que ha hecho Sergio. Antes eran
+// rombos trazados de seis a diez píxeles con un punto de luz, que era lo que
+// había mientras no hubiera arte.
 //
-// Cuatro valores, como pide el plan: azul 1, verde 5, roja 25, dorada 100. El
-// color no es decoración, es información: de un vistazo sabes si merece la pena
-// cruzar la pantalla a por ella.
+// Cuatro valores, como pide el plan: 1, 5, 25 y 100. El ORDEN DEL NOMBRE ES EL
+// VALOR —gema1 la más pobre, gema4 la mejor— que es como las entregó Sergio. Y
+// crecen de tamaño con el valor, porque en un suelo sembrado de gemas el tamaño
+// se ve antes que el color y de un vistazo sabes si merece la pena cruzar la
+// pantalla a por ella.
 export const GEMAS = [
-  { valor: 1,   color: '#5aa9e6', brillo: '#bfe4ff', lado: 3 },
-  { valor: 5,   color: '#5ac36a', brillo: '#c6f3cd', lado: 3.5 },
-  { valor: 25,  color: '#d64b5a', brillo: '#ffc2c8', lado: 4 },
-  { valor: 100, color: '#e8b73a', brillo: '#fff0b8', lado: 5 }
+  { valor: 1,   color: '#5aa9e6', brillo: '#bfe4ff', lado: 3,   arte: 'gema1' },
+  { valor: 5,   color: '#5ac36a', brillo: '#c6f3cd', lado: 3.5, arte: 'gema2' },
+  { valor: 25,  color: '#d64b5a', brillo: '#ffc2c8', lado: 4,   arte: 'gema3' },
+  { valor: 100, color: '#e8b73a', brillo: '#fff0b8', lado: 5,   arte: 'gema4' }
 ];
 
 // Por encima de esto, las gemas más lejanas se fusionan (requisito 5 del plan).
@@ -260,8 +265,22 @@ export class Recogibles {
       // Cabeceo suave mientras espera en el suelo.
       const y = g.yPrev + (g.y - g.yPrev) * alpha +
                 (g.atraidaPor ? 0 : Math.sin(g.fase) * 1.2);
-      const l = def.lado;
+      const meta = Recursos.meta(def.arte);
+      const img = Recursos.imagen(def.arte);
+      if (meta && img) {
+        // Cuadre a píxel físico entero, como los enemigos y los obstáculos: sin
+        // esto las gemas tiemblan al moverse la cámara aunque estén quietas.
+        const cxF = Math.round(x * ESCALA_ARTE);
+        const cyF = Math.round(y * ESCALA_ARTE);
+        ctx.drawImage(img,
+          (cxF - (meta.w >> 1)) / ESCALA_ARTE, (cyF - (meta.h >> 1)) / ESCALA_ARTE,
+          meta.w / ESCALA_ARTE, meta.h / ESCALA_ARTE);
+        continue;
+      }
 
+      // Sin dibujo cargado, el rombo de siempre. Los colores de arriba siguen
+      // siendo los que decide la paleta, así que el repliegue no desentona.
+      const l = def.lado;
       ctx.fillStyle = def.color;
       ctx.beginPath();
       ctx.moveTo(x, y - l);

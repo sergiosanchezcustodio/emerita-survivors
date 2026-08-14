@@ -2170,6 +2170,18 @@ $CATALOGO = @(
     # de 13 tendria que ampliarse para acompanar a un numero de 18 pixeles.
     @{ src='objetos\moneda.png';         dst='objetos\moneda-hud.png';     id='monedaHud';     alto=20; anchoFijo=0; tol=0; plano=$true }
 
+    # LAS CUATRO GEMAS DE EXPERIENCIA. Se dibujaban por codigo -un rombo de
+    # cuatro puntos con un brillo- porque no habia arte; ya lo hay.
+    #
+    # El ORDEN ES EL VALOR, que es lo que pidio Sergio: gema1 es la de 1 punto y
+    # gema4 la de 100. Van creciendo de tamano con el valor, igual que hacia el
+    # rombo, porque en un suelo sembrado de gemas el tamano es lo que se ve antes
+    # que el color.
+    @{ src='objetos\gema1.png';          dst='objetos\gema1.png';          id='gema1';         alto=8;  anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\gema2.png';          dst='objetos\gema2.png';          id='gema2';         alto=9;  anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\gema3.png';          dst='objetos\gema3.png';          id='gema3';         alto=11; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\gema4.png';          dst='objetos\gema4.png';          id='gema4';         alto=13; anchoFijo=0; tol=0; plano=$true }
+
     # LOS DIEZ POTENCIADORES DE LA TIENDA. Cada uno con su dibujo, todos de
     # Sergio y en su propia carpeta.
     #
@@ -2537,14 +2549,29 @@ $ICONOS_OBJETOS = @(
 # de verdad ensucia un icono.
 $LADO_ICONO = 32
 
+# Y una SEGUNDA hoja de armas a 96, para donde el icono se ve grande.
+#
+# Los 32 valen para las ranuras de la ficha, que miden eso. Pero en la ruleta
+# del cofre el mismo icono se dibuja a 26 unidades de interfaz, que en un
+# monitor de densidad doble son mas de cien pixeles reales: ampliar 32 a 104 es
+# multiplicar por 3,25, y a vecino mas proximo eso son bloques de tres y de
+# cuatro pixeles mezclados. Es lo que Sergio veia como "se distorsionan, como si
+# tuvieran transparencias".
+#
+# 96 y no 128 porque 96 es tres veces 32: las dos hojas salen del mismo recorte
+# y la grande contiene exactamente la misma silueta, sin decisiones nuevas.
+$LADO_ICONO_HD = 96
+
 $HOJAS_ICONOS = @(
     # `modo` rejilla: la hoja trae alfa y los iconos caen en celdas iguales.
     @{ src='objetos\objetos.png'; dst='iconos\objetos.png'; id='iconosObjetos'
-       ids=$ICONOS_OBJETOS; modo='rejilla'; cols=4; filas=2 }
+       ids=$ICONOS_OBJETOS; modo='rejilla'; cols=4; filas=2; lado=$LADO_ICONO }
     # `modo` marco: opaca, con los iconos enmarcados sobre negro y la rejilla
     # irregular. Ver CajasDeMarco.
     @{ src='armas\armas.png';    dst='iconos\armas.png';    id='iconosArmas'
-       ids=$ICONOS_ARMAS;   modo='marco';   cols=0; filas=0 }
+       ids=$ICONOS_ARMAS;   modo='marco';   cols=0; filas=0; lado=$LADO_ICONO }
+    @{ src='armas\armas.png';    dst='iconos\armas-hd.png'; id='iconosArmasHd'
+       ids=$ICONOS_ARMAS;   modo='marco';   cols=0; filas=0; lado=$LADO_ICONO_HD }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'iconos') | Out-Null
@@ -2559,7 +2586,7 @@ foreach ($hoja in $HOJAS_ICONOS) {
         continue
     }
     try {
-        $r = [Procesador]::RecortarIconos($rutaSrc, $rutaDst, $n, $LADO_ICONO,
+        $r = [Procesador]::RecortarIconos($rutaSrc, $rutaDst, $n, $hoja.lado,
                                           $hoja.modo, $hoja.cols, $hoja.filas)
     } catch {
         $informeIconos += [PSCustomObject]@{ Hoja=$hoja.id; Pedidos=$n; Hallados='-'; Tira='-'; Estado='ERROR' }
@@ -2574,8 +2601,8 @@ foreach ($hoja in $HOJAS_ICONOS) {
     # que no iba a usar nadie.
     $atlas[$hoja.id] = [ordered]@{
         archivo = $hoja.dst.Replace('\', '/')
-        w = $LADO_ICONO; h = $LADO_ICONO
-        anclaX = [int]($LADO_ICONO / 2); anclaY = [int]($LADO_ICONO / 2)
+        w = $hoja.lado; h = $hoja.lado
+        anclaX = [int]($hoja.lado / 2); anclaY = [int]($hoja.lado / 2)
         frames = $n
         plano = $true
         orden = $hoja.ids

@@ -35,8 +35,8 @@ const TEXTOS = {
               larga: 'Volumen de todo lo que suena al jugar, sin contar la música.' },
   pantalla: { efecto: 'Ocupa el monitor entero',
               larga: 'También se entra y se sale con el botón de la esquina.' },
-  borrar:   { efecto: 'Denarios, potenciadores y mascotas',
-              larga: 'Borra TODO el progreso guardado. Pregunta antes, y no se puede deshacer.' }
+  volver:   { efecto: 'Vuelve a donde estabas',
+              larga: 'Esc o B hacen lo mismo desde cualquier punto de la lista.' }
 };
 
 function valor(id) {
