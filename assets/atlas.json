@@ -287,11 +287,11 @@
                                      },
                       "mascotaHeladio":  {
                                              "archivo":  "mascotas/heladio.png",
-                                             "w":  40,
+                                             "w":  38,
                                              "h":  44,
-                                             "anclaX":  20,
+                                             "anclaX":  19,
                                              "anclaY":  44,
-                                             "frames":  1
+                                             "frames":  16
                                          },
                       "mascotaEscipion":  {
                                               "archivo":  "mascotas/escipion.png",
@@ -299,7 +299,7 @@
                                               "h":  40,
                                               "anclaX":  32,
                                               "anclaY":  40,
-                                              "frames":  1
+                                              "frames":  16
                                           },
                       "mascotaPlinio":  {
                                             "archivo":  "mascotas/plinio.png",
@@ -311,27 +311,27 @@
                                         },
                       "mascotaNeron":  {
                                            "archivo":  "mascotas/neron.png",
-                                           "w":  48,
+                                           "w":  49,
                                            "h":  48,
                                            "anclaX":  24,
                                            "anclaY":  48,
-                                           "frames":  1
+                                           "frames":  16
                                        },
                       "mascotaKarim":  {
                                            "archivo":  "mascotas/karim.png",
-                                           "w":  64,
+                                           "w":  59,
                                            "h":  56,
-                                           "anclaX":  32,
+                                           "anclaX":  30,
                                            "anclaY":  56,
-                                           "frames":  1
+                                           "frames":  16
                                        },
                       "mascotaCleopatra":  {
                                                "archivo":  "mascotas/cleopatra.png",
-                                               "w":  48,
+                                               "w":  41,
                                                "h":  52,
-                                               "anclaX":  24,
+                                               "anclaX":  20,
                                                "anclaY":  52,
-                                               "frames":  1
+                                               "frames":  16
                                            },
                       "mascotaOreo":  {
                                           "archivo":  "mascotas/oreo.png",
@@ -343,9 +343,9 @@
                                       },
                       "mascotaPollito":  {
                                              "archivo":  "mascotas/pollito.png",
-                                             "w":  46,
+                                             "w":  49,
                                              "h":  48,
-                                             "anclaX":  23,
+                                             "anclaX":  24,
                                              "anclaY":  48,
                                              "frames":  16
                                          },
