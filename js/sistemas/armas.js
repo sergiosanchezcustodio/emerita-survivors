@@ -80,6 +80,11 @@ const COMPORTAMIENTOS = {
       sis.defProyectil.color = arma.def.color;
       sis.defProyectil.estela = arma.def.estela;
       sis.defProyectil.largo = 9;
+      // `defProyectil` es UN objeto compartido por todas las armas, así que todo
+      // campo que este comportamiento no escriba se queda con el valor que dejó
+      // el disparo anterior —de otra arma—. Sin esta línea, la pistola salía con
+      // la forma del lanzagranadas si acababa de disparar el lanzagranadas.
+      sis.defProyectil.forma = formaDe(arma);
       ctx.proyectiles.lanzar(
         ctx.jugador.x, ctx.jugador.y - 8,
         Math.cos(a) * s.velocidad, Math.sin(a) * s.velocidad,
@@ -134,6 +139,7 @@ const COMPORTAMIENTOS = {
       sis.defProyectil.color = arma.def.color;
       sis.defProyectil.estela = arma.def.estela;
       sis.defProyectil.largo = 5;
+      sis.defProyectil.forma = formaDe(arma);      // ver la nota de arriba
       ctx.proyectiles.lanzar(j.x, j.y - 8, Math.cos(a) * v, Math.sin(a) * v,
                              sis.defProyectil);
     }
@@ -354,6 +360,28 @@ const PATRONES = {
   adelante: [0]
 };
 
+// CÓMO SE DIBUJA CADA PROYECTIL.
+//
+// Hasta ahora los 52 armas del catálogo se veían igual: una raya de color con
+// estela. El comportamiento —lo que el arma HACE, que ya está en datos/armas.js—
+// es también lo que mejor describe qué debería parecer, así que la forma sale de
+// ahí por defecto y no hay que anotarla arma por arma.
+//
+// Un arma puede llevar su propio `forma` en los datos cuando el comportamiento
+// se queda corto. Pasa con las armas de fuego: comparten `proyectilDirigido` con
+// el pilum y con el arco, pero una bala no es una jabalina.
+function formaDe(arma) {
+  return arma.def.forma || FORMA_POR_COMPORTAMIENTO[arma.def.comportamiento] || 'raya';
+}
+
+const FORMA_POR_COMPORTAMIENTO = {
+  proyectilDirigido:   'dardo',
+  direccionFija:       'dardo',
+  direccionAleatoria:  'dardo',
+  proyectilExplosivo:  'bola',
+  rayoPerforante:      'rayo'
+};
+
 export class Armas {
   constructor(rng) {
     this.equipadas = [];
@@ -365,7 +393,7 @@ export class Armas {
     // vez de construir un objeto literal por disparo.
     this.defProyectil = {
       vida: 0, danyo: 0, empuje: 0, radio: 0,
-      perforacion: 0, color: '#fff', estela: null, largo: 8
+      perforacion: 0, color: '#fff', estela: null, largo: 8, forma: 'raya'
     };
 
     // Tajos para dibujar, preasignados.
@@ -387,6 +415,9 @@ export class Armas {
   // Cada uno ajusta después lo suyo (vida, explosión).
   _rellenarProyectil(arma, s, danyo) {
     const d = this.defProyectil;
+    // La FORMA con que se dibuja. Sale del comportamiento salvo que el arma diga
+    // otra cosa: ver FORMA_POR_COMPORTAMIENTO, aquí arriba.
+    d.forma = formaDe(arma);
     d.danyo = danyo;
     d.empuje = s.empuje;
     d.radio = s.radio;
