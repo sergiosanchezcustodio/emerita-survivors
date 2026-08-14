@@ -364,12 +364,48 @@ function estallar(p) {
   });
 }
 
-// --- Escalado entero al viewport -------------------------------------------
-// Múltiplos enteros y solo enteros: cualquier otra cosa rompe la rejilla de
-// píxeles y emborrona el pixel art por mucho que se apague el suavizado.
+// --- Escalado al viewport ----------------------------------------------------
+//
+// La rejilla de píxeles se cuenta EN PÍXELES DEL MONITOR, no en unidades CSS, y
+// se cuenta por PÍXEL DE ARTE, no por píxel del lienzo. Ahí estaba el fallo de
+// los bordes en pantalla completa.
+//
+// Lo que había redondeaba el zoom a un entero sobre unidades CSS. Pero en
+// Windows una unidad CSS no es un píxel: con el escalado del sistema al 125%,
+// un monitor 4K son 3072x1728 unidades CSS, y ahí `floor(3072/1920)` da 1. El
+// lienzo se quedaba en 1920x1080 y sobraban 576 píxeles de marco a cada lado y
+// 324 arriba y abajo — que es justo lo que se veía. Y encima la rejilla tampoco
+// salía entera: cada píxel del lienzo caía sobre 1,25 píxeles del monitor.
+//
+// Contando en píxeles de verdad, en ese mismo monitor caben 8 píxeles por cada
+// píxel de arte (3840/480), el zoom sale 1,6 en CSS y la pantalla se llena
+// entera con la rejilla clavada: dos píxeles físicos por píxel del lienzo. Que
+// el número en CSS tenga decimales da igual; el navegador lo devuelve a los
+// píxeles enteros de los que salió.
+//
+// POR PÍXEL DE ARTE y no por píxel del lienzo porque un píxel de arte ya son
+// ESCALA_ARTE del lienzo: exigir que el lienzo caiga entero es cuatro veces más
+// estricto de lo que la vista necesita, y esa exigencia de más se paga en marco.
+//
+// Y UN REPLIEGUE, porque hay ventanas en las que el escalón entero desperdicia
+// demasiado —una ventana de navegador con el zoom a 150%, por ejemplo—. Si
+// encajar en la rejilla cuesta más del 15% del tamaño, se estira hasta llenar y
+// se acepta la rejilla irregular: entre un juego pequeño y perfecto y uno
+// grande con los píxeles un pelo desiguales, a esa distancia gana el grande.
+const APROVECHAMIENTO_MINIMO = 0.85;
+
 function redimensionar() {
-  const factor = Math.max(1, Math.floor(Math.min(
-    innerWidth / ANCHO_FISICO, innerHeight / ALTO_FISICO)));
+  const densidad = window.devicePixelRatio || 1;
+
+  // Zoom que llenaría la ventana justo, sin mirar rejillas.
+  const exacto = Math.min(innerWidth / ANCHO_FISICO, innerHeight / ALTO_FISICO);
+
+  // El mismo, bajado al escalón donde cada píxel de arte ocupa un número
+  // entero de píxeles del monitor.
+  const porArte = exacto * ESCALA_ARTE * densidad;
+  const encajado = Math.max(1, Math.floor(porArte)) / (ESCALA_ARTE * densidad);
+
+  const factor = (encajado / exacto) >= APROVECHAMIENTO_MINIMO ? encajado : exacto;
   zoomPantalla = factor;
   lienzo.style.width  = (ANCHO_FISICO * factor) + 'px';
   lienzo.style.height = (ALTO_FISICO  * factor) + 'px';
