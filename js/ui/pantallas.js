@@ -338,13 +338,18 @@ function dibujarSeleccion(ctxMundo, ctxUi, puestos) {
   ctxUi.textAlign = 'center';
   ctxUi.textBaseline = 'middle';
   ctxUi.font = `600 11px ${FUENTE}`;
+  // Solo se dice lo que NO se adivina. Mover, confirmar y volver se dan por
+  // sabidos —Sergio quitó esos renglones de todos los menús—, pero que el
+  // segundo jugador entra pulsando A o Start en SU mando no hay forma de
+  // deducirlo mirando la pantalla, y es justo lo que hace falta saber para que
+  // el cooperativo exista.
   let pie = 'Empezando...';
-  if (faltan) {
-    pie = '← →  elegir     Enter/A  confirmar     Esc/B  atrás';
-    if (hueco) pie += '     J, A o Start en otro mando  sumar jugador';
+  if (faltan && hueco) pie = 'A o Start en otro mando  ·  se suma un jugador';
+  else if (faltan) pie = '';
+  if (pie) {
+    ctxUi.globalAlpha = faltan ? 0.9 : latido(700, 0.4);
+    textoBorde(ctxUi, pie, ANCHO_UI / 2, ALTO_UI - 44, t.texto, 3.5);
   }
-  ctxUi.globalAlpha = faltan ? 0.9 : latido(700, 0.4);
-  textoBorde(ctxUi, pie, ANCHO_UI / 2, ALTO_UI - 44, t.texto, 3.5);
   ctxUi.restore();
 }
 
@@ -542,10 +547,6 @@ function dibujarMascotas(ctxMundo, ctxUi, disponibles, cursor, turno, puestos, e
     ctxUi.fillText(yaElegidas.join('     '), ANCHO_UI / 2, yCarta + CARTA_MASCOTA + 84);
   }
 
-  ctxUi.font = `500 10px ${FUENTE}`;
-  ctxUi.fillStyle = t.apagado;
-  ctxUi.fillText('← → elegir     Enter/A aceptar     Esc/B atrás',
-                 ANCHO_UI / 2, ALTO_UI - 30);
   ctxUi.restore();
 }
 
@@ -560,7 +561,9 @@ function dibujarConfig(ctxMundo, ctxUi, opciones, cursor, confirmando) {
 
   const t = Tema.actual;
   const ancho = 320;
-  const alto = 52 + opciones.length * 30 + 26;
+  // El 14 de abajo era 26 cuando debajo de las opciones iba la línea de teclas.
+  // Sin ella el panel se quedaba con un palmo de piedra vacía al pie.
+  const alto = 52 + opciones.length * 30 + 14;
   const px = (ANCHO_UI - ancho) / 2;
   const py = (ALTO_UI - alto) / 2;
 
@@ -599,11 +602,6 @@ function dibujarConfig(ctxMundo, ctxUi, opciones, cursor, confirmando) {
     ctxUi.fillText(valorConfig(o.id), px + ancho - 18, y);
   }
 
-  ctxUi.textAlign = 'center';
-  ctxUi.font = `500 9px ${FUENTE}`;
-  ctxUi.fillStyle = t.apagado;
-  ctxUi.fillText('↑↓ elegir   ←→ ajustar   Enter activar   Esc volver',
-                 ANCHO_UI / 2, py + alto - 13);
   ctxUi.restore();
 
   if (confirmando) dibujarConfirmacion(ctxUi);

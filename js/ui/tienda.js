@@ -58,7 +58,7 @@ function rejilla(nFilas, altoMaxFila) {
   const arriba = recorte + 10;
   const abajo = ALTO_UI - recorte - 10;
   const filas = arriba + 60;
-  const desc = abajo - 30;
+  const desc = abajo - 12;
   const hueco = Math.max(0, desc - 14 - filas);
   return {
     pestanyas: arriba + 8,
@@ -67,8 +67,7 @@ function rejilla(nFilas, altoMaxFila) {
     regla: arriba + 54,
     filas,
     alto: Math.min(altoMaxFila, Math.max(ALTO_MINIMO_FILA, hueco / nFilas)),
-    desc,                       // descripción larga de lo señalado
-    pie: abajo
+    desc                        // descripción larga de lo señalado
   };
 }
 
@@ -266,9 +265,15 @@ function resalte(ctx, y, alto) {
   ctx.fillRect(MARGEN - 10, y, ANCHO_UI - MARGEN * 2 + 20, alto - 4);
 }
 
-// Descripción larga de lo señalado y línea de ayuda. Cambia con el cursor, así
-// que las filas se quedan compactas y solo se lee una a la vez.
-function pie(ctx, r, descripcion, accion) {
+// Descripción larga de lo señalado. Cambia con el cursor, así que las filas se
+// quedan compactas y solo se lee una a la vez.
+//
+// Aquí había además una línea con las teclas —elegir, cambiar de sección,
+// comprar, volver—. Fuera: la quitó Sergio de todos los menús y tiene razón, una
+// lista con el cursor encima de una fila no necesita que le expliquen que se
+// sube y se baja. Lo que sí se queda es la descripción, que no es una ayuda de
+// manejo sino lo que estás a punto de comprar.
+function pie(ctx, r, descripcion) {
   const t = Tema.actual;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -277,11 +282,6 @@ function pie(ctx, r, descripcion, accion) {
   const lineas = envolverTexto(ctx, descripcion, ANCHO_UI - MARGEN * 4);
   ctx.fillText(lineas[0] || '', ANCHO_UI / 2, r.desc);
   if (lineas[1]) ctx.fillText(lineas[1], ANCHO_UI / 2, r.desc + 14);
-
-  ctx.font = `500 10px ${FUENTE}`;
-  ctx.fillStyle = t.apagado;
-  ctx.fillText(`↑↓ elegir     ←→ sección     Enter/A ${accion}     Esc/B volver`,
-               ANCHO_UI / 2, r.pie);
 }
 
 // --- Reparto ------------------------------------------------------------------
@@ -341,8 +341,7 @@ function filasPotenciadores(ctx, cursor, r) {
     precio(ctx, yc, coste, 'AL MÁXIMO');
   }
 
-  pie(ctx, r, POTENCIADORES[IDS[cursor]].descripcion,
-      MetaProgreso.nivelPotenciador(IDS[cursor]) > 0 ? 'mejorar' : 'comprar');
+  pie(ctx, r, POTENCIADORES[IDS[cursor]].descripcion);
 }
 
 // --- Mascotas -----------------------------------------------------------------
@@ -403,7 +402,7 @@ function filasMascotas(ctx, cursor, r) {
   }
 
   const id = ORDEN_MASCOTAS[cursor];
-  pie(ctx, r, MASCOTAS[id].descripcion, MetaProgreso.tieneMascota(id) ? 'mejorar' : 'adoptar');
+  pie(ctx, r, MASCOTAS[id].descripcion);
 }
 
 // --- Jugadores ----------------------------------------------------------------
@@ -472,6 +471,5 @@ function filasPersonajes(ctx, cursor, r) {
   }
 
   const id = ORDEN_PERSONAJES[cursor];
-  pie(ctx, r, PERSONAJES[id].descripcion,
-      MetaProgreso.heroeDesbloqueado(id) ? 'ya es tuyo' : 'comprar');
+  pie(ctx, r, PERSONAJES[id].descripcion);
 }
