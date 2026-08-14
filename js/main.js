@@ -33,6 +33,7 @@ import { dibujarTienda } from './ui/tienda.js';
 import { dibujarFinal, dibujarCartelFinal } from './ui/final.js';
 import { dibujarPaneles, dibujarReloj, dibujarBarraJefe } from './ui/hud.js';
 import { Pantallas, ocupantePersonaje, dibujarDespedida } from './ui/pantallas.js';
+import { dibujarConfig } from './ui/configuracion.js';
 import { Capa } from './ui/capa.js';
 import { Tema, olvidarDegradados } from './ui/tema.js';
 import {
@@ -1532,7 +1533,7 @@ function dibujar(alpha) {
       Pantallas.mascotas(ctx, Capa.ctx, mascotasDisponibles(), cursorMascota,
                          turnoMascota, puestos, mascotasElegidas);
     } else if (pantalla === PANTALLA_CONFIG) {
-      Pantallas.config(ctx, Capa.ctx, CONFIG, cursorConfig, confirmarBorrado);
+      dibujarConfig(ctx, Capa.ctx, CONFIG, cursorConfig, confirmarBorrado);
     }
     else Pantallas.seleccion(ctx, Capa.ctx, puestos);
     return;

@@ -1,7 +1,5 @@
-import { ANCHO_UI, ALTO_UI } from '../core/constantes.js';
-import { FUENTE, FUENTE_TITULO, textoEspaciado, envolverTexto } from './capa.js';
-import { Tema, cenefa } from './tema.js';
-import { Capa } from './capa.js';
+import { FUENTE } from './capa.js';
+import { Tema } from './tema.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
 import { Recursos } from '../core/recursos.js';
 import { POTENCIADORES } from '../datos/potenciadores.js';
@@ -9,7 +7,10 @@ import { MASCOTAS, ORDEN_MASCOTAS, MAX_NIVEL_MASCOTA } from '../datos/mascotas.j
 import { PERSONAJES, ORDEN_PERSONAJES } from '../datos/personajes.js';
 import { ARMAS } from '../datos/armas.js';
 import { dibujarIconoPasivo } from './hud.js';
-import { fondoTitulo, dibujarOro } from './pantallas.js';
+import {
+  rejilla, armazon, resalte, puntos, descripcion,
+  MARGEN, X_ICONO, X_NOMBRE, X_NIVEL, X_EFECTO, X_VALOR, RADIO_PUNTO
+} from './tabla.js';
 
 // TIENDA. Se abre desde el menú principal y no desde dentro de la partida: son
 // compras para SIEMPRE (progreso META, ver core/metaProgreso.js), así que tienen
@@ -21,67 +22,11 @@ import { fondoTitulo, dibujarOro } from './pantallas.js';
 // se pagan con los mismos denarios y se miran en el mismo momento: separarlas
 // obligaría a salir de una para ver cuánto queda para lo de la otra.
 //
-// A PANTALLA COMPLETA, sobre la ilustración del título. Antes era un panel de
-// 320 de ancho en el centro, y ahí un nombre, cinco puntos de nivel y un precio
-// ya llenaban la fila: no cabía decir QUÉ HACE lo que estás comprando. Con el
-// ancho entero cabe una tabla de verdad —icono, nombre, nivel, efecto y
-// precio—, que es lo que hace falta para decidir sin tener que recordarse de
-// memoria qué era cada cosa.
-//
-// La tabla lleva TÍTULOS DE COLUMNA. Con cinco puntos y dos números sueltos en
-// la misma fila, lo que no está rotulado se adivina, y adivinar en qué columna
-// está el precio es exactamente lo que no debe pasar en una tienda.
+// A PANTALLA COMPLETA, sobre la ilustración del título. El armazón —fondo,
+// velo, cabecera, columnas y resalte— lo pone ui/tabla.js, que es el mismo que
+// usa la pantalla de configuración: aquí solo quedan las filas.
 
 const IDS = Object.keys(POTENCIADORES);
-
-// --- Rejilla de la pantalla ---------------------------------------------------
-// Todo en unidades de interfaz (960 de ancho por 540 de alto, ver
-// core/constantes.js). Las tres secciones comparten cabecera, columnas y pie:
-// cambiar de sección no mueve NADA de sitio, solo cambia lo que hay en las
-// filas.
-const MARGEN = 54;
-
-// El REPARTO VERTICAL se calcula en cada dibujo y no con constantes fijas,
-// porque el alto disponible no es siempre el mismo. La capa mide 540 unidades
-// de alto, pero el lienzo se centra en la ventana y en una más baja se recorta
-// por arriba y por abajo (ver Capa.altoVisible): con medidas fijas, el rótulo
-// de las secciones y la línea de ayuda del pie se quedaban cortados por la
-// mitad en cuanto Sergio bajaba la ventana un dedo.
-//
-// Las filas se estrujan hasta caber. Una tabla con la última fila fuera de la
-// pantalla no es una tabla, y en la tienda la última fila es Nerón el Gato, que
-// cuesta 150 denarios y conviene poder verlo.
-const ALTO_MINIMO_FILA = 20;
-
-function rejilla(nFilas, altoMaxFila) {
-  const recorte = Math.max(0, (ALTO_UI - Capa.altoVisible) / 2);
-  const arriba = recorte + 10;
-  const abajo = ALTO_UI - recorte - 10;
-  const filas = arriba + 60;
-  const desc = abajo - 12;
-  const hueco = Math.max(0, desc - 14 - filas);
-  return {
-    pestanyas: arriba + 8,
-    cenefa: arriba + 22,
-    cabecera: arriba + 44,     // rótulos de columna
-    regla: arriba + 54,
-    filas,
-    alto: Math.min(altoMaxFila, Math.max(ALTO_MINIMO_FILA, hueco / nFilas)),
-    desc                        // descripción larga de lo señalado
-  };
-}
-
-// Columnas. El icono va a la IZQUIERDA del todo porque es lo que se reconoce
-// antes de leer: con diez potenciadores en la lista, el dibujo distingue la fila
-// de un vistazo y el nombre solo la confirma.
-const X_ICONO = MARGEN + 24;          // centro del icono
-const X_NOMBRE = MARGEN + 54;
-const X_NIVEL = 404;
-const X_EFECTO = 528;
-const X_PRECIO = ANCHO_UI - MARGEN;
-
-const PASO_PUNTO = 12;
-const RADIO_PUNTO = 3.4;
 
 const COLOR_DENARIO = '#e8b73a';
 const COLOR_MAX = '#7fd68a';
@@ -91,17 +36,6 @@ const NOMBRES = ['POTENCIADORES', 'MASCOTAS', 'JUGADORES'];
 
 // --- Piezas sueltas -----------------------------------------------------------
 
-// Los cinco escalones de nivel. Un punto encendido por nivel comprado.
-function puntos(ctx, x, y, nivel, maximo, resaltada) {
-  const t = Tema.actual;
-  for (let k = 0; k < maximo; k++) {
-    ctx.beginPath();
-    ctx.arc(x + k * PASO_PUNTO, y, RADIO_PUNTO, 0, Math.PI * 2);
-    ctx.fillStyle = k < nivel ? (resaltada ? '#ffffff' : t.filo) : 'rgba(255,255,255,.15)';
-    ctx.fill();
-  }
-}
-
 // Precio, "AL MÁXIMO" o "TUYO", siempre pegado al borde derecho. En apagado
 // cuando no llega el dinero: se ve lo que cuesta y se ve que hoy no.
 function precio(ctx, y, coste, textoLleno) {
@@ -110,12 +44,12 @@ function precio(ctx, y, coste, textoLleno) {
   if (coste < 0) {
     ctx.font = `600 11px ${FUENTE}`;
     ctx.fillStyle = COLOR_MAX;
-    ctx.fillText(textoLleno, X_PRECIO, y);
+    ctx.fillText(textoLleno, X_VALOR, y);
     return;
   }
   ctx.font = `700 13px ${FUENTE}`;
   ctx.fillStyle = MetaProgreso.denarios >= coste ? COLOR_DENARIO : t.apagado;
-  ctx.fillText(String(coste), X_PRECIO, y);
+  ctx.fillText(String(coste), X_VALOR, y);
 }
 
 // Retrato de menú de una mascota, encajado en su hueco.
@@ -216,74 +150,6 @@ function efectoDePersonaje(def) {
 
 // --- Armazón: fondo, secciones, cabecera de tabla y pie ----------------------
 
-function armazon(ctx, seccion, r) {
-  const t = Tema.actual;
-
-  ctx.fillStyle = 'rgba(6,5,10,.82)';
-  ctx.fillRect(0, 0, ANCHO_UI, ALTO_UI);
-
-  // Las tres secciones, siempre las tres a la vista aunque solo una esté viva:
-  // media gracia de una pestaña es que se vea que hay otras dos.
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  let cx = MARGEN;
-  for (let i = 0; i < NOMBRES.length; i++) {
-    const activa = seccion === i;
-    ctx.font = `${activa ? 17 : 15}px ${FUENTE_TITULO}`;
-    ctx.fillStyle = activa ? t.titulo : t.apagado;
-    const w = textoEspaciado(ctx, NOMBRES[i], cx, r.pestanyas, 1.6);
-    if (activa) {
-      ctx.fillStyle = t.filo;
-      ctx.fillRect(cx, r.pestanyas + 12, w, 2);
-    }
-    cx += w + 26;
-  }
-
-  dibujarOro(ctx);
-  cenefa(ctx, MARGEN, r.cenefa, ANCHO_UI - MARGEN * 2);
-
-  // Títulos de columna. En versalitas pequeñas y apagadas: rotulan sin competir
-  // con el contenido de las filas.
-  ctx.font = `600 9px ${FUENTE}`;
-  ctx.fillStyle = t.apagado;
-  ctx.textAlign = 'left';
-  textoEspaciado(ctx, 'OBJETO', MARGEN, r.cabecera, 1.4);
-  textoEspaciado(ctx, 'NIVEL', X_NIVEL, r.cabecera, 1.4);
-  textoEspaciado(ctx, 'EFECTO', X_EFECTO, r.cabecera, 1.4);
-  ctx.textAlign = 'right';
-  ctx.fillText('PRECIO', X_PRECIO, r.cabecera);
-
-  ctx.globalAlpha = 0.35;
-  ctx.fillStyle = t.filo;
-  ctx.fillRect(MARGEN, r.regla, ANCHO_UI - MARGEN * 2, 1);
-  ctx.globalAlpha = 1;
-}
-
-// Fondo de la fila señalada, a todo el ancho de la tabla.
-function resalte(ctx, y, alto) {
-  ctx.fillStyle = Tema.actual.cartaElegida;
-  ctx.fillRect(MARGEN - 10, y, ANCHO_UI - MARGEN * 2 + 20, alto - 4);
-}
-
-// Descripción larga de lo señalado. Cambia con el cursor, así que las filas se
-// quedan compactas y solo se lee una a la vez.
-//
-// Aquí había además una línea con las teclas —elegir, cambiar de sección,
-// comprar, volver—. Fuera: la quitó Sergio de todos los menús y tiene razón, una
-// lista con el cursor encima de una fila no necesita que le expliquen que se
-// sube y se baja. Lo que sí se queda es la descripción, que no es una ayuda de
-// manejo sino lo que estás a punto de comprar.
-function pie(ctx, r, descripcion) {
-  const t = Tema.actual;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = `400 11px ${FUENTE}`;
-  ctx.fillStyle = t.texto;
-  const lineas = envolverTexto(ctx, descripcion, ANCHO_UI - MARGEN * 4);
-  ctx.fillText(lineas[0] || '', ANCHO_UI / 2, r.desc);
-  if (lineas[1]) ctx.fillText(lineas[1], ANCHO_UI / 2, r.desc + 14);
-}
-
 // --- Reparto ------------------------------------------------------------------
 
 export function dibujarTienda(ctxMundo, ctx, cursor, seccion) {
@@ -295,9 +161,8 @@ export function dibujarTienda(ctxMundo, ctx, cursor, seccion) {
                 : ALTO_POTENCIADOR;
   const r = rejilla(nFilas, altoMax);
 
-  fondoTitulo(ctxMundo);
   ctx.save();
-  armazon(ctx, seccion, r);
+  armazon(ctxMundo, ctx, r, NOMBRES, seccion, ['OBJETO', 'NIVEL', 'EFECTO', 'PRECIO']);
   if (seccion === 1) filasMascotas(ctx, cursor, r);
   else if (seccion === 2) filasPersonajes(ctx, cursor, r);
   else filasPotenciadores(ctx, cursor, r);
@@ -341,7 +206,7 @@ function filasPotenciadores(ctx, cursor, r) {
     precio(ctx, yc, coste, 'AL MÁXIMO');
   }
 
-  pie(ctx, r, POTENCIADORES[IDS[cursor]].descripcion);
+  descripcion(ctx, r, POTENCIADORES[IDS[cursor]].descripcion);
 }
 
 // --- Mascotas -----------------------------------------------------------------
@@ -402,7 +267,7 @@ function filasMascotas(ctx, cursor, r) {
   }
 
   const id = ORDEN_MASCOTAS[cursor];
-  pie(ctx, r, MASCOTAS[id].descripcion);
+  descripcion(ctx, r, MASCOTAS[id].descripcion);
 }
 
 // --- Jugadores ----------------------------------------------------------------
@@ -471,5 +336,5 @@ function filasPersonajes(ctx, cursor, r) {
   }
 
   const id = ORDEN_PERSONAJES[cursor];
-  pie(ctx, r, PERSONAJES[id].descripcion);
+  descripcion(ctx, r, PERSONAJES[id].descripcion);
 }

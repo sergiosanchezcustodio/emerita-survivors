@@ -1,13 +1,12 @@
 import { ANCHO_UI, ALTO_UI, ANCHO_FISICO } from '../core/constantes.js';
 import { Recursos } from '../core/recursos.js';
 import { Capa, FUENTE, FUENTE_TITULO, textoBorde, textoEspaciado } from './capa.js';
-import { Tema, panel, cenefa } from './tema.js';
+import { Tema } from './tema.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from '../datos/personajes.js';
 import { ARMAS } from '../datos/armas.js';
 import { COLOR_JUGADOR } from './hud.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
 import { MASCOTAS, MAX_NIVEL_MASCOTA } from '../datos/mascotas.js';
-import { GestorAudio } from '../sistemas/audio.js';
 
 // Pantallas de TÍTULO y de SELECCIÓN DE PERSONAJE.
 //
@@ -111,9 +110,6 @@ export const Pantallas = {
   seleccion(ctxMundo, ctxUi, puestos) { dibujarSeleccion(ctxMundo, ctxUi, puestos); },
   mascotas(ctxMundo, ctxUi, disponibles, cursor, turno, puestos, elegidas) {
     dibujarMascotas(ctxMundo, ctxUi, disponibles, cursor, turno, puestos, elegidas);
-  },
-  config(ctxMundo, ctxUi, opciones, cursor, confirmando) {
-    dibujarConfig(ctxMundo, ctxUi, opciones, cursor, confirmando);
   }
 };
 
@@ -550,100 +546,3 @@ function dibujarMascotas(ctxMundo, ctxUi, disponibles, cursor, turno, puestos, e
   ctxUi.restore();
 }
 
-// --- Configuración ------------------------------------------------------------
-//
-// Vídeo, sonido y el botón de empezar de cero. Panel de siempre sobre el título
-// oscurecido: es una pantalla de ajustes, no un sitio del juego.
-function dibujarConfig(ctxMundo, ctxUi, opciones, cursor, confirmando) {
-  const img = Imagenes.titulo;
-  const e = cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, ANCLA_TITULO);
-  fondo(ctxMundo, img, e);
-
-  const t = Tema.actual;
-  const ancho = 320;
-  // El 14 de abajo era 26 cuando debajo de las opciones iba la línea de teclas.
-  // Sin ella el panel se quedaba con un palmo de piedra vacía al pie.
-  const alto = 52 + opciones.length * 30 + 14;
-  const px = (ANCHO_UI - ancho) / 2;
-  const py = (ALTO_UI - alto) / 2;
-
-  ctxUi.save();
-  ctxUi.fillStyle = 'rgba(6,5,10,.6)';
-  ctxUi.fillRect(0, 0, ANCHO_UI, ALTO_UI);
-  ctxUi.restore();
-  dibujarOro(ctxUi);
-  ctxUi.save();
-  panel(ctxUi, px, py, ancho, alto, t.filo);
-
-  ctxUi.textAlign = 'center';
-  ctxUi.textBaseline = 'middle';
-  ctxUi.font = `19px ${FUENTE_TITULO}`;
-  ctxUi.fillStyle = t.titulo;
-  textoEspaciado(ctxUi, 'CONFIGURACIÓN', ANCHO_UI / 2, py + 20, 3);
-  cenefa(ctxUi, px + 14, py + 34, ancho - 28);
-
-  for (let i = 0; i < opciones.length; i++) {
-    const o = opciones[i];
-    const y = py + 60 + i * 30;
-    const elegida = i === cursor;
-    if (elegida) {
-      ctxUi.fillStyle = t.cartaElegida;
-      ctxUi.fillRect(px + 6, y - 12, ancho - 12, 24);
-    }
-    ctxUi.textAlign = 'left';
-    ctxUi.font = `600 12px ${FUENTE}`;
-    // "Empezar de cero" en rojo: es la única de la lista que no se deshace.
-    ctxUi.fillStyle = o.id === 'borrar' ? '#e8907c' : (elegida ? '#ffffff' : t.titulo);
-    ctxUi.fillText(o.texto, px + 18, y);
-
-    ctxUi.textAlign = 'right';
-    ctxUi.font = `600 11px ${FUENTE}`;
-    ctxUi.fillStyle = t.texto;
-    ctxUi.fillText(valorConfig(o.id), px + ancho - 18, y);
-  }
-
-  ctxUi.restore();
-
-  if (confirmando) dibujarConfirmacion(ctxUi);
-}
-
-// Qué se enseña a la derecha de cada opción.
-function valorConfig(id) {
-  if (id === 'musica') return Math.round(GestorAudio.volumenMusica() * 100) + '%';
-  if (id === 'efectos') return Math.round(GestorAudio.volumenEfectos() * 100) + '%';
-  if (id === 'pantalla') return document.fullscreenElement ? 'Sí' : 'No';
-  return '';
-}
-
-// VENTANA DE CONFIRMACIÓN del borrado. Encima de todo y con el foco entero:
-// borrar el progreso de todas las partidas jugadas no puede depender de una
-// tecla mal pulsada, así que hay que decir Enter aquí y solo aquí.
-function dibujarConfirmacion(ctxUi) {
-  const t = Tema.actual;
-  const ancho = 330, alto = 128;
-  const px = (ANCHO_UI - ancho) / 2;
-  const py = (ALTO_UI - alto) / 2;
-
-  ctxUi.save();
-  ctxUi.fillStyle = 'rgba(6,5,10,.78)';
-  ctxUi.fillRect(0, 0, ANCHO_UI, ALTO_UI);
-  panel(ctxUi, px, py, ancho, alto, '#a04a3c');
-
-  ctxUi.textAlign = 'center';
-  ctxUi.textBaseline = 'middle';
-  ctxUi.font = `18px ${FUENTE_TITULO}`;
-  ctxUi.fillStyle = '#e8b0a4';
-  textoEspaciado(ctxUi, '¿EMPEZAR DE CERO?', ANCHO_UI / 2, py + 26, 3);
-
-  ctxUi.font = `400 11px ${FUENTE}`;
-  ctxUi.fillStyle = t.texto;
-  ctxUi.fillText('Se pierden TODAS las monedas, las mejoras', ANCHO_UI / 2, py + 58);
-  ctxUi.fillText('y las mascotas. No se puede deshacer.', ANCHO_UI / 2, py + 74);
-
-  ctxUi.font = `600 11px ${FUENTE}`;
-  ctxUi.fillStyle = '#e8907c';
-  ctxUi.fillText('Enter · borrar', ANCHO_UI / 2 - 64, py + 104);
-  ctxUi.fillStyle = t.titulo;
-  ctxUi.fillText('Esc · cancelar', ANCHO_UI / 2 + 64, py + 104);
-  ctxUi.restore();
-}
