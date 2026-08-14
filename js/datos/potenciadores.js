@@ -27,10 +27,13 @@
 // largo plazo.
 //
 // `icono` nombra el objeto de datos/pasivos.js cuyo dibujo se reutiliza en la
-// tienda. No hay arte propio de potenciadores y no hace falta: la Vitalidad y
-// el Ánfora suben lo mismo, así que compartir dibujo AYUDA a leerlo. Los dos
-// que no tienen equivalente —Égida y Moneda de Caronte son mecánicas que no
-// existen como pasivo de partida— se dibujan con un glifo vectorial.
+// tienda. Ocho de los diez van así y no hace falta más: la Vitalidad y el Ánfora
+// suben lo mismo, así que compartir dibujo AYUDA a leerlo.
+//
+// `arte` es lo contrario: el nombre de una entrada del atlas con dibujo PROPIO.
+// Lo llevan los dos que no tienen equivalente entre los pasivos de partida —la
+// Égida y la Moneda de Caronte son mecánicas nuevas y no había de dónde copiar
+// el icono—, y se lo dibujó Sergio aparte. Manda sobre `icono` si están los dos.
 //
 // `efecto` es la versión corta para la columna de la tabla. `descripcion` sigue
 // existiendo para el renglón de abajo, que tiene sitio para la frase entera.
@@ -119,6 +122,7 @@ export const POTENCIADORES = {
     descripcion: '+6 de escudo, se recarga solo si no te golpean',
     campo: 'escudoMax', tipo: 'suma', valor: 6,
     efecto: '+6 escudo',
+    arte: 'potEgida',
     maxNivel: 5, costeBase: 800
   },
 
@@ -137,6 +141,7 @@ export const POTENCIADORES = {
     descripcion: 'Una vida extra por nivel: vuelves a media vida donde caíste',
     campo: 'resurreccionesMax', tipo: 'suma', valor: 1,
     efecto: '1 vida extra',
+    arte: 'potCaronte',
     maxNivel: 5, costeBase: 1200
   }
 };

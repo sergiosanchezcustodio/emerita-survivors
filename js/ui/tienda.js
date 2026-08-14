@@ -82,9 +82,8 @@ function retrato(ctx, id, cx, cy, ancho, alto) {
   return true;
 }
 
-// Los dos potenciadores que NO tienen equivalente entre los pasivos de partida
-// —Égida y Moneda de Caronte son mecánicas nuevas— se dibujan a mano. El resto
-// reutiliza el icono de su pasivo gemelo (ver `icono` en datos/potenciadores.js).
+// Glifos de repliegue para cuando el atlas no trae el dibujo. Ver
+// iconoPotenciador, más abajo.
 function glifoEgida(ctx, cx, cy, r) {
   ctx.beginPath();
   ctx.moveTo(cx, cy - r * 0.9);
@@ -129,7 +128,29 @@ function glifoObolo(ctx, cx, cy, r) {
   ctx.fill();
 }
 
+
+// El icono de un potenciador. Tres casos, en este orden:
+//
+//   1. Dibujo PROPIO (`arte` en datos/potenciadores.js): la Égida y la Moneda de
+//      Caronte, que son mecánicas sin equivalente entre los pasivos de partida.
+//   2. El icono del pasivo GEMELO (`icono`), que es lo que llevan los otros
+//      ocho: comparten dibujo porque hacen lo mismo.
+//   3. Un glifo trazado a mano, de repliegue, por si el atlas no trae el dibujo.
+//      Es lo que había antes de que Sergio los dibujara y se queda porque no
+//      cuesta nada: sin él, una tienda con el atlas a medio generar saldría con
+//      dos filas sin icono y sin explicación.
 function iconoPotenciador(ctx, id, def, cx, cy, r) {
+  if (def.arte) {
+    const meta = Recursos.meta(def.arte);
+    const img = Recursos.imagen(def.arte);
+    if (meta && img) {
+      const esc = Math.min(r * 2 / meta.w, r * 2 / meta.h);
+      const w = meta.w * esc;
+      const h = meta.h * esc;
+      ctx.drawImage(img, 0, 0, meta.w, meta.h, cx - w / 2, cy - h / 2, w, h);
+      return;
+    }
+  }
   if (def.icono) return dibujarIconoPasivo(ctx, cx, cy, r, def.icono, COLOR_ICONO);
   if (id === 'faroDeLaMuerte') return glifoObolo(ctx, cx, cy, r);
   glifoEgida(ctx, cx, cy, r);

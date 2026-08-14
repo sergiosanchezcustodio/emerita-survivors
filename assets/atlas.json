@@ -493,6 +493,24 @@
                                         "frames":  1,
                                         "plano":  true
                                     },
+                      "potEgida":  {
+                                       "archivo":  "objetos/pot-egida.png",
+                                       "w":  88,
+                                       "h":  112,
+                                       "anclaX":  44,
+                                       "anclaY":  112,
+                                       "frames":  1,
+                                       "plano":  true
+                                   },
+                      "potCaronte":  {
+                                         "archivo":  "objetos/pot-caronte.png",
+                                         "w":  112,
+                                         "h":  112,
+                                         "anclaX":  56,
+                                         "anclaY":  112,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
                       "columna":  {
                                       "archivo":  "objetos/columna.png",
                                       "w":  56,

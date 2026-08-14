@@ -2170,6 +2170,18 @@ $CATALOGO = @(
     # de 13 tendria que ampliarse para acompanar a un numero de 18 pixeles.
     @{ src='objetos\moneda.png';         dst='objetos\moneda-hud.png';     id='monedaHud';     alto=20; anchoFijo=0; tol=0; plano=$true }
 
+    # LOS DOS POTENCIADORES CON DIBUJO PROPIO. Los otros ocho reutilizan el icono
+    # de su pasivo gemelo -la Vitalidad y el Anfora suben lo mismo, asi que
+    # compartir dibujo ayuda a leerlo-, pero la Egida y la Moneda de Caronte son
+    # mecanicas que no existen como pasivo de partida y no tenian de donde
+    # copiarlo: hasta ahora salian con un glifo trazado a mano.
+    #
+    # A 28 de alto, mas del doble que un objeto del suelo, porque no van al
+    # mundo: se dibujan en la casilla de la tienda, que esta en la capa de
+    # interfaz y va a la resolucion real del monitor.
+    @{ src='objetos\egida.png';          dst='objetos\pot-egida.png';      id='potEgida';      alto=28; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\moneda_caronte.png'; dst='objetos\pot-caronte.png';    id='potCaronte';    alto=28; anchoFijo=0; tol=0; plano=$true }
+
     # --- Decoracion solida del nivel 1: columnas, antorchas, estatuas y
     # ruinas de resources/stages/1/objetos/. Ilustraciones estaticas sueltas
     # (sin gif/cadera/hoja), asi que caen directas por Procesar():
