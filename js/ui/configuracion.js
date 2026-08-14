@@ -39,11 +39,15 @@ const TEXTOS = {
               larga: 'Esc o B hacen lo mismo desde cualquier punto de la lista.' }
 };
 
+// El último caso devuelve vacío A PROPÓSITO. Antes devolvía 'Borrar', que era el
+// valor de "Empezar de cero"; cuando esa fila se mudó al menú del título, la que
+// ocupó su sitio —Volver— heredó la palabra sin que nadie la escribiera. Un caso
+// por defecto que da un valor concreto miente en cuanto cambia la lista.
 function valor(id) {
   if (id === 'musica') return Math.round(GestorAudio.volumenMusica() * 100) + '%';
   if (id === 'efectos') return Math.round(GestorAudio.volumenEfectos() * 100) + '%';
   if (id === 'pantalla') return document.fullscreenElement ? 'Sí' : 'No';
-  return 'Borrar';
+  return '';                      // Volver no es un ajuste: no tiene valor
 }
 
 function nivel(id) {
@@ -54,8 +58,12 @@ function nivel(id) {
 
 // Un icono por ajuste, trazado a mano. No hay arte para esto y tampoco hace
 // falta: son cuatro símbolos que se reconocen por la silueta —una nota, un
-// altavoz, un marco y una calavera— y a este tamaño un dibujo detallado se
+// altavoz, un marco y una flecha— y a este tamaño un dibujo detallado se
 // vería peor que una forma limpia.
+//
+// Cada id lleva su rama EXPLÍCITA y no hay caso por defecto: un id desconocido
+// no dibuja nada, que es el fallo seguro. Con un `else` genérico, la fila que
+// sustituyó a "Empezar de cero" se quedó con su calavera roja.
 function icono(ctx, id, cx, cy, r) {
   ctx.save();
   ctx.lineCap = 'round';
@@ -113,24 +121,20 @@ function icono(ctx, id, cx, cy, r) {
     ctx.moveTo(cx + r * 0.72 - b, cy + r * 0.56); ctx.lineTo(cx + r * 0.72, cy + r * 0.56); ctx.lineTo(cx + r * 0.72, cy + r * 0.56 - b);
     ctx.stroke();
 
-  } else {
-    // Calavera: lo único de esta pantalla que no se deshace, y se avisa desde
-    // el icono.
-    ctx.fillStyle = COLOR_PELIGRO;
+  } else if (id === 'volver') {
+    // Flecha a la izquierda: se vuelve por donde se vino. Mismo trazo azul que
+    // los otros tres, porque esta fila ya no es la peligrosa de la pantalla.
+    ctx.strokeStyle = '#9fd0e8';
+    ctx.lineWidth = Math.max(1.6, r * 0.16);
     ctx.beginPath();
-    ctx.arc(cx, cy - r * 0.12, r * 0.62, Math.PI, 0);
-    ctx.lineTo(cx + r * 0.62, cy + r * 0.28);
-    ctx.lineTo(cx - r * 0.62, cy + r * 0.28);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillRect(cx - r * 0.34, cy + r * 0.28, r * 0.68, r * 0.34);
-    ctx.fillStyle = 'rgba(20,12,10,.85)';
+    ctx.moveTo(cx + r * 0.66, cy);
+    ctx.lineTo(cx - r * 0.46, cy);
+    ctx.stroke();
     ctx.beginPath();
-    ctx.arc(cx - r * 0.26, cy - r * 0.1, r * 0.19, 0, Math.PI * 2);
-    ctx.arc(cx + r * 0.26, cy - r * 0.1, r * 0.19, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(cx - r * 0.1, cy + r * 0.3, r * 0.08, r * 0.3);
-    ctx.fillRect(cx + r * 0.04, cy + r * 0.3, r * 0.08, r * 0.3);
+    ctx.moveTo(cx - r * 0.04, cy - r * 0.44);
+    ctx.lineTo(cx - r * 0.56, cy);
+    ctx.lineTo(cx - r * 0.04, cy + r * 0.44);
+    ctx.stroke();
   }
   ctx.restore();
 }
@@ -148,7 +152,6 @@ export function dibujarConfig(ctxMundo, ctx, opciones, cursor, confirmando) {
     const o = opciones[i];
     const txt = TEXTOS[o.id] || { efecto: '', larga: '' };
     const elegida = i === cursor;
-    const peligro = o.id === 'borrar';
     const y = r.filas + i * r.alto;
     const yc = y + r.alto / 2 - 2;
 
@@ -156,8 +159,7 @@ export function dibujarConfig(ctxMundo, ctx, opciones, cursor, confirmando) {
 
     icono(ctx, o.id, X_ICONO, yc, radio);
 
-    nombreFila(ctx, o.texto, X_NOMBRE, yc,
-               peligro ? COLOR_PELIGRO : (elegida ? '#ffffff' : t.titulo));
+    nombreFila(ctx, o.texto, X_NOMBRE, yc, elegida ? '#ffffff' : t.titulo);
 
     const n = nivel(o.id);
     if (n >= 0) puntos(ctx, X_NIVEL + RADIO_PUNTO, yc, n, PASOS_VOLUMEN, elegida);
@@ -169,7 +171,7 @@ export function dibujarConfig(ctxMundo, ctx, opciones, cursor, confirmando) {
 
     ctx.textAlign = 'right';
     ctx.font = `700 13px ${FUENTE}`;
-    ctx.fillStyle = peligro ? COLOR_PELIGRO : t.titulo;
+    ctx.fillStyle = t.titulo;
     ctx.fillText(valor(o.id), X_VALOR, yc);
   }
 
