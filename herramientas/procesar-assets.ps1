@@ -2170,17 +2170,34 @@ $CATALOGO = @(
     # de 13 tendria que ampliarse para acompanar a un numero de 18 pixeles.
     @{ src='objetos\moneda.png';         dst='objetos\moneda-hud.png';     id='monedaHud';     alto=20; anchoFijo=0; tol=0; plano=$true }
 
-    # LOS DOS POTENCIADORES CON DIBUJO PROPIO. Los otros ocho reutilizan el icono
-    # de su pasivo gemelo -la Vitalidad y el Anfora suben lo mismo, asi que
-    # compartir dibujo ayuda a leerlo-, pero la Egida y la Moneda de Caronte son
-    # mecanicas que no existen como pasivo de partida y no tenian de donde
-    # copiarlo: hasta ahora salian con un glifo trazado a mano.
+    # LOS DIEZ POTENCIADORES DE LA TIENDA. Cada uno con su dibujo, todos de
+    # Sergio y en su propia carpeta.
+    #
+    # Antes ocho de ellos reutilizaban el icono de su pasivo gemelo -la
+    # Vitalidad salia con el anfora, la Coraza con la lorica- porque no habia
+    # arte y compartir dibujo se leia mejor que inventarse diez glifos. Ya lo
+    # hay, y un potenciador que se compra para siempre merece no parecer un
+    # objeto de partida.
     #
     # A 28 de alto, mas del doble que un objeto del suelo, porque no van al
     # mundo: se dibujan en la casilla de la tienda, que esta en la capa de
     # interfaz y va a la resolucion real del monitor.
-    @{ src='objetos\egida.png';          dst='objetos\pot-egida.png';      id='potEgida';      alto=28; anchoFijo=0; tol=0; plano=$true }
-    @{ src='objetos\moneda_caronte.png'; dst='objetos\pot-caronte.png';    id='potCaronte';    alto=28; anchoFijo=0; tol=0; plano=$true }
+    #
+    # El `id` de cada uno es `pot` + el del catalogo de datos/potenciadores.js,
+    # que es lo que espera el campo `arte` de ese mismo fichero. El nombre del
+    # PNG de origen no tiene por que coincidir -"clepsida_eterna" le falta una
+    # erre y "moneda_caronte" es el nombre del premio y no el del id- y no pasa
+    # nada: esta tabla es justamente donde se traduce lo uno a lo otro.
+    @{ src='objetos\potenciadores_tienda\vitalidad.png';      dst='objetos\pot-vitalidad.png'; id='potVitalidad'; alto=28; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\potenciadores_tienda\premura.png';        dst='objetos\pot-premura.png';   id='potPremura';   alto=28; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\potenciadores_tienda\coraza.png';         dst='objetos\pot-coraza.png';    id='potCoraza';    alto=28; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\potenciadores_tienda\codicia.png';        dst='objetos\pot-codicia.png';   id='potCodicia';   alto=28; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\potenciadores_tienda\furia.png';          dst='objetos\pot-furia.png';     id='potFuria';     alto=28; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\potenciadores_tienda\clepsida_eterna.png';dst='objetos\pot-clepsidra.png'; id='potClepsidra'; alto=28; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\potenciadores_tienda\onda_expansiva.png'; dst='objetos\pot-onda.png';      id='potOnda';      alto=28; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\potenciadores_tienda\panacea.png';        dst='objetos\pot-panacea.png';   id='potPanacea';   alto=28; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\potenciadores_tienda\egida.png';          dst='objetos\pot-egida.png';     id='potEgida';     alto=28; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\potenciadores_tienda\moneda_caronte.png'; dst='objetos\pot-caronte.png';   id='potCaronte';   alto=28; anchoFijo=0; tol=0; plano=$true }
 
     # --- Decoracion solida del nivel 1: columnas, antorchas, estatuas y
     # ruinas de resources/stages/1/objetos/. Ilustraciones estaticas sueltas

@@ -6,7 +6,6 @@ import { POTENCIADORES } from '../datos/potenciadores.js';
 import { MASCOTAS, ORDEN_MASCOTAS, MAX_NIVEL_MASCOTA } from '../datos/mascotas.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from '../datos/personajes.js';
 import { ARMAS } from '../datos/armas.js';
-import { dibujarIconoPasivo } from './hud.js';
 import {
   rejilla, armazon, resalte, puntos, descripcion,
   MARGEN, X_ICONO, X_NOMBRE, X_NIVEL, X_EFECTO, X_VALOR, RADIO_PUNTO
@@ -30,7 +29,6 @@ const IDS = Object.keys(POTENCIADORES);
 
 const COLOR_DENARIO = '#e8b73a';
 const COLOR_MAX = '#7fd68a';
-const COLOR_ICONO = '#9fd0e8';
 
 const NOMBRES = ['POTENCIADORES', 'MASCOTAS', 'JUGADORES'];
 
@@ -82,78 +80,29 @@ function retrato(ctx, id, cx, cy, ancho, alto) {
   return true;
 }
 
-// Glifos de repliegue para cuando el atlas no trae el dibujo. Ver
-// iconoPotenciador, más abajo.
-function glifoEgida(ctx, cx, cy, r) {
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - r * 0.9);
-  ctx.lineTo(cx + r * 0.78, cy - r * 0.52);
-  ctx.lineTo(cx + r * 0.78, cy + r * 0.12);
-  ctx.quadraticCurveTo(cx + r * 0.62, cy + r * 0.78, cx, cy + r * 0.98);
-  ctx.quadraticCurveTo(cx - r * 0.62, cy + r * 0.78, cx - r * 0.78, cy + r * 0.12);
-  ctx.lineTo(cx - r * 0.78, cy - r * 0.52);
-  ctx.closePath();
-  ctx.fillStyle = COLOR_ICONO;
-  ctx.fill();
-  ctx.lineWidth = 1.4;
-  ctx.strokeStyle = 'rgba(8,10,14,.75)';
-  ctx.stroke();
-  // Banda horizontal: sin ella el escudo se lee como una gota.
-  ctx.fillStyle = 'rgba(8,10,14,.5)';
-  ctx.fillRect(cx - r * 0.78, cy - r * 0.16, r * 1.56, r * 0.26);
-}
-
-function glifoObolo(ctx, cx, cy, r) {
-  // Moneda de HUESO, no de oro: al lado del contador de denarios, que es
-  // dorado, una moneda dorada más sería otra cosa que cuesta dinero y no lo
-  // que se compra.
-  ctx.beginPath();
-  ctx.arc(cx, cy, r * 0.85, 0, Math.PI * 2);
-  ctx.fillStyle = '#d8d2bd';
-  ctx.fill();
-  ctx.lineWidth = 1.6;
-  ctx.strokeStyle = 'rgba(8,10,14,.7)';
-  ctx.stroke();
-
-  // Un busto acuñado —cabeza y hombros—, que es lo que tiene una moneda y lo
-  // que la hace reconocible a 28 píxeles. Antes llevaba una cruz aspada y a
-  // este tamaño se leía como el aspa de "cancelar", justo lo contrario de lo
-  // que hace: dar una vida de más.
-  ctx.fillStyle = 'rgba(8,10,14,.68)';
-  ctx.beginPath();
-  ctx.arc(cx, cy - r * 0.16, r * 0.24, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(cx, cy + r * 0.62, r * 0.44, Math.PI * 1.12, Math.PI * 1.88);
-  ctx.fill();
-}
-
-
-// El icono de un potenciador. Tres casos, en este orden:
+// El icono de un potenciador: su dibujo del atlas, encajado en el hueco.
 //
-//   1. Dibujo PROPIO (`arte` en datos/potenciadores.js): la Égida y la Moneda de
-//      Caronte, que son mecánicas sin equivalente entre los pasivos de partida.
-//   2. El icono del pasivo GEMELO (`icono`), que es lo que llevan los otros
-//      ocho: comparten dibujo porque hacen lo mismo.
-//   3. Un glifo trazado a mano, de repliegue, por si el atlas no trae el dibujo.
-//      Es lo que había antes de que Sergio los dibujara y se queda porque no
-//      cuesta nada: sin él, una tienda con el atlas a medio generar saldría con
-//      dos filas sin icono y sin explicación.
-function iconoPotenciador(ctx, id, def, cx, cy, r) {
-  if (def.arte) {
-    const meta = Recursos.meta(def.arte);
-    const img = Recursos.imagen(def.arte);
-    if (meta && img) {
-      const esc = Math.min(r * 2 / meta.w, r * 2 / meta.h);
-      const w = meta.w * esc;
-      const h = meta.h * esc;
-      ctx.drawImage(img, 0, 0, meta.w, meta.h, cx - w / 2, cy - h / 2, w, h);
-      return;
-    }
+// Los diez tienen el suyo (ver `arte` en datos/potenciadores.js), así que aquí
+// ya no hay casos: antes esto repartía entre dibujo propio, icono del pasivo
+// gemelo y dos glifos trazados a mano, y de eso no queda nada.
+//
+// Si el atlas no trae el dibujo se deja un disco apagado. No es un repliegue de
+// verdad —significa que la herramienta no se ha ejecutado— pero deja la columna
+// ocupada en vez de con un hueco que parezca un fallo del juego.
+function iconoPotenciador(ctx, def, cx, cy, r) {
+  const meta = def.arte ? Recursos.meta(def.arte) : null;
+  const img = def.arte ? Recursos.imagen(def.arte) : null;
+  if (meta && img) {
+    const esc = Math.min(r * 2 / meta.w, r * 2 / meta.h);
+    const w = meta.w * esc;
+    const h = meta.h * esc;
+    ctx.drawImage(img, 0, 0, meta.w, meta.h, cx - w / 2, cy - h / 2, w, h);
+    return;
   }
-  if (def.icono) return dibujarIconoPasivo(ctx, cx, cy, r, def.icono, COLOR_ICONO);
-  if (id === 'faroDeLaMuerte') return glifoObolo(ctx, cx, cy, r);
-  glifoEgida(ctx, cx, cy, r);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.7, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(159,208,232,.25)';
+  ctx.fill();
 }
 
 // Lo que cambia un personaje respecto al patrón, sacado de sus `mods`. Se deriva
@@ -195,7 +144,10 @@ const ALTO_POTENCIADOR = 36;
 
 function filasPotenciadores(ctx, cursor, r) {
   const t = Tema.actual;
-  const radio = Math.min(14, r.alto * 0.4);
+  // 17 y no 14: los dibujos de Sergio traen detalle -el laurel del ánfora, el
+  // SPQR de la lorica- y a 28 unidades se perdía. La fila mide 36, así que
+  // caben 34 sin tocar la de al lado.
+  const radio = Math.min(17, r.alto * 0.47);
   for (let i = 0; i < IDS.length; i++) {
     const id = IDS[i];
     const def = POTENCIADORES[id];
@@ -207,7 +159,7 @@ function filasPotenciadores(ctx, cursor, r) {
 
     if (elegida) resalte(ctx, y, r.alto);
 
-    iconoPotenciador(ctx, id, def, X_ICONO, yc, radio);
+    iconoPotenciador(ctx, def, X_ICONO, yc, radio);
 
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';

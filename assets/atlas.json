@@ -493,11 +493,83 @@
                                         "frames":  1,
                                         "plano":  true
                                     },
+                      "potVitalidad":  {
+                                           "archivo":  "objetos/pot-vitalidad.png",
+                                           "w":  96,
+                                           "h":  112,
+                                           "anclaX":  48,
+                                           "anclaY":  112,
+                                           "frames":  1,
+                                           "plano":  true
+                                       },
+                      "potPremura":  {
+                                         "archivo":  "objetos/pot-premura.png",
+                                         "w":  112,
+                                         "h":  112,
+                                         "anclaX":  56,
+                                         "anclaY":  112,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
+                      "potCoraza":  {
+                                        "archivo":  "objetos/pot-coraza.png",
+                                        "w":  104,
+                                        "h":  112,
+                                        "anclaX":  52,
+                                        "anclaY":  112,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "potCodicia":  {
+                                         "archivo":  "objetos/pot-codicia.png",
+                                         "w":  104,
+                                         "h":  112,
+                                         "anclaX":  52,
+                                         "anclaY":  112,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
+                      "potFuria":  {
+                                       "archivo":  "objetos/pot-furia.png",
+                                       "w":  104,
+                                       "h":  112,
+                                       "anclaX":  52,
+                                       "anclaY":  112,
+                                       "frames":  1,
+                                       "plano":  true
+                                   },
+                      "potClepsidra":  {
+                                           "archivo":  "objetos/pot-clepsidra.png",
+                                           "w":  88,
+                                           "h":  112,
+                                           "anclaX":  44,
+                                           "anclaY":  112,
+                                           "frames":  1,
+                                           "plano":  true
+                                       },
+                      "potOnda":  {
+                                      "archivo":  "objetos/pot-onda.png",
+                                      "w":  128,
+                                      "h":  112,
+                                      "anclaX":  64,
+                                      "anclaY":  112,
+                                      "frames":  1,
+                                      "plano":  true
+                                  },
+                      "potPanacea":  {
+                                         "archivo":  "objetos/pot-panacea.png",
+                                         "w":  104,
+                                         "h":  112,
+                                         "anclaX":  52,
+                                         "anclaY":  112,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
                       "potEgida":  {
                                        "archivo":  "objetos/pot-egida.png",
-                                       "w":  88,
+                                       "w":  112,
                                        "h":  112,
-                                       "anclaX":  44,
+                                       "anclaX":  56,
                                        "anclaY":  112,
                                        "frames":  1,
                                        "plano":  true

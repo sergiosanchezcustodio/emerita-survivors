@@ -26,14 +26,12 @@
 // diez números de abajo son lo único que decide cuánto dura la progresión de
 // largo plazo.
 //
-// `icono` nombra el objeto de datos/pasivos.js cuyo dibujo se reutiliza en la
-// tienda. Ocho de los diez van así y no hace falta más: la Vitalidad y el Ánfora
-// suben lo mismo, así que compartir dibujo AYUDA a leerlo.
-//
-// `arte` es lo contrario: el nombre de una entrada del atlas con dibujo PROPIO.
-// Lo llevan los dos que no tienen equivalente entre los pasivos de partida —la
-// Égida y la Moneda de Caronte son mecánicas nuevas y no había de dónde copiar
-// el icono—, y se lo dibujó Sergio aparte. Manda sobre `icono` si están los dos.
+// `arte` es la entrada del atlas con el dibujo de cada uno. Los diez lo tienen
+// y los diez son suyos: hasta hace nada, ocho se dibujaban con el icono del
+// pasivo gemelo —la Vitalidad salía con el ánfora, la Coraza con la lorica—
+// porque no había arte y compartir dibujo se leía mejor que inventarse diez
+// glifos. Ya lo hay, y un potenciador que se compra para siempre merece no
+// parecer un objeto de partida.
 //
 // `efecto` es la versión corta para la columna de la tabla. `descripcion` sigue
 // existiendo para el renglón de abajo, que tiene sitio para la frase entera.
@@ -43,7 +41,7 @@ export const POTENCIADORES = {
     descripcion: '+4% de vida máxima, en toda partida futura',
     campo: 'vidaMaxima', tipo: 'factor', valor: 0.04,
     efecto: '+4% vida máxima',
-    icono: 'anfora',
+    arte: 'potVitalidad',
     maxNivel: 5, costeBase: 400
   },
   premura: {
@@ -51,7 +49,7 @@ export const POTENCIADORES = {
     descripcion: '+2% de velocidad, en toda partida futura',
     campo: 'velocidad', tipo: 'factor', valor: 0.02,
     efecto: '+2% velocidad',
-    icono: 'sandalias',
+    arte: 'potPremura',
     maxNivel: 5, costeBase: 400
   },
   coraza: {
@@ -59,7 +57,7 @@ export const POTENCIADORES = {
     descripcion: '+1 de armadura, en toda partida futura',
     campo: 'armadura', tipo: 'suma', valor: 1,
     efecto: '+1 armadura',
-    icono: 'lorica',
+    arte: 'potCoraza',
     maxNivel: 5, costeBase: 500
   },
   codicia: {
@@ -67,7 +65,7 @@ export const POTENCIADORES = {
     descripcion: '+5% de radio de recogida, en toda partida futura',
     campo: 'radioRecogida', tipo: 'factor', valor: 0.05,
     efecto: '+5% recogida',
-    icono: 'piedraIman',
+    arte: 'potCodicia',
     maxNivel: 5, costeBase: 300
   },
   furia: {
@@ -75,7 +73,7 @@ export const POTENCIADORES = {
     descripcion: '+3% de daño, en toda partida futura',
     campo: 'bonusDanyo', tipo: 'suma', valor: 0.03,
     efecto: '+3% daño',
-    icono: 'anilloAugusto',
+    arte: 'potFuria',
     maxNivel: 5, costeBase: 600
   },
 
@@ -91,7 +89,7 @@ export const POTENCIADORES = {
     descripcion: '-1.5% de recarga, en toda partida futura',
     campo: 'reduccionRecarga', tipo: 'suma', valor: 0.015,
     efecto: '-1.5% recarga',
-    icono: 'clepsidra',
+    arte: 'potClepsidra',
     maxNivel: 5, costeBase: 600
   },
   onda: {
@@ -99,7 +97,7 @@ export const POTENCIADORES = {
     descripcion: '+2% de área de efecto, en toda partida futura',
     campo: 'bonusArea', tipo: 'suma', valor: 0.02,
     efecto: '+2% área',
-    icono: 'antorcha',
+    arte: 'potOnda',
     maxNivel: 5, costeBase: 500
   },
   panacea: {
@@ -107,7 +105,7 @@ export const POTENCIADORES = {
     descripcion: '+0.15 de vida por segundo, en toda partida futura',
     campo: 'regeneracion', tipo: 'suma', valor: 0.15,
     efecto: '+0.15 vida/s',
-    icono: 'coronaLaurel',
+    arte: 'potPanacea',
     maxNivel: 5, costeBase: 700
   },
 
