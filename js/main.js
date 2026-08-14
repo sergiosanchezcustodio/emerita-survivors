@@ -1598,6 +1598,9 @@ function dibujar(alpha) {
   disparos.dibujar(ctx, alpha);
   Mascotas.dibujar(ctx, jugadores);
   if (activo.particulas) Particulas.dibujar(ctx, alpha);
+  // Las marcas de golpe van DESPUÉS de las partículas y con ellas en el lienzo
+  // del mundo: son lo último del impacto y tienen que quedar por encima.
+  if (activo.efectos) VFX.dibujarImpactos(ctx);
   perfil.efectos = performance.now() - t;
 
   // --- Interfaz, en su propio lienzo -----------------------------------

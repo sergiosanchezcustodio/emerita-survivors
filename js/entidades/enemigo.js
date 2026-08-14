@@ -774,7 +774,20 @@ export class Enemigos {
 
     if (e.vida <= 0) {
       e.vida = 0;
-      if (e.vidaMaxima >= VIDA_HITSTOP) VFX.congelar(0.045);
+      // EL PARÓN Y LA SACUDIDA, A LA MEDIDA DE LO QUE HA CAÍDO.
+      //
+      // Antes era un valor fijo para todo lo que pasara de VIDA_HITSTOP, así
+      // que matar a un cíclope y matar a un jefe se sentían igual. Ahora el
+      // parón crece con la vida máxima del que cae y la sacudida le acompaña:
+      // una serpiente no para nada, un élite da un golpe seco y un jefe se nota
+      // en el mando. Los topes están puestos para que un hitstop siga siendo un
+      // signo de puntuación y no un tartamudeo (ver VFX.congelar, que además
+      // tiene su propio racionamiento).
+      if (e.vidaMaxima >= VIDA_HITSTOP) {
+        const peso = Math.min(1, e.vidaMaxima / (VIDA_HITSTOP * 12));
+        VFX.congelar(0.04 + peso * 0.06);
+        VFX.sacudir(1.2 + peso * 3.5);
+      }
 
       // Objeto del escenario (antorcha, ver datos/enemigos.js): NO es una
       // baja de verdad. Nada de gema de XP ni de sumar al contador de
@@ -787,8 +800,8 @@ export class Enemigos {
         GestorAudio.muerteEnemigo();
         if (this.cofres) this.cofres.soltar(e.x, e.y, tipoConsumible(this._rng()));
         const apretadoObjeto = Particulas.saturado();
-        Particulas.estallido(e.x, e.y - 4, apretadoObjeto ? 3 : 6, 60, 0.35, 1.5,
-                             COLOR_CHISPA, 0.8, this._rng);
+        Particulas.chorro(e.x, e.y - 4, dirX, dirY, apretadoObjeto ? 3 : 6,
+                          70, 1.1, 0.35, 1.5, COLOR_CHISPA, 0.8, this._rng);
         if (!apretadoObjeto) {
           Particulas.estallido(e.x, e.y - 4, 3, 35, 0.30, 1,
                                COLOR_POLVO, 0.4, this._rng);
@@ -814,9 +827,13 @@ export class Enemigos {
       // entre toda la horda.
       if (e.def.cofre && this.cofres) this.cofres.soltar(e.x, e.y);
 
+      // La sangre sale DESPEDIDA hacia donde iba el golpe, no en círculo: un
+      // cono ancho, que sigue leyéndose como un reventón pero cuenta además de
+      // dónde vino. El polvo sí se queda redondo — es el que levanta el cuerpo
+      // al caer, y ese no tiene dirección.
       const apretado = Particulas.saturado();
-      Particulas.estallido(e.x, e.y - 4, apretado ? 3 : 7, 70, 0.45, 2,
-                           COLOR_SANGRE, 1, this._rng);
+      Particulas.chorro(e.x, e.y - 4, dirX, dirY, apretado ? 3 : 7,
+                        85, 1.25, 0.45, 2, COLOR_SANGRE, 1, this._rng);
       if (!apretado) {
         Particulas.estallido(e.x, e.y - 4, 3, 40, 0.30, 1,
                              COLOR_POLVO, 0.4, this._rng);
@@ -825,11 +842,17 @@ export class Enemigos {
     }
 
     // Las chispas de impacto son lo primero que se sacrifica: son adorno, y un
-    // arco de melé a nivel 8 pide doscientas de golpe.
+    // arco de melé a nivel 8 pide doscientas de golpe. Las que salen van hacia
+    // donde iba el golpe, en un cono estrecho: son chispas de choque, no una
+    // explosión.
     if (!Particulas.saturado()) {
-      Particulas.estallido(e.x, e.y - 6, 2, 45, 0.22, 1,
-                           COLOR_CHISPA, 0.6, this._rng);
+      Particulas.chorro(e.x, e.y - 6, dirX, dirY, 2, 60, 0.7, 0.22, 1,
+                        COLOR_CHISPA, 0.6, this._rng);
     }
+    // Y la marca del golpe, que es lo que hace que un impacto se vea aunque no
+    // haya sitio para partículas: un trazo corto atravesado en la dirección del
+    // golpe. Ver VFX.impacto.
+    VFX.impacto(e.x, e.y - 6, dirX, dirY, cantidad);
     GestorAudio.golpe();
     return false;
   }

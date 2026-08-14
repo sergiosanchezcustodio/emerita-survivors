@@ -32,6 +32,23 @@ function crearNumero() {
   return { x: 0, y: 0, vida: 0, texto: '0', gordo: false, desvio: 0 };
 }
 
+// MARCAS DE IMPACTO: un trazo corto y luminoso, atravesado en la dirección del
+// golpe, que aparece y se va en dos décimas.
+//
+// Existe porque las chispas son lo primero que se sacrifica cuando hay matanza
+// (ver Particulas.saturado) y justo entonces —con la pantalla llena— es cuando
+// más falta hace ver que estás dando. Una marca son dos líneas trazadas y no
+// pasa por el racionamiento de las partículas, así que el golpe se ve siempre.
+//
+// Pool propio y pequeño: no hacen falta muchas a la vez porque duran nada, y
+// tener el suyo evita competir por el hueco con los números de daño.
+const MARCAS = 64;
+const VIDA_MARCA = 0.16;
+
+function crearMarca() {
+  return { x: 0, y: 0, dx: 1, dy: 0, largo: 6, vida: 0 };
+}
+
 export const VFX = {
   pool: null,
 
@@ -47,8 +64,12 @@ export const VFX = {
   congelado: 0,
   _esperaHitstop: 0,
 
+  // --- Marcas de impacto ---------------------------------------------------
+  marcas: null,
+
   iniciar(capacidad) {
     this.pool = new Pool(crearNumero, capacidad);
+    this.marcas = new Pool(crearMarca, MARCAS);
     this.sacudida = 0;
     this.congelado = 0;
     this._esperaHitstop = 0;
@@ -123,6 +144,14 @@ export const VFX = {
       else k++;
     }
 
+    const marcas = this.marcas.items;
+    let j = 0;
+    while (j < this.marcas.activos) {
+      marcas[j].vida -= dt;
+      if (marcas[j].vida <= 0) this.marcas.liberarEn(j);
+      else j++;
+    }
+
     // La sacudida decae exponencialmente y oscila rápido. Determinista: sale de
     // un contador propio, no del reloj ni del azar, para no romper el criterio
     // de reproducibilidad.
@@ -138,7 +167,58 @@ export const VFX = {
     }
   },
 
+  // Una marca de golpe. `fuerza` es el daño: los golpes gordos dejan un trazo
+  // más largo, que es lo que distingue un arañazo de un mandoble sin tener que
+  // leer el número.
+  impacto(x, y, dirX, dirY, fuerza) {
+    if (!this.marcas) return;
+    const m = this.marcas.obtener();
+    if (!m) return;
+    const v = Math.hypot(dirX, dirY) || 1;
+    m.x = x; m.y = y;
+    m.dx = dirX / v; m.dy = dirY / v;
+    m.largo = 5 + Math.min(9, fuerza * 0.22);
+    m.vida = VIDA_MARCA;
+  },
+
+  // Se dibujan en el lienzo del MUNDO, con las partículas: son parte del golpe,
+  // no de la interfaz, y tienen que moverse con la cámara.
+  dibujarImpactos(ctx) {
+    if (!this.marcas) return;
+    const items = this.marcas.items;
+    const n = this.marcas.activos;
+    if (n === 0) return;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    for (let k = 0; k < n; k++) {
+      const m = items[k];
+      const t = m.vida / VIDA_MARCA;
+      // El trazo va ATRAVESADO al golpe, no en su misma dirección: una raya que
+      // sigue al proyectil se confunde con el proyectil, y una perpendicular se
+      // lee como el corte que ha abierto.
+      const px = -m.dy, py = m.dx;
+      const l = m.largo * (0.5 + 0.5 * t);
+      ctx.globalAlpha = t * 0.9;
+      ctx.strokeStyle = '#ffe9a8';
+      ctx.lineWidth = 1 + t * 1.6;
+      ctx.beginPath();
+      ctx.moveTo(m.x - px * l, m.y - py * l);
+      ctx.lineTo(m.x + px * l, m.y + py * l);
+      ctx.stroke();
+      // Y un chispazo en el punto exacto del choque.
+      ctx.globalAlpha = t * 0.55;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, 1.5 + t * 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff6d8';
+      ctx.fill();
+    }
+    ctx.restore();
+  },
+
   vaciar() {
+    if (this.marcas) this.marcas.vaciar();
     if (this.pool) this.pool.vaciar();
     this.escarcha = 0;
     this.escarchaTotal = 0;

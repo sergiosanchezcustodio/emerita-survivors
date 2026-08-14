@@ -83,6 +83,27 @@ export const Particulas = {
     }
   },
 
+  // CHORRO: lo mismo pero HACIA UN LADO, dentro de un cono.
+  //
+  // Es la diferencia entre "aquí ha pasado algo" y "aquí ha pasado algo QUE
+  // VENÍA DE ALLÍ". Un estallido radial es el mismo dibujo lo golpee un pilum
+  // por la espalda o una serpiente de frente, y esa información —de dónde vino
+  // el golpe— la tiene quien llama (ver `danyar` en entidades/enemigo.js, que
+  // recibe la dirección desde el primer día y hasta ahora solo la usaba para
+  // empujar).
+  //
+  // `apertura` es el medio ángulo del cono en radianes: 0 escupe una línea y
+  // Math.PI vuelve a ser un estallido redondo.
+  chorro(x, y, dirX, dirY, cantidad, velocidad, apertura, vida, tam, color, gravedad, rng) {
+    const base = Math.atan2(dirY, dirX);
+    for (let i = 0; i < cantidad; i++) {
+      const a = base + (rng() * 2 - 1) * apertura;
+      const v = velocidad * (0.45 + rng() * 0.55);
+      this.emitir(x, y, Math.cos(a) * v, Math.sin(a) * v,
+                  vida * (0.6 + rng() * 0.4), tam, color, gravedad);
+    }
+  },
+
   actualizar(dt) {
     const items = this.pool.items;
     const frenado = Math.exp(-ROZAMIENTO * dt);
@@ -128,7 +149,12 @@ export const Particulas = {
         const y = p.yPrev + (p.y - p.yPrev) * alpha;
         const t = p.vida / p.vidaMax;
         ctx.globalAlpha = t > 1 ? 1 : t;
-        ctx.fillRect(x - p.tam * 0.5, y - p.tam * 0.5, p.tam, p.tam);
+        // MENGUAN ADEMÁS DE APAGARSE. Una chispa que solo pierde opacidad se
+        // queda del mismo tamaño hasta desaparecer y se lee como un cuadrado
+        // que se difumina; encogiendo a la vez se lee como una chispa que se
+        // consume. Es una multiplicación por partícula y cambia bastante.
+        const lado = p.tam * (0.45 + 0.55 * (t > 1 ? 1 : t));
+        ctx.fillRect(x - lado * 0.5, y - lado * 0.5, lado, lado);
       }
     }
     ctx.globalAlpha = alfaPrev;
