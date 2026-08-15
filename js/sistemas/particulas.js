@@ -26,10 +26,24 @@ export const COLOR_SANGRE  = '#a8323c';
 export const COLOR_CHISPA  = '#ffe9a8';
 export const COLOR_POLVO   = '#b99b6b';
 export const COLOR_CENIZA  = '#6d6a63';
+// De qué está hecho lo que no es carne. Ver MATERIALES en entidades/enemigo.js:
+// la gárgola es una estatua y no sangra, y a la medusa se le escapa el veneno
+// con el que llena sus púas.
+export const COLOR_PIEDRA  = '#8f9298';
+export const COLOR_VENENO  = '#7fc247';
 
 // La paleta es CERRADA a propósito: el dibujado agrupa por color y recorre esta
 // lista, así que un color nuevo tiene que añadirse aquí o no se pintará.
-const PALETA = [COLOR_SANGRE, COLOR_CHISPA, COLOR_POLVO, COLOR_CENIZA];
+//
+// QUÉ CUESTA AÑADIR UNO. Una pasada más sobre el pool, que son unos cientos de
+// comparaciones de puntero por frame: nada. Lo que se está evitando al agrupar
+// es asignar `fillStyle`, que obliga a parsear una cadena CSS, y de eso sigue
+// habiendo uno por color y no uno por partícula. O sea que la lista puede
+// crecer mientras cada color tenga quien lo emita — y hasta ahora COLOR_CENIZA
+// no lo tenía: estaba en la paleta sin que nadie lo pidiera nunca, pagando su
+// pasada a cambio de nada. Ahora es lo que sueltan las antorchas al apagarse.
+const PALETA = [COLOR_SANGRE, COLOR_CHISPA, COLOR_POLVO, COLOR_CENIZA,
+                COLOR_PIEDRA, COLOR_VENENO];
 
 function crearParticula() {
   return {

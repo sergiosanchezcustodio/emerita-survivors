@@ -7,7 +7,8 @@ import { ENEMIGOS } from '../datos/enemigos.js';
 import { VFX } from '../sistemas/vfx.js';
 import { GestorAudio } from '../sistemas/audio.js';
 import {
-  Particulas, COLOR_SANGRE, COLOR_POLVO, COLOR_CHISPA
+  Particulas, COLOR_SANGRE, COLOR_POLVO, COLOR_CHISPA, COLOR_CENIZA,
+  COLOR_PIEDRA, COLOR_VENENO
 } from '../sistemas/particulas.js';
 import { tipoConsumible } from './cofre.js';
 
@@ -222,6 +223,26 @@ export function prepararVariantes() {
   }
 }
 
+// DE QUÉ ESTÁ HECHO CADA BICHO. `restos` lo declara la ficha (datos/enemigos.js)
+// y aquí se traduce a cómo se ve, que es donde viven los colores: los datos
+// dicen CUÁL y el motor sabe CÓMO, igual que con `movimiento`.
+//
+// No es solo el color. Lo que de verdad separa una lasca de piedra de un
+// salpicón de sangre es cómo CAE, y eso son dos números:
+//
+//   gravedad — la piedra se desploma, el veneno flota, la ceniza casi no baja.
+//   apertura — el medio ángulo del cono. Lo sólido sale disparado en la
+//              dirección del golpe; lo que es humo se esparce en todas.
+//
+// `gotas` es cuántas suelta la muerte cuando hay sitio: la piedra se rompe en
+// más trozos y más pequeños que un cuerpo.
+const MATERIALES = {
+  carne:  { color: COLOR_SANGRE, gravedad: 1,    velocidad: 85, apertura: 1.25, gotas: 7, tam: 2 },
+  piedra: { color: COLOR_PIEDRA, gravedad: 1.7,  velocidad: 72, apertura: 1.5,  gotas: 9, tam: 1.5 },
+  veneno: { color: COLOR_VENENO, gravedad: 0.25, velocidad: 62, apertura: 1.9,  gotas: 8, tam: 2 },
+  ceniza: { color: COLOR_CENIZA, gravedad: 0.12, velocidad: 48, apertura: 2.2,  gotas: 8, tam: 1.5 }
+};
+
 // Forma única para todos los enemigos: un solo tipo oculto en V8. Si unos
 // enemigos tuvieran campos que otros no, cada acceso pasaría a ser polimórfico.
 function crearEnemigo() {
@@ -233,6 +254,7 @@ function crearEnemigo() {
     empujeX: 0, empujeY: 0,
     frenado: 0,              // 0..1, cuánto le ralentiza una red o un charco
     destello: 0,             // segundos que queda blanqueado tras un impacto
+    material: null,          // de qué está hecho: entrada de MATERIALES
     ultimoSello: 0,          // marca del último proyectil que le golpeó
     radio: 0, radioCuerpo: 0, radioSep: 0, invMasa: 1, vuela: false,
     fase: 0, cadencia: 0, mirandoDerecha: true,
@@ -428,6 +450,11 @@ export class Enemigos {
     e.imgEspejo = Recursos.espejo(def.sprite);
     e.imgTinte = Recursos.tinte(def.sprite);
     e.imgTinteEspejo = Recursos.tinteEspejo(def.sprite);
+    // De qué está hecho. Se resuelve AQUÍ, con el resto de lo que se saca de la
+    // ficha una sola vez, y no en `danyar`: así la muerte no tiene que buscar en
+    // ningún diccionario ni preguntar si el campo existe. Es lo mismo que se
+    // hace dos líneas más arriba con las hojas de dibujo.
+    e.material = MATERIALES[def.restos] || MATERIALES.carne;
     return e;
   }
 
@@ -805,12 +832,17 @@ export class Enemigos {
         MetaProgreso.ganar(DENARIOS_ANTORCHA);
         GestorAudio.muerteEnemigo();
         if (this.cofres) this.cofres.soltar(e.x, e.y, tipoConsumible(this._rng()));
+        // Una antorcha no muere: se APAGA. Las chispas son el fuego que salta al
+        // romperla, y lo que se queda flotando después es su ceniza —el material
+        // de su ficha— en vez del polvo de tierra que levanta un cuerpo al caer.
+        const matObjeto = e.material;
         const apretadoObjeto = Particulas.saturado();
         Particulas.chorro(e.x, e.y - 4, dirX, dirY, apretadoObjeto ? 3 : 6,
                           70, 1.1, 0.35, 1.5, COLOR_CHISPA, 0.8, this._rng);
         if (!apretadoObjeto) {
-          Particulas.estallido(e.x, e.y - 4, 3, 35, 0.30, 1,
-                               COLOR_POLVO, 0.4, this._rng);
+          Particulas.estallido(e.x, e.y - 4, 5, matObjeto.velocidad * 0.6, 0.55,
+                               matObjeto.tam, matObjeto.color, matObjeto.gravedad,
+                               this._rng);
         }
         return true;
       }
@@ -833,13 +865,18 @@ export class Enemigos {
       // entre toda la horda.
       if (e.def.cofre && this.cofres) this.cofres.soltar(e.x, e.y);
 
-      // La sangre sale DESPEDIDA hacia donde iba el golpe, no en círculo: un
-      // cono ancho, que sigue leyéndose como un reventón pero cuenta además de
-      // dónde vino. El polvo sí se queda redondo — es el que levanta el cuerpo
-      // al caer, y ese no tiene dirección.
+      // Lo que suelta sale DESPEDIDO hacia donde iba el golpe, no en círculo: un
+      // cono, que sigue leyéndose como un reventón pero cuenta además de dónde
+      // vino. El polvo sí se queda redondo — es el que levanta el cuerpo al
+      // caer, y ese no tiene dirección ni depende de qué se haya roto.
+      //
+      // Y sale del MATERIAL, no siempre sangre: una gárgola es una estatua y
+      // reventaba en rojo como todo lo demás. Ver MATERIALES.
+      const mat = e.material;
       const apretado = Particulas.saturado();
-      Particulas.chorro(e.x, e.y - 4, dirX, dirY, apretado ? 3 : 7,
-                        85, 1.25, 0.45, 2, COLOR_SANGRE, 1, this._rng);
+      Particulas.chorro(e.x, e.y - 4, dirX, dirY, apretado ? 3 : mat.gotas,
+                        mat.velocidad, mat.apertura, 0.45, mat.tam,
+                        mat.color, mat.gravedad, this._rng);
       if (!apretado) {
         Particulas.estallido(e.x, e.y - 4, 3, 40, 0.30, 1,
                              COLOR_POLVO, 0.4, this._rng);
@@ -852,8 +889,17 @@ export class Enemigos {
     // donde iba el golpe, en un cono estrecho: son chispas de choque, no una
     // explosión.
     if (!Particulas.saturado()) {
+      // La CARNE echa chispas doradas —la chispa es el idioma del choque y así
+      // se ha visto siempre— pero lo que no es carne echa lo suyo: pegarle a una
+      // gárgola tiene que soltar lascas, no destellos, porque es lo que dice sin
+      // palabras que eso de ahí es piedra y va a costar. Y como golpear es lo
+      // que más se hace, es aquí donde el material se ve de verdad; la muerte
+      // solo lo confirma.
+      const mat = e.material;
+      const chispa = mat === MATERIALES.carne;
       Particulas.chorro(e.x, e.y - 6, dirX, dirY, 2, 60, 0.7, 0.22, 1,
-                        COLOR_CHISPA, 0.6, this._rng);
+                        chispa ? COLOR_CHISPA : mat.color,
+                        chispa ? 0.6 : mat.gravedad, this._rng);
     }
     // Y la marca del golpe, que es lo que hace que un impacto se vea aunque no
     // haya sitio para partículas: un trazo corto atravesado en la dirección del

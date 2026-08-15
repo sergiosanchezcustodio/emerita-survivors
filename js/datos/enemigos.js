@@ -132,6 +132,22 @@
 //
 // Todos tiran RECTO en el último tramo, o un enemigo que culebrea pegado a ti
 // no llegaría a tocarte nunca y el combate sería incomprensible.
+// --- DE QUÉ ESTÁ HECHO CADA UNO ----------------------------------------------
+//
+// `restos` dice qué suelta al morir. Sin él todo el bestiario reventaba EN
+// SANGRE: una gárgola es una estatua de piedra y sangraba, una antorcha es un
+// palo ardiendo y sangraba, y con veinte bichos distintos en pantalla todas las
+// muertes eran la misma mancha roja. Es lo único que distingue de qué está hecho
+// lo que acabas de romper.
+//
+// Aquí solo se declara el NOMBRE del material; qué color y qué peso tiene cada
+// uno vive en MATERIALES, en entidades/enemigo.js, que es donde están los
+// colores. Igual que `movimiento:'zigzag'`: el dato dice cuál, el motor sabe
+// cómo. Lo que no se declara es carne, que es la inmensa mayoría.
+//
+//   piedra — la gárgola y sus variantes. Lascas grises que caen rápido.
+//   veneno — la medusa, la misma sustancia con la que llena sus púas.
+//   ceniza — las antorchas, que no mueren: se apagan.
 export const ENEMIGOS = {
   // --- Masa: carne de cañón, aparecen en enjambres -------------------------
   // La serpiente ya no muere de un solo disparo del Pilum base (10). Es el
@@ -142,7 +158,7 @@ export const ENEMIGOS = {
   // el círculo de daño no puede sobrar por fuera de la silueta, o el bicho muerde
   // desde donde no está.
   serpiente:  { sprite:'serpiente',  rol:'masa',      xp:1, vida:16,    velocidad:10, danyo:4,  radio:3.6,  masa:1.0,  vuela:false, inmuneEmpuje:false, movimiento:'zigzag'    },
-  gargola:    { sprite:'gargola',    rol:'masa',      xp:2, vida:40,    velocidad:16, danyo:5,  radio:6.5,  masa:1.6,  vuela:true,  inmuneEmpuje:false, movimiento:'revoloteo' },
+  gargola:    { sprite:'gargola',    rol:'masa',      xp:2, vida:40,    velocidad:16, danyo:5,  radio:6.5,  masa:1.6,  vuela:true,  inmuneEmpuje:false, movimiento:'revoloteo', restos:'piedra' },
 
   // --- Base: los guardianes humanos ---------------------------------------
   // Casi diez veces la serpiente. Un legionario no es "otra serpiente con
@@ -179,7 +195,10 @@ export const ENEMIGOS = {
   //   proyectiles + dispersion   abanico, en grados entre uno y otro
   //   vida        impactos que aguanta antes de romperse
   medusa:     { sprite:'medusa',     rol:'distancia', xp:8, vida:160,   velocidad:8,  danyo:7,  radio:7.6,  masa:3.5,  vuela:false, inmuneEmpuje:false, movimiento:'acecho',
-                ataque: { danyo:12, cadencia:2.8, alcance:190, velocidad:78, proyectiles:1, dispersion:0, radio:4.5, color:'#9ae86a', vida:1 } },
+                ataque: { danyo:12, cadencia:2.8, alcance:190, velocidad:78, proyectiles:1, dispersion:0, radio:4.5, color:'#9ae86a', vida:1 },
+                // Muere en el mismo verde con el que dispara: lo que le sale del
+                // cuerpo es lo que llevaban sus púas, y eso se lee sin leer nada.
+                restos:'veneno' },
 
   // --- Tanques: cuestan de verdad, y no son jefes -------------------------
   // Cuarenta veces una serpiente. Con el arsenal del minuto 8 son varios
@@ -244,7 +263,7 @@ export const ENEMIGOS = {
   gargolaBronce:   { sprite:'gargolaBronce', spriteBase:'gargola', tinte:'#c9822f',
                      rol:'elite', especial:'gargola', xp:90, vida:1800, velocidad:16, danyo:12,
                      radio:6.5, masa:14.0,
-                     vuela:true, inmuneEmpuje:false, movimiento:'revoloteo', cofre:true, persistente:true },
+                     vuela:true, inmuneEmpuje:false, movimiento:'revoloteo', cofre:true, persistente:true, restos:'piedra' },
 
   // === DORADOS: la versión que suelta tesoro ================================
   //
@@ -262,7 +281,7 @@ export const ENEMIGOS = {
   gargolaDorada:    { sprite:'gargolaDorada', spriteBase:'gargola', tinte:'#e8c23a',
                       rol:'elite', especial:'gargola', xp:110, vida:2000, velocidad:16, danyo:7,
                       radio:6.5, masa:12.0,
-                      vuela:true, inmuneEmpuje:false, movimiento:'revoloteo', cofre:true, persistente:true },
+                      vuela:true, inmuneEmpuje:false, movimiento:'revoloteo', cofre:true, persistente:true, restos:'piedra' },
   legionarioDorado: { sprite:'legionarioDorado', spriteBase:'legionario', tinte:'#e8c23a',
                       rol:'elite', especial:'legionario', xp:150, vida:3200, velocidad:13, danyo:12,
                       radio:7.7, masa:18.0,
@@ -347,6 +366,6 @@ export const ENEMIGOS = {
   // enemigos eliminados— y que reparta un consumible al azar en vez de sangre.
   // `vida:0` en `xp` porque no da experiencia; `radio` sale de la misma
   // fórmula que el resto de la decoración (sección 10 del plan).
-  antorcha1:  { sprite:'antorcha1',  rol:'objeto', xp:0, vida:30, velocidad:0, danyo:0, radio:2.7, masa:999, vuela:false, inmuneEmpuje:true, movimiento:'directo', esObjeto:true },
-  antorcha2:  { sprite:'antorcha2',  rol:'objeto', xp:0, vida:30, velocidad:0, danyo:0, radio:2.7, masa:999, vuela:false, inmuneEmpuje:true, movimiento:'directo', esObjeto:true }
+  antorcha1:  { sprite:'antorcha1',  rol:'objeto', xp:0, vida:30, velocidad:0, danyo:0, radio:2.7, masa:999, vuela:false, inmuneEmpuje:true, movimiento:'directo', esObjeto:true, restos:'ceniza' },
+  antorcha2:  { sprite:'antorcha2',  rol:'objeto', xp:0, vida:30, velocidad:0, danyo:0, radio:2.7, masa:999, vuela:false, inmuneEmpuje:true, movimiento:'directo', esObjeto:true, restos:'ceniza' }
 };
