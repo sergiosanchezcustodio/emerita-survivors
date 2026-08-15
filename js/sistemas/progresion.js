@@ -2,6 +2,8 @@ import { ARMAS } from '../datos/armas.js';
 import { PASIVOS } from '../datos/pasivos.js';
 import { comportamientoImplementado } from './armas.js';
 import { GestorAudio } from './audio.js';
+import { VFX } from './vfx.js';
+import { Particulas, COLOR_CHISPA } from './particulas.js';
 
 // Experiencia, subida de nivel y generación de ofertas.
 //
@@ -42,6 +44,11 @@ import { GestorAudio } from './audio.js';
 const XP_BASE = 8;
 const XP_LINEAL = 6;
 const XP_CUADRATICO = 1.0;
+
+// El oro del anillo que se abre al subir de nivel (ver _celebrarNivel).
+// Constante de módulo, no una cadena construida al vuelo: el resto del motor
+// tampoco compone colores en caliente.
+const COLOR_ANILLO_NIVEL = '#ffd24a';
 
 export function xpNecesaria(nivel) {
   return Math.round(XP_BASE + XP_LINEAL * nivel + XP_CUADRATICO * nivel * nivel);
@@ -204,6 +211,26 @@ export const Progresion = {
 
   get abierto() { return this.actual !== null; },
 
+  // SUBIR DE NIVEL SE VE, no solo se oye.
+  //
+  // Hasta ahora era un sonido y un menú que aparecía de golpe, y entre los dos
+  // no había nada: el instante en que llegas al umbral —que es el premio de los
+  // últimos treinta segundos— no existía en pantalla. Un anillo que se abre desde
+  // los pies y un puñado de chispas hacia arriba, en el sitio exacto donde está
+  // el jugador, que es además lo que dice CUÁL de los cuatro ha subido antes de
+  // que se abra ningún menú.
+  //
+  // Va antes del menú a propósito, aunque el menú lo tape casi enseguida: en
+  // automático (autoNivel) no hay menú ninguno y esto es lo único que queda.
+  _celebrarNivel(jugador) {
+    VFX.anillo(jugador.x, jugador.y - 4, 44, COLOR_ANILLO_NIVEL, 2, 0.5);
+    if (!this._rng || Particulas.saturado()) return;
+    // Hacia ARRIBA y con gravedad casi nula: son chispas que suben, no una
+    // explosión. Lo de abajo se lee como daño; lo que sube, como premio.
+    Particulas.chorro(jugador.x, jugador.y - 10, 0, -1, 10, 55, 0.9, 0.55, 1.5,
+                      COLOR_CHISPA, 0.12, this._rng);
+  },
+
   // Un jugador ha subido de nivel. Con cooperativo pueden subir varios a la vez,
   // así que se encolan y se atienden de uno en uno: dos menús a la vez sobre la
   // misma pantalla no hay forma de leerlos.
@@ -230,6 +257,7 @@ export const Progresion = {
         jugador.xpNecesaria = xpNecesaria(jugador.nivel);
         this.encolar(jugador);
         GestorAudio.subidaNivel();
+        this._celebrarNivel(jugador);
       }
       return;
     }
@@ -244,7 +272,7 @@ export const Progresion = {
         j.nivel = nivel;
         j.xp = resto;
         j.xpNecesaria = necesaria;
-        if (!j.abatido) this.encolar(j);
+        if (!j.abatido) { this.encolar(j); this._celebrarNivel(j); }
       }
       GestorAudio.subidaNivel();
     }

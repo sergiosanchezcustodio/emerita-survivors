@@ -12,7 +12,7 @@ import { Jugador } from './entidades/jugador.js';
 import { Enemigos, prepararVariantes } from './entidades/enemigo.js';
 import { Proyectiles } from './entidades/proyectil.js';
 import { Armas } from './sistemas/armas.js';
-import { Particulas } from './sistemas/particulas.js';
+import { Particulas, COLOR_CHISPA } from './sistemas/particulas.js';
 import { VFX } from './sistemas/vfx.js';
 import { GestorAudio } from './sistemas/audio.js';
 import {
@@ -480,6 +480,13 @@ const DENARIOS_MONEDAS = 10;
 const DENARIOS_PRUEBA = 1000;
 const CADENCIA_LLAMARADA = 0.16;
 const DANYO_LLAMARADA = 26;
+// El verde del anillo de curación. Es el único verde de los efectos del jugador
+// y por eso no hace falta más para que se lea como "te has curado".
+const COLOR_CURA = '#7ce08a';
+// Y los otros dos anillos de consumible: el azul frío del imán —el mismo color
+// con el que brilla el jugador al absorber gemas— y el oro del denario.
+const COLOR_HALO_IMAN = '#7ac4ff';
+const COLOR_DENARIO = '#e8b73a';
 
 // Efecto INSTANTÁNEO al recogerlos: no se eligen, no ocupan ranura y no abren
 // ninguna pantalla. Lo único que deciden es si merece la pena desviarse a por
@@ -490,11 +497,27 @@ function usarConsumible(jugador, tipo) {
     // gemas que deja una partida avanzada, esto son varios niveles de golpe.
     recogibles.atraerTodas(jugador);
     VFX.congelar(0.05);
+    // Un anillo ANCHO, que es el tamaño de lo que acaba de pasar: no ha curado
+    // ni ha subido nada, ha barrido el mapa entero. Y con las estelas de las
+    // gemas (entidades/recogible.js) lo que viene después ya se ve solo.
+    VFX.anillo(jugador.x, jugador.y - 10, 90, COLOR_HALO_IMAN, 2.5, 0.55);
     return;
   }
 
   if (tipo === COMIDA) {
+    const antes = jugador.vida;
     jugador.vida = Math.min(jugador.vidaMaxima, jugador.vida + CURA_COMIDA);
+    // Curarse era el único consumible completamente mudo: la barra de la esquina
+    // subía y ya. Un anillo verde en el sitio, y las chispas SUBIENDO igual que
+    // en la subida de nivel, que es el idioma de lo que te entra. El anillo sale
+    // aunque estuvieras a vida llena —la comida se ha gastado y hay que verlo—
+    // pero las chispas no: si no ha curado nada, no hay nada que celebrar.
+    VFX.anillo(jugador.x, jugador.y - 10, 30, COLOR_CURA, 2, 0.4);
+    if (jugador.vida > antes && !Particulas.saturado()) {
+      Particulas.chorro(jugador.x, jugador.y - 10, 0, -1, 7, 45, 0.9, 0.5, 1.5,
+                        COLOR_CHISPA, 0.1, rng);
+    }
+    GestorAudio.abrirCofre();
     return;
   }
 
@@ -512,6 +535,10 @@ function usarConsumible(jugador, tipo) {
   if (tipo === MONEDAS) {
     MetaProgreso.ganar(DENARIOS_MONEDAS);
     GestorAudio.abrirCofre();
+    // El único consumible cuyo premio no está en la partida sino en la cuenta
+    // de denarios, o sea en la esquina de arriba. El anillo dorado en el sitio
+    // es lo que conecta las dos cosas: pasa aquí, se apunta allí.
+    VFX.anillo(jugador.x, jugador.y - 10, 26, COLOR_DENARIO, 2, 0.4);
     return;
   }
 
@@ -1655,6 +1682,9 @@ function dibujar(alpha) {
   // Las marcas de golpe van DESPUÉS de las partículas y con ellas en el lienzo
   // del mundo: son lo último del impacto y tienen que quedar por encima.
   if (activo.efectos) VFX.dibujarImpactos(ctx);
+  // Y los anillos de recompensa los últimos del mundo: subir de nivel o curarse
+  // tapa por un instante lo que haya debajo, y eso es lo que se quiere.
+  if (activo.efectos) VFX.dibujarAnillos(ctx);
   perfil.efectos = performance.now() - t;
 
   // --- Interfaz, en su propio lienzo -----------------------------------

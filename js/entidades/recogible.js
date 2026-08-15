@@ -76,6 +76,10 @@ export class Recogibles {
     this.recogidas = 0;
     this.absorbidas = 0;     // gemas que llegaron con el pool lleno
     this._cursor = 0;        // turno rotatorio de _absorber
+    // Cuántas van volando hacia alguien AHORA MISMO. Se lleva la cuenta en el
+    // paso de lógica para que el dibujado pueda saltarse el bloque de estelas de
+    // un vistazo: lo normal es que no haya ninguna.
+    this.atraidas = 0;
   }
 
   get activas() { return this.pool.activos; }
@@ -103,6 +107,7 @@ export class Recogibles {
   // Devuelve la XP recogida en este paso, ya repartida a cada jugador.
   actualizar(dt, jugadores) {
     const items = this.pool.items;
+    this.atraidas = 0;
     let k = 0;
     while (k < this.pool.activos) {
       const g = items[k];
@@ -138,6 +143,7 @@ export class Recogibles {
         // Absorbida
         if (d2 < 36) {
           j.ganarXp(g.valor, jugadores);
+          j.absorberGema();
           GestorAudio.recogerGema();
           this.recogidas++;
           this.pool.liberarEn(k);       // sin avanzar k
@@ -151,6 +157,7 @@ export class Recogibles {
         g.vy = dy * v;
         g.x += g.vx * dt;
         g.y += g.vy * dt;
+        this.atraidas++;
       }
       k++;
     }
@@ -249,14 +256,62 @@ export class Recogibles {
     return this.pool.activos;
   }
 
-  vaciar() { this.pool.vaciar(); }
+  vaciar() { this.pool.vaciar(); this.atraidas = 0; }
 
-  // Rombo con un punto de luz. Las atraídas dejan una estela corta: es lo que
-  // convierte la recogida en un efecto y no en una desaparición.
+  // El dibujo de la gema, y una ESTELA CORTA detrás de las que vuelan.
+  //
+  // Sin ella, una gema que cruza media pantalla a 420 unidades por segundo es un
+  // rombo teletransportándose: a 60 fps recorre siete píxeles entre fotograma y
+  // fotograma, o sea más que su propio tamaño, y el ojo no la sigue. Con la
+  // estela se ve el recorrido, y ver el recorrido es lo que convierte recoger en
+  // un efecto en vez de una desaparición.
+  //
+  // AGRUPADA POR TIPO, una pasada por color, igual que las partículas: asignar
+  // strokeStyle obliga a parsear la cadena CSS y con el imán soltando
+  // seiscientas gemas serían seiscientas asignaciones por frame. Y todo el
+  // bloque se salta entero si no hay ninguna volando, que es lo normal.
+  _dibujarEstelas(ctx, alpha) {
+    const items = this.pool.items;
+    const n = this.pool.activos;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.45;
+    ctx.lineCap = 'round';
+    for (let t = 0; t < GEMAS.length; t++) {
+      let abierta = false;
+      for (let k = 0; k < n; k++) {
+        const g = items[k];
+        if (g.tipo !== t || !g.atraidaPor) continue;
+        const v = Math.hypot(g.vx, g.vy);
+        if (v < 1) continue;
+        if (!abierta) {
+          ctx.strokeStyle = GEMAS[t].brillo;
+          ctx.lineWidth = GEMAS[t].lado * 0.5;
+          ctx.beginPath();
+          abierta = true;
+        }
+        const x = g.xPrev + (g.x - g.xPrev) * alpha;
+        const y = g.yPrev + (g.y - g.yPrev) * alpha;
+        // El largo sale de la VELOCIDAD, no es fijo: la gema acelera hacia el
+        // jugador, así que la estela se estira a medida que se acerca y eso es
+        // justo lo que se siente al recogerla.
+        const largo = Math.min(14, v * 0.03);
+        ctx.moveTo(x - (g.vx / v) * largo, y - (g.vy / v) * largo);
+        ctx.lineTo(x, y);
+      }
+      if (abierta) ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Rombo con un punto de luz, o el dibujo de Sergio si está cargado.
   dibujar(ctx, alpha) {
     const items = this.pool.items;
     const n = this.pool.activos;
     if (n === 0) return;
+
+    if (this.atraidas > 0) this._dibujarEstelas(ctx, alpha);
 
     for (let k = 0; k < n; k++) {
       const g = items[k];

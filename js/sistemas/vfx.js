@@ -55,6 +55,26 @@ function crearMarca() {
   return { x: 0, y: 0, dx: 1, dy: 0, largo: 6, vida: 0 };
 }
 
+// ANILLOS: una circunferencia que se abre desde un punto y se apaga.
+//
+// Es la forma de "aquí acaba de pasar algo bueno", y hacía falta una: el juego
+// tenía cómo contar los golpes —chispas, marcas, números— y NADA con lo que
+// contar un premio. Subir de nivel y curarse solo sonaban.
+//
+// Se abre en vez de cerrarse, al revés que los avisos de los enemigos
+// (entidades/disparo.js), y esa es toda la diferencia entre las dos gramáticas:
+// lo que se cierra sobre un punto va a pasar y hay que apartarse; lo que se abre
+// ya ha pasado y era para ti. Que sean opuestas es lo que las hace legibles de
+// un vistazo sin haberlas visto nunca.
+//
+// Pool propio y pequeño: son cosas que pasan de una en una —una subida de
+// nivel, una curación— y no en avalancha como las chispas.
+const ANILLOS = 12;
+
+function crearAnillo() {
+  return { x: 0, y: 0, radio: 20, vida: 0, vidaMax: 1, color: '#ffffff', grosor: 1.5 };
+}
+
 export const VFX = {
   pool: null,
 
@@ -73,9 +93,13 @@ export const VFX = {
   // --- Marcas de impacto ---------------------------------------------------
   marcas: null,
 
+  // --- Anillos de recompensa -----------------------------------------------
+  anillos: null,
+
   iniciar(capacidad) {
     this.pool = new Pool(crearNumero, capacidad);
     this.marcas = new Pool(crearMarca, MARCAS);
+    this.anillos = new Pool(crearAnillo, ANILLOS);
     this.sacudida = 0;
     this.congelado = 0;
     this._esperaHitstop = 0;
@@ -195,6 +219,14 @@ export const VFX = {
       else j++;
     }
 
+    const anillos = this.anillos.items;
+    let a = 0;
+    while (a < this.anillos.activos) {
+      anillos[a].vida -= dt;
+      if (anillos[a].vida <= 0) this.anillos.liberarEn(a);
+      else a++;
+    }
+
     // La sacudida decae exponencialmente y oscila rápido. Determinista: sale de
     // un contador propio, no del reloj ni del azar, para no romper el criterio
     // de reproducibilidad.
@@ -222,6 +254,48 @@ export const VFX = {
     m.dx = dirX / v; m.dy = dirY / v;
     m.largo = 5 + Math.min(9, fuerza * 0.22);
     m.vida = VIDA_MARCA;
+  },
+
+  // Un anillo. `radio` es el que alcanza al final: arranca en un quinto de ese
+  // tamaño, que ya es un círculo y no un punto — abrirse desde cero hace que el
+  // primer fotograma no se vea y el efecto parezca empezar tarde.
+  anillo(x, y, radio, color, grosor = 1.5, vida = 0.42) {
+    if (!this.anillos) return;
+    const a = this.anillos.obtener();
+    if (!a) return;
+    a.x = x; a.y = y;
+    a.radio = radio;
+    a.color = color;
+    a.grosor = grosor;
+    a.vida = a.vidaMax = vida;
+  },
+
+  // Con las marcas de impacto, en el lienzo del MUNDO: es algo que le pasa a un
+  // sitio concreto y tiene que moverse con la cámara.
+  //
+  // Se abre DESACELERANDO, no a velocidad constante. Un anillo que se abre igual
+  // de rápido al principio que al final se lee como un círculo escalado; frenando
+  // al final se lee como una onda que se disipa, que es lo que es.
+  dibujarAnillos(ctx) {
+    if (!this.anillos) return;
+    const items = this.anillos.items;
+    const n = this.anillos.activos;
+    if (n === 0) return;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < n; k++) {
+      const a = items[k];
+      const t = 1 - a.vida / a.vidaMax;        // 0 recién salido, 1 al apagarse
+      const abertura = 1 - (1 - t) * (1 - t);  // rápido al principio, frena al final
+      ctx.globalAlpha = (1 - t) * 0.85;
+      ctx.strokeStyle = a.color;
+      ctx.lineWidth = a.grosor * (1 - t * 0.6);
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, a.radio * (0.2 + 0.8 * abertura), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
   },
 
   // Se dibujan en el lienzo del MUNDO, con las partículas: son parte del golpe,
@@ -261,6 +335,7 @@ export const VFX = {
   },
 
   vaciar() {
+    if (this.anillos) this.anillos.vaciar();
     if (this.marcas) this.marcas.vaciar();
     if (this.pool) this.pool.vaciar();
     this.escarcha = 0;

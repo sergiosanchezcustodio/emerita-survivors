@@ -68,6 +68,10 @@ const DESTELLO_DANYO = 0.18;
 // bestiario, pero medida en lo que te ha costado a TI.
 const FRACCION_HITSTOP = 0.10;
 
+// El azul frío del halo de recogida. Frío a propósito: todo lo que le pasa al
+// jugador y es malo va en rojo, y lo que le entra va en el color de las gemas.
+const COLOR_HALO_RECOGIDA = '#7ac4ff';
+
 // Escudo del potenciador Égida (datos/potenciadores.js). Dos números, no uno:
 // cuánto hay que aguantar SIN QUE TE TOQUEN para que empiece a rellenarse, y
 // cuánto tarda entonces en llenarse del todo. La espera es lo que hace que el
@@ -133,6 +137,7 @@ export class Jugador {
 
     this.invulnerable = 0;         // segundos restantes de i-frames
     this.destello = 0;             // segundos que queda enrojecido tras el golpe
+    this.brilloRecogida = 0;       // 0..1, halo mientras absorbe gemas
     this.abatido = false;
     this.inmortal = false;         // depuración: permite medir sin morir
     this.golpesRecibidos = 0;
@@ -247,6 +252,15 @@ export class Jugador {
   ganarXp(cantidad, jugadores) {
     if (this.abatido) return;
     Progresion.ganarXp(this, cantidad, jugadores);
+  }
+
+  // Una gema ha llegado. El halo NO es un efecto por gema: es UN número que
+  // sube con cada una y baja solo, y por eso aguanta lo mismo una gema suelta
+  // —un parpadeo— que el imán soltando seiscientas de golpe, que se convierte
+  // en un resplandor sostenido mientras dura la lluvia. Un adorno por gema en
+  // ese momento serían seiscientos efectos en dos segundos.
+  absorberGema() {
+    this.brilloRecogida = Math.min(1, this.brilloRecogida + 0.4);
   }
 
   // Reducción PLANA por armadura, nunca porcentual, pero con un mínimo de 1: si
@@ -425,6 +439,9 @@ export class Jugador {
       this.destello -= dt;
       if (this.destello < 0) this.destello = 0;
     }
+    if (this.brilloRecogida > 0) {
+      this.brilloRecogida = Math.max(0, this.brilloRecogida - dt * 3.2);
+    }
     if (this.abatido) { this.andando = false; return; }
 
     // Regeneración de la corona de laurel. Goteo continuo, no por tics: a 0.2/s
@@ -566,6 +583,26 @@ export class Jugador {
     // así que el arte antiguo y los placeholders siguen funcionando sin tocar
     // nada. Las dos hojas deben declarar los MISMOS clips: el reloj de
     // animación es uno solo y no se reinicia al girar.
+    // HALO DE RECOGIDA, debajo del sprite. La gema desaparecía al tocarte y no
+    // pasaba nada más: la experiencia entraba en un contador de la esquina y el
+    // sitio donde ocurría —tú— se quedaba mudo. Aquí no se dibuja el premio sino
+    // el hecho de estar recibiéndolo, que es lo que hace que valga la pena
+    // meterse en un campo de gemas.
+    //
+    // Suma luz en vez de taparlo, así que sobre el suelo oscuro se lee como un
+    // resplandor y no como un disco pegado a los pies.
+    if (this.brilloRecogida > 0) {
+      const b = this.brilloRecogida;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = b * 0.5;
+      ctx.fillStyle = COLOR_HALO_RECOGIDA;
+      ctx.beginPath();
+      ctx.arc(this.xVista, this.yVista - 10, 7 + b * 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
     // DESTELLO ROJO: la hoja teñida que dejó preparada Recursos antes del primer
     // frame. Se elige exactamente igual que la normal —hoja izquierda propia si
     // la hay, copia espejada si no— porque son las mismas hojas pasadas por el
