@@ -244,3 +244,17 @@ un navegador automatizado en segundo plano se acota artificialmente por
 
 Bien por debajo de los 16.6 ms que exige 60 fps, con margen de sobra. No
 hizo falta ningún cambio de rendimiento en esta pasada.
+
+## Claude Code Setup
+
+First time running Claude Code on this machine?
+
+```bash
+./scripts/setup-claude.sh
+```
+
+This script copies the recommended Claude Code settings:
+- **Effort**: low (optimized for balance tweaks & graphics)
+- **Model**: claude-opus-5 (best performance/cost)
+
+If you want to use different settings, edit `~/.claude/settings.json` locally (not in repo).
