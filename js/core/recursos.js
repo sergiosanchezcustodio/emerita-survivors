@@ -18,6 +18,10 @@ const ATLAS_REPLIEGUE = {
   }
 };
 
+// El rojo del destello de daño del jugador. Bastante opaco: tiene que leerse en
+// un fotograma y medio, que es lo que dura.
+const COLOR_DANYO = 'rgba(216,44,52,.78)';
+
 const COLORES_PLACEHOLDER = {
   eric: '#4b8fd6', lucy: '#d64b8f', sara: '#d6c14b', vicky: '#4bd6a1'
 };
@@ -28,6 +32,8 @@ export const Recursos = {
   espejos: new Map(),       // id -> canvas volteado en horizontal
   tintes: new Map(),        // id -> canvas blanqueado (destello de impacto)
   tintesEspejo: new Map(),  // id -> el mismo, volteado
+  tintesDanyo: new Map(),      // id -> canvas enrojecido (el jugador al recibir)
+  tintesDanyoEspejo: new Map(),
   tilesSuelo: [],           // canvas o imágenes del suelo, todas del mismo tamaño
   // Lado del tile de suelo en unidades LÓGICAS. Con suelo procedural es TILE en
   // los dos ejes; con un mapa pintado sale del tamaño de la imagen, que no tiene
@@ -155,7 +161,7 @@ export const Recursos = {
   // 'source-atop' pinta el blanco SOLO donde ya había píxel, así que respeta la
   // silueta y el alfa del borde. Se deja algo de color original asomando para
   // que el bicho siga reconociéndose en el fogonazo.
-  _tinte(fuente, meta) {
+  _tinte(fuente, meta, color = 'rgba(255,255,255,.82)') {
     const frames = meta.frames || 1;
     const c = document.createElement('canvas');
     c.width = meta.w * frames;
@@ -164,9 +170,42 @@ export const Recursos = {
     g.imageSmoothingEnabled = false;
     g.drawImage(fuente, 0, 0, c.width, c.height);
     g.globalCompositeOperation = 'source-atop';
-    g.fillStyle = 'rgba(255,255,255,.82)';
+    g.fillStyle = color;
     g.fillRect(0, 0, c.width, c.height);
     return c;
+  },
+
+  // --- Destello del jugador al recibir un golpe ----------------------------
+  //
+  // ROJO Y NO BLANCO, que es el que llevan los enemigos. Son dos hechos
+  // distintos y tienen que verse distintos: blanco es "le has dado" y rojo es
+  // "te han dado". En una pantalla con ochocientos bichos destellando en blanco,
+  // un quinto destello blanco no lo vería nadie.
+  //
+  // Va en un mapa aparte y se prepara solo para los cuatro personajes: son dos
+  // hojas por cabeza, mientras que hacerlo con el atlas entero serían cincuenta
+  // lienzos de más para bichos que nunca reciben un golpe del jugador... porque
+  // el que reciben ya lo tienen resuelto con el destello blanco.
+  //
+  // Se llama ANTES del primer frame (ver arrancar en main.js), como las
+  // variantes de color: crear un lienzo a mitad de partida es justo lo que
+  // prohíbe el requisito de pooling.
+  // Las DOS HOJAS del personaje, `<id>` y `<id>Izq`, porque el jugador las elige
+  // por separado al dibujarse. La copia ESPEJADA solo se tiñe para la base: es
+  // el repliegue de cuando no hay hoja izquierda, y con ella la hoja izquierda
+  // ya no se usa.
+  prepararTinteDanyo(id) {
+    for (const clave of [id, id + 'Izq']) {
+      const meta = this.atlas.entidades[clave];
+      const fuente = this.imagenes.get(clave);
+      if (!meta || !fuente || this.tintesDanyo.has(clave)) continue;
+      this.tintesDanyo.set(clave, this._tinte(fuente, meta, COLOR_DANYO));
+    }
+    const meta = this.atlas.entidades[id];
+    const espejo = this.espejos.get(id);
+    if (meta && espejo && !this.tintesDanyoEspejo.has(id)) {
+      this.tintesDanyoEspejo.set(id, this._tinte(espejo, meta, COLOR_DANYO));
+    }
   },
 
   // Silueta geométrica con la forma y el tamaño correctos: permite tocar el
@@ -354,5 +393,7 @@ export const Recursos = {
   imagen(id) { return this.imagenes.get(id); },
   espejo(id) { return this.espejos.get(id); },
   tinte(id) { return this.tintes.get(id); },
-  tinteEspejo(id) { return this.tintesEspejo.get(id); }
+  tinteEspejo(id) { return this.tintesEspejo.get(id); },
+  tinteDanyo(id) { return this.tintesDanyo.get(id); },
+  tinteDanyoEspejo(id) { return this.tintesDanyoEspejo.get(id); }
 };

@@ -28,6 +28,12 @@ const NUMEROS_POR_PASO = 6;
 // Mínimo entre dos hitstops, en segundos.
 const ESPERA_HITSTOP = 0.6;
 
+// Fracción de vida por debajo de la cual el borde de la pantalla late en rojo.
+// Un tercio y no un cuarto: con el ritmo de la horda, la diferencia entre 25 y
+// 33 son dos mordiscos, y avisar cuando ya no da tiempo a reaccionar no es
+// avisar.
+const UMBRAL_VIDA_BAJA = 0.33;
+
 function crearNumero() {
   return { x: 0, y: 0, vida: 0, texto: '0', gordo: false, desvio: 0 };
 }
@@ -74,6 +80,8 @@ export const VFX = {
     this.congelado = 0;
     this._esperaHitstop = 0;
     this._presupuesto = 0;
+    this.herida = 0;
+    this._faseVida = 0;
   },
 
   get numerosActivos() { return this.pool ? this.pool.activos : 0; },
@@ -119,12 +127,42 @@ export const VFX = {
     this.escarchaTotal = segundos;
   },
 
+  // HERIDA: el borde de la pantalla se enrojece. Dos cosas a la vez, y por eso
+  // van juntas y no en dos efectos:
+  //
+  //   - el FOGONAZO de recibir un golpe, que se apaga en medio segundo;
+  //   - el LATIDO sostenido de estar a punto de caer, que no se apaga.
+  //
+  // Existe porque el aviso de vida baja estaba en la barra de la esquina, y la
+  // esquina es justo donde no se mira cuando hay ochocientos bichos encima: uno
+  // pasa de 30 a 0 sin haber apartado la vista del centro. El borde de la
+  // pantalla se ve sin mirarlo, que es la única propiedad que hacía falta.
+  herida: 0,
+  _faseVida: 0,
+  _grad: null,
+  _gradW: 0,
+  _gradH: 0,
+
+  // `intensidad` es 0..1: cuánto se ha llevado el golpe de tu vida máxima.
+  // Se queda el mayor, no se suma, por lo mismo que la sacudida: tres mordiscos
+  // en el mismo frame son un golpe gordo, no tres pantallas rojas encadenadas.
+  herir(intensidad) {
+    if (intensidad > this.herida) this.herida = intensidad;
+  },
+
   // Segundo cinturón de seguridad, independiente de quién lo pida: por muy a
   // menudo que llegue la petición, no se congela más de una vez cada
   // ESPERA_HITSTOP. Un hitstop es un signo de puntuación; encadenados dejan de
   // subrayar nada y se convierten en tartamudeo.
-  congelar(segundos) {
-    if (this._esperaHitstop > 0) return;
+  //
+  // `forzar` se salta la espera, y lo usa SOLO lo que pasa una vez y no puede
+  // perderse: un jugador cayendo. El caso concreto es el que se cuela por el
+  // hueco de los i-frames —te muerden, y medio segundo después te rematan— en
+  // el que la espera seguía viva y la caída se quedaba sin parón justo cuando
+  // más falta hacía. Racionar tiene sentido para lo que se repite; caer no se
+  // repite.
+  congelar(segundos, forzar = false) {
+    if (this._esperaHitstop > 0 && !forzar) return;
     this._esperaHitstop = ESPERA_HITSTOP;
     if (segundos > this.congelado) this.congelado = segundos;
   },
@@ -132,6 +170,11 @@ export const VFX = {
   actualizar(dt) {
     this._presupuesto = 0;             // se renueva cada paso
     if (this.escarcha > 0) this.escarcha = Math.max(0, this.escarcha - dt);
+    // El fogonazo cae rápido; el latido de vida baja avanza siempre, para que
+    // no arranque desde cero —y por tanto invisible— justo el frame en que la
+    // vida cruza el umbral. Contador propio y no el reloj: reproducibilidad.
+    if (this.herida > 0) this.herida = Math.max(0, this.herida - dt * 2.4);
+    this._faseVida += dt * 4.2;
     // Corre también durante la congelación: es quien la deja expirar. Por eso
     // el bucle llama a VFX.actualizar aunque salte el resto de la lógica.
     if (this._esperaHitstop > 0) this._esperaHitstop -= dt;
@@ -226,6 +269,7 @@ export const VFX = {
     this.desvioX = 0;
     this.desvioY = 0;
     this.congelado = 0;
+    this.herida = 0;
   },
 
   // Se dibujan en la CAPA DE INTERFAZ (ui/capa.js), no en el lienzo del juego.
@@ -256,6 +300,53 @@ export const VFX = {
     ctx.save();
     ctx.globalAlpha = 0.10 + 0.16 * u * u;
     ctx.fillStyle = '#9fd8ff';
+    ctx.fillRect(0, 0, ancho, alto);
+    ctx.restore();
+  },
+
+  // La viñeta de herida, también en la CAPA DE INTERFAZ y por los mismos dos
+  // motivos que la escarcha: va a la resolución del monitor, así que el
+  // degradado sale liso, y no se la come el ampliado entero del mundo.
+  //
+  // AQUÍ SÍ HAY DEGRADADO, al revés que en la escarcha. Allí se descartó porque
+  // un velo uniforme cubre toda la pantalla y no necesita forma; una viñeta ES
+  // su forma —tiene que dejar limpio el centro, que es donde se está mirando— y
+  // sin degradado sería un marco recortado. El motivo de aquel descarte era que
+  // `createRadialGradient` asigna, así que aquí se construye UNA vez y se
+  // guarda: solo se rehace si cambia el tamaño de la capa, es decir nunca
+  // durante una partida.
+  //
+  // `fracVida` es la del jugador PEOR PARADO de los que siguen en pie. En
+  // cooperativo eso es lo correcto: si uno está a punto de caer, es urgente para
+  // los cuatro, porque levantarle va a costarle la posición a otro.
+  dibujarHerida(ctx, ancho, alto, fracVida) {
+    // Latido de vida baja: crece según se acerca a cero y respira.
+    let alfa = 0;
+    if (fracVida < UMBRAL_VIDA_BAJA) {
+      const gravedad = 1 - fracVida / UMBRAL_VIDA_BAJA;
+      alfa = gravedad * (0.20 + 0.10 * Math.sin(this._faseVida));
+    }
+    // Y el fogonazo del golpe por encima, que se suma al latido: recibir un
+    // mordisco estando ya a punto de caer tiene que verse peor que recibirlo
+    // entero. Al cuadrado para que entre de golpe y se vaya suave.
+    if (this.herida > 0) alfa += this.herida * this.herida * 0.75;
+    if (alfa <= 0.005) return;
+
+    if (!this._grad || this._gradW !== ancho || this._gradH !== alto) {
+      const cx = ancho / 2, cy = alto / 2;
+      const radio = Math.hypot(cx, cy);
+      const g = ctx.createRadialGradient(cx, cy, radio * 0.42, cx, cy, radio);
+      g.addColorStop(0, 'rgba(150,14,20,0)');
+      g.addColorStop(0.65, 'rgba(150,14,20,.55)');
+      g.addColorStop(1, 'rgba(120,8,14,1)');
+      this._grad = g;
+      this._gradW = ancho;
+      this._gradH = alto;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = alfa > 1 ? 1 : alfa;
+    ctx.fillStyle = this._grad;
     ctx.fillRect(0, 0, ancho, alto);
     ctx.restore();
   },

@@ -7,6 +7,8 @@ import { POTENCIADORES } from '../datos/potenciadores.js';
 import { MASCOTAS, factorMascota } from '../datos/mascotas.js';
 import { Progresion, xpNecesaria, REROLLS } from '../sistemas/progresion.js';
 import { GestorAudio } from '../sistemas/audio.js';
+import { Particulas, COLOR_SANGRE, COLOR_POLVO } from '../sistemas/particulas.js';
+import { VFX } from '../sistemas/vfx.js';
 
 // --- Animación ---------------------------------------------------------------
 //
@@ -52,6 +54,20 @@ const BASE = {
 const INVULNERABILIDAD = 0.5;
 const PARPADEO = 0.07;     // periodo del destello mientras dura
 
+// DESTELLO ROJO al recibir. Va ANTES del parpadeo de i-frames y no a la vez:
+// durante estas dos décimas el sprite se ve entero y en rojo, y solo después
+// empieza a intermitir. El parpadeo dice "ahora mismo no te pueden dar" —es
+// información de estado— y el destello dice "acaban de darte", que es lo que
+// hay que ver en el instante en que pasa; encadenados, cada uno cuenta lo suyo
+// sin pisar al otro.
+const DESTELLO_DANYO = 0.18;
+
+// A partir de esta fracción de la vida máxima, un golpe además CONGELA. Un
+// arañazo de serpiente no puede parar el juego, y el mordisco que te deja a la
+// mitad no puede pasar desapercibido: es la misma idea que VIDA_HITSTOP en el
+// bestiario, pero medida en lo que te ha costado a TI.
+const FRACCION_HITSTOP = 0.10;
+
 // Escudo del potenciador Égida (datos/potenciadores.js). Dos números, no uno:
 // cuánto hay que aguantar SIN QUE TE TOQUEN para que empiece a rellenarse, y
 // cuánto tarda entonces en llenarse del todo. La espera es lo que hace que el
@@ -60,11 +76,16 @@ const ESPERA_ESCUDO = 6;
 const RELLENO_ESCUDO = 4;
 
 export class Jugador {
-  constructor(idPersonaje = 'eric', idMascota = '') {
+  // `rng` es el de la partida, el mismo que llevan el bestiario y el director.
+  // Se usa SOLO para el adorno de recibir golpes; se acepta que falte porque
+  // nada de lo que decide se juega con él, y así el jugador sigue construyéndose
+  // en las pantallas de selección, donde no hay partida ni azar que valga.
+  constructor(idPersonaje = 'eric', idMascota = '', rng = null) {
     // Qué mascota lleva ESTE jugador. Se fija al crearlo, con lo elegido en la
     // pantalla de mascotas, y no cambia durante la partida. Va antes que nada
     // porque recalcularStats() la lee ya en este constructor.
     this.mascotaId = idMascota;
+    this._rng = rng;
     const def = PERSONAJES[idPersonaje] || PERSONAJES.eric;
     this.id = idPersonaje;
     this.def = def;
@@ -111,6 +132,7 @@ export class Jugador {
     this.radioCuerpo = BASE.radio;
 
     this.invulnerable = 0;         // segundos restantes de i-frames
+    this.destello = 0;             // segundos que queda enrojecido tras el golpe
     this.abatido = false;
     this.inmortal = false;         // depuración: permite medir sin morir
     this.golpesRecibidos = 0;
@@ -230,7 +252,19 @@ export class Jugador {
   // Reducción PLANA por armadura, nunca porcentual, pero con un mínimo de 1: si
   // la armadura pudiera anular el daño, un pasivo barato haría inmune al jugador
   // frente a las serpientes durante los 20 minutos.
-  recibirDanyo(cantidad) {
+  //
+  // `dirX`/`dirY` es HACIA DÓNDE IBA EL GOLPE, igual que en danyar() del
+  // bestiario: del que pega hacia ti. Sin normalizar, se normaliza aquí. Quien
+  // no la sepa puede omitirla y el adorno sale redondo, que es lo correcto para
+  // un daño que no viene de ninguna parte.
+  //
+  // TODO EL ADORNO DE RECIBIR VIVE AQUÍ, y no repartido por quien pega. Es el
+  // único embudo por el que pasa cualquier daño al jugador —contacto, disparo,
+  // sismo y charco—, así que ponerlo aquí garantiza que ninguna fuente nueva se
+  // olvide de contarlo. La sacudida estaba en sistemas/colisiones.js y por eso
+  // mismo la tenía SOLO el contacto: te podía matar un sismo sin que la pantalla
+  // se moviera.
+  recibirDanyo(cantidad, dirX = 0, dirY = 0) {
     if (this.abatido || this.invulnerable > 0 || this.inmortal) return false;
     let danyo = Math.max(1, cantidad - this.armadura);
 
@@ -248,8 +282,14 @@ export class Jugador {
 
     this.vida -= danyo;
     this.invulnerable = INVULNERABILIDAD;
+    this.destello = DESTELLO_DANYO;
     this.golpesRecibidos++;
     GestorAudio.danyoJugador();
+    // El PARÓN del golpe se lo cede al de caer cuando el golpe es el último:
+    // VFX.congelar raciona a uno cada 0.6s, así que si el mordisco que te mata
+    // se lleva el suyo, la caída —que es lo único que hay que notar de verdad—
+    // se quedaría sin él.
+    this._acusarGolpe(danyo, dirX, dirY, this.vida <= 0);
     if (this.vida <= 0) {
       this.vida = 0;
       // Moneda de Caronte: si queda alguna vida extra se gasta y se vuelve en
@@ -259,12 +299,87 @@ export class Jugador {
       if (this.resurreccionesUsadas < this.resurreccionesMax) {
         this.resurreccionesUsadas++;
         this.levantar();
+        // Levantarse apaga el destello —quien sale del ataúd sale entero— y
+        // aquí no se ha salido de ningún ataúd: el golpe ha existido y tiene
+        // que verse.
+        this.destello = DESTELLO_DANYO;
+        // Se ha muerto y ha vuelto: el parón y la pantalla en rojo son lo que
+        // dice que acaba de gastarse una moneda. Sin esto, la Moneda de Caronte
+        // es el único objeto del juego cuyo efecto no se ve al usarse.
+        VFX.congelar(0.10, true);
+        VFX.herir(1);
       } else {
         this.abatido = true;
         this.reanimacion = 0;
+        this._acusarCaida(dirX, dirY);
       }
     }
     return true;
+  }
+
+  // El adorno de UN GOLPE. Cuatro cosas, y las cuatro a la medida de lo que te
+  // ha quitado en proporción a tu vida máxima, no en puntos: doce de daño es un
+  // roce para Eric y un tercio de la barra para Lucy, y tienen que sentirse como
+  // lo que son. Es el mismo criterio que usa el bestiario con la vida del que
+  // cae (ver danyar en entidades/enemigo.js).
+  _acusarGolpe(danyo, dirX, dirY, mortal) {
+    const frac = this.vidaMaxima > 0 ? Math.min(1, danyo / this.vidaMaxima) : 0;
+    const rng = this._rng;
+
+    // 1. SANGRE hacia donde iba el golpe, saliendo del pecho y no de los pies.
+    // Cono ancho, como la muerte de un enemigo: es un cuerpo reventando, no una
+    // chispa de choque contra metal.
+    if (rng && !Particulas.saturado()) {
+      const v = Math.hypot(dirX, dirY);
+      const n = 4 + Math.round(frac * 8);
+      if (v > 0.0001) {
+        Particulas.chorro(this.x, this.y - 12, dirX / v, dirY / v,
+                          n, 80, 1.15, 0.4, 1.5, COLOR_SANGRE, 1, rng);
+      } else {
+        // Sin dirección —un sismo bajo los pies, un charco— sale redondo, que
+        // es justo lo que cuenta la verdad: eso no venía de ningún sitio.
+        Particulas.estallido(this.x, this.y - 12, n, 70, 0.4, 1.5,
+                             COLOR_SANGRE, 1, rng);
+      }
+    }
+
+    // 2. LA MARCA DEL GOLPE, que no pasa por el racionamiento de las partículas
+    // y por tanto se ve también en la matanza del minuto 16, que es justo cuando
+    // el pool está lleno y cuando más falta hace enterarse de que te están
+    // dando. Ver VFX.impacto.
+    VFX.impacto(this.x, this.y - 12, dirX, dirY, danyo);
+
+    // 3. LA SACUDIDA, con un suelo que garantiza que hasta el roce más tonto se
+    // note en la pantalla: recibir nunca puede ser silencioso.
+    VFX.sacudir(1.6 + frac * 9);
+
+    // 4. Y el borde rojo. Ver VFX.herir.
+    VFX.herir(0.35 + frac * 0.9);
+
+    // El PARÓN solo para los golpes gordos. VFX.congelar tiene además su propio
+    // racionamiento, así que cuatro mordiscos seguidos no encadenan cuatro
+    // frenazos.
+    if (!mortal && frac >= FRACCION_HITSTOP) {
+      VFX.congelar(0.05 + Math.min(0.06, frac * 0.2));
+    }
+  }
+
+  // Y el adorno de CAER, que es otra cosa: no es el golpe más fuerte de la
+  // partida, es el único que cambia el estado de la partida. Se le da el peso
+  // que hasta ahora solo tenía la muerte de un jefe.
+  _acusarCaida(dirX, dirY) {
+    VFX.congelar(0.14, true);      // forzado: caer pasa una vez, ver VFX.congelar
+    VFX.sacudir(7);
+    VFX.herir(1);
+    const rng = this._rng;
+    if (!rng) return;
+    // Aquí NO se consulta `saturado`: caer pasa una vez y con la pantalla llena
+    // de bichos es justo cuando pasa. Si el pool no tiene sitio se perderán
+    // algunas, y eso ya lo resuelve el propio pool sin ayuda.
+    Particulas.estallido(this.x, this.y - 12, 16, 95, 0.55, 2,
+                         COLOR_SANGRE, 1, rng);
+    Particulas.estallido(this.x, this.y - 2, 8, 45, 0.5, 1.5,
+                         COLOR_POLVO, 0.35, rng);
   }
 
   // Se levanta tras la cuenta de reanimación. A MEDIA VIDA y con los i-frames
@@ -274,6 +389,7 @@ export class Jugador {
   levantar() {
     this.abatido = false;
     this.reanimacion = 0;
+    this.destello = 0;
     this.vida = Math.max(1, Math.round(this.vidaMaxima * 0.5));
     this.invulnerable = INVULNERABILIDAD * 4;
     // Se vuelve con el escudo entero: si volvieras con él a cero, los seis
@@ -286,6 +402,7 @@ export class Jugador {
     this.recalcularStats();
     this.vida = this.vidaMaxima;
     this.invulnerable = 0;
+    this.destello = 0;
     this.abatido = false;
     this.reanimacion = 0;
     this.golpesRecibidos = 0;
@@ -301,6 +418,12 @@ export class Jugador {
     if (this.invulnerable > 0) {
       this.invulnerable -= dt;
       if (this.invulnerable < 0) this.invulnerable = 0;
+    }
+    // Antes del corte por abatido: quien acaba de caer tiene el destello puesto,
+    // y si no corriera aquí se quedaría encendido hasta que se levantara.
+    if (this.destello > 0) {
+      this.destello -= dt;
+      if (this.destello < 0) this.destello = 0;
     }
     if (this.abatido) { this.andando = false; return; }
 
@@ -443,21 +566,39 @@ export class Jugador {
     // así que el arte antiguo y los placeholders siguen funcionando sin tocar
     // nada. Las dos hojas deben declarar los MISMOS clips: el reloj de
     // animación es uno solo y no se reinicia al girar.
+    // DESTELLO ROJO: la hoja teñida que dejó preparada Recursos antes del primer
+    // frame. Se elige exactamente igual que la normal —hoja izquierda propia si
+    // la hay, copia espejada si no— porque son las mismas hojas pasadas por el
+    // mismo tinte; si faltara alguna, `img` se queda con la de siempre y lo
+    // único que se pierde es el color.
+    const herido = this.destello > 0;
+
     let meta = Recursos.meta(this.personaje);
     let img;
     if (this.mirandoDerecha) {
-      img = Recursos.imagen(this.personaje);
+      img = herido ? Recursos.tinteDanyo(this.personaje) : null;
+      if (!img) img = Recursos.imagen(this.personaje);
     } else {
       const idIzq = this.personaje + 'Izq';
       const metaIzq = Recursos.meta(idIzq);
-      if (metaIzq) { meta = metaIzq; img = Recursos.imagen(idIzq); }
-      else img = Recursos.espejo(this.personaje);
+      if (metaIzq) {
+        meta = metaIzq;
+        img = herido ? Recursos.tinteDanyo(idIzq) : null;
+        if (!img) img = Recursos.imagen(idIzq);
+      } else {
+        img = herido ? Recursos.tinteDanyoEspejo(this.personaje) : null;
+        if (!img) img = Recursos.espejo(this.personaje);
+      }
     }
     if (!meta || !img) return;
 
     // Parpadeo de los i-frames. Se salta el sprite, no la barra de vida: durante
     // medio segundo hay que poder seguir leyendo cuánta queda.
-    if (this.invulnerable > 0 &&
+    //
+    // NO PARPADEA MIENTRAS DURA EL DESTELLO: los dos avisos van seguidos, no
+    // superpuestos. Un sprite rojo que además se salta fotogramas se lee como un
+    // fallo de dibujado, y el destello es justo lo que hay que ver entero.
+    if (!herido && this.invulnerable > 0 &&
         (((this.invulnerable / PARPADEO) | 0) & 1) === 1) return;
 
     const clip = meta.clips && meta.clips[this.clip];

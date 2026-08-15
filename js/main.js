@@ -322,7 +322,8 @@ const activo = { suelo: true, particulas: true, numeros: true, efectos: true, de
 function anyadirJugador(idPersonaje, idMascota) {
   if (jugadores.length >= MAX_JUGADORES) return null;
   const i = jugadores.length;
-  const j = new Jugador(idPersonaje || ORDEN_PERSONAJES[i % ORDEN_PERSONAJES.length], idMascota || '');
+  const j = new Jugador(idPersonaje || ORDEN_PERSONAJES[i % ORDEN_PERSONAJES.length],
+                        idMascota || '', rng);
 
   // En abanico alrededor del primero, para que no nazcan uno dentro de otro.
   const ang = (i / MAX_JUGADORES) * Math.PI * 2;
@@ -1671,6 +1672,20 @@ function dibujar(alpha) {
   const tNum = performance.now();
   if (activo.numeros) VFX.dibujarNumeros(ctxUi, offX, offY);
   VFX.dibujarEscarcha(ctxUi, ANCHO_UI, ALTO_UI);
+  // El borde rojo va DEBAJO del panel y de los menús, como los números: es del
+  // mundo, no de la interfaz. La fracción es la del jugador peor parado de los
+  // que siguen en pie —a un caído no le queda vida que avisar, y su ataúd ya se
+  // ve en el mapa—, así que en cooperativo el aviso lo da quien esté peor.
+  if (activo.efectos) {
+    let fracPeor = 1;
+    for (let i = 0; i < jugadores.length; i++) {
+      const j = jugadores[i];
+      if (j.abatido || j.vidaMaxima <= 0) continue;
+      const f = j.vida / j.vidaMaxima;
+      if (f < fracPeor) fracPeor = f;
+    }
+    VFX.dibujarHerida(ctxUi, ANCHO_UI, ALTO_UI, fracPeor);
+  }
   perfil.texto = performance.now() - tNum;
 
   if (verDepuracion) {
@@ -1806,6 +1821,11 @@ async function arrancar() {
   // atlas y antes del primer frame: teñir un sprite en caliente sería un canvas
   // nuevo por enemigo.
   prepararVariantes();
+  // Hoja enrojecida de los cuatro personajes, para el destello de recibir un
+  // golpe. Aquí por el mismo motivo que las variantes: teñir en caliente sería
+  // un lienzo nuevo a mitad de partida. Solo los personajes y no el atlas
+  // entero — ver prepararTinteDanyo en core/recursos.js.
+  for (const id of ORDEN_PERSONAJES) Recursos.prepararTinteDanyo(PERSONAJES[id].sprite);
 
   // El aspecto de pausa, derrota y subida de nivel lo pone el NIVEL. Se inyecta
   // en vez de importarlo desde ui/: si la interfaz importara merida.js, añadir

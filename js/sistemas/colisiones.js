@@ -1,5 +1,4 @@
 import { DT } from '../core/constantes.js';
-import { VFX } from './vfx.js';
 
 // Colisiones sobre la rejilla espacial. Dos consumidores:
 //   - separacion()      enemigo <-> enemigo, para que no se apilen en un punto
@@ -532,6 +531,10 @@ export function contactoJugador(enemigos, jugador) {
   const jy = jugador.y;
 
   let peor = 0;
+  // Dónde estaba el que más pega. El golpe se cuenta como si viniera de ÉL, que
+  // es de quien viene el número: con seis bichos encima, promediar las
+  // direcciones daría un vector corto apuntando a ninguna parte.
+  let peorX = 0, peorY = 0;
   for (let fy = cy - 1; fy <= cy + 1; fy++) {
     if (fy < 0 || fy >= filas) continue;
     for (let fx = cx - 1; fx <= cx + 1; fx++) {
@@ -545,16 +548,20 @@ export function contactoJugador(enemigos, jugador) {
         // e.danyo, no e.def.danyo: el escalado por minuto se congela en la
         // entidad al aparecer (ver entidades/enemigo.js), y leer del catálogo
         // devolvería siempre el valor de minuto 0.
-        if (dx * dx + dy * dy < r * r && e.danyo > peor) peor = e.danyo;
+        if (dx * dx + dy * dy < r * r && e.danyo > peor) {
+          peor = e.danyo;
+          peorX = e.x;
+          peorY = e.y;
+        }
       }
     }
   }
 
-  if (peor > 0 && jugador.recibirDanyo(peor)) {
-    // La sacudida escala con el mordisco, no es fija: un roce de serpiente y un
-    // pisotón de cíclope tienen que sentirse distintos.
-    VFX.sacudir(1.2 + peor * 0.12);
-  }
+  // La dirección va del que muerde hacia el jugador, sin normalizar: eso lo hace
+  // recibirDanyo. Todo lo demás —sangre, marca, sacudida, borde rojo y parón—
+  // vive ya ahí dentro, que es el único sitio por donde pasa TODO el daño que
+  // recibe un jugador (ver entidades/jugador.js).
+  if (peor > 0) jugador.recibirDanyo(peor, jx - peorX, jy - peorY);
   return peor;
 }
 

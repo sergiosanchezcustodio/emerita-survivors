@@ -149,7 +149,11 @@ export class Disparos {
             if (j.abatido) continue;
             const dx = j.x - d.x, dy = j.y - d.y;
             if (dx * dx + dy * dy < d.radio * d.radio) {
-              j.recibirDanyo(d.danyo);
+              // El sismo empuja hacia AFUERA desde su centro: es el suelo
+              // reventando bajo los pies, y lo que sale despedido sale en la
+              // dirección en la que estabas respecto al reventón. A quien pille
+              // justo en el centro le sale redondo, que es lo que toca.
+              j.recibirDanyo(d.danyo, dx, dy);
               this.impactos++;
             }
           }
@@ -175,7 +179,8 @@ export class Disparos {
             if (j.abatido) continue;
             const dx = j.x - d.x, dy = j.y - d.y;
             if (dx * dx + dy * dy < d.radio * d.radio) {
-              j.recibirDanyo(d.danyo);
+              // Como el sismo: hacia afuera desde el centro del charco.
+              j.recibirDanyo(d.danyo, dx, dy);
               this.impactos++;
             }
           }
@@ -193,7 +198,10 @@ export class Disparos {
           const dy = j.y - d.y;
           const r = d.radio + j.radio;
           if (dx * dx + dy * dy < r * r) {
-            j.recibirDanyo(d.danyo);
+            // El proyectil sí trae dirección de serie: la suya. La sangre sale
+            // en la línea que traía el disparo, que es lo que dice de dónde te
+            // están tirando cuando no has visto salir el tiro.
+            j.recibirDanyo(d.danyo, d.vx, d.vy);
             this.impactos++;
             this._reventar(d);
             fuera = true;
