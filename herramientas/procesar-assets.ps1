@@ -31,7 +31,7 @@ public class Procesador {
     // Devuelve: siluetaW|siluetaH|ratio|frameW|frameH|anclaX|anclaY|pctOpaco|fondo
     public static string Procesar(string entrada, string salida, int altoLog,
                                   int escala, int tol, int anchoLogFijo,
-                                  bool dominante) {
+                                  bool dominante, bool centrado, bool huecos) {
 
         // --- 1. Carga normalizada a 32bpp ARGB -----------------------------
         Contexto c = new Contexto();
@@ -131,13 +131,20 @@ public class Procesador {
         int frameW, frameH, destW, destH, offX, offY;
         frameH = altoLog * escala;
         if (anchoLogFijo > 0) {
-            // Personajes: marco fijo comun, la silueta se ajusta dentro
+            // Marco fijo comun, la silueta se ajusta dentro. Lo usan los
+            // personajes y cualquier grupo que deba OCUPAR TODOS LO MISMO
+            // independientemente de lo que mida cada dibujo.
             frameW = anchoLogFijo * escala;
             double fit = Math.Min((double)frameW / silW, (double)frameH / silH);
             destW = Math.Max(1, (int)Math.Round(silW * fit));
             destH = Math.Max(1, (int)Math.Round(silH * fit));
             offX = (frameW - destW) / 2;
-            offY = frameH - destH;              // apoyado en la linea de pies
+            // `centrado` decide donde se apoya dentro del marco, y son dos casos
+            // distintos de verdad: un personaje se apoya en la LINEA DE PIES
+            // -si no, flota- y un objeto que se dibuja centrado en su posicion
+            // (las gemas, ver entidades/recogible.js) tiene que ir centrado en
+            // el marco o aparecera desplazado hacia arriba.
+            offY = centrado ? (frameH - destH) / 2 : frameH - destH;
         } else {
             // Enemigos: el ancho sale de la proporcion real medida
             int anchoLog = (int)Math.Round(altoLog * ratio);
@@ -170,8 +177,10 @@ public class Procesador {
                           dst, dStride, offX, offY, destW, destH);
         }
 
-        // --- 6. Remate: endurecer el alfa y tapar agujeros -----------------
-        Rematar(dst, frameW, frameH, dStride);
+        // --- 6. Remate: endurecer el alfa y (si procede) tapar agujeros ----
+        // `huecos` = el dibujo tiene huecos CERRADOS de verdad y hay que
+        // respetarlos. Ver la cabecera de Rematar.
+        Rematar(dst, frameW, frameH, dStride, !huecos);
 
         using (Bitmap salidaBmp = new Bitmap(frameW, frameH, PixelFormat.Format32bppArgb)) {
             BitmapData dd = salidaBmp.LockBits(new Rectangle(0, 0, frameW, frameH),
@@ -184,9 +193,58 @@ public class Procesador {
 
         // El indicador util es cuanto fondo se elimino, no el area de la caja:
         // una silueta puede tocar los cuatro bordes y estar bien recortada.
+        // --- 7. NUCLEO SOLIDO ----------------------------------------------
+        //
+        // Que parte del sprite es masa de verdad y no fleco. Lo consume el juego
+        // para decidir por donde NO se pasa (ver `huellaDe` en
+        // sistemas/obstaculos.js): un obstaculo bloqueaba su recuadro entero, y
+        // una ruina solo llena el 60-69% de el, asi que bloqueaba esquinas y
+        // aire donde no hay piedra.
+        //
+        // POR PERCENTILES DE MASA, no por el primer pixel opaco ni por umbral de
+        // cobertura. Las tres formas se probaron y solo esta hace lo que hace
+        // falta:
+        //
+        //   Primer pixel opaco (el recuadro de siempre): una punta de escombro
+        //     de tres pixeles asomando por un lado ensancha el bloqueo tanto
+        //     como un muro entero.
+        //
+        //   Umbral de cobertura: se queda corto en un monton de escombro, donde
+        //     casi todas las filas tienen ALGO. Medido con el umbral al 22%,
+        //     recortaba un misero 6-8% — el bloqueo seguia siendo el recuadro.
+        //
+        //   Percentiles: se tira el DESCARTE% de la masa por cada lado y se
+        //     conserva el resto. Corta el fleco disperso sin depender de si el
+        //     dibujo es denso o ralo, que es la propiedad que hacia falta.
+        int[] porCol = new int[frameW];
+        int[] porFil = new int[frameH];
+        long masa = 0;
+        for (int y = 0; y < frameH; y++)
+            for (int x = 0; x < frameW; x++)
+                if (dst[y * dStride + x * 4 + 3] > 128) { porCol[x]++; porFil[y]++; masa++; }
+
+        int sx0 = 0, sx1 = frameW - 1, sy0 = 0, sy1 = frameH - 1;
+        if (masa > 0) {
+            long corte = (long)(masa * DESCARTE);
+            long acum = 0;
+            while (sx0 < sx1 && acum + porCol[sx0] <= corte) { acum += porCol[sx0]; sx0++; }
+            acum = 0;
+            while (sx1 > sx0 && acum + porCol[sx1] <= corte) { acum += porCol[sx1]; sx1--; }
+            acum = 0;
+            while (sy0 < sy1 && acum + porFil[sy0] <= corte) { acum += porFil[sy0]; sy0++; }
+            acum = 0;
+            while (sy1 > sy0 && acum + porFil[sy1] <= corte) { acum += porFil[sy1]; sy1--; }
+        }
+
         int pctOpaco = (int)Math.Round(100.0 * opacos / ((double)w * h));
+        // El ancla vertical sigue al encuadre: abajo para lo que se apoya en la
+        // linea de pies, y en medio para lo que se encuadro centrado. Publicar
+        // frameH en un asset centrado seria un metadato falso esperando a que
+        // alguien lo use.
+        int anclaY = centrado ? frameH / 2 : frameH;
         return silW + "|" + silH + "|" + Math.Round(ratio, 2) + "|" +
-               frameW + "|" + frameH + "|" + (frameW / 2) + "|" + frameH + "|" + pctOpaco;
+               frameW + "|" + frameH + "|" + (frameW / 2) + "|" + anclaY + "|" + pctOpaco +
+               "|" + sx0 + "|" + sy0 + "|" + (sx1 - sx0 + 1) + "|" + (sy1 - sy0 + 1);
     }
 
     // ---------------------------------------------------------------------
@@ -965,10 +1023,29 @@ public class Procesador {
     //      que la reduccion abrio en mitad del cuerpo, nunca huecos legitimos:
     //      un hueco de verdad (entre las piernas) toca el exterior y se inunda
     //      desde el borde.
+    //
+    // ESE SEGUNDO SUPUESTO NO VALE SIEMPRE, y por eso `taparHuecos` es un
+    // parametro. Se escribio pensando en bichos y personajes, donde el unico
+    // hueco posible se abre hacia fuera. Una RUINA no: un arco, un ventanal o
+    // un boquete en un muro son huecos CERRADOS, no tocan el borde, y el
+    // relleno se los comia pintandolos con la media de sus vecinos.
+    //
+    // Medido sobre las tres que fallaban: ruinas4 pasaba de llenar el 61,9% de
+    // su caja a llenar el 66,2%, ruinas5 de 64,7 a 69,1 y ruinas7 de 43,8 a 49.
+    // Las que no tienen huecos cerrados no se movian ni un punto y medio.
     const int CORTE_BAJO = 100;
     const int CORTE_ALTO = 165;
 
+    // Fraccion de la masa que se tira por cada lado al medir el nucleo solido.
+    // Con 0.10 el nucleo conserva el 80% del dibujo y suelta el fleco de los
+    // bordes, que es justo lo que se pedia que fuera transitable.
+    const double DESCARTE = 0.10;
+
     static void Rematar(byte[] dst, int w, int h, int stride) {
+        Rematar(dst, w, h, stride, true);
+    }
+
+    static void Rematar(byte[] dst, int w, int h, int stride, bool taparHuecos) {
         // --- 1. Endurecer el alfa --------------------------------------
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
@@ -979,6 +1056,8 @@ public class Procesador {
                 else dst[q] = (byte)((a - CORTE_BAJO) * 255 / (CORTE_ALTO - CORTE_BAJO));
             }
         }
+
+        if (!taparHuecos) return;
 
         // --- 2. Marcar el exterior inundando desde el borde -------------
         bool[] fuera = new bool[w * h];
@@ -1804,6 +1883,447 @@ public class Procesador {
     }
 
     // ---------------------------------------------------------------------
+    // Celdas sueltas de una lamina sobre BLANCO
+    // ---------------------------------------------------------------------
+    //
+    // Las laminas de efectos (resources/armas/efectos/) son catalogos de pixel
+    // art sobre fondo blanco puro y rejilla regular. Esto recorta las celdas
+    // PEDIDAS -no la lamina entera- y las deja en una tira, igual que
+    // RecortarIconos. Va aparte por dos motivos que no son cosmeticos:
+    //
+    // 1. EL FONDO SE QUITA POR INUNDACION, no por umbral a secas. Es la misma
+    //    decision que QuitarFondoOpaco tomo con el conejo blanco, y aqui hace
+    //    la misma falta: el charco de lava tiene brillos casi blancos y el
+    //    anillo de escarcha es blanco entero. Un umbral plano los agujerearia
+    //    por dentro; inundando desde el borde de la celda solo se borra el
+    //    blanco al que se llega sin cruzar el contorno del dibujo.
+    //
+    // 2. SE ELIGE QUE CELDAS. De la lamina de 32 solo interesan tres. `indices`
+    //    son los huecos en orden de lectura, base 0, separados por comas, y el
+    //    orden de la tira es el orden en que se piden.
+    //
+    // Devuelve: pedidas|lado|detalle por celda
+    public static string RecortarCeldas(string entrada, string salida,
+                                        int cols, int filas, string indices,
+                                        int lado, int umbral, bool estirar) {
+        byte[] px; int w, h, stride;
+        CargarPx(entrada, out px, out w, out h, out stride);
+
+        string[] trozos = indices.Split(',');
+        int n = trozos.Length;
+        int cw = w / cols, ch = h / filas;
+
+        int tiraW = lado * n;
+        int dStride = tiraW * 4;
+        byte[] dst = new byte[dStride * lado];
+        System.Text.StringBuilder informe = new System.Text.StringBuilder();
+
+        for (int i = 0; i < n; i++) {
+            int k = int.Parse(trozos[i].Trim());
+            int c = k % cols, r = k / cols;
+            int x0 = c * cw, y0 = r * ch;
+            int x1 = x0 + cw - 1, y1 = y0 + ch - 1;
+            if (x1 >= w) x1 = w - 1;
+            if (y1 >= h) y1 = h - 1;
+
+            // VENTANA AMPLIADA, y esta es la pieza que hace que la rejilla
+            // nominal deje de mandar.
+            //
+            // El dibujo no cabe en su casilla, y se desborda EN LOS DOS
+            // SENTIDOS: el de la fila de arriba se mete aqui (medido: una tira
+            // de 35x3 en la celda 16) y el de aqui se sale por la derecha
+            // (medido: 24 pixeles pegados al borde de la celda 22 y 481 mas en
+            // los doce pixeles siguientes). Trabajando solo dentro del
+            // rectangulo de la casilla, lo primero ensucia y lo segundo se
+            // pierde -- el charco de alquitran salia con un tajo recto en el
+            // flanco derecho, y a radio grande se veia.
+            //
+            // Asi que se mira una ventana mas ancha que la casilla y despues se
+            // decide por CENTRO: se queda lo que tenga el suyo dentro de la
+            // casilla de verdad. Lo que se desborda es suyo y viene entero
+            // porque su centro no se ha movido; lo del vecino se cae porque el
+            // suyo esta en otra casilla. Es la misma regla que RecortarIconos
+            // usa con las hojas de iconos, y resuelve los dos desbordes con un
+            // solo criterio.
+            int mx = (int)(cw * MARGEN_CELDA), my = (int)(ch * MARGEN_CELDA);
+            int ex0 = Math.Max(0, x0 - mx), ey0 = Math.Max(0, y0 - my);
+            int ex1 = Math.Min(w - 1, x1 + mx), ey1 = Math.Min(h - 1, y1 + my);
+
+            // --- Inundacion del blanco desde el borde de la ventana ---------
+            bool[] fondo = new bool[w * h];
+            Queue<int> cola = new Queue<int>();
+            for (int x = ex0; x <= ex1; x++) {
+                SembrarBlanco(px, stride, w, fondo, cola, x, ey0, umbral);
+                SembrarBlanco(px, stride, w, fondo, cola, x, ey1, umbral);
+            }
+            for (int y = ey0; y <= ey1; y++) {
+                SembrarBlanco(px, stride, w, fondo, cola, ex0, y, umbral);
+                SembrarBlanco(px, stride, w, fondo, cola, ex1, y, umbral);
+            }
+            while (cola.Count > 0) {
+                int p = cola.Dequeue();
+                int x = p % w, y = p / w;
+                for (int d = 0; d < 4; d++) {
+                    int nx = x + (d == 0 ? 1 : d == 1 ? -1 : 0);
+                    int ny = y + (d == 2 ? 1 : d == 3 ? -1 : 0);
+                    if (nx < ex0 || ny < ey0 || nx > ex1 || ny > ey1) continue;
+                    SembrarBlanco(px, stride, w, fondo, cola, nx, ny, umbral);
+                }
+            }
+
+            // El halo de compresion del JPG deja un reborde de blanco sucio que
+            // el umbral no alcanza y que se ve como una orla clara pegada al
+            // contorno. Se erosiona contra el fondo: solo cae lo que YA toca
+            // fondo y sigue siendo casi blanco, asi que el dibujo no pierde
+            // nada suyo.
+            //
+            // DOS PASADAS y no una. Con una sola quedaba orla visible en cuanto
+            // la calcomania se ampliaba: el halo del JPG es de dos pixeles, no
+            // de uno, y al estirar el sprite el segundo se convierte en un
+            // reborde blanco de seis o siete pixeles de pantalla.
+            for (int pase = 0; pase < 2; pase++) {
+                List<int> orla = new List<int>();
+                for (int y = ey0; y <= ey1; y++)
+                    for (int x = ex0; x <= ex1; x++) {
+                        if (fondo[y * w + x]) continue;
+                        if (Lum(px, y * stride + x * 4) <= umbral - 34) continue;
+                        if (!Vecino(fondo, w, h, x, y)) continue;
+                        orla.Add(y * w + x);
+                    }
+                for (int q = 0; q < orla.Count; q++) fondo[orla[q]] = true;
+            }
+
+            // --- Solo lo que es SUYO ---------------------------------------
+            //
+            // Es la misma leccion que RecortarIconos ya aprendio con las hojas
+            // de iconos, y aqui hacia la misma falta: EL DIBUJO NO RESPETA SU
+            // CASILLA. La rejilla de la lamina es nominal, y el efecto de la
+            // fila de arriba sangra unos pixeles dentro de esta celda.
+            //
+            // Medido: en la celda 16 la isla buena mide 127x84 y el sangrado es
+            // una tira de 35x3 pegada al borde superior. Con la tira dentro, la
+            // caja de la silueta pasa a 126x104 -veinte filas de aire- y al
+            // encajar "contener" en el marco cuadrado el charco sale ENCOGIDO y
+            // DESCENTRADO. Un solo defecto que se ve como tres.
+            //
+            // Se queda la isla mayor y las que sean suyas de verdad: al menos un
+            // 12% de su area y con el centro dentro del 80% central de la
+            // casilla. Un sangrado del vecino tiene el centro pegado al borde
+            // por definicion, asi que ese criterio lo descarta sin tocar los
+            // dibujos de varias piezas -un charco con sus gotas sueltas-, que
+            // son lo unico que un "quedarse solo con la mayor" habria roto.
+            SoloIslasPropias(fondo, w, ex0, ey0, ex1, ey1, x0, y0, x1, y1);
+
+            int[] caja = CajaSilueta(fondo, w, ex0, ey0, ex1, ey1);
+            if (caja == null) { informe.Append(k + ":VACIA "); continue; }
+
+            int silW = caja[2] - caja[0] + 1, silH = caja[3] - caja[1] + 1;
+
+            // ENCAJE. Dos maneras, y para las calcomanias de zona manda
+            // `estirar`, que llena el marco deformando la silueta.
+            //
+            // Suena mal y es lo correcto. El encaje "contener" -el que usan los
+            // iconos- respeta la proporcion, y estos charcos estan dibujados
+            // como elipses muy achatadas: 130x66, casi 2:1. Metidas en un marco
+            // cuadrado llenaban a lo ancho y dejaban media corona de suelo
+            // desnudo arriba y abajo... suelo que SI HACE DANO, porque la zona
+            // es el circulo entero. Medido en la revision: la mancha cubria el
+            // 45% del aro. Un jugador con los pies en el borde de arriba juraria
+            // que esta fuera, y esa es la peor mentira que puede contar un
+            // efecto de suelo.
+            //
+            // Deformar no cuesta nada aqui porque UN CHARCO ES AMORFO: no hay
+            // proporcion verdadera que respetar en una mancha de brea. Y a los
+            // dibujos que si son redondos -el anillo de escarcha, el sello de
+            // piedra- no les pasa nada, porque su silueta ya es cuadrada y
+            // estirarla al marco es la identidad.
+            int dw, dh, offX, offY;
+            if (estirar) {
+                dw = lado; dh = lado; offX = 0; offY = 0;
+            } else {
+                double esc = Math.Min((double)lado / silW, (double)lado / silH);
+                dw = Math.Max(1, (int)Math.Round(silW * esc));
+                dh = Math.Max(1, (int)Math.Round(silH * esc));
+                offX = (lado - dw) / 2; offY = (lado - dh) / 2;
+            }
+
+            byte[] recorte = new byte[silW * 4 * silH];
+            int rStride = silW * 4;
+            for (int y = 0; y < silH; y++)
+                for (int x = 0; x < silW; x++) {
+                    int sxp = caja[0] + x, syp = caja[1] + y;
+                    int p = syp * stride + sxp * 4;
+                    int q = y * rStride + x * 4;
+                    bool esFondo = fondo[syp * w + sxp];
+                    recorte[q]     = px[p];
+                    recorte[q + 1] = px[p + 1];
+                    recorte[q + 2] = px[p + 2];
+                    recorte[q + 3] = esFondo ? (byte)0 : (byte)255;
+
+                    // QUITAR EL TIMBRE DEL FILO. Tras las dos erosiones queda un
+                    // reborde claro perfilando la silueta: es el ringing del
+                    // JPG, y canta porque sigue el contorno en vez de responder
+                    // a una luz.
+                    //
+                    // No se erosiona una tercera vez: se comeria dibujo de
+                    // verdad, y en una silueta de 66 pixeles tres filas ya son
+                    // un 5%. Y tampoco se OSCURECE, que fue el primer intento y
+                    // no vale: bajar el brillo un 30% convierte el blanco en
+                    // gris claro, que sobre la losa azul del nivel se sigue
+                    // viendo igual de bien. Bajaba la medida, no el defecto.
+                    //
+                    // Se COPIA HACIA DENTRO: el pixel del filo toma el color de
+                    // un vecino que ya no toque el fondo, o sea dibujo limpio.
+                    // Asi el contorno hereda el color que le corresponde en vez
+                    // de un tono inventado, y funciona sea la calcomania oscura
+                    // (el alquitran) o clara (el anillo de escarcha), cosa que
+                    // oscurecer no hacia.
+                    if (esFondo) continue;
+                    if (!Vecino(fondo, w, h, sxp, syp)) continue;
+                    int limpio = -1;
+                    for (int d = 0; d < 8 && limpio < 0; d++) {
+                        int nx = sxp + VEC8X[d], ny = syp + VEC8Y[d];
+                        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                        if (fondo[ny * w + nx]) continue;
+                        if (Vecino(fondo, w, h, nx, ny)) continue;   // tambien es filo
+                        limpio = ny * stride + nx * 4;
+                    }
+                    if (limpio < 0) continue;      // silueta de un pixel de ancho
+                    recorte[q]     = px[limpio];
+                    recorte[q + 1] = px[limpio + 1];
+                    recorte[q + 2] = px[limpio + 2];
+                }
+
+            // DOMINANTE y no media de area: la lamina es pixel art de paleta
+            // corta y contorno grueso, justo el caso para el que se escribio
+            // EscalarDominante (ver su cabecera). Promediar inventaria colores
+            // que no estan y emborronaria el contorno, que es lo unico que
+            // sostiene la silueta cuando el charco se dibuje pequeno.
+            EscalarDominante(recorte, rStride, silW, silH, 0, 0, silW, silH,
+                             dst, dStride, i * lado + offX, offY, dw, dh);
+            informe.Append(k + ":" + silW + "x" + silH + " ");
+        }
+
+        Rematar(dst, tiraW, lado, dStride);
+
+        using (Bitmap sal = new Bitmap(tiraW, lado, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0, 0, tiraW, lado),
+                                         ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < lado; y++)
+                Marshal.Copy(dst, y * dStride, (IntPtr)(dd.Scan0.ToInt64() + y * dd.Stride), dStride);
+            sal.UnlockBits(dd);
+            sal.Save(salida, ImageFormat.Png);
+        }
+        return n + "|" + lado + "|" + informe.ToString();
+    }
+
+    // Marca como fondo todo lo que no pertenezca al dibujo de esta celda. Ver
+    // el comentario largo en RecortarCeldas: separa las manchas conexas, se
+    // queda con la mayor y con las que sean claramente suyas, y tira el resto.
+    const double ISLA_MINIMA = 0.12;   // fraccion del area de la isla mayor
+    const double MARGEN_CELDA = 0.30;  // cuanto se ensancha la ventana de busqueda
+
+    // Los ocho vecinos, para la copia hacia dentro del filo.
+    static readonly int[] VEC8X = { 1, -1, 0, 0, 1, 1, -1, -1 };
+    static readonly int[] VEC8Y = { 0, 0, 1, -1, 1, -1, 1, -1 };
+
+    // (x0..y1) es la VENTANA en la que se busca; (cx0..cy1) la casilla de
+    // verdad, la que decide de quien es cada mancha.
+    static void SoloIslasPropias(bool[] fondo, int w, int x0, int y0, int x1, int y1,
+                                 int cx0, int cy0, int cx1, int cy1) {
+        int cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+        int[] etiqueta = new int[cw * ch];      // 0 = sin visitar
+        List<long> area = new List<long>();
+        List<long> sumX = new List<long>();
+        List<long> sumY = new List<long>();
+        area.Add(0); sumX.Add(0); sumY.Add(0);  // hueco de la etiqueta 0
+
+        Queue<int> cola = new Queue<int>();
+        for (int y = 0; y < ch; y++) {
+            for (int x = 0; x < cw; x++) {
+                if (etiqueta[y * cw + x] != 0) continue;
+                if (fondo[(y0 + y) * w + (x0 + x)]) continue;
+
+                int id = area.Count;
+                long n = 0, sx = 0, sy = 0;
+                etiqueta[y * cw + x] = id;
+                cola.Enqueue(y * cw + x);
+                while (cola.Count > 0) {
+                    int p = cola.Dequeue();
+                    int qx = p % cw, qy = p / cw;
+                    n++; sx += qx; sy += qy;
+                    for (int d = 0; d < 4; d++) {
+                        int nx = qx + (d == 0 ? 1 : d == 1 ? -1 : 0);
+                        int ny = qy + (d == 2 ? 1 : d == 3 ? -1 : 0);
+                        if (nx < 0 || ny < 0 || nx >= cw || ny >= ch) continue;
+                        if (etiqueta[ny * cw + nx] != 0) continue;
+                        if (fondo[(y0 + ny) * w + (x0 + nx)]) continue;
+                        etiqueta[ny * cw + nx] = id;
+                        cola.Enqueue(ny * cw + nx);
+                    }
+                }
+                area.Add(n); sumX.Add(sx); sumY.Add(sy);
+            }
+        }
+        if (area.Count <= 1) return;
+
+        // DE QUIEN ES CADA MANCHA: de la casilla donde cae su centro. Se calcula
+        // primero quien es de aqui, y solo entre esas se busca la mayor -- si la
+        // referencia fuese la mayor de la ventana, un vecino grande asomando por
+        // el borde subiria el liston y se llevaria por delante los trozos
+        // legitimos de este dibujo.
+        bool[] esDeAqui = new bool[area.Count];
+        long mayor = 0;
+        for (int i = 1; i < area.Count; i++) {
+            double cx = x0 + (double)sumX[i] / area[i];
+            double cy = y0 + (double)sumY[i] / area[i];
+            if (cx < cx0 || cx > cx1 || cy < cy0 || cy > cy1) continue;
+            esDeAqui[i] = true;
+            if (area[i] > mayor) mayor = area[i];
+        }
+        if (mayor == 0) return;      // nada con centro aqui: mejor no tocar nada
+
+        bool[] vale = new bool[area.Count];
+        for (int i = 1; i < area.Count; i++) {
+            if (!esDeAqui[i]) continue;
+            vale[i] = area[i] == mayor || area[i] >= mayor * ISLA_MINIMA;
+        }
+
+        for (int y = 0; y < ch; y++)
+            for (int x = 0; x < cw; x++) {
+                int id = etiqueta[y * cw + x];
+                if (id != 0 && !vale[id]) fondo[(y0 + y) * w + (x0 + x)] = true;
+            }
+    }
+
+    // ---------------------------------------------------------------------
+    // Rejilla fija de una hoja QUE YA TRAE ALFA
+    // ---------------------------------------------------------------------
+    //
+    // Para hojas de ANIMACION, que son otra cosa que los catalogos de efectos.
+    // Tres diferencias con RecortarCeldas, y las tres son el mismo principio:
+    //
+    // 1. CAJA COMUN, NO CAJA POR FOTOGRAMA. Se recorta el mismo cuadro en todas
+    //    las celdas -centrado en el pivote y con medio lado `medio`- y jamas se
+    //    ajusta a la silueta de cada una. Es la leccion que ProcesarGif ya tiene
+    //    escrita: ajustando por fotograma, una animacion que CRECE queda
+    //    centrada y del mismo tamano en todos, y el crecimiento desaparece. En
+    //    esta hoja el tajo va de 211 a 237 de radio; recortando ajustado, los
+    //    seis saldrian identicos.
+    //
+    // 2. NO SE TOCA EL ALFA. Ni umbral, ni inundacion, ni Rematar. La hoja trae
+    //    su transparencia y ademas es una ilustracion con bloom y semitrans-
+    //    parencias: endurecer el alfa -que es justo lo que hace bien con un
+    //    sprite de pixel art- aqui la destrozaria.
+    //
+    // 3. EL PIVOTE MANDA. Se recorta centrado en el, asi que el pivote acaba
+    //    siendo el centro del fotograma de salida y el juego puede dibujarlo
+    //    con un drawImage centrado, sin desplazamientos por fotograma.
+    //
+    // Y `medio` se elige midiendo: si vale el radio del contenido mas lejano de
+    // toda la hoja, el borde del dibujo cae en el borde del fotograma, y
+    // entonces dibujarlo con medio lado = alcance del arma pone el filo del tajo
+    // exactamente en el radio que hace dano. Sin factores de correccion.
+    //
+    // Devuelve: celdas|lado
+    public static string RecortarRejilla(string entrada, string salida,
+                                         int cols, int filas,
+                                         int pivX, int pivY, int medio, int lado) {
+        byte[] px; int w, h, stride;
+        CargarPx(entrada, out px, out w, out h, out stride);
+
+        int cw = w / cols, ch = h / filas;
+        int n = cols * filas;
+        int tiraW = lado * n;
+        int dStride = tiraW * 4;
+        byte[] dst = new byte[dStride * lado];
+
+        for (int i = 0; i < n; i++) {
+            int cx = (i % cols) * cw, cy = (i / cols) * ch;
+            int sx = cx + pivX - medio, sy = cy + pivY - medio;
+            int lo = medio * 2;
+            // Recorte al lienzo: si el cuadro se sale, se encoge la fuente y el
+            // destino a la vez, para no desplazar el pivote.
+            if (sx < 0) sx = 0;
+            if (sy < 0) sy = 0;
+            if (sx + lo > w) lo = w - sx;
+            if (sy + lo > h) lo = h - sy;
+            EscalarBloque(px, stride, w, h, sx, sy, lo, lo,
+                          dst, dStride, i * lado, 0, lado, lado);
+        }
+
+        // Sin Rematar, a proposito: ver el punto 2 de la cabecera.
+        using (Bitmap sal = new Bitmap(tiraW, lado, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0, 0, tiraW, lado),
+                                         ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < lado; y++)
+                Marshal.Copy(dst, y * dStride, (IntPtr)(dd.Scan0.ToInt64() + y * dd.Stride), dStride);
+            sal.UnlockBits(dd);
+            sal.Save(salida, ImageFormat.Png);
+        }
+        return n + "|" + lado;
+    }
+
+    // ---------------------------------------------------------------------
+    // Dibujo suelto NO CUADRADO, ajustado a su silueta
+    // ---------------------------------------------------------------------
+    //
+    // Para lo que no es un disco. RecortarRejilla recorta un CUADRADO centrado
+    // en el pivote, que es lo correcto para lo que gira -un aura, un escudo, un
+    // barrido- porque asi nada entra ni sale del cuadro al rotar. Pero una bala
+    // mide 430x190: el cuadrado que la contuviera necesitaria 215 de medio lado
+    // y por arriba solo hay 155, o sea que la cortaria.
+    //
+    // Aqui se recorta la silueta y punto, y el destino lleva su propia
+    // proporcion. Quien lo dibuje decide donde cae el punto de anclaje.
+    //
+    // SIN Rematar: puede ser pixel art de alfa dura -que no lo necesita- o un
+    // dibujo con bordes suaves -al que se los estropearia-.
+    //
+    // Devuelve: anchoSal|altoSal|siluetaW|siluetaH
+    public static string RecortarSuelto(string entrada, string salida,
+                                        int anchoSal, int altoSal) {
+        byte[] px; int w, h, stride;
+        CargarPx(entrada, out px, out w, out h, out stride);
+
+        int minX = w, minY = h, maxX = -1, maxY = -1;
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++) {
+                if (px[y * stride + x * 4 + 3] <= 24) continue;
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        if (maxX < 0) return "VACIA";
+
+        int silW = maxX - minX + 1, silH = maxY - minY + 1;
+        int dStride = anchoSal * 4;
+        byte[] dst = new byte[dStride * altoSal];
+        EscalarBloque(px, stride, w, h, minX, minY, silW, silH,
+                      dst, dStride, 0, 0, anchoSal, altoSal);
+
+        using (Bitmap sal = new Bitmap(anchoSal, altoSal, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0, 0, anchoSal, altoSal),
+                                         ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < altoSal; y++)
+                Marshal.Copy(dst, y * dStride, (IntPtr)(dd.Scan0.ToInt64() + y * dd.Stride), dStride);
+            sal.UnlockBits(dd);
+            sal.Save(salida, ImageFormat.Png);
+        }
+        return anchoSal + "|" + altoSal + "|" + silW + "|" + silH;
+    }
+
+    static void SembrarBlanco(byte[] px, int stride, int w, bool[] fondo,
+                              Queue<int> cola, int x, int y, int umbral) {
+        int i = y * w + x;
+        if (fondo[i]) return;
+        if (Lum(px, y * stride + x * 4) < umbral) return;
+        fondo[i] = true;
+        cola.Enqueue(i);
+    }
+
+    // ---------------------------------------------------------------------
     // Reduccion por COLOR DOMINANTE
     // ---------------------------------------------------------------------
     //
@@ -2173,14 +2693,28 @@ $CATALOGO = @(
     # LAS CUATRO GEMAS DE EXPERIENCIA. Se dibujaban por codigo -un rombo de
     # cuatro puntos con un brillo- porque no habia arte; ya lo hay.
     #
-    # El ORDEN ES EL VALOR, que es lo que pidio Sergio: gema1 es la de 1 punto y
-    # gema4 la de 100. Van creciendo de tamano con el valor, igual que hacia el
-    # rombo, porque en un suelo sembrado de gemas el tamano es lo que se ve antes
-    # que el color.
-    @{ src='objetos\gema1.png';          dst='objetos\gema1.png';          id='gema1';         alto=8;  anchoFijo=0; tol=0; plano=$true }
-    @{ src='objetos\gema2.png';          dst='objetos\gema2.png';          id='gema2';         alto=9;  anchoFijo=0; tol=0; plano=$true }
-    @{ src='objetos\gema3.png';          dst='objetos\gema3.png';          id='gema3';         alto=11; anchoFijo=0; tol=0; plano=$true }
-    @{ src='objetos\gema4.png';          dst='objetos\gema4.png';          id='gema4';         alto=13; anchoFijo=0; tol=0; plano=$true }
+    # El ORDEN ES EL VALOR: gema1 es la de 1 punto y gema4 la de 100.
+    #
+    # TODAS DEL MISMO TAMANO. Antes crecian con el valor (alto 8, 9, 11, 13)
+    # razonando que en un suelo sembrado de gemas el tamano se ve antes que el
+    # color. Sergio lo descarto viendolo: lo que distingue a una gema de otra es
+    # QUE GEMA ES, no lo grande que sea, y escalarlas por valor hacia que las
+    # buenas parecieran objetos distintos en vez de la misma cosa mejor.
+    #
+    # MARCO FIJO Y CENTRADO, no solo el mismo `alto`. Con el alto igual y el
+    # ancho libre no bastaba: los cuatro dibujos tienen proporciones muy
+    # distintas -de 0,75 a 1,27 de relacion- asi que a igual altura la ancha
+    # seguia pareciendo el doble de grande. Con `anchoFijo` las cuatro se
+    # encajan en la misma caja de 10x10 y ocupan lo mismo pase lo que pase con
+    # el dibujo. Y `centrado` porque una gema se dibuja centrada en su posicion,
+    # no apoyada en una linea de pies como un personaje.
+    #
+    # 5 y no 10: se probaron a 10 (40x40 fisicos) y ocupaban demasiado para lo
+    # que son. La mitad justa, que deja la caja en 20x20.
+    @{ src='objetos\gema1.png';          dst='objetos\gema1.png';          id='gema1';         alto=5;  anchoFijo=5;  tol=0; plano=$true; centrado=$true }
+    @{ src='objetos\gema2.png';          dst='objetos\gema2.png';          id='gema2';         alto=5;  anchoFijo=5;  tol=0; plano=$true; centrado=$true }
+    @{ src='objetos\gema3.png';          dst='objetos\gema3.png';          id='gema3';         alto=5;  anchoFijo=5;  tol=0; plano=$true; centrado=$true }
+    @{ src='objetos\gema4.png';          dst='objetos\gema4.png';          id='gema4';         alto=5;  anchoFijo=5;  tol=0; plano=$true; centrado=$true }
 
     # LOS DIEZ POTENCIADORES DE LA TIENDA. Cada uno con su dibujo, todos de
     # Sergio y en su propia carpeta.
@@ -2217,36 +2751,33 @@ $CATALOGO = @(
     # quitar fondo, recortar a silueta, ancla centro-inferior, un fotograma.
     # `plano=$true` porque nunca giran ni reciben destello de impacto —ni
     # espejo ni tinte les hacen falta, igual que a las hojas de iconos.
-    @{ src='stages\1\objetos\columna.png';   dst='objetos\columna.png';   id='columna';   alto=40; anchoFijo=0; tol=0;  plano=$true }
+    @{ src='stages\1\objetos\columna.png';   dst='objetos\columna.png';   id='columna';   alto=80; anchoFijo=0; tol=0;  plano=$true }
     # SIN plano: a diferencia de columna/estatuas/ruinas (decoracion pura),
     # las antorchas se pueden destruir (datos/enemigos.js) y necesitan la
     # copia blanqueada de destello al recibir un golpe, igual que cualquier
     # enemigo.
     @{ src='stages\1\objetos\antorcha1.png'; dst='objetos\antorcha1.png'; id='antorcha1'; alto=26; anchoFijo=0; tol=0 }
     @{ src='stages\1\objetos\antorcha2.png'; dst='objetos\antorcha2.png'; id='antorcha2'; alto=26; anchoFijo=0; tol=0 }
-    @{ src='stages\1\objetos\estatua1.png';  dst='objetos\estatua1.png';  id='estatua1';  alto=34; anchoFijo=0; tol=0;  plano=$true }
-    @{ src='stages\1\objetos\estatua2.png';  dst='objetos\estatua2.png';  id='estatua2';  alto=34; anchoFijo=0; tol=0;  plano=$true }
-    @{ src='stages\1\objetos\estatua3.png';  dst='objetos\estatua3.png';  id='estatua3';  alto=34; anchoFijo=0; tol=0;  plano=$true }
-    @{ src='stages\1\objetos\estatua4.png';  dst='objetos\estatua4.png';  id='estatua4';  alto=34; anchoFijo=0; tol=0;  plano=$true }
-    @{ src='stages\1\objetos\estatua5.png';  dst='objetos\estatua5.png';  id='estatua5';  alto=34; anchoFijo=0; tol=0;  plano=$true }
+    @{ src='stages\1\objetos\estatua1.png';  dst='objetos\estatua1.png';  id='estatua1';  alto=48; anchoFijo=0; tol=0;  plano=$true }
+    @{ src='stages\1\objetos\estatua2.png';  dst='objetos\estatua2.png';  id='estatua2';  alto=48; anchoFijo=0; tol=0;  plano=$true }
+    @{ src='stages\1\objetos\estatua3.png';  dst='objetos\estatua3.png';  id='estatua3';  alto=48; anchoFijo=0; tol=0;  plano=$true }
+    @{ src='stages\1\objetos\estatua4.png';  dst='objetos\estatua4.png';  id='estatua4';  alto=48; anchoFijo=0; tol=0;  plano=$true }
+    @{ src='stages\1\objetos\estatua5.png';  dst='objetos\estatua5.png';  id='estatua5';  alto=48; anchoFijo=0; tol=0;  plano=$true }
     # Ruinas a proposito MAS GRANDES que columnas/antorchas/estatuas (peticion
     # de Sergio jugando la Fase 8): un 53% mas de alto que la primera pasada
     # (36->55). Son edificios, no mobiliario, y tienen que imponer en el
     # margen de hierba en vez de leerse como un adorno mas.
-    @{ src='stages\1\objetos\ruinas1.png';   dst='objetos\ruinas1.png';   id='ruinas1';   alto=55; anchoFijo=0; tol=0;  plano=$true }
-    @{ src='stages\1\objetos\ruinas2.png';   dst='objetos\ruinas2.png';   id='ruinas2';   alto=55; anchoFijo=0; tol=0;  plano=$true }
-    @{ src='stages\1\objetos\ruinas4.png';   dst='objetos\ruinas4.png';   id='ruinas4';   alto=55; anchoFijo=0; tol=0;  plano=$true }
-    @{ src='stages\1\objetos\ruinas5.png';   dst='objetos\ruinas5.png';   id='ruinas5';   alto=55; anchoFijo=0; tol=0;  plano=$true }
+    @{ src='stages\1\objetos\ruinas1.png';   dst='objetos\ruinas1.png';   id='ruinas1';   alto=110; anchoFijo=0; tol=0;  plano=$true; huecos=$true }
+    @{ src='stages\1\objetos\ruinas2.png';   dst='objetos\ruinas2.png';   id='ruinas2';   alto=110; anchoFijo=0; tol=0;  plano=$true; huecos=$true }
+    @{ src='stages\1\objetos\ruinas4.png';   dst='objetos\ruinas4.png';   id='ruinas4';   alto=110; anchoFijo=0; tol=0;  plano=$true; huecos=$true }
+    @{ src='stages\1\objetos\ruinas5.png';   dst='objetos\ruinas5.png';   id='ruinas5';   alto=110; anchoFijo=0; tol=0;  plano=$true; huecos=$true }
     # ruinas6..11 salieron de recortar a mano ruinas3.png (una hoja de
     # contacto con seis ruinas juntas, no un objeto en si). El tol sube a 40:
     # el recorte dejo cerca del borde la rejilla clara de la hoja original y
     # el tolerancia por defecto (30) no bastaba para tragarsela entera.
-    @{ src='stages\1\objetos\ruinas6.png';   dst='objetos\ruinas6.png';   id='ruinas6';   alto=55; anchoFijo=0; tol=40; plano=$true }
-    @{ src='stages\1\objetos\ruinas7.png';   dst='objetos\ruinas7.png';   id='ruinas7';   alto=55; anchoFijo=0; tol=40; plano=$true }
-    @{ src='stages\1\objetos\ruinas8.png';   dst='objetos\ruinas8.png';   id='ruinas8';   alto=55; anchoFijo=0; tol=40; plano=$true }
-    @{ src='stages\1\objetos\ruinas9.png';   dst='objetos\ruinas9.png';   id='ruinas9';   alto=55; anchoFijo=0; tol=40; plano=$true }
-    @{ src='stages\1\objetos\ruinas10.png';  dst='objetos\ruinas10.png';  id='ruinas10';  alto=55; anchoFijo=0; tol=40; plano=$true }
-    @{ src='stages\1\objetos\ruinas11.png';  dst='objetos\ruinas11.png';  id='ruinas11';  alto=55; anchoFijo=0; tol=40; plano=$true }
+    @{ src='stages\1\objetos\ruinas7.png';   dst='objetos\ruinas7.png';   id='ruinas7';   alto=110; anchoFijo=0; tol=40; plano=$true; huecos=$true }
+    @{ src='stages\1\objetos\ruinas9.png';   dst='objetos\ruinas9.png';   id='ruinas9';   alto=110; anchoFijo=0; tol=40; plano=$true; huecos=$true }
+    @{ src='stages\1\objetos\ruinas10.png';  dst='objetos\ruinas10.png';  id='ruinas10';  alto=110; anchoFijo=0; tol=40; plano=$true; huecos=$true }
 )
 
 # Retrato de la ficha de jugador. CUADRADO: de los hombros a la cabeza y nada
@@ -2350,14 +2881,18 @@ foreach ($e in $CATALOGO) {
 
     $tolAsset = if ($e.tol -gt 0) { $e.tol } else { $TOL }
     try {
-        $r = [Procesador]::Procesar($rutaSrc, $rutaDst, $e.alto, $ESCALA, $tolAsset, $e.anchoFijo, [bool]$e.dominante)
+        $r = [Procesador]::Procesar($rutaSrc, $rutaDst, $e.alto, $ESCALA, $tolAsset, $e.anchoFijo, [bool]$e.dominante, [bool]$e.centrado, [bool]$e.huecos)
     } catch {
         $informe += [PSCustomObject]@{ Id=$e.id; Silueta='-'; Ratio='-'; Sprite='-'; Quitado='-'; Estado='ERROR' }
         continue
     }
 
     $p = if ($r) { $r -split '\|' } else { @() }
-    if ($r -eq 'VACIA' -or $p.Count -ne 8) {
+    # -lt y no -ne: el retorno de Procesar CRECIO al publicar el nucleo solido,
+    # y un -ne 8 daba por vacia toda entrada que llegara bien. Con -lt la
+    # guarda sigue cazando un retorno corto sin romperse cada vez que se anade un
+    # campo al final.
+    if ($r -eq 'VACIA' -or $p.Count -lt 8) {
         $informe += [PSCustomObject]@{ Id=$e.id; Silueta='-'; Ratio='-'; Sprite='-'; Quitado='-'; Estado='VACIA' }
         continue
     }
@@ -2496,6 +3031,16 @@ foreach ($e in $CATALOGO) {
     # Decoracion estatica: sin espejo ni destello de impacto (ver CATALOGO).
     if ($e.plano) { $atlas[$e.id].plano = $true }
 
+    # NUCLEO SOLIDO, en pixeles del propio sprite. Solo se publica si de verdad
+    # recorta algo: si coincide con el recuadro entero no aporta nada y el
+    # motor ya sabe qué hacer sin el campo.
+    if ($p.Count -ge 12) {
+        $nx = [int]$p[8]; $ny = [int]$p[9]; $nw = [int]$p[10]; $nh = [int]$p[11]
+        if ($nx -gt 0 -or $ny -gt 0 -or $nw -lt $fw -or $nh -lt $fh) {
+            $atlas[$e.id].solido = @($nx, $ny, $nw, $nh)
+        }
+    }
+
     $informe += [PSCustomObject]@{
         Id      = $e.id
         Silueta = "${silW}x${silH}"
@@ -2622,6 +3167,193 @@ foreach ($hoja in $HOJAS_ICONOS) {
 }
 $informeIconos | Format-Table -AutoSize
 "DESCUADRE = la hoja no tiene tantos iconos como ids declarados; revisar el recorte."
+
+# ---------------------------------------------------------------------------
+# EFECTOS DE ZONA  (retirado)
+# ---------------------------------------------------------------------------
+#
+# Aqui se recortaban calcomanias de suelo de resources/armas/efectos/efectos6.jpg
+# para las armas de `zonaPersistente`. Se probaron cinco celdas y se retiraron
+# todas: cuatro por el dibujo -relieve, canto propio compitiendo con el aro- y
+# las dos ultimas por como quedaban jugando. Las laminas de origen ya no estan
+# en el repositorio.
+#
+# Se conservan en el bloque C# de arriba `RecortarCeldas` y `SoloIslasPropias`,
+# sin nadie que las llame. No es descuido: resuelven un problema real -recortar
+# celdas de un catalogo sobre blanco, con el dibujo desbordando su casilla por
+# los dos lados- y la historia de por que estan escritas asi vale mas que las
+# lineas que ocupan. Si aparece otro catalogo, la vuelta es declarar la lamina.
+#
+# Lo que SI sobrevive del experimento esta en el motor: las zonas del jugador se
+# dibujan bajo las entidades (ver entidades/zonaDanyo.js).
+
+# ---------------------------------------------------------------------------
+# TAJOS DE ARMA CUERPO A CUERPO
+# ---------------------------------------------------------------------------
+#
+# sprite_katana.png es una hoja de ANIMACION, no un catalogo: seis fases del
+# mismo barrido, rejilla 3x2 de celdas de 512, en orden de lectura. Y trae su
+# propio alfa, asi que no pasa por nada del recorte de las laminas sobre blanco.
+#
+# MEDIDO sobre la hoja, no estimado:
+#   - el pivote (el punto donde va el jugador) cae DENTRO del dibujo, en el
+#     hueco del anillo, en (256, 240) de cada celda. El centroide de brillo de
+#     los fotogramas cerrados sale en (258, 246), que lo confirma.
+#   - el contenido mas lejano al pivote esta a 237,3 px (fotograma 3). Con
+#     MEDIO = 240 entra la hoja entera y el filo del dibujo queda pegado al
+#     borde del fotograma, que es lo que permite dibujarlo en el juego con
+#     medio lado = alcance del arma y que el tajo acabe donde acaba el dano.
+# CADA HOJA, SU PNG Y SU ENTRADA DE ATLAS, y el arma nombra la entrada tal cual
+# en `spriteTajo` (datos/armas.js). Es lo que hace que anadir la siguiente sea
+# UNA linea aqui y otra en los datos, sin tocar el motor ni renumerar nada.
+#
+# Se penso en meterlas todas en una tira compartida, como las zonas, y no
+# compensa: cada hoja trae su rejilla, su pivote y su numero de fases, asi que
+# una tira comun obligaria a llevar la cuenta de donde empieza cada arma y
+# cuantos fotogramas gasta. Un PNG por arma no tiene esa contabilidad.
+#
+# `pivX`/`pivY` y `medio` SE MIDEN, no se estiman. Para eso esta
+# herramientas/medir-hoja-tajo.ps1: dice la rejilla, propone el pivote y da el
+# radio del contenido mas lejano, que es el `medio` correcto.
+#
+# `lado` es el tamano al que se hornea, y debe ser el que el arma usa en el caso
+# base: alcance * 2 * ESCALA. Asi el blit sale 1:1 al nivel 1 (ver abajo).
+$HOJAS_ALFA = @(
+    @{ src='armas\efectos\sprite_katana.png'; dst='efectos\tajo-katana.png'
+       id='tajoKatana'; cols=3; filas=2; pivX=256; pivY=240; medio=240; lado=304 }
+
+    # Campo electrico: UNA sola imagen, sin rejilla, y no se anima -- GIRA (ver
+    # `giro` en datos/armas.js). Por eso el pivote es el CENTRO DEL LIENZO y no
+    # el centroide de brillo que propone medir-hoja-tajo.ps1: lo que hace falta
+    # en algo que rota es el centro de simetria, no donde mas ilumina.
+    #
+    # Medido sobre la version actual (702x700, tintas planas): desde el centro
+    # del lienzo el dibujo llega a radio 331 y caben 349, asi que entra entero
+    # con holgura y nada se corta al girar.
+    #
+    # `medio` = el radio del contenido, no el hueco disponible. Es lo que hace
+    # que el filo del dibujo caiga en el borde del fotograma y, dibujandolo con
+    # medio lado = radio del arma, el efecto acabe donde acaba el dano.
+    @{ src='armas\efectos\sprite_campoElectrico.png'; dst='efectos\aura-campoElectrico.png'
+       id='auraCampoElectrico'; cols=1; filas=1; pivX=351; pivY=350; medio=332; lado=272 }
+
+    # ORBITALES. Imagen suelta y centrada, `lado` = radioEscudo * 2 * 4.
+    #
+    # El Scutum NO gira sobre si mismo (lleva emblema con un arriba claro, y
+    # rotandolo las alas quedarian boca abajo media vuelta); los discos SI, y
+    # ademas al reves y mas rapido que su orbita, que es lo que los lee como
+    # que cortan. Eso lo dice `giroOrbital` en datos/armas.js.
+    @{ src='armas\efectos\sprite_scutum.png'; dst='efectos\orb-scutum.png'
+       id='orbScutum'; cols=1; filas=1; pivX=151; pivY=153; medio=151; lado=64 }
+    @{ src='armas\efectos\sprite_discosDeSierra.png'; dst='efectos\orb-discos.png'
+       id='orbDiscos'; cols=1; filas=1; pivX=154; pivY=153; medio=153; lado=72 }
+    # Sierras votivas: orbital pulsante, radioEscudo 10 -> lado 80. Gira sobre
+    # su eje como los discos, que para eso es una sierra.
+    @{ src='armas\efectos\sprite_sierrasVotivas.png'; dst='efectos\orb-sierras.png'
+       id='orbSierras'; cols=1; filas=1; pivX=144; pivY=144; medio=144; lado=80 }
+
+    # Aquila: aura pasiva, radio 24 -> lado 192. NO gira: es un emblema con un
+    # arriba claro, igual que el escudo.
+    @{ src='armas\efectos\sprite_aquila.png'; dst='efectos\aura-aquila.png'
+       id='auraAquila'; cols=1; filas=1; pivX=236; pivY=233; medio=232; lado=192 }
+
+    # Aceite hirviendo: charco, radio 38 -> lado 304. Es una calcomania de
+    # suelo, no un aura, pero se hornea igual: cuadrada y centrada.
+)
+
+# Sobre el `lado` de la Katana, 304 y no un redondo: es el tamano al que se
+# dibuja en el caso base -alcance 38, o sea 38*2*4 = 304 pixeles de pantalla-,
+# asi que el blit sale 1:1 al nivel 1, que es la regla de rendimiento del
+# proyecto. Horneando a 256 el juego ampliaba 1,19x, y ampliar por vecino mas
+# proximo una ilustracion de degradados deja el borde dentado que se vio en la
+# revision. Ademas sale del recorte de 480 REDUCIENDO, sin inventar un pixel.
+New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'efectos') | Out-Null
+
+# ---------------------------------------------------------------------------
+# PROYECTILES CON DIBUJO
+# ---------------------------------------------------------------------------
+#
+# sprite_pistola.png no es una pistola ni un fogonazo: es LA BALA EN VUELO, con
+# su llama de propulsion detras. Va en la posicion del proyectil.
+#
+# Y es PIXEL ART con rejilla de 10 px: sus 430x190 de contenido son en realidad
+# 43x19 pixeles dibujados. Por eso se hornea justo a 43x19 y no al tamano del
+# trazo que sustituye (32 px): reducir pixel art de alfa dura por un factor que
+# no sea entero descuadra la rejilla, se come filas y deja el contorno a
+# trozos. Con 43x19 el blit va 1:1 y no se pierde ni un pixel del dibujo.
+#
+# El dibujo mira a la IZQUIERDA; se le da la vuelta al dibujarlo, no aqui (ver
+# entidades/proyectil.js), porque espejar en el motor es una transformacion mas
+# de las que ya se hacen para orientarlo al vuelo.
+$DIBUJOS_SUELTOS = @(
+    @{ src='armas\efectos\sprite_pistola.png'; dst='efectos\bala-pistola.png'
+       id='balaPistola'; ancho=43; alto=19 }
+
+    # Aceite hirviendo. Va por aqui y no por $HOJAS_ALFA porque su dibujo es
+    # ANCHO (588x401): un recorte cuadrado centrado le cortaria 94 px por cada
+    # lado. Aqui se recorta su silueta y se estira al cuadro que el motor pinta,
+    # y estirar no cuesta nada en un charco -no hay proporcion verdadera en una
+    # mancha-, que es la misma razon por la que se estiran las calcomanias de
+    # zona (ver `estirar` en RecortarCeldas).
+    #
+    # 304 = radio 38 * 2 * 4, el tamano al que se dibuja en el caso base.
+    @{ src='armas\efectos\sprite_aceiteHirviendo.png'; dst='efectos\zona-aceite.png'
+       id='zonaAceite'; ancho=304; alto=304 }
+)
+
+foreach ($p in $DIBUJOS_SUELTOS) {
+    $rutaSrc = Join-Path $ORIGEN $p.src
+    if (-not (Test-Path $rutaSrc)) { "PROYECTIL $($p.id): no existe $rutaSrc"; continue }
+    try {
+        $r = [Procesador]::RecortarSuelto($rutaSrc, (Join-Path $DESTINO $p.dst), $p.ancho, $p.alto)
+        $q = $r -split '\|'
+        $atlas[$p.id] = [ordered]@{
+            archivo = $p.dst.Replace('\', '/')
+            w = $p.ancho; h = $p.alto
+            anclaX = [int]($p.ancho / 2); anclaY = [int]($p.alto / 2)
+            frames = 1
+            plano  = $true
+        }
+        "PROYECTIL $($p.id): silueta $($q[2])x$($q[3]) -> $($q[0])x$($q[1])"
+    } catch {
+        "PROYECTIL $($p.id): ERROR - $($_.Exception.Message)"
+    }
+}
+
+$informeAlfa = @()
+foreach ($hoja in $HOJAS_ALFA) {
+    $rutaSrc = Join-Path $ORIGEN $hoja.src
+    if (-not (Test-Path $rutaSrc)) {
+        $informeAlfa += [PSCustomObject]@{ Hoja=$hoja.id; Fotogramas='-'; Lado='-'; Estado='NO EXISTE' }
+        continue
+    }
+    try {
+        $r = [Procesador]::RecortarRejilla($rutaSrc, (Join-Path $DESTINO $hoja.dst),
+                                           $hoja.cols, $hoja.filas,
+                                           $hoja.pivX, $hoja.pivY, $hoja.medio, $hoja.lado)
+    } catch {
+        $informeAlfa += [PSCustomObject]@{ Hoja=$hoja.id; Fotogramas='-'; Lado='-'; Estado="ERROR $($_.Exception.Message)" }
+        continue
+    }
+    $p = $r -split '\|'
+    # anclaX/anclaY en el CENTRO: el recorte se hizo centrado en el pivote, asi
+    # que el pivote ES el centro del fotograma y el juego no necesita ningun
+    # desplazamiento al dibujar.
+    $atlas[$hoja.id] = [ordered]@{
+        archivo = $hoja.dst.Replace('\', '/')
+        w = $hoja.lado; h = $hoja.lado
+        anclaX = [int]($hoja.lado / 2); anclaY = [int]($hoja.lado / 2)
+        frames = [int]$p[0]
+        plano  = $true
+    }
+    $informeAlfa += [PSCustomObject]@{
+        Hoja = $hoja.id; Fotogramas = [int]$p[0]; Lado = $hoja.lado; Estado = 'OK'
+    }
+}
+if ($informeAlfa.Count -gt 0) {
+    "HOJAS CON ALFA (tajos y auras):"
+    $informeAlfa | Format-Table -AutoSize
+}
 
 # ---------------------------------------------------------------------------
 # SUELO DE NIVEL

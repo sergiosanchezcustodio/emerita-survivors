@@ -29,10 +29,65 @@ function dibujarObstaculo(ctx) {
 
 function crearInstancia() {
   return {
-    x: 0, y: 0, yVista: 0, radio: 0,
+    x: 0, y: 0, yVista: 0,
+    // HUELLA: caja (hx, hy) centrada en (cx, cy). `cy` no es `y`: la posición
+    // de un obstáculo es la línea donde se apoya su dibujo, y la huella sube
+    // desde ahí. Ver `huellaDe`.
+    cx: 0, cy: 0, hx: 0, hy: 0,
     img: null, w: 0, h: 0,
     dibujar: dibujarObstaculo
   };
+}
+
+// De qué tamaño es lo sólido de un obstáculo, a partir de su dibujo. Es una
+// CAJA (media anchura, media altura) centrada en (x, cy) — ver `empujarFueraDe`
+// en sistemas/colisiones.js para por qué caja y no círculo ni elipse.
+//
+// UNA SOLA REGLA para cosas que no se parecen en nada, y esa es la gracia:
+//
+//   hx = 0.47 del ancho    — lo sólido es casi tan ancho como el dibujo.
+//   hy = la mitad del alto, PERO NUNCA MÁS QUE hx.
+//
+// Léase: *una mole ancha y baja es sólida de arriba abajo; una cosa alta y
+// estrecha solo ocupa su base*. Que es exactamente la diferencia entre unas
+// ruinas —124x110 de escombro tirado por el suelo— y una columna —26x80, de la
+// que solo estorba el pie mientras el fuste se te va por encima del hombro—.
+//
+// Y EL TAMAÑO SALE DEL DIBUJO MEDIDO, no de su recuadro.
+//
+// Ese fue el fallo de la versión anterior: se bloqueaba el recuadro entero del
+// sprite, pero una ruina solo llena el 60-69% del suyo. El resto son esquinas
+// vacías y flecos transparentes, y ahí no hay piedra que estorbe — se bloqueaba
+// aire, y bastante.
+//
+// La herramienta mide en frío qué filas y columnas del sprite tienen masa de
+// verdad y publica ese recorte en el atlas como `solido` (ver el paso 7 de
+// `Procesar` en herramientas/procesar-assets.ps1). Aquí solo se traduce a
+// unidades lógicas. Sin ese campo —un sprite que llena su recuadro— se usa el
+// recuadro, que entonces es la respuesta correcta.
+//
+// `meta.solido` viene en píxeles FÍSICOS del sprite y relativo a su esquina
+// superior izquierda; el sprite se dibuja centrado en x y apoyado en y, así que
+// hay que llevar ese recorte al mismo sitio.
+function huellaDe(inst, meta, anchoLog, altoLog) {
+  const s = meta.solido;
+  if (s) {
+    const escala = anchoLog / meta.w;          // físico -> lógico
+    inst.hx = (s[2] * escala) / 2;
+    inst.hy = Math.min((s[3] * escala) / 2, inst.hx);
+    // El centro de la CAJA no tiene por qué caer en la posición del obstáculo:
+    // si la masa está descentrada dentro del sprite, la caja se descentra con
+    // ella. Va en `cx`/`cy` propios y NO en `x`/`y`, que son los del dibujo.
+    inst.cx = inst.x + (s[0] + s[2] / 2 - meta.w / 2) * escala;
+    // Borde inferior de la masa, respecto a la línea de base del sprite.
+    const baseY = inst.y - (meta.h - (s[1] + s[3])) * escala;
+    inst.cy = baseY - inst.hy;
+  } else {
+    inst.hx = 0.47 * anchoLog;
+    inst.hy = Math.min(0.5 * altoLog, inst.hx);
+    inst.cx = inst.x;
+    inst.cy = inst.y - inst.hy;
+  }
 }
 
 export const Obstaculos = {
@@ -79,19 +134,26 @@ export const Obstaculos = {
     const items = this.items;
     for (let k = 0; k < this.activos; k++) {
       const o = items[k];
-      const dx = e.x - o.x;
-      const dy = e.y - o.y;
-      const r = o.radio + margen;
-      const d2 = dx * dx + dy * dy;
-      if (d2 >= r * r) continue;
-      if (d2 > 0.0001) {
-        const d = Math.sqrt(d2);
-        const f = (r - d) / d;
-        e.x += dx * f;
-        e.y += dy * f;
-      } else {
-        e.x += r;                 // justo en el eje: sale por la derecha
-      }
+      // MISMA CAJA que usa la física (ver `huellaDe` y `empujarFueraDe` en
+      // sistemas/colisiones.js). Tiene que ser la misma forma: si aquí se
+      // usara otra, un objeto podría quedar fuera del apartado pero dentro de
+      // lo sólido — que es exactamente el fallo que esta función evita.
+      const hx = o.hx + margen;
+      const hy = o.hy + margen;
+      const dx = e.x - o.cx;
+      const dy = e.y - o.cy;
+      if (dx < -hx || dx > hx || dy < -hy || dy > hy) continue;
+      // Dentro: se sale por el lado más cercano.
+      const izq = dx + hx, der = hx - dx;
+      const arr = dy + hy, aba = hy - dy;
+      let m = izq;
+      if (der < m) m = der;
+      if (arr < m) m = arr;
+      if (aba < m) m = aba;
+      if (m === izq)      e.x -= izq;
+      else if (m === der) e.x += der;
+      else if (m === arr) e.y -= arr;
+      else                e.y += aba;
     }
   },
 
@@ -137,10 +199,7 @@ export const Obstaculos = {
         inst.x = entrada.x;
         inst.y = origenY + entrada.y;
         inst.yVista = inst.y;
-        // Misma fórmula que el radio de daño de los enemigos (sección 10 del
-        // plan): min(0.35*alto, 0.45*ancho). Aquí es el único radio —un
-        // obstáculo no distingue entre "lo que golpea" y "lo que bloquea".
-        inst.radio = Math.min(0.35 * altoLog, 0.45 * anchoLog);
+        huellaDe(inst, meta, anchoLog, altoLog);
         inst.img = Recursos.imagen(entrada.tipo);
         inst.w = meta.w;
         inst.h = meta.h;

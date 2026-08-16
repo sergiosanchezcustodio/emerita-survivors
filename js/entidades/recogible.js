@@ -10,15 +10,24 @@ import { GestorAudio } from '../sistemas/audio.js';
 // había mientras no hubiera arte.
 //
 // Cuatro valores, como pide el plan: 1, 5, 25 y 100. El ORDEN DEL NOMBRE ES EL
-// VALOR —gema1 la más pobre, gema4 la mejor— que es como las entregó Sergio. Y
-// crecen de tamaño con el valor, porque en un suelo sembrado de gemas el tamaño
-// se ve antes que el color y de un vistazo sabes si merece la pena cruzar la
-// pantalla a por ella.
+// VALOR —gema1 la más pobre, gema4 la mejor— que es como las entregó Sergio.
+//
+// TODAS DEL MISMO TAMAÑO. Antes crecían con el valor, razonando que en un suelo
+// sembrado de gemas el tamaño se ve antes que el color. Descartado viéndolo: lo
+// que separa una gema de otra es QUÉ GEMA ES, y escalarlas por valor hacía que
+// las buenas parecieran otro objeto en vez de la misma cosa mejor. Por eso
+// `lado` es igual en las cuatro, y el tamaño de los dibujos lo iguala el marco
+// fijo del recorte (ver $CATALOGO en herramientas/procesar-assets.ps1).
+//
+// `lado` va a la par de ese marco: manda en el grosor de la estela cuando el
+// imán las arrastra y en el rombo de repliegue si el PNG no carga, así que al
+// encoger las gemas a la mitad tuvo que encogerse con ellas o el rastro habría
+// quedado más gordo que la gema que lo deja.
 export const GEMAS = [
-  { valor: 1,   color: '#5aa9e6', brillo: '#bfe4ff', lado: 3,   arte: 'gema1' },
-  { valor: 5,   color: '#5ac36a', brillo: '#c6f3cd', lado: 3.5, arte: 'gema2' },
-  { valor: 25,  color: '#d64b5a', brillo: '#ffc2c8', lado: 4,   arte: 'gema3' },
-  { valor: 100, color: '#e8b73a', brillo: '#fff0b8', lado: 5,   arte: 'gema4' }
+  { valor: 1,   color: '#5aa9e6', brillo: '#bfe4ff', lado: 2, arte: 'gema1' },
+  { valor: 5,   color: '#5ac36a', brillo: '#c6f3cd', lado: 2, arte: 'gema2' },
+  { valor: 25,  color: '#d64b5a', brillo: '#ffc2c8', lado: 2, arte: 'gema3' },
+  { valor: 100, color: '#e8b73a', brillo: '#fff0b8', lado: 2, arte: 'gema4' }
 ];
 
 // Por encima de esto, las gemas más lejanas se fusionan (requisito 5 del plan).

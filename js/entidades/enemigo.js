@@ -819,7 +819,9 @@ export class Enemigos {
       if (e.vidaMaxima >= VIDA_HITSTOP) {
         const peso = Math.min(1, e.vidaMaxima / (VIDA_HITSTOP * 12));
         VFX.congelar(0.04 + peso * 0.06);
-        VFX.sacudir(1.2 + peso * 3.5);
+        // `masa`: esto lo piden decenas de muertes por segundo con un arma de
+        // área, y sin racionar la cámara no se para nunca. Ver VFX.sacudir.
+        VFX.sacudir(1.2 + peso * 3.5, true);
       }
 
       // Objeto del escenario (antorcha, ver datos/enemigos.js): NO es una

@@ -1,5 +1,7 @@
 import { Pool } from '../core/pool.js';
+import { Recursos } from '../core/recursos.js';
 import { Particulas, COLOR_CHISPA } from '../sistemas/particulas.js';
+import { HOJA_ZONAS, huecoDe } from './zonaDanyo.js';
 
 // DISPAROS ENEMIGOS. Los sueltan los enemigos que llevan `ataque` en su ficha
 // (medusa y mantícora, de momento): los poderosos, nunca la masa.
@@ -38,7 +40,10 @@ function crearDisparo() {
     // dañando por tics durante `duracion`. Es la versión "ataca al jugador"
     // del modo 'zona' de sistemas/zonaDanyo.js, que solo daña enemigos.
     charco: false, duracion: 0, intervalo: 0, relojTic: 0,
-    color: '#ffffff', fase: 0
+    color: '#ffffff', fase: 0,
+    // Calcomanía de suelo del charco, cuando la tiene. Misma hoja y mismo
+    // resolutor que las zonas del jugador (ver entidades/zonaDanyo.js).
+    sprite: -1
   };
 }
 
@@ -120,7 +125,55 @@ export class Disparos {
     d.sismo = false;
     d.color = def.color;
     d.fase = 0;
+    d.sprite = def.sprite ? huecoDe(def.sprite) : -1;
     return d;
+  }
+
+  // Capa de SUELO: la calcomanía de los charcos YA ACTIVOS.
+  //
+  // Los disparos enemigos se dibujan por encima de todo el mundo a propósito
+  // —uno que viene tiene que verse aunque cruce por detrás de un cíclope— pero
+  // un charco no viene: está. El propio `charco()` lo dice, "es terreno, no un
+  // proyectil". Así que se parte igual que las zonas del jugador: la mancha va
+  // al suelo y el canto se queda arriba marcando dónde acaba el daño.
+  //
+  // El AVISO no baja: sigue arriba del todo con el resto de disparos. Es lo
+  // único que da tiempo a apartarse, y enterrarlo bajo la horda sería quitarlo.
+  dibujarSuelo(ctx, alpha) {
+    const items = this.pool.items;
+    const n = this.pool.activos;
+    if (n === 0) return;
+    const img = Recursos.imagen(HOJA_ZONAS);
+    const meta = Recursos.meta(HOJA_ZONAS);
+    if (!img || !meta) return;
+
+    ctx.save();
+    // Base tenue bajo la calcomanía, por el mismo motivo que en zonaDanyo.js:
+    // los entrantes de la silueta dejarían ver suelo limpio dentro del aro, y
+    // dentro del aro se hace daño.
+    for (let k = 0; k < n; k++) {
+      const d = items[k];
+      if (!d.charco || d.sprite < 0 || d.restante > 0) continue;
+      ctx.globalAlpha = 0.20;
+      ctx.fillStyle = d.color;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.radio, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (let k = 0; k < n; k++) {
+      const d = items[k];
+      if (!d.charco || d.sprite < 0 || d.restante > 0) continue;
+      const x = d.xPrev + (d.x - d.xPrev) * alpha;
+      const y = d.yPrev + (d.y - d.yPrev) * alpha;
+      // Late con la misma fase que usaba el relleno trazado: el charco de un
+      // jefe respira, y esa es la diferencia entre "hay una mancha" y "esa
+      // mancha sigue viva".
+      const r = d.radio * (1 + Math.sin(d.fase) * 0.06);
+      ctx.globalAlpha = 0.92;
+      ctx.drawImage(img, d.sprite * meta.w, 0, meta.w, meta.h,
+                    x - r, y - r, r * 2, r * 2);
+    }
+    ctx.restore();
   }
 
   // Mueve, comprueba impacto contra jugadores y recicla lo que caduca o se aleja.
@@ -400,12 +453,18 @@ export class Disparos {
         } else {
           // Activo: relleno caliente que titila mientras dura. Sin anillo de
           // aviso porque ya no hay nada que anunciar, el peligro ES el charco.
-          const late = 1 + Math.sin(d.fase) * 0.15;
-          ctx.globalAlpha = 0.32;
-          ctx.fillStyle = d.color;
-          ctx.beginPath();
-          ctx.arc(x, y, d.radio * late, 0, Math.PI * 2);
-          ctx.fill();
+          //
+          // Con calcomanía el relleno NO se pinta aquí: ya se ha pintado abajo,
+          // en la capa de suelo (ver dibujarSuelo). Lo que sigue saliendo en
+          // los dos casos es el canto, que es la frontera del daño.
+          if (d.sprite < 0) {
+            const late = 1 + Math.sin(d.fase) * 0.15;
+            ctx.globalAlpha = 0.32;
+            ctx.fillStyle = d.color;
+            ctx.beginPath();
+            ctx.arc(x, y, d.radio * late, 0, Math.PI * 2);
+            ctx.fill();
+          }
           ctx.globalAlpha = 0.7;
           ctx.strokeStyle = d.color;
           ctx.lineWidth = 1.5;

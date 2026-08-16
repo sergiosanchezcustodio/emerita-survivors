@@ -13,7 +13,7 @@ const MONO = 'Consolas, "Cascadia Mono", ui-monospace, monospace';
 
 const LINEAS = [];
 
-const AYUDA = 'F3 · F4 mapa · ESC · TAB ficha · C personaje · J/H mas/menos jugadores · 1/2/3/4 enemigos sueltos · 5 apagar/encender DIRECTOR (6/7 adelantar/atrasar 1 min) · 8 cofre · X vaciar · G inmortal · R revivir · M/, cambiar de arma · K +Gladius · L subir nivel'
+const AYUDA = 'F3 · F4 mapa · ESC · TAB ficha · C personaje · J/H mas/menos jugadores · 1/2/3/4 enemigos sueltos · 5 apagar/encender DIRECTOR (6/7 adelantar/atrasar 1 min) · 8 cofre · X vaciar · G inmortal · R revivir · M/, cambiar de arma · K +Gladius · Z armas con calcomania · L subir nivel'
             + '   ||   APAGAR: Y suelo · P particulas · N numeros · O efectos · T destello';
 
 export function dibujarDepuracion(ctx, datos) {

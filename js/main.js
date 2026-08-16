@@ -34,7 +34,7 @@ import { dibujarFinal, dibujarCartelFinal } from './ui/final.js';
 import { dibujarPaneles, dibujarReloj, dibujarBarraJefe, dibujarDenariosPartida } from './ui/hud.js';
 import { Pantallas, ocupantePersonaje, dibujarDespedida } from './ui/pantallas.js';
 import { dibujarConfig, dibujarConfirmacion } from './ui/configuracion.js';
-import { Capa } from './ui/capa.js';
+import { Capa, FUENTE } from './ui/capa.js';
 import { Tema, olvidarDegradados } from './ui/tema.js';
 import {
   dibujarDepuracion, dibujarPausa
@@ -1319,6 +1319,7 @@ function actualizar(dt) {
   if (entrada.consumirFlanco('KeyK')) equiparGladius();
   if (entrada.consumirFlanco('KeyM')) cicladorArmas(false);
   if (entrada.consumirFlanco('KeyComma')) cicladorArmas(true);
+  if (entrada.consumirFlanco('KeyZ')) equiparConCalcomania();
   // Interruptores de perfilado: apagar un sistema y mirar los fps es la forma
   // más directa de saber qué cuesta en una máquina concreta.
   if (entrada.consumirFlanco('KeyP')) activo.particulas = !activo.particulas;
@@ -1422,6 +1423,7 @@ function actualizar(dt) {
   disparos.actualizar(dt, jugadores, camara);
   Particulas.actualizar(dt);
   VFX.actualizar(dt);
+  if (AVISO_ARMA.restante > 0) AVISO_ARMA.restante -= dt;
   GestorAudio.actualizar();
 
   // Si alguien ha subido de nivel durante este paso, el menú abre en el
@@ -1555,13 +1557,79 @@ function subirTodasLasArmas() {
 // forma de juzgar un patrón por separado: con seis a la vez no se distingue cuál
 // hace qué. Con Shift va hacia atrás.
 let indiceCatalogo = -1;
+
+// CARTEL DEL ARMA. Se enseña el nombre en pantalla al cambiar, unos segundos.
+//
+// El ciclador existía desde hace tiempo pero era a ciegas: cincuenta y siete
+// armas pasando sin decir cuál es, y para saberlo había que abrir el panel de
+// depuración. Repasar el catálogo entero así no lo hace nadie. Con el nombre
+// delante, pulsar M cincuenta y siete veces sí es una forma de ver todos los
+// efectos, que es para lo que está.
+const AVISO_ARMA = { texto: '', restante: 0 };
+const DURACION_AVISO_ARMA = 2.2;
+
 function cicladorArmas(haciaAtras) {
   const ids = Object.keys(ARMAS);
   indiceCatalogo = (indiceCatalogo + (haciaAtras ? -1 : 1) + ids.length) % ids.length;
+  const id = ids[indiceCatalogo];
   const a = arsenales[0];
   a.equipadas.length = 0;
   a.vaciar();
-  a.equipar(ids[indiceCatalogo]);
+  a.equipar(id);
+
+  // Cuál de las 57 es, cómo se llama, y si trae dibujo propio o se dibuja por
+  // código. Lo último es lo que más se consulta cuando se está repasando arte.
+  const def = ARMAS[id];
+  const conDibujo = def.sprite || def.spriteTajo || def.spriteOrbital || def.spriteProyectil;
+  AVISO_ARMA.texto = `${indiceCatalogo + 1}/${ids.length}  ${def.nombre}` +
+                     (conDibujo ? '  [dibujo]' : '');
+  AVISO_ARMA.restante = DURACION_AVISO_ARMA;
+}
+
+// Se dibuja en la CAPA DE INTERFAZ y arriba del todo: es texto de desarrollo y
+// abajo lo taparían los paneles de jugador.
+function dibujarAvisoArma(ctx) {
+  if (AVISO_ARMA.restante <= 0) return;
+  const t = AVISO_ARMA.restante / DURACION_AVISO_ARMA;
+  ctx.save();
+  ctx.globalAlpha = t > 0.35 ? 1 : t / 0.35;    // se apaga al final
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.font = `700 20px ${FUENTE}`;
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(14,10,18,.92)';
+  ctx.lineWidth = 5;
+  ctx.strokeText(AVISO_ARMA.texto, ANCHO_UI / 2, 18);
+  ctx.fillStyle = '#ffe9b0';
+  ctx.fillText(AVISO_ARMA.texto, ANCHO_UI / 2, 18);
+  ctx.restore();
+}
+
+// Equipa de golpe TODAS las armas que llevan calcomanía de suelo, y nada más.
+//
+// Existe porque probarlas de otra forma es absurdo: con el ciclador (M) hay que
+// contar trece pulsaciones para el Rete y cuarenta y cuatro para el Alquitrán, y
+// esas cuentas cambian en cuanto alguien mete un arma nueva en medio del
+// catálogo. Al jugador de verdad le llegan por sorteo, o sea cuando quieran.
+//
+// La lista sale de los DATOS —quién declara `sprite` en datos/armas.js— y no de
+// unos ids escritos aquí. Así la tecla sigue sirviendo según se vayan añadiendo
+// o quitando calcomanías, sin que nadie tenga que acordarse de actualizar esto:
+// ya se descartaron dos (la lava del Fuego griego y el sello de las Minas) y con
+// una lista a mano habrían quedado dos ids muertos.
+//
+// Vacía el arsenal, igual que el ciclador: se trata de ver los charcos sin que
+// otras seis armas llenen la pantalla de destellos. Conviene combinarla con G
+// (inmortal), porque el Rete y el Alquitrán casi no matan.
+function equiparConCalcomania() {
+  const a = arsenales[0];
+  a.equipadas.length = 0;
+  a.vaciar();
+  const ids = Object.keys(ARMAS);
+  for (let i = 0; i < ids.length; i++) {
+    const d = ARMAS[ids[i]];
+    if (d.sprite || d.spriteTajo || d.spriteOrbital || d.spriteProyectil) a.equipar(ids[i]);
+  }
 }
 
 function equiparGladius() {
@@ -1650,6 +1718,11 @@ function dibujar(alpha) {
   perfil.suelo = performance.now() - t;
 
   t = performance.now();
+  // Las calcomanías de zona, LO PRIMERO después del terreno: un charco de
+  // aceite es una mancha en el suelo y tiene que quedar por debajo de todo lo
+  // que se pueda pisar, gemas incluidas. Su canto se pinta luego, arriba del
+  // todo, con el resto de efectos (ver zonaDanyo.js).
+  if (activo.efectos) { zonas.dibujarSuelo(ctx); disparos.dibujarSuelo(ctx, alpha); }
   // Las gemas van bajo las entidades: son suelo, y taparlas con un cuerpo es
   // información correcta, no un fallo. El cofre también, pero su halo lo delata
   // por debajo de la horda, que es justo para lo que está.
@@ -1662,7 +1735,7 @@ function dibujar(alpha) {
   // haya ochocientos cuerpos debajo.
   t = performance.now();
   if (activo.efectos) {
-    zonas.dibujar(ctx);
+    zonas.dibujarAire(ctx);
     proyectiles.dibujar(ctx, alpha);
     for (let i = 0; i < arsenales.length; i++) {
       arsenales[i].dibujarTajos(ctx);
@@ -1749,6 +1822,7 @@ function dibujar(alpha) {
       escoltas: enemigos.escoltasVivos
     });
   }
+  dibujarAvisoArma(ctxUi);
   dibujarPaneles(ctxUi, jugadores);
   dibujarReloj(ctxUi);
   dibujarDenariosPartida(ctxUi, MetaProgreso.denarios - denariosAlEmpezar);

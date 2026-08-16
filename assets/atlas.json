@@ -139,7 +139,13 @@
                                                                 "n":  2,
                                                                 "fps":  2
                                                             }
-                                             }
+                                             },
+                                   "solido":  [
+                                                  7,
+                                                  12,
+                                                  29,
+                                                  78
+                                              ]
                                },
                       "lucyCara":  {
                                        "archivo":  "personajes/lucy-cara.png",
@@ -175,7 +181,13 @@
                                                                 "n":  2,
                                                                 "fps":  2
                                                             }
-                                             }
+                                             },
+                                   "solido":  [
+                                                  8,
+                                                  13,
+                                                  23,
+                                                  73
+                                              ]
                                },
                       "saraCara":  {
                                        "archivo":  "personajes/sara-cara.png",
@@ -211,7 +223,13 @@
                                                                 "n":  2,
                                                                 "fps":  2
                                                             }
-                                             }
+                                             },
+                                   "solido":  [
+                                                  7,
+                                                  10,
+                                                  34,
+                                                  80
+                                              ]
                                },
                       "vickyCara":  {
                                         "archivo":  "personajes/vicky-cara.png",
@@ -247,7 +265,13 @@
                                                                  "n":  2,
                                                                  "fps":  2
                                                              }
-                                              }
+                                              },
+                                    "solido":  [
+                                                   7,
+                                                   12,
+                                                   30,
+                                                   79
+                                               ]
                                 },
                       "ericAtaud":  {
                                         "archivo":  "personajes/eric-ataud.png",
@@ -256,7 +280,13 @@
                                         "anclaX":  48,
                                         "anclaY":  136,
                                         "frames":  1,
-                                        "plano":  true
+                                        "plano":  true,
+                                        "solido":  [
+                                                       14,
+                                                       21,
+                                                       62,
+                                                       102
+                                                   ]
                                     },
                       "lucyAtaud":  {
                                         "archivo":  "personajes/lucy-ataud.png",
@@ -265,7 +295,13 @@
                                         "anclaX":  44,
                                         "anclaY":  136,
                                         "frames":  1,
-                                        "plano":  true
+                                        "plano":  true,
+                                        "solido":  [
+                                                       15,
+                                                       19,
+                                                       57,
+                                                       99
+                                                   ]
                                     },
                       "saraAtaud":  {
                                         "archivo":  "personajes/sara-ataud.png",
@@ -274,7 +310,13 @@
                                         "anclaX":  44,
                                         "anclaY":  136,
                                         "frames":  1,
-                                        "plano":  true
+                                        "plano":  true,
+                                        "solido":  [
+                                                       16,
+                                                       18,
+                                                       56,
+                                                       100
+                                                   ]
                                     },
                       "vickyAtaud":  {
                                          "archivo":  "personajes/vicky-ataud.png",
@@ -283,7 +325,13 @@
                                          "anclaX":  44,
                                          "anclaY":  136,
                                          "frames":  1,
-                                         "plano":  true
+                                         "plano":  true,
+                                         "solido":  [
+                                                        15,
+                                                        18,
+                                                        57,
+                                                        99
+                                                    ]
                                      },
                       "mascotaHeladio":  {
                                              "archivo":  "mascotas/heladio.png",
@@ -356,7 +404,13 @@
                                                   "anclaX":  68,
                                                   "anclaY":  160,
                                                   "frames":  1,
-                                                  "plano":  true
+                                                  "plano":  true,
+                                                  "solido":  [
+                                                                 24,
+                                                                 24,
+                                                                 90,
+                                                                 114
+                                                             ]
                                               },
                       "mascotaEscipionFicha":  {
                                                    "archivo":  "mascotas/escipion-ficha.png",
@@ -365,7 +419,13 @@
                                                    "anclaX":  132,
                                                    "anclaY":  160,
                                                    "frames":  1,
-                                                   "plano":  true
+                                                   "plano":  true,
+                                                   "solido":  [
+                                                                  42,
+                                                                  29,
+                                                                  176,
+                                                                  100
+                                                              ]
                                                },
                       "mascotaPlinioFicha":  {
                                                  "archivo":  "mascotas/plinio-ficha.png",
@@ -374,7 +434,13 @@
                                                  "anclaX":  100,
                                                  "anclaY":  160,
                                                  "frames":  1,
-                                                 "plano":  true
+                                                 "plano":  true,
+                                                 "solido":  [
+                                                                33,
+                                                                25,
+                                                                136,
+                                                                105
+                                                            ]
                                              },
                       "mascotaNeronFicha":  {
                                                 "archivo":  "mascotas/neron-ficha.png",
@@ -383,7 +449,13 @@
                                                 "anclaX":  80,
                                                 "anclaY":  160,
                                                 "frames":  1,
-                                                "plano":  true
+                                                "plano":  true,
+                                                "solido":  [
+                                                               22,
+                                                               37,
+                                                               114,
+                                                               99
+                                                           ]
                                             },
                       "mascotaKarimFicha":  {
                                                 "archivo":  "mascotas/karim-ficha.png",
@@ -392,7 +464,13 @@
                                                 "anclaX":  84,
                                                 "anclaY":  160,
                                                 "frames":  1,
-                                                "plano":  true
+                                                "plano":  true,
+                                                "solido":  [
+                                                               22,
+                                                               28,
+                                                               122,
+                                                               101
+                                                           ]
                                             },
                       "mascotaCleopatraFicha":  {
                                                     "archivo":  "mascotas/cleopatra-ficha.png",
@@ -401,7 +479,13 @@
                                                     "anclaX":  64,
                                                     "anclaY":  160,
                                                     "frames":  1,
-                                                    "plano":  true
+                                                    "plano":  true,
+                                                    "solido":  [
+                                                                   21,
+                                                                   32,
+                                                                   89,
+                                                                   99
+                                                               ]
                                                 },
                       "mascotaOreoFicha":  {
                                                "archivo":  "mascotas/oreo-ficha.png",
@@ -410,7 +494,13 @@
                                                "anclaX":  80,
                                                "anclaY":  160,
                                                "frames":  1,
-                                               "plano":  true
+                                               "plano":  true,
+                                               "solido":  [
+                                                              29,
+                                                              31,
+                                                              108,
+                                                              110
+                                                          ]
                                            },
                       "mascotaPollitoFicha":  {
                                                   "archivo":  "mascotas/pollito-ficha.png",
@@ -419,7 +509,13 @@
                                                   "anclaX":  76,
                                                   "anclaY":  160,
                                                   "frames":  1,
-                                                  "plano":  true
+                                                  "plano":  true,
+                                                  "solido":  [
+                                                                 28,
+                                                                 34,
+                                                                 98,
+                                                                 92
+                                                             ]
                                               },
                       "cofreSimple":  {
                                           "archivo":  "objetos/cofre-simple.png",
@@ -428,7 +524,13 @@
                                           "anclaX":  36,
                                           "anclaY":  64,
                                           "frames":  1,
-                                          "plano":  true
+                                          "plano":  true,
+                                          "solido":  [
+                                                         9,
+                                                         9,
+                                                         54,
+                                                         45
+                                                     ]
                                       },
                       "cofreEspecial":  {
                                             "archivo":  "objetos/cofre-especial.png",
@@ -437,7 +539,13 @@
                                             "anclaX":  40,
                                             "anclaY":  72,
                                             "frames":  1,
-                                            "plano":  true
+                                            "plano":  true,
+                                            "solido":  [
+                                                           11,
+                                                           10,
+                                                           59,
+                                                           49
+                                                       ]
                                         },
                       "objFuego":  {
                                        "archivo":  "objetos/obj-fuego.png",
@@ -446,7 +554,13 @@
                                        "anclaX":  24,
                                        "anclaY":  56,
                                        "frames":  1,
-                                       "plano":  true
+                                       "plano":  true,
+                                       "solido":  [
+                                                      9,
+                                                      12,
+                                                      30,
+                                                      38
+                                                  ]
                                    },
                       "objComida":  {
                                         "archivo":  "objetos/obj-comida.png",
@@ -455,7 +569,13 @@
                                         "anclaX":  24,
                                         "anclaY":  56,
                                         "frames":  1,
-                                        "plano":  true
+                                        "plano":  true,
+                                        "solido":  [
+                                                       8,
+                                                       16,
+                                                       32,
+                                                       34
+                                                   ]
                                     },
                       "objIman":  {
                                       "archivo":  "objetos/obj-iman.png",
@@ -464,7 +584,13 @@
                                       "anclaX":  28,
                                       "anclaY":  56,
                                       "frames":  1,
-                                      "plano":  true
+                                      "plano":  true,
+                                      "solido":  [
+                                                     9,
+                                                     11,
+                                                     37,
+                                                     36
+                                                 ]
                                   },
                       "objReloj":  {
                                        "archivo":  "objetos/obj-reloj.png",
@@ -473,7 +599,13 @@
                                        "anclaX":  24,
                                        "anclaY":  60,
                                        "frames":  1,
-                                       "plano":  true
+                                       "plano":  true,
+                                       "solido":  [
+                                                      8,
+                                                      9,
+                                                      32,
+                                                      41
+                                                  ]
                                    },
                       "objMonedas":  {
                                          "archivo":  "objetos/obj-monedas.png",
@@ -482,7 +614,13 @@
                                          "anclaX":  32,
                                          "anclaY":  52,
                                          "frames":  1,
-                                         "plano":  true
+                                         "plano":  true,
+                                         "solido":  [
+                                                        12,
+                                                        10,
+                                                        39,
+                                                        35
+                                                    ]
                                      },
                       "monedaHud":  {
                                         "archivo":  "objetos/moneda-hud.png",
@@ -491,43 +629,73 @@
                                         "anclaX":  40,
                                         "anclaY":  80,
                                         "frames":  1,
-                                        "plano":  true
+                                        "plano":  true,
+                                        "solido":  [
+                                                       12,
+                                                       12,
+                                                       56,
+                                                       56
+                                                   ]
                                     },
                       "gema1":  {
                                     "archivo":  "objetos/gema1.png",
-                                    "w":  24,
-                                    "h":  32,
-                                    "anclaX":  12,
-                                    "anclaY":  32,
+                                    "w":  20,
+                                    "h":  20,
+                                    "anclaX":  10,
+                                    "anclaY":  10,
                                     "frames":  1,
-                                    "plano":  true
+                                    "plano":  true,
+                                    "solido":  [
+                                                   5,
+                                                   4,
+                                                   10,
+                                                   14
+                                               ]
                                 },
                       "gema2":  {
                                     "archivo":  "objetos/gema2.png",
-                                    "w":  32,
-                                    "h":  36,
-                                    "anclaX":  16,
-                                    "anclaY":  36,
+                                    "w":  20,
+                                    "h":  20,
+                                    "anclaX":  10,
+                                    "anclaY":  10,
                                     "frames":  1,
-                                    "plano":  true
+                                    "plano":  true,
+                                    "solido":  [
+                                                   3,
+                                                   2,
+                                                   14,
+                                                   16
+                                               ]
                                 },
                       "gema3":  {
                                     "archivo":  "objetos/gema3.png",
-                                    "w":  56,
-                                    "h":  44,
-                                    "anclaX":  28,
-                                    "anclaY":  44,
+                                    "w":  20,
+                                    "h":  20,
+                                    "anclaX":  10,
+                                    "anclaY":  10,
                                     "frames":  1,
-                                    "plano":  true
+                                    "plano":  true,
+                                    "solido":  [
+                                                   3,
+                                                   3,
+                                                   14,
+                                                   11
+                                               ]
                                 },
                       "gema4":  {
                                     "archivo":  "objetos/gema4.png",
-                                    "w":  56,
-                                    "h":  52,
-                                    "anclaX":  28,
-                                    "anclaY":  52,
+                                    "w":  20,
+                                    "h":  20,
+                                    "anclaX":  10,
+                                    "anclaY":  10,
                                     "frames":  1,
-                                    "plano":  true
+                                    "plano":  true,
+                                    "solido":  [
+                                                   3,
+                                                   3,
+                                                   14,
+                                                   12
+                                               ]
                                 },
                       "potVitalidad":  {
                                            "archivo":  "objetos/pot-vitalidad.png",
@@ -536,7 +704,13 @@
                                            "anclaX":  48,
                                            "anclaY":  112,
                                            "frames":  1,
-                                           "plano":  true
+                                           "plano":  true,
+                                           "solido":  [
+                                                          16,
+                                                          20,
+                                                          64,
+                                                          76
+                                                      ]
                                        },
                       "potPremura":  {
                                          "archivo":  "objetos/pot-premura.png",
@@ -545,7 +719,13 @@
                                          "anclaX":  56,
                                          "anclaY":  112,
                                          "frames":  1,
-                                         "plano":  true
+                                         "plano":  true,
+                                         "solido":  [
+                                                        24,
+                                                        26,
+                                                        69,
+                                                        72
+                                                    ]
                                      },
                       "potCoraza":  {
                                         "archivo":  "objetos/pot-coraza.png",
@@ -554,7 +734,13 @@
                                         "anclaX":  52,
                                         "anclaY":  112,
                                         "frames":  1,
-                                        "plano":  true
+                                        "plano":  true,
+                                        "solido":  [
+                                                       20,
+                                                       15,
+                                                       67,
+                                                       82
+                                                   ]
                                     },
                       "potCodicia":  {
                                          "archivo":  "objetos/pot-codicia.png",
@@ -563,7 +749,13 @@
                                          "anclaX":  52,
                                          "anclaY":  112,
                                          "frames":  1,
-                                         "plano":  true
+                                         "plano":  true,
+                                         "solido":  [
+                                                        18,
+                                                        23,
+                                                        68,
+                                                        71
+                                                    ]
                                      },
                       "potFuria":  {
                                        "archivo":  "objetos/pot-furia.png",
@@ -572,7 +764,13 @@
                                        "anclaX":  52,
                                        "anclaY":  112,
                                        "frames":  1,
-                                       "plano":  true
+                                       "plano":  true,
+                                       "solido":  [
+                                                      17,
+                                                      24,
+                                                      68,
+                                                      72
+                                                  ]
                                    },
                       "potClepsidra":  {
                                            "archivo":  "objetos/pot-clepsidra.png",
@@ -581,7 +779,13 @@
                                            "anclaX":  44,
                                            "anclaY":  112,
                                            "frames":  1,
-                                           "plano":  true
+                                           "plano":  true,
+                                           "solido":  [
+                                                          16,
+                                                          15,
+                                                          57,
+                                                          83
+                                                      ]
                                        },
                       "potOnda":  {
                                       "archivo":  "objetos/pot-onda.png",
@@ -590,7 +794,13 @@
                                       "anclaX":  64,
                                       "anclaY":  112,
                                       "frames":  1,
-                                      "plano":  true
+                                      "plano":  true,
+                                      "solido":  [
+                                                     24,
+                                                     32,
+                                                     85,
+                                                     62
+                                                 ]
                                   },
                       "potPanacea":  {
                                          "archivo":  "objetos/pot-panacea.png",
@@ -599,7 +809,13 @@
                                          "anclaX":  52,
                                          "anclaY":  112,
                                          "frames":  1,
-                                         "plano":  true
+                                         "plano":  true,
+                                         "solido":  [
+                                                        16,
+                                                        19,
+                                                        71,
+                                                        77
+                                                    ]
                                      },
                       "potEgida":  {
                                        "archivo":  "objetos/pot-egida.png",
@@ -608,7 +824,13 @@
                                        "anclaX":  56,
                                        "anclaY":  112,
                                        "frames":  1,
-                                       "plano":  true
+                                       "plano":  true,
+                                       "solido":  [
+                                                      17,
+                                                      17,
+                                                      78,
+                                                      78
+                                                  ]
                                    },
                       "potCaronte":  {
                                          "archivo":  "objetos/pot-caronte.png",
@@ -617,16 +839,28 @@
                                          "anclaX":  56,
                                          "anclaY":  112,
                                          "frames":  1,
-                                         "plano":  true
+                                         "plano":  true,
+                                         "solido":  [
+                                                        17,
+                                                        17,
+                                                        78,
+                                                        78
+                                                    ]
                                      },
                       "columna":  {
                                       "archivo":  "objetos/columna.png",
-                                      "w":  56,
-                                      "h":  160,
-                                      "anclaX":  28,
-                                      "anclaY":  160,
+                                      "w":  104,
+                                      "h":  320,
+                                      "anclaX":  52,
+                                      "anclaY":  320,
                                       "frames":  1,
-                                      "plano":  true
+                                      "plano":  true,
+                                      "solido":  [
+                                                     26,
+                                                     19,
+                                                     54,
+                                                     276
+                                                 ]
                                   },
                       "antorcha1":  {
                                         "archivo":  "objetos/antorcha1.png",
@@ -634,7 +868,13 @@
                                         "h":  104,
                                         "anclaX":  12,
                                         "anclaY":  104,
-                                        "frames":  1
+                                        "frames":  1,
+                                        "solido":  [
+                                                       7,
+                                                       17,
+                                                       11,
+                                                       74
+                                                   ]
                                     },
                       "antorcha2":  {
                                         "archivo":  "objetos/antorcha2.png",
@@ -642,142 +882,193 @@
                                         "h":  104,
                                         "anclaX":  12,
                                         "anclaY":  104,
-                                        "frames":  1
+                                        "frames":  1,
+                                        "solido":  [
+                                                       5,
+                                                       20,
+                                                       13,
+                                                       65
+                                                   ]
                                     },
                       "estatua1":  {
                                        "archivo":  "objetos/estatua1.png",
-                                       "w":  48,
-                                       "h":  136,
-                                       "anclaX":  24,
-                                       "anclaY":  136,
+                                       "w":  64,
+                                       "h":  192,
+                                       "anclaX":  32,
+                                       "anclaY":  192,
                                        "frames":  1,
-                                       "plano":  true
+                                       "plano":  true,
+                                       "solido":  [
+                                                      11,
+                                                      36,
+                                                      42,
+                                                      142
+                                                  ]
                                    },
                       "estatua2":  {
                                        "archivo":  "objetos/estatua2.png",
-                                       "w":  48,
-                                       "h":  136,
-                                       "anclaX":  24,
-                                       "anclaY":  136,
+                                       "w":  64,
+                                       "h":  192,
+                                       "anclaX":  32,
+                                       "anclaY":  192,
                                        "frames":  1,
-                                       "plano":  true
+                                       "plano":  true,
+                                       "solido":  [
+                                                      11,
+                                                      45,
+                                                      43,
+                                                      133
+                                                  ]
                                    },
                       "estatua3":  {
                                        "archivo":  "objetos/estatua3.png",
-                                       "w":  56,
-                                       "h":  136,
-                                       "anclaX":  28,
-                                       "anclaY":  136,
+                                       "w":  80,
+                                       "h":  192,
+                                       "anclaX":  40,
+                                       "anclaY":  192,
                                        "frames":  1,
-                                       "plano":  true
+                                       "plano":  true,
+                                       "solido":  [
+                                                      25,
+                                                      42,
+                                                      43,
+                                                      134
+                                                  ]
                                    },
                       "estatua4":  {
                                        "archivo":  "objetos/estatua4.png",
-                                       "w":  56,
-                                       "h":  136,
-                                       "anclaX":  28,
-                                       "anclaY":  136,
+                                       "w":  80,
+                                       "h":  192,
+                                       "anclaX":  40,
+                                       "anclaY":  192,
                                        "frames":  1,
-                                       "plano":  true
+                                       "plano":  true,
+                                       "solido":  [
+                                                      18,
+                                                      39,
+                                                      46,
+                                                      137
+                                                  ]
                                    },
                       "estatua5":  {
                                        "archivo":  "objetos/estatua5.png",
-                                       "w":  56,
-                                       "h":  136,
-                                       "anclaX":  28,
-                                       "anclaY":  136,
+                                       "w":  72,
+                                       "h":  192,
+                                       "anclaX":  36,
+                                       "anclaY":  192,
                                        "frames":  1,
-                                       "plano":  true
+                                       "plano":  true,
+                                       "solido":  [
+                                                      16,
+                                                      37,
+                                                      41,
+                                                      138
+                                                  ]
                                    },
                       "ruinas1":  {
                                       "archivo":  "objetos/ruinas1.png",
-                                      "w":  248,
-                                      "h":  220,
-                                      "anclaX":  124,
-                                      "anclaY":  220,
+                                      "w":  488,
+                                      "h":  440,
+                                      "anclaX":  244,
+                                      "anclaY":  440,
                                       "frames":  1,
-                                      "plano":  true
+                                      "plano":  true,
+                                      "solido":  [
+                                                     84,
+                                                     89,
+                                                     327,
+                                                     289
+                                                 ]
                                   },
                       "ruinas2":  {
                                       "archivo":  "objetos/ruinas2.png",
-                                      "w":  248,
-                                      "h":  220,
-                                      "anclaX":  124,
-                                      "anclaY":  220,
+                                      "w":  496,
+                                      "h":  440,
+                                      "anclaX":  248,
+                                      "anclaY":  440,
                                       "frames":  1,
-                                      "plano":  true
+                                      "plano":  true,
+                                      "solido":  [
+                                                     80,
+                                                     120,
+                                                     342,
+                                                     266
+                                                 ]
                                   },
                       "ruinas4":  {
                                       "archivo":  "objetos/ruinas4.png",
-                                      "w":  208,
-                                      "h":  220,
-                                      "anclaX":  104,
-                                      "anclaY":  220,
+                                      "w":  416,
+                                      "h":  440,
+                                      "anclaX":  208,
+                                      "anclaY":  440,
                                       "frames":  1,
-                                      "plano":  true
+                                      "plano":  true,
+                                      "solido":  [
+                                                     70,
+                                                     88,
+                                                     273,
+                                                     288
+                                                 ]
                                   },
                       "ruinas5":  {
                                       "archivo":  "objetos/ruinas5.png",
-                                      "w":  240,
-                                      "h":  220,
-                                      "anclaX":  120,
-                                      "anclaY":  220,
+                                      "w":  472,
+                                      "h":  440,
+                                      "anclaX":  236,
+                                      "anclaY":  440,
                                       "frames":  1,
-                                      "plano":  true
-                                  },
-                      "ruinas6":  {
-                                      "archivo":  "objetos/ruinas6.png",
-                                      "w":  248,
-                                      "h":  220,
-                                      "anclaX":  124,
-                                      "anclaY":  220,
-                                      "frames":  1,
-                                      "plano":  true
+                                      "plano":  true,
+                                      "solido":  [
+                                                     77,
+                                                     93,
+                                                     331,
+                                                     289
+                                                 ]
                                   },
                       "ruinas7":  {
                                       "archivo":  "objetos/ruinas7.png",
-                                      "w":  248,
-                                      "h":  220,
-                                      "anclaX":  124,
-                                      "anclaY":  220,
+                                      "w":  480,
+                                      "h":  440,
+                                      "anclaX":  240,
+                                      "anclaY":  440,
                                       "frames":  1,
-                                      "plano":  true
-                                  },
-                      "ruinas8":  {
-                                      "archivo":  "objetos/ruinas8.png",
-                                      "w":  296,
-                                      "h":  220,
-                                      "anclaX":  148,
-                                      "anclaY":  220,
-                                      "frames":  1,
-                                      "plano":  true
+                                      "plano":  true,
+                                      "solido":  [
+                                                     87,
+                                                     75,
+                                                     305,
+                                                     314
+                                                 ]
                                   },
                       "ruinas9":  {
                                       "archivo":  "objetos/ruinas9.png",
-                                      "w":  224,
-                                      "h":  220,
-                                      "anclaX":  112,
-                                      "anclaY":  220,
+                                      "w":  456,
+                                      "h":  440,
+                                      "anclaX":  228,
+                                      "anclaY":  440,
                                       "frames":  1,
-                                      "plano":  true
+                                      "plano":  true,
+                                      "solido":  [
+                                                     62,
+                                                     77,
+                                                     309,
+                                                     291
+                                                 ]
                                   },
                       "ruinas10":  {
                                        "archivo":  "objetos/ruinas10.png",
-                                       "w":  208,
-                                       "h":  220,
-                                       "anclaX":  104,
-                                       "anclaY":  220,
+                                       "w":  416,
+                                       "h":  440,
+                                       "anclaX":  208,
+                                       "anclaY":  440,
                                        "frames":  1,
-                                       "plano":  true
-                                   },
-                      "ruinas11":  {
-                                       "archivo":  "objetos/ruinas11.png",
-                                       "w":  224,
-                                       "h":  220,
-                                       "anclaX":  112,
-                                       "anclaY":  220,
-                                       "frames":  1,
-                                       "plano":  true
+                                       "plano":  true,
+                                       "solido":  [
+                                                      36,
+                                                      92,
+                                                      321,
+                                                      281
+                                                  ]
                                    },
                       "iconosObjetos":  {
                                             "archivo":  "iconos/objetos.png",
@@ -924,6 +1215,78 @@
                                                           "sierrasVotivas"
                                                       ]
                                         },
+                      "balaPistola":  {
+                                          "archivo":  "efectos/bala-pistola.png",
+                                          "w":  43,
+                                          "h":  19,
+                                          "anclaX":  22,
+                                          "anclaY":  10,
+                                          "frames":  1,
+                                          "plano":  true
+                                      },
+                      "zonaAceite":  {
+                                         "archivo":  "efectos/zona-aceite.png",
+                                         "w":  304,
+                                         "h":  304,
+                                         "anclaX":  152,
+                                         "anclaY":  152,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
+                      "tajoKatana":  {
+                                         "archivo":  "efectos/tajo-katana.png",
+                                         "w":  304,
+                                         "h":  304,
+                                         "anclaX":  152,
+                                         "anclaY":  152,
+                                         "frames":  6,
+                                         "plano":  true
+                                     },
+                      "auraCampoElectrico":  {
+                                                 "archivo":  "efectos/aura-campoElectrico.png",
+                                                 "w":  272,
+                                                 "h":  272,
+                                                 "anclaX":  136,
+                                                 "anclaY":  136,
+                                                 "frames":  1,
+                                                 "plano":  true
+                                             },
+                      "orbScutum":  {
+                                        "archivo":  "efectos/orb-scutum.png",
+                                        "w":  64,
+                                        "h":  64,
+                                        "anclaX":  32,
+                                        "anclaY":  32,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "orbDiscos":  {
+                                        "archivo":  "efectos/orb-discos.png",
+                                        "w":  72,
+                                        "h":  72,
+                                        "anclaX":  36,
+                                        "anclaY":  36,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "orbSierras":  {
+                                         "archivo":  "efectos/orb-sierras.png",
+                                         "w":  80,
+                                         "h":  80,
+                                         "anclaX":  40,
+                                         "anclaY":  40,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
+                      "auraAquila":  {
+                                         "archivo":  "efectos/aura-aquila.png",
+                                         "w":  192,
+                                         "h":  192,
+                                         "anclaX":  96,
+                                         "anclaY":  96,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
                       "ruletaMarco":  {
                                           "archivo":  "menus/ruleta-marco.png",
                                           "w":  640,

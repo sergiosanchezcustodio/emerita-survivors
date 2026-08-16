@@ -1,4 +1,5 @@
-import { ANCHO_LOGICO, ALTO_LOGICO } from '../core/constantes.js';
+import { ANCHO_LOGICO, ALTO_LOGICO, ESCALA_ARTE } from '../core/constantes.js';
+import { Recursos } from '../core/recursos.js';
 import { ARMAS } from '../datos/armas.js';
 import { MAX_NIVEL } from './progresion.js';
 import { enemigoMasCercano, enemigosEnRadio } from './colisiones.js';
@@ -44,6 +45,60 @@ const MAX_ALCANZADOS = 256;
 // pantalla ardiendo, no lo nota nadie.
 const MAX_TAJOS = 12;
 
+// TAJOS DIBUJADOS. Un arma cuerpo a cuerpo puede traer una animación de barrido
+// en vez del arco trazado: lo declara en `spriteTajo` (datos/armas.js), y el
+// valor es directamente el ID DEL ATLAS de su hoja.
+//
+// Una hoja por arma, y no una tira compartida como las zonas. Cada animación
+// trae su propia rejilla, su pivote y su número de fases, así que compartir
+// tira obligaría a llevar la cuenta de dónde empieza cada arma; nombrando la
+// entrada del atlas no hay contabilidad ninguna y añadir un arma no renumera
+// nada de lo que ya está.
+//
+// Si la hoja no está cargada, el tajo cae al arco trazado de siempre sin
+// avisar: misma red que los placeholders del atlas.
+
+// Media altura del sprite de un jugador, en unidades lógicas.
+//
+// La `y` de un jugador es su LÍNEA DE PIES: el sprite se dibuja con el borde
+// inferior ahí, así que el cuerpo ocupa de `y - alto` a `y` y su centro visual
+// está media altura más arriba. Un aura centrada en los pies deja al personaje
+// asomando por la mitad de arriba; centrada aquí, la figura entera queda dentro
+// del área del arma.
+//
+// Sale del atlas y no de una constante, para que siga valiendo si el arte
+// cambia de tamaño. El 13 de repliegue es media altura de los cuatro sprites de
+// hoy (104 px físicos = 26 unidades), por si el atlas no ha cargado.
+function medioAlto(j) {
+  const meta = Recursos.meta(j.personaje);
+  return meta ? meta.h / ESCALA_ARTE / 2 : 13;
+}
+
+// DE DÓNDE SALE UN DISPARO.
+//
+// Antes nacían todos en (x, y-8), o sea dentro del pecho del personaje: el
+// proyectil aparecía encima de él y lo primero que hacía era atravesarlo, lo
+// que se ve como si le brotara del cuerpo. Ahora salen por FUERA, del lado
+// hacia el que se dispara: apuntando a la derecha sale por su costado derecho,
+// hacia abajo por sus pies, y así con todas.
+//
+// El desplazamiento es el radio del cuerpo más un dedo de margen. El margen
+// importa: pegado exacto al borde, el proyectil nace rozando la silueta y a
+// media velocidad todavía se solapa un frame.
+const ALTURA_DISPARO = 8;      // a qué altura del cuerpo se empuña
+const MARGEN_BOCA = 3;
+
+// Rellena `origenDisparo` con el punto de salida para un ángulo dado. Objeto de
+// módulo reutilizado: esto se llama varias veces por disparo —un abanico de
+// escopeta son trece— y devolver un objeto nuevo sería asignar en caliente.
+const origenDisparo = { x: 0, y: 0 };
+function bocaDe(j, ang) {
+  const d = j.radioCuerpo + MARGEN_BOCA;
+  origenDisparo.x = j.x + Math.cos(ang) * d;
+  origenDisparo.y = j.y - ALTURA_DISPARO + Math.sin(ang) * d;
+  return origenDisparo;
+}
+
 // Cada cuánto puede un mismo escudo orbital volver a golpear al mismo enemigo.
 const ORBITAL_CADENCIA = 0.35;
 let contadorSelloOrbital = 0;
@@ -85,8 +140,12 @@ const COMPORTAMIENTOS = {
       // el disparo anterior —de otra arma—. Sin esta línea, la pistola salía con
       // la forma del lanzagranadas si acababa de disparar el lanzagranadas.
       sis.defProyectil.forma = formaDe(arma);
+      // Mismo motivo que `forma`: `hoja` es campo compartido y hay que
+      // escribirlo siempre, o el arma hereda el dibujo de la anterior.
+      sis.defProyectil.hoja = arma.def.spriteProyectil || null;
+      const b = bocaDe(ctx.jugador, a);
       ctx.proyectiles.lanzar(
-        ctx.jugador.x, ctx.jugador.y - 8,
+        b.x, b.y,
         Math.cos(a) * s.velocidad, Math.sin(a) * s.velocidad,
         sis.defProyectil);
     }
@@ -140,7 +199,11 @@ const COMPORTAMIENTOS = {
       sis.defProyectil.estela = arma.def.estela;
       sis.defProyectil.largo = 5;
       sis.defProyectil.forma = formaDe(arma);      // ver la nota de arriba
-      ctx.proyectiles.lanzar(j.x, j.y - 8, Math.cos(a) * v, Math.sin(a) * v,
+      // Mismo motivo que `forma`: `hoja` es campo compartido y hay que
+      // escribirlo siempre, o el arma hereda el dibujo de la anterior.
+      sis.defProyectil.hoja = arma.def.spriteProyectil || null;
+      const b = bocaDe(j, a);
+      ctx.proyectiles.lanzar(b.x, b.y, Math.cos(a) * v, Math.sin(a) * v,
                              sis.defProyectil);
     }
     return true;
@@ -169,7 +232,8 @@ const COMPORTAMIENTOS = {
         sis._rellenarProyectil(arma, s, danyo);
         sis.defProyectil.vida = s.alcance / s.velocidad;
         const a = base + desvio;
-        ctx.proyectiles.lanzar(j.x, j.y - 8,
+        const b = bocaDe(j, a);
+        ctx.proyectiles.lanzar(b.x, b.y,
           Math.cos(a) * s.velocidad, Math.sin(a) * s.velocidad, sis.defProyectil);
       }
     }
@@ -186,7 +250,8 @@ const COMPORTAMIENTOS = {
       const a = ctx.rng() * Math.PI * 2;
       sis._rellenarProyectil(arma, s, danyo);
       sis.defProyectil.vida = s.alcance / s.velocidad;
-      ctx.proyectiles.lanzar(j.x, j.y - 8,
+      const b = bocaDe(j, a);
+      ctx.proyectiles.lanzar(b.x, b.y,
         Math.cos(a) * s.velocidad, Math.sin(a) * s.velocidad, sis.defProyectil);
     }
     return true;
@@ -215,7 +280,8 @@ const COMPORTAMIENTOS = {
       sis.defProyectil.radioExplosion = areaDe(s.radioExplosion, j);
       sis.defProyectil.danyoExplosion = Math.round(s.danyoExplosion * (1 + j.bonusDanyo));
       sis.defProyectil.estallaAlExpirar = true;
-      ctx.proyectiles.lanzar(j.x, j.y - 8,
+      const b = bocaDe(j, a);
+      ctx.proyectiles.lanzar(b.x, b.y,
         Math.cos(a) * s.velocidad, Math.sin(a) * s.velocidad, sis.defProyectil);
     }
     return true;
@@ -271,9 +337,30 @@ const COMPORTAMIENTOS = {
         radio: areaDe(s.radio, j), duracion: s.duracion,
         danyo: danyoDe(s, j), intervalo: s.intervalo,
         empuje: s.empuje, ralentiza: s.ralentiza || 0,
-        modo: 'zona', color: arma.def.color, relleno: 0.22
+        modo: 'zona', color: arma.def.color, relleno: 0.22,
+        sprite: arma.def.sprite, giro: arma.def.giro
       });
     }
+    return true;
+  },
+
+  // TORMENTA: rayos que caen del cielo en un área alrededor del jugador y
+  // revientan donde tocan.
+  //
+  // No apunta a nadie, y esa es toda su personalidad. El resto del arsenal
+  // busca —al más cercano, hacia donde avanzas, en la dirección del ratón— y
+  // esta siembra: cubre un área y lo que esté dentro se lleva lo suyo. Se juega
+  // distinto porque premia meterse en el montón en vez de encarar.
+  //
+  // Los rayos NO caen todos a la vez: se encadenan con `demoraGolpe` usando el
+  // mismo mecanismo que los tajos de un arma melé (ver `actualizar`). Soltar
+  // siete de golpe sería un fogonazo único; escalonados a doce centésimas se
+  // lee como una tormenta, que es lo que se pidió.
+  tormentaRayos(arma, sis, ctx) {
+    sis.caerRayo(arma, ctx);
+    arma.golpesPendientes = arma.stats.rayos - 1;
+    arma.demoraGolpe = arma.def.demoraGolpe;
+    arma.repetir = sis.caerRayo;
     return true;
   },
 
@@ -288,12 +375,14 @@ const COMPORTAMIENTOS = {
       arma.zona.danyo = danyoDe(s, j);
       return true;
     }
+    const desvio = medioAlto(j);
     arma.zona = ctx.zonas.crear({
-      x: j.x, y: j.y - 6,
+      x: j.x, y: j.y - desvio, desvioY: desvio,
       radio: areaDe(s.radio, j), duracion: 1.0,
       danyo: danyoDe(s, j), intervalo: s.intervalo,
       empuje: s.empuje, modo: 'zona', seguir: j,
-      color: arma.def.color, relleno: 0.10
+      color: arma.def.color, relleno: 0.10,
+      sprite: arma.def.sprite, giro: arma.def.giro
     });
     return true;
   },
@@ -393,13 +482,18 @@ export class Armas {
     // vez de construir un objeto literal por disparo.
     this.defProyectil = {
       vida: 0, danyo: 0, empuje: 0, radio: 0,
-      perforacion: 0, color: '#fff', estela: null, largo: 8, forma: 'raya'
+      perforacion: 0, color: '#fff', estela: null, largo: 8, forma: 'raya',
+      hoja: null
     };
 
     // Tajos para dibujar, preasignados.
     this.tajos = new Array(MAX_TAJOS);
     for (let i = 0; i < MAX_TAJOS; i++) {
-      this.tajos[i] = { x: 0, y: 0, ang: 0, semi: 0, alcance: 0, vida: 0, vidaMax: 1, color: '#fff' };
+      this.tajos[i] = { x: 0, y: 0, ang: 0, semi: 0, alcance: 0, vida: 0, vidaMax: 1,
+                        color: '#fff', hoja: null,
+                        // A quién va pegado el tajo, y cuánto por encima de su
+                        // posición. Ver actualizarTajos.
+                        seguir: null, desvioY: 0 };
     }
     this.nTajos = 0;
 
@@ -418,6 +512,9 @@ export class Armas {
     // La FORMA con que se dibuja. Sale del comportamiento salvo que el arma diga
     // otra cosa: ver FORMA_POR_COMPORTAMIENTO, aquí arriba.
     d.forma = formaDe(arma);
+    // Dibujo propio del proyectil, si el arma lo declara. Sustituye a la forma
+    // trazada entera (cuerpo, halo y estela): ver entidades/proyectil.js.
+    d.hoja = arma.def.spriteProyectil || null;
     d.danyo = danyo;
     d.empuje = s.empuje;
     d.radio = s.radio;
@@ -428,6 +525,42 @@ export class Armas {
     d.radioExplosion = 0;
     d.danyoExplosion = 0;
     d.estallaAlExpirar = false;
+  }
+
+  // UN rayo de la tormenta. Va aquí y no dentro del comportamiento porque se
+  // llama dos veces: al activarse el arma y luego una vez por cada rayo
+  // encadenado (ver `repetir` en `actualizar`).
+  caerRayo(arma, ctx) {
+    const s = arma.stats;
+    const j = ctx.jugador;
+
+    // Punto al azar dentro del DISCO de alcance. La raíz cuadrada es lo que
+    // reparte uniforme por ÁREA: sin ella, la mitad de los rayos caería en el
+    // círculo central —que es una cuarta parte del área— y la tormenta se
+    // apelotonaría encima del jugador en vez de cubrir la zona.
+    const a = ctx.rng() * Math.PI * 2;
+    const d = Math.sqrt(ctx.rng()) * areaDe(s.alcance, j);
+    const x = j.x + Math.cos(a) * d;
+    const y = j.y - medioAlto(j) + Math.sin(a) * d;
+
+    // El reventón. Modo 'onda' y no 'zona': hace daño UNA vez a lo que pilla al
+    // abrirse, como una explosión, en vez de por tics — un rayo golpea al caer,
+    // no se queda quemando.
+    const radio = areaDe(s.radio, j);
+    ctx.zonas.crear({
+      x, y,
+      radio, radioIni: radio * 0.18,
+      duracion: 0.26, danyo: danyoDe(s, j),
+      empuje: s.empuje, modo: 'onda',
+      color: arma.def.color, relleno: 0.34
+    });
+
+    // Y el haz cayendo a plomo sobre el punto: se traza desde `caida` unidades
+    // más arriba hacia abajo (PI/2), así que entra en cuadro desde el cielo.
+    this._anotarRayo(x, y - s.caida, Math.PI / 2, s.caida, s.grosor, arma.def.color);
+    if (!Particulas.saturado()) {
+      Particulas.estallido(x, y, 5, 95, 0.24, 1.5, COLOR_CHISPA, 0.35, this._rng);
+    }
   }
 
   _anotarRayo(x, y, ang, largo, grosor, color) {
@@ -456,6 +589,13 @@ export class Armas {
         if (arma.restanteOrbital <= 0) { arma.orbitalActivo = false; continue; }
       }
 
+      // Giro del escudo SOBRE SÍ MISMO, distinto de su vuelta alrededor del
+      // jugador. Un disco de sierra que orbita sin girar parece una chapa
+      // pegada; un escudo, en cambio, no debe girar nunca o su emblema acaba
+      // boca abajo la mitad del tiempo. Por eso es un dato del arma y no una
+      // regla del motor. Fase propia y avanzada con dt: determinista.
+      if (arma.def.giroOrbital) arma.faseGiro += arma.def.giroOrbital * dt;
+
       arma.anguloOrbital += dt * s.velocidadAngular;
       arma.relojOrbital -= dt;
       if (arma.relojOrbital <= 0) {
@@ -466,11 +606,12 @@ export class Armas {
       const radio = areaDe(s.radioOrbita, j);
       const danyo = danyoDe(s, j);
       const items = ctx.enemigos.pool.items;
+      const cy = j.y - medioAlto(j);       // centro visual, no la línea de pies
 
       for (let k = 0; k < s.escudos; k++) {
         const a = arma.anguloOrbital + (k / s.escudos) * Math.PI * 2;
         const ox = j.x + Math.cos(a) * radio;
-        const oy = j.y - 6 + Math.sin(a) * radio;
+        const oy = cy + Math.sin(a) * radio;
         const n = enemigosEnRadio(ctx.enemigos, ox, oy, s.radioEscudo, this._alcanzados);
         for (let q = 0; q < n; q++) {
           const e = items[this._alcanzados[q]];
@@ -503,6 +644,36 @@ export class Armas {
       const radio = areaDe(s.radioOrbita, jugador);
       const r = s.radioEscudo;
       const paso = (Math.PI * 2) / s.escudos;
+      // MISMO centro que usa la colisión en `actualizarOrbitales`: el visual y
+      // el daño de un orbital tienen que orbitar el mismo punto o el escudo
+      // pega donde no se ve.
+      // Posición INTERPOLADA, la misma con la que se dibuja el personaje. Con
+      // la del paso de lógica los escudos van un paso por detrás de su dueño y
+      // a mucho fps se nota como un baile alrededor de él.
+      const cx = jugador.xVista;
+      const cy = jugador.yVista - medioAlto(jugador);
+
+      // CON HOJA PROPIA: el dibujo y nada más. Ni halo ni aro, por el mismo
+      // motivo que en las zonas — el sprite está horneado para llenar su cuadro
+      // hasta el radio del escudo, así que ya dice dónde está y hasta dónde
+      // llega. Añadirle el aro encima sería el círculo de siempre pintado sobre
+      // el dibujo nuevo.
+      const imgOrb = arma.def.spriteOrbital ? Recursos.imagen(arma.def.spriteOrbital) : null;
+      const metaOrb = arma.def.spriteOrbital ? Recursos.meta(arma.def.spriteOrbital) : null;
+      if (imgOrb && metaOrb) {
+        for (let k = 0; k < s.escudos; k++) {
+          const a = arma.anguloOrbital + k * paso;
+          // save/restore por escudo, como en los tajos: la matriz del mundo la
+          // fija main.js con el desvío de cámara ya redondeado, y reconstruirla
+          // aquí sería copiar ese cálculo en un segundo sitio.
+          ctx.save();
+          ctx.translate(cx + Math.cos(a) * radio, cy + Math.sin(a) * radio);
+          if (arma.def.giroOrbital) ctx.rotate(arma.faseGiro);
+          ctx.drawImage(imgOrb, 0, 0, metaOrb.w, metaOrb.h, -r, -r, r * 2, r * 2);
+          ctx.restore();
+        }
+        continue;
+      }
 
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -511,7 +682,7 @@ export class Armas {
       for (let k = 0; k < s.escudos; k++) {
         const a = arma.anguloOrbital + k * paso;
         ctx.beginPath();
-        ctx.arc(jugador.x + Math.cos(a) * radio, jugador.y - 6 + Math.sin(a) * radio,
+        ctx.arc(cx + Math.cos(a) * radio, cy + Math.sin(a) * radio,
                 r * 1.35, 0, Math.PI * 2);
         ctx.fill();
       }
@@ -526,8 +697,8 @@ export class Armas {
       ctx.lineWidth = 1.4;
       for (let k = 0; k < s.escudos; k++) {
         const a = arma.anguloOrbital + k * paso;
-        const ox = jugador.x + Math.cos(a) * radio;
-        const oy = jugador.y - 6 + Math.sin(a) * radio;
+        const ox = cx + Math.cos(a) * radio;
+        const oy = cy + Math.sin(a) * radio;
 
         ctx.globalAlpha = 0.32;
         ctx.fillStyle = arma.def.color;
@@ -562,6 +733,8 @@ export class Armas {
       demoraGolpe: 0,
       // Estado propio de los comportamientos que lo necesitan.
       orbitalActivo: false, anguloOrbital: 0, relojOrbital: 0, selloOrbital: 0,
+      faseGiro: 0,             // giro del escudo sobre sí mismo
+      repetir: null,           // qué encadena esta arma; null = un tajo
       restanteOrbital: 0,      // solo el orbital intermitente
       zona: null,
       stats: {}
@@ -639,10 +812,17 @@ export class Armas {
       const arma = this.equipadas[i];
 
       // Golpes encadenados pendientes de la activación anterior.
+      //
+      // QUIÉN repite lo decide el arma, no este bucle. Un arco melé encadena
+      // tajos y una tormenta encadena rayos, y son cosas distintas; el
+      // comportamiento deja su función en `arma.repetir` al activarse y aquí
+      // solo se la llama. Preguntar por el nombre del comportamiento habría
+      // metido en el motor genérico el conocimiento de un arma concreta, que es
+      // justo lo que este archivo evita.
       if (arma.golpesPendientes > 0) {
         arma.demoraGolpe -= dt;
         if (arma.demoraGolpe <= 0) {
-          this.golpear(arma, ctx);
+          (arma.repetir || this.golpear).call(this, arma, ctx);
           arma.golpesPendientes--;
           arma.demoraGolpe = arma.def.demoraGolpe;
         }
@@ -704,23 +884,56 @@ export class Armas {
       ctx.enemigos.danyar(e, danyo, dx / m, dy / m, s.empuje);
     }
 
-    this._anotarTajo(j.x, j.y - 6, ang, semi, alcance, arma.def.color);
+    // Centro visual del jugador, no su línea de pies: el área de un arma tiene
+    // que envolver la figura entera, no salirle por debajo. Ver `medioAlto`.
+    const desvio = medioAlto(j);
+    const cyj = j.y - desvio;
+    this._anotarTajo(j.x, cyj, ang, semi, alcance, arma.def.color,
+                     arma.def.spriteTajo || null, arma.def.duracionTajo, j, desvio);
     Particulas.estallido(j.x + Math.cos(ang) * alcance * 0.6,
-                         j.y - 6 + Math.sin(ang) * alcance * 0.6,
+                         cyj + Math.sin(ang) * alcance * 0.6,
                          3, 55, 0.18, 1, COLOR_CHISPA, 0.3, this._rng);
   }
 
-  _anotarTajo(x, y, ang, semi, alcance, color) {
+  // `duracion` es SOLO VISUAL. El daño de un arco se resuelve entero en el
+  // instante del golpe (ver `golpear`), y el tajo que se anota aquí es el
+  // dibujo y nada más — así que alargarlo no cambia el juego, solo cuánto se ve.
+  //
+  // Por eso los 0,16 s de siempre valían para un arco trazado, que es un
+  // destello, y se quedan cortos para una animación de seis fotogramas: salen a
+  // 27 ms cada uno y no da tiempo a leerlos. Quien traiga hoja pide su propia
+  // duración en `duracionTajo`.
+  _anotarTajo(x, y, ang, semi, alcance, color, hoja = null, duracion, seguir = null, desvioY = 0) {
+    if (!duracion) duracion = 0.16;
     // Buffer circular: el más viejo cede el sitio.
     const t = this.tajos[this.nTajos % MAX_TAJOS];
     this.nTajos++;
+    t.seguir = seguir; t.desvioY = desvioY;
     t.x = x; t.y = y; t.ang = ang; t.semi = semi;
-    t.alcance = alcance; t.vida = t.vidaMax = 0.16; t.color = color;
+    t.alcance = alcance; t.vida = t.vidaMax = duracion; t.color = color;
+    // Referencia a una cadena constante del catálogo, no una cadena nueva: esto
+    // corre en cada golpe y aquí no se asigna nada.
+    t.hoja = hoja;
   }
 
   actualizarTajos(dt) {
     for (let i = 0; i < MAX_TAJOS; i++) {
       const t = this.tajos[i];
+      // EL TAJO VA PEGADO AL JUGADOR mientras dura.
+      //
+      // Antes se anotaba la posición del golpe y ahí se quedaba, y con un arco
+      // trazado de 0,16 s casi no se notaba. Con una animación de 0,34 s sí: al
+      // moverse, el barrido se quedaba atrás y se veía como un aro suelto en el
+      // suelo en vez de un arma girando alrededor del personaje.
+      //
+      // Solo afecta al DIBUJO. El daño de un arco se resuelve entero en el
+      // instante del golpe, así que arrastrar el trazo no alarga ni desplaza a
+      // quién alcanza: lo que se corrige es la mentira de que el efecto esté
+      // donde el personaje ya no está.
+      if (t.vida > 0 && t.seguir) {
+        t.x = t.seguir.x;
+        t.y = t.seguir.y - t.desvioY;
+      }
       if (t.vida > 0) t.vida -= dt;
       const r = this.rayos[i];
       if (r.vida > 0) r.vida -= dt;
@@ -779,17 +992,65 @@ export class Armas {
     if (!hay) return;
 
     ctx.save();
+    // Aditivo, igual que el arco trazado que había antes. Y con la hoja de la
+    // katana no es solo coherencia: está pintada sobre negro y con un halo muy
+    // difuso que se desborda de su celda, así que sumando luz el halo oscuro
+    // sencillamente no existe y no hay canto recto que disimular.
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < MAX_TAJOS; i++) {
       const t = this.tajos[i];
       if (t.vida <= 0) continue;
       const k = t.vida / t.vidaMax;              // 1 al salir, 0 al apagarse
+
+      // Pegado a la posición INTERPOLADA del jugador, no a la del último paso
+      // de lógica: el personaje se dibuja interpolado, y usar aquí la otra
+      // dejaría el barrido un paso por detrás de su propio dueño — justo el
+      // temblor que se quería quitar, pero más fino.
+      const tx = t.seguir ? t.seguir.xVista : t.x;
+      const ty = t.seguir ? t.seguir.yVista - t.desvioY : t.y;
+
+      const img = t.hoja ? Recursos.imagen(t.hoja) : null;
+      const meta = t.hoja ? Recursos.meta(t.hoja) : null;
+      if (img && meta) {
+        // FASE POR VIDA. La hoja son fotogramas de un barrido que CRECE, así
+        // que se recorren de principio a fin en los 0,16 s que dura el tajo.
+        const fases = meta.frames || 1;
+        let f = ((1 - k) * fases) | 0;
+        if (f >= fases) f = fases - 1;
+
+        // Y SE APAGA AL FINAL, que la hoja no trae. Los seis fotogramas van de
+        // destello a anillo cerrado y ahí se acaban: sin esto, el tajo
+        // desaparecería de golpe en su fotograma más denso. El último tercio de
+        // vida se desvanece.
+        ctx.globalAlpha = k < 0.34 ? k / 0.34 : 1;
+
+        // Girado con la dirección del golpe. En la Katana —un barrido de 360°—
+        // esto no cambia dónde se hace daño, pero evita que dos tajos seguidos
+        // salgan calcados: el anillo entra orientado hacia donde atacas.
+        //
+        // save/restore por tajo, y no un setTransform de vuelta: la matriz del
+        // mundo la fija main.js con el desvío de cámara ya redondeado, y
+        // reconstruirla aquí sería copiar ese cálculo en un segundo sitio para
+        // que se desincronice el día que cambie. Son doce como mucho.
+        ctx.save();
+        ctx.translate(tx, ty);
+        ctx.rotate(t.ang);
+        const r = t.alcance;
+        // Medio lado = alcance. El recorte se hizo con el radio del contenido
+        // más lejano de la hoja, así que el filo del dibujo cae justo donde
+        // acaba el daño. Ver RecortarRejilla en herramientas/procesar-assets.ps1.
+        ctx.drawImage(img, f * meta.w, 0, meta.w, meta.h,
+                      -r, -r, r * 2, r * 2);
+        ctx.restore();
+        continue;
+      }
+
       const r = t.alcance * (0.75 + (1 - k) * 0.25);
       ctx.globalAlpha = k * 0.75;
       ctx.strokeStyle = t.color;
       ctx.lineWidth = 2 + k * 2;
       ctx.beginPath();
-      ctx.arc(t.x, t.y, r, t.ang - t.semi, t.ang + t.semi);
+      ctx.arc(tx, ty, r, t.ang - t.semi, t.ang + t.semi);
       ctx.stroke();
     }
     ctx.restore();

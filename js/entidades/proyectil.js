@@ -1,5 +1,6 @@
-import { ANCHO_LOGICO, ALTO_LOGICO } from '../core/constantes.js';
+import { ANCHO_LOGICO, ALTO_LOGICO, ESCALA_ARTE } from '../core/constantes.js';
 import { Pool } from '../core/pool.js';
+import { Recursos } from '../core/recursos.js';
 
 // Proyectiles. Mismo patrón que los enemigos: pool preasignado, activos
 // contiguos, cero `new` en partida.
@@ -30,7 +31,10 @@ function crearProyectil() {
     largo: 8,                // longitud del trazo al dibujar
     // Cómo se dibuja: dardo, bala, bola, rayo o el trazo de siempre. Sale del
     // comportamiento del arma (ver FORMA_POR_COMPORTAMIENTO en sistemas/armas.js).
-    forma: 'raya'
+    forma: 'raya',
+    // Id de atlas de un dibujo propio. Si lo trae, sustituye a la forma
+    // trazada; si no carga, se vuelve a la forma sin avisar.
+    hoja: null
   };
 }
 
@@ -67,6 +71,7 @@ export class Proyectiles {
     p.estela = def.estela || null;
     p.largo = def.largo || 8;
     p.forma = def.forma || 'raya';
+    p.hoja = def.hoja || null;
     p.radioExplosion = def.radioExplosion || 0;
     p.danyoExplosion = def.danyoExplosion || 0;
     p.estallaAlExpirar = !!def.estallaAlExpirar;
@@ -163,6 +168,37 @@ export class Proyectiles {
       if (v < 0.001) continue;
       const ux = p.vx / v, uy = p.vy / v;
       const l = p.largo;
+
+      // CON DIBUJO PROPIO: el sprite orientado al vuelo, y nada más. Ni halo ni
+      // trazo — el dibujo ya trae su propio cuerpo y su estela.
+      if (p.hoja) {
+        const img = Recursos.imagen(p.hoja);
+        const meta = Recursos.meta(p.hoja);
+        if (img && meta) {
+          const aw = meta.w / ESCALA_ARTE;
+          const ah = meta.h / ESCALA_ARTE;
+          ctx.save();
+          ctx.globalAlpha = 1;
+          ctx.translate(x, y);
+          ctx.rotate(Math.atan2(p.vy, p.vx));
+          // ESPEJADO, no girado 180°. El dibujo mira a la izquierda, y aquí hay
+          // dos maneras de darle la vuelta que NO son la misma: rotar media
+          // vuelta invertiría también el eje vertical —la llama y los brillos
+          // saldrían del revés— mientras que espejar solo cambia el sentido de
+          // la marcha, que es lo único que hay que corregir.
+          ctx.scale(-1, 1);
+          // ANCLADO POR LA PUNTA, no por el centro: detrás del proyectil lo que
+          // hay es llama, y anclar por el centro dejaría media estela por
+          // delante del punto que de verdad colisiona.
+          //
+          // Con el espejo puesto, lo que se dibuja en x=d aparece en -d: el
+          // borde izquierdo del dibujo —que es la punta— acaba en +0,2 de largo
+          // por delante, y la llama se extiende 0,8 hacia atrás.
+          ctx.drawImage(img, 0, 0, meta.w, meta.h, -aw * 0.2, -ah / 2, aw, ah);
+          ctx.restore();
+          continue;
+        }
+      }
 
       // El halo lo llevan todas: es lo que las hace visibles con la pantalla
       // llena, y su tamaño ya lo separa el radio de cada arma.

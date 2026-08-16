@@ -402,9 +402,36 @@ export const NIVEL = {
     { tipo: 'antorcha2', x: 367, y: 260 },
     { tipo: 'columna',   x: 367, y: 350 },
     { tipo: 'estatua2',  x: 141, y: 150 },
-    { tipo: 'ruinas2',   x: 141, y: 380 },
-    { tipo: 'ruinas9',   x: 412, y:  90 },
-    { tipo: 'estatua4',  x: 412, y: 300 }
+    { tipo: 'estatua4',  x: 412, y: 300 },
+
+    // LAS RUINAS, EN DOS CARRILES EXTERIORES Y SEPARADAS.
+    //
+    // Llegaron a estar las diez y el escenario quedaba saturado: son el objeto
+    // más grande del nivel —110 de alto y hasta 124 de ancho— y puestas de tres
+    // en tres por carril convertían los laterales en un muro. Se quedan CINCO.
+    //
+    // Los carriles a 72 y 474 salen de una cuenta, no del ojo: el radio sólido
+    // de una ruina es min(0.35*alto, 0.45*ancho) = 38,5 (ver
+    // sistemas/obstaculos.js) y el pasillo por el que se avanza va de 200 a
+    // 353, así que un centro no puede pasar de 161 por la izquierda ni bajar de
+    // 391 por la derecha sin cerrar el paso.
+    //
+    // Y la separación vertical es de 145 como mínimo, contando que el patrón se
+    // REPITE cada 430: la de más abajo de un carril tiene que quedar lejos de
+    // la de más arriba del tile siguiente, o al avanzar aparecerían pegadas
+    // justo en la costura. Dos radios son 77, así que 145 deja 68 de hueco
+    // limpio para pasar entre una y otra.
+    // TRES, y no cinco. Un 40% menos, que es lo que se pidió después de verlo:
+    // ahora que son sólidas de verdad —caja, no círculo— cada una estorba
+    // muchísimo más que cuando se podían atravesar, así que la misma cantidad
+    // ya no se siente igual.
+    //
+    // Repartidas 1 - 2 - 1 entre los dos carriles y a media altura de tile unas
+    // de otras: la separación mínima entre dos ruinas cualesquiera, contando la
+    // costura donde el patrón se repite, es de 215.
+    { tipo: 'ruinas1',   x:  72, y: 100 },
+    { tipo: 'ruinas7',   x: 474, y: 240 },
+    { tipo: 'ruinas9',   x:  72, y: 340 }
   ],
   // El jefe final del nivel 1 es LA LOBA CAPITOLINA con los gemelos, no la
   // hidra del plan: ver el bloque de jefes de datos/enemigos.js y sus fases

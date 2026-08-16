@@ -333,21 +333,68 @@ function apartarDelJugador(items, rejilla, jugador) {
 // fijo que aparta y al que nadie aparta. Se factoriza en una función propia
 // porque aquí el "fijo" cambia entre obstáculo y obstáculo, mientras que
 // `apartarDelJugador` siempre gira alrededor de un jugador concreto.
-function empujarFueraDe(e, ox, oy, oRadio) {
+// Radio de cuerpo del enemigo más grande del bestiario, para dimensionar el
+// barrido de rejilla contra obstáculos. No hace falta que sea exacto: pasarse
+// solo cuesta mirar alguna celda de más, y quedarse corto es perder empujones.
+const MAYOR_CUERPO = 20;
+
+// CAJA Y NO CÍRCULO NI ELIPSE. La huella de un obstáculo sale de su dibujo (ver
+// sistemas/obstaculos.js) y ha pasado por las tres formas, así que conviene
+// dejar escrito por qué se descartaron las dos primeras:
+//
+//   CÍRCULO. Un solo radio no puede describir a la vez una columna —26x80,
+//     estrecha y alta, de la que solo estorba el pie— y unas ruinas —124x110,
+//     un montón de escombro sólido de punta a punta—. Había que elegir, ganaba
+//     el número pequeño, y las ruinas quedaban con un círculo en la base por el
+//     que se colaba todo el mundo.
+//
+//   ELIPSE. Arregla lo anterior, pero una elipse INSCRITA en la caja del dibujo
+//     solo cubre el 78% de su área: se dejaba las cuatro esquinas libres y un
+//     10% del ancho. En un montón de escombro que llena casi su recuadro, eso
+//     son cuatro bocas por las que meterse — que es justo lo que se veía.
+//
+//   CAJA. Cubre el recuadro entero, esquinas incluidas, y es lo que de verdad
+//     significa "sólido".
+//
+// Es choque de CÍRCULO contra CAJA, resuelto por el punto de la caja más
+// cercano al centro de la entidad: así el empuje sale por la normal correcta
+// también en las esquinas, en vez de dar el salto que daría comparar ejes.
+function empujarFueraDe(e, ox, oy, hx, hy) {
+  const r = e.radioCuerpo;
   const dx = e.x - ox;
   const dy = e.y - oy;
-  const r = oRadio + e.radioCuerpo;
-  const d2 = dx * dx + dy * dy;
-  if (d2 >= r * r) return;
 
-  if (d2 > 0.0001) {
+  // Punto de la caja más próximo, en coordenadas relativas al centro.
+  const px = dx < -hx ? -hx : (dx > hx ? hx : dx);
+  const py = dy < -hy ? -hy : (dy > hy ? hy : dy);
+  const sx = dx - px, sy = dy - py;
+  const d2 = sx * sx + sy * sy;
+
+  if (d2 > 0.000001) {
+    if (d2 >= r * r) return;             // fuera de la caja y sin tocarla
     const d = Math.sqrt(d2);
     const f = (r - d) / d;
-    e.x += dx * f;
-    e.y += dy * f;
-  } else {
-    e.x += r;
+    e.x += sx * f;
+    e.y += sy * f;
+    return;
   }
+
+  // CENTRO DENTRO DE LA CAJA. Aquí no hay normal que seguir, así que se sale
+  // por el lado más cercano. Importa que sea el más cercano y no uno fijo: al
+  // rozar un canto, empujar hacia el lado equivocado cruzaría la entidad por
+  // dentro del obstáculo y saldría disparada por el otro extremo.
+  const izq = dx + hx + r;
+  const der = hx - dx + r;
+  const arr = dy + hy + r;
+  const aba = hy - dy + r;
+  let m = izq;
+  if (der < m) m = der;
+  if (arr < m) m = arr;
+  if (aba < m) m = aba;
+  if (m === izq)      e.x -= izq;
+  else if (m === der) e.x += der;
+  else if (m === arr) e.y -= arr;
+  else                e.y += aba;
 }
 
 // Objetos sólidos del escenario contra jugadores y enemigos. Los obstáculos
@@ -370,19 +417,33 @@ export function colisionarObstaculos(obstaculos, jugadores, enemigos) {
   for (let k = 0; k < n; k++) {
     const o = items[k];
 
+    // `o.cy` es el centro de la HUELLA, que no es la posición del obstáculo:
+    // su `y` es la línea donde se apoya el dibujo, y la huella sube desde ahí.
     for (let i = 0; i < jugadores.length; i++) {
-      empujarFueraDe(jugadores[i], o.x, o.y, o.radio);
+      empujarFueraDe(jugadores[i], o.cx, o.cy, o.hx, o.hy);
     }
 
-    const cx = rejilla.columnaDe(o.x);
-    const cy = rejilla.filaDe(o.y);
-    for (let fy = cy - 1; fy <= cy + 1; fy++) {
+    // EL BARRIDO SALE DEL TAMAÑO DE LA HUELLA, no de una vecindad 3x3 fija.
+    //
+    // La celda mide 64 y el 3x3 garantiza alcanzar 64 unidades desde el centro,
+    // que sobraba cuando el mayor obstáculo era una columna. Unas ruinas tienen
+    // 56 de semieje y el enemigo más gordo 14 de cuerpo: 70, más de lo que el
+    // 3x3 asegura. El fallo habría sido de los que no se ven —un bicho suelto
+    // colándose por una esquina de vez en cuando— así que se calcula el rango
+    // en vez de confiar en que quepa.
+    const alcanceX = o.hx + MAYOR_CUERPO;
+    const alcanceY = o.hy + MAYOR_CUERPO;
+    const fx0 = rejilla.columnaDe(o.cx - alcanceX);
+    const fx1 = rejilla.columnaDe(o.cx + alcanceX);
+    const fy0 = rejilla.filaDe(o.cy - alcanceY);
+    const fy1 = rejilla.filaDe(o.cy + alcanceY);
+    for (let fy = fy0; fy <= fy1; fy++) {
       if (fy < 0 || fy >= filas) continue;
-      for (let fx = cx - 1; fx <= cx + 1; fx++) {
+      for (let fx = fx0; fx <= fx1; fx++) {
         if (fx < 0 || fx >= columnas) continue;
         const c = fy * columnas + fx;
         for (let p = inicio[c]; p < inicio[c + 1]; p++) {
-          empujarFueraDe(enemItems[indices[p]], o.x, o.y, o.radio);
+          empujarFueraDe(enemItems[indices[p]], o.cx, o.cy, o.hx, o.hy);
         }
       }
     }
@@ -423,7 +484,7 @@ export function colisionarAtaudes(jugadores, enemigos) {
 
     for (let i = 0; i < jugadores.length; i++) {
       if (i === k || jugadores[i].abatido) continue;
-      empujarFueraDe(jugadores[i], caido.x, caido.y, RADIO_ATAUD);
+      empujarFueraDe(jugadores[i], caido.x, caido.y, RADIO_ATAUD, RADIO_ATAUD);
     }
 
     const cx = rejilla.columnaDe(caido.x);
@@ -434,7 +495,7 @@ export function colisionarAtaudes(jugadores, enemigos) {
         if (fx < 0 || fx >= columnas) continue;
         const c = fy * columnas + fx;
         for (let p = inicio[c]; p < inicio[c + 1]; p++) {
-          empujarFueraDe(enemItems[indices[p]], caido.x, caido.y, RADIO_ATAUD);
+          empujarFueraDe(enemItems[indices[p]], caido.x, caido.y, RADIO_ATAUD, RADIO_ATAUD);
         }
       }
     }

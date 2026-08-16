@@ -90,6 +90,10 @@ export const ARMAS = {
     empuje: 40,
     color: '#ffe9b0',
     estela: '#8f7a4a',
+    // La bala en vuelo CON su llama, dibujada. Sustituye al punto con estela
+    // que traza el motor —cuerpo, halo y rastro— y se orienta al vuelo.
+    // Mide 43x19 píxeles físicos, o sea que el blit va 1:1.
+    spriteProyectil: 'balaPistola',
     niveles: [
       {},
       { danyo: 2 },
@@ -120,6 +124,7 @@ export const ARMAS = {
     empuje: 130,
     color: '#ffd9a0',
     estela: '#a05a2a',
+    spriteProyectil: 'balaPistola',
     niveles: [
       {},
       { proyectiles: 2 },
@@ -228,6 +233,20 @@ export const ARMAS = {
     // arma se jugaba sola desde el principio y luego no cambiaba en nada al
     // subirla. Ahora el crecimiento ES la mejora: cada nivel se ve.
     danyo: 3, intervalo: 0.4, recarga: 0.5, radio: 24, empuje: 50,
+    sprite: 'auraAquila',
+    // Gira, y despacio. Se dejó quieta al principio razonando que un emblema
+    // tiene un arriba claro y rotarlo lo deja boca abajo media vuelta de cada
+    // dos; visto en el juego, no molesta y en cambio la quietud sí — un aura
+    // permanente que no se mueve parece una calcomanía pegada al suelo.
+    //
+    // 1.1 rad/s, casi seis segundos por vuelta: la mitad de rápido que el campo
+    // eléctrico, que es un chisporroteo. Un estandarte no chisporrotea.
+    //
+    // Comprobado que puede girar sin cortarse: su dibujo llega a 225 unidades
+    // del pivote y el recorte da 232 (ver $HOJAS_ALFA en procesar-assets.ps1).
+    // Lo que se saliera del recorte entraría y saldría del cuadro al dar la
+    // vuelta, que es el defecto que hay que vigilar en todo lo que rota.
+    giro: 1.1,
     color: '#ffd98a',
     niveles: [{}, { radio: 5 }, { danyo: 1, radio: 4 }, { radio: 6 },
               { danyo: 2, radio: 5 }, { empuje: 40, radio: 5 }, { radio: 7 }, { danyo: 3, radio: 6 },
@@ -241,6 +260,9 @@ export const ARMAS = {
     comportamiento: 'zonaPersistente',
     danyo: 4, intervalo: 0.35, recarga: 3.4, charcos: 1, duracion: 4.5, radio: 19,
     ralentiza: 0, empuje: 0, color: '#ff7a2a',
+    // Sin `sprite` a propósito: la calcomanía de lava que se probó llevaba un
+    // reborde de piedra que duplicaba el canto. Ver herramientas/
+    // procesar-assets.ps1, $CELDAS_EFECTOS.
     evolucion: { pasivo: 'antorcha', arma: 'incendioEmerita' },
     niveles: [{}, { radio: 5 }, { duracion: 1.5, radio: 4 }, { danyo: 2 },
               { charcos: 1, radio: 4 }, { radio: 6 }, { duracion: 2, radio: 4 }, { charcos: 1, danyo: 3, radio: 5 },
@@ -260,13 +282,24 @@ export const ARMAS = {
   // --- Rayos: alcance largo, daño contenido ------------------------------
   rayoHorizontal: {
     nombre: 'Rayo de Júpiter',
-    descripcion: 'Haz que atraviesa a todos, de lado a lado.',
-    comportamiento: 'rayoPerforante', patron: 'horizontal',
-    danyo: 11, recarga: 1.8, alcance: 300, grosor: 5, empuje: 70,
+    descripcion: 'Cae del cielo a tu alrededor. No apunta: siembra.',
+    comportamiento: 'tormentaRayos',
+    danyo: 14, recarga: 2.2,
+    // Cuántos rayos por tormenta y cada cuánto cae el siguiente. `demoraGolpe`
+    // reutiliza el encadenado de golpes de las armas de arco (sistemas/armas.js).
+    rayos: 2, demoraGolpe: 0.12,
+    // `alcance` aquí NO es distancia de tiro: es el radio del ÁREA dentro de la
+    // cual caen, centrada en el jugador. `radio` es lo que revienta cada uno.
+    alcance: 120, radio: 22,
+    // Largo del haz que se ve caer a plomo. Solo dibujo.
+    caida: 150, grosor: 4, empuje: 60,
     color: '#bfe4ff',
-    niveles: [{}, { danyo: 4 }, { grosor: 2 }, { recarga: -0.25 },
-              { danyo: 6 }, { alcance: 60 }, { grosor: 3 }, { danyo: 9, recarga: -0.25 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    // Sube por los tres lados a la vez: más rayos, más daño y más área. Al
+    // nivel 10 son 7 rayos de 52 de daño en radio 29, cada 1,65 s.
+    niveles: [{}, { danyo: 5 }, { rayos: 1 }, { recarga: -0.25 },
+              { danyo: 7, radio: 3 }, { rayos: 1 }, { alcance: 30 },
+              { danyo: 10, rayos: 1 }, { radio: 4, danyo: 6 },
+              { rayos: 2, danyo: 10, recarga: -0.3 }]
   },
   rayoCruzado: {
     nombre: 'Rayo cruzado',
@@ -286,6 +319,9 @@ export const ARMAS = {
     comportamiento: 'orbital',
     danyo: 13, recarga: 1.0, escudos: 2, radioOrbita: 40, radioEscudo: 8,
     velocidadAngular: 2.2, empuje: 120, color: '#e0c88a',
+    // Sin `giroOrbital`: es un escudo de frente con su emblema, y rotarlo lo
+    // dejaría boca abajo media vuelta de cada dos.
+    spriteOrbital: 'orbScutum',
     evolucion: { pasivo: 'coronaLaurel', arma: 'testudo' },
     niveles: [{}, { escudos: 1 }, { radioOrbita: 8 }, { danyo: 5 },
               { escudos: 1 }, { velocidadAngular: 0.7 }, { escudos: 1 }, { danyo: 9 },
@@ -371,6 +407,7 @@ export const ARMAS = {
     danyo: 19, recarga: 1.45, proyectiles: 1, velocidad: 560, alcance: 440,
     radio: 3, perforacion: 1, dispersion: 3, empuje: 100,
     color: '#cfd6dd', estela: '#6d7480', largoTrazo: 14,
+    spriteProyectil: 'balaPistola',
     niveles: [{}, { danyo: 6 }, { perforacion: 1 }, { recarga: -0.2 },
               { danyo: 8 }, { perforacion: 1 }, { velocidad: 80 }, { danyo: 13, recarga: -0.2 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -383,6 +420,7 @@ export const ARMAS = {
     danyo: 4, recarga: 0.22, proyectiles: 1, velocidad: 420, alcance: 260,
     radio: 2, perforacion: 0, dispersion: 9, empuje: 25,
     color: '#ffe08a', estela: '#8a6a2a', largoTrazo: 7,
+    spriteProyectil: 'balaPistola',
     niveles: [{}, { danyo: 1 }, { recarga: -0.03 }, { proyectiles: 1 },
               { danyo: 2 }, { recarga: -0.03 }, { proyectiles: 1 }, { danyo: 3 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -395,6 +433,7 @@ export const ARMAS = {
     danyo: 30, recarga: 1.9, proyectiles: 1, velocidad: 480, alcance: 300,
     radio: 4, perforacion: 1, dispersion: 0, empuje: 190,
     color: '#ffd0a0', estela: '#8a4a2a', largoTrazo: 11,
+    spriteProyectil: 'balaPistola',
     niveles: [{}, { danyo: 10 }, { recarga: -0.2 }, { perforacion: 1 },
               { danyo: 12 }, { recarga: -0.2 }, { danyo: 14 }, { proyectiles: 1 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -474,6 +513,7 @@ export const ARMAS = {
     danyo: 11, recarga: 1.6, proyectiles: 9, velocidad: 230, alcance: 82, angulo: 78,
     radio: 3, perforacion: 0, empuje: 220,
     color: '#ffc07a', estela: '#8a4a1a',
+    spriteProyectil: 'balaPistola',
     niveles: [{}, { proyectiles: 3 }, { danyo: 3 }, { empuje: 60 },
               { proyectiles: 3 }, { danyo: 4 }, { recarga: -0.3 }, { proyectiles: 4, danyo: 6 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -621,6 +661,8 @@ export const ARMAS = {
     descripcion: 'Charco ancho que abrasa despacio.',
     comportamiento: 'zonaPersistente',
     danyo: 5, intervalo: 0.4, recarga: 3.0, charcos: 1, duracion: 5.5, radio: 38,
+    // Calcomania de suelo con hoja propia (el valor es el id del atlas).
+    sprite: 'zonaAceite',
     ralentiza: 0.2, empuje: 0, color: '#e8b04a',
     niveles: [{}, { radio: 7 }, { duracion: 1.5 }, { danyo: 2 },
               { charcos: 1 }, { radio: 8 }, { duracion: 2 }, { charcos: 1, danyo: 3 },
@@ -652,6 +694,12 @@ export const ARMAS = {
     comportamiento: 'auraPasiva',
     danyo: 5, intervalo: 0.3, recarga: 0.5, radio: 34, empuje: 90,
     color: '#9adfff',
+    // Hoja propia (id del atlas), no una celda de un catálogo compartido.
+    sprite: 'auraCampoElectrico',
+    // Radianes por segundo. Es UNA sola imagen: el giro es lo que la hace
+    // parecer viva sin pedirle fotogramas al artista. 1.8 son unos 3,5 s por
+    // vuelta — se ve que se mueve sin marear, y es el número a tocar.
+    giro: 1.8,
     niveles: [{}, { radio: 5 }, { danyo: 2 }, { empuje: 40 },
               { radio: 6 }, { danyo: 3 }, { radio: 7 }, { danyo: 5, empuje: 50 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -696,6 +744,11 @@ export const ARMAS = {
     comportamiento: 'orbital',
     danyo: 16, recarga: 1.0, escudos: 2, radioOrbita: 26, radioEscudo: 9,
     velocidadAngular: 4.2, empuje: 60, color: '#cfd8e0',
+    spriteOrbital: 'orbDiscos',
+    // Gira sobre su eje AL REVÉS que su órbita (4.2) y más rápido: girando en
+    // el mismo sentido y a la misma velocidad, el disco parecería clavado a la
+    // órbita y no cortaría nada. Negativo y 12 para que se lea la sierra.
+    giroOrbital: -12,
     niveles: [{}, { danyo: 5 }, { escudos: 1 }, { velocidadAngular: 0.8 },
               { danyo: 7 }, { escudos: 1 }, { radioEscudo: 3 }, { danyo: 11, escudos: 1 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -726,6 +779,19 @@ export const ARMAS = {
     demoraGolpe: 0.16,
     empuje: 130,
     color: '#e8f0ff',
+    // `spriteTajo`: animación de barrido. El valor es DIRECTAMENTE el id de la
+    // entrada del atlas donde vive su hoja, así que añadir el tajo de otra arma
+    // no renumera ni toca nada de lo que ya está.
+    //
+    // Va aquí y no en `sprite` porque son cosas distintas: `sprite` son
+    // calcomanías de suelo, quietas; esto es una animación que gira con el
+    // golpe.
+    spriteTajo: 'tajoKatana',
+    // Cuánto dura el DIBUJO del tajo. Solo visual: el daño se resuelve entero
+    // en el instante del golpe. Los 0,16 s por defecto son los de un arco
+    // trazado, que es un destello; repartidos entre los seis fotogramas de la
+    // hoja salían a 27 ms cada uno y la animación pasaba sin verse.
+    duracionTajo: 0.34,
     niveles: [
       {}, { danyo: 5 }, { alcance: 5 }, { danyo: 7 },
       { golpes: 1 }, { alcance: 6, danyo: 6 }, { recarga: -0.2 }, { danyo: 12, alcance: 6 },
@@ -747,6 +813,10 @@ export const ARMAS = {
     comportamiento: 'orbitalPulsante',
     danyo: 42, recarga: 6.5, duracion: 6, escudos: 4, radioOrbita: 38, radioEscudo: 10,
     velocidadAngular: 5.0, empuje: 140, color: '#ffb14a',
+    spriteOrbital: 'orbSierras',
+    // Gira sobre su eje al reves que su orbita, igual que los discos: es lo
+    // que hace que se lea que cortan y no que van dando vueltas pegadas.
+    giroOrbital: -14,
     niveles: [{}, { danyo: 10 }, { duracion: 1 }, { escudos: 1 },
               { recarga: -0.8 }, { danyo: 14 }, { escudos: 1, radioOrbita: 6 },
               { duracion: 1.5, danyo: 18 },

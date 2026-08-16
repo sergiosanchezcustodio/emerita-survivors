@@ -50,7 +50,7 @@ const MARCAS_HIDRA = [JEFES.hidra.furia.umbral];      // [0.5]: donde se enfurec
 // Def del charco, reutilizada en cada disparo. Igual que `punto` en
 // sistemas/director.js: esto se llama varias veces por asalto de fuego y
 // crear un literal por llamada sería asignar en caliente durante la partida.
-const defCharco = { danyo: 0, radio: 0, aviso: 0, duracion: 0, intervalo: 0, color: '' };
+const defCharco = { danyo: 0, radio: 0, aviso: 0, duracion: 0, intervalo: 0, color: '', sprite: null };
 
 // --- Cerbero ------------------------------------------------------------
 
@@ -231,6 +231,7 @@ function actualizarVeneno(dt, e, objetivo, disparos, rng) {
   defCharco.duracion = cfg.duracionCharco;
   defCharco.intervalo = cfg.intervaloCharco;
   defCharco.color = cfg.color;
+  defCharco.sprite = cfg.sprite || null;
 
   const cx = Math.cos(base), cy = Math.sin(base);
   for (let p = 0; p < cfg.pasos; p++) {
