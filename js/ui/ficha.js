@@ -52,8 +52,46 @@ const MARGEN_PANTALLA = 14;
 const HUECO = 8;
 const ESTORBO_FICHA = ALTO_FICHA + MARGEN_FICHA;
 
-const COL_IZQ = 146;             // columna del retrato
+// COLUMNA DEL RETRATO. Bajó de 146 a 96 para pagar el sitio de las ranuras.
+//
+// Lo que Sergio quiere grande son los medallones de armas y objetos, no la
+// ficha entera, y esos dos no caben a la vez: con el panel encogido, las cuatro
+// ranuras de un grupo necesitan 172 de ancho y la columna derecha solo daba
+// 302 para los dos grupos. Los 50 que faltaban salen de aquí, que es la parte
+// de la ficha que menos se consulta —el retrato se mira una vez, el inventario
+// cada vez que se abre la pantalla—.
+//
+// El personaje sigue entrando entero: se encaja "contener" dentro de la
+// columna (ver más abajo), así que estrecharla lo encoge, no lo recorta.
+const COL_IZQ = 96;
 const HUECO_COL = 14;
+
+// LA FICHA SE DIBUJA AUMENTADA, y no se ha vuelto a maquetar.
+//
+// Todo lo de aquí abajo sigue midiendo en las mismas unidades de siempre —el
+// panel son 486x272— y el aumento se aplica de una vez con una transformación
+// del contexto justo antes de pintar. Rehacer la maqueta con los números
+// multiplicados habría sido tocar cuarenta constantes para acabar en el mismo
+// sitio, y cada una es una ocasión de descuadrar algo.
+//
+// 1,125 y no 1,5. El 1,5 fue el primer intento y agrandaba la ventana ENTERA,
+// que no es lo que Sergio pedía: lo que tiene que verse grande es el DIBUJO de
+// las armas y los objetos, no el retrato ni las estadísticas. Este 1,125 deja
+// la ventana un 25% más pequeña que aquella y los medallones exactamente igual
+// de grandes, porque su radio se calcula al revés —desde el tamaño que tienen
+// que tener en pantalla— y la anchura que les hace falta sale de estrechar la
+// columna del retrato. Ver DIAMETRO_RANURA y COL_IZQ.
+//
+// El texto ni se entera: la interfaz vive en su propio lienzo nítido y las
+// fuentes se rasterizan al tamaño final, así que aumentarla no la emborrona.
+//
+// La escala se le pasa además a dibujarIconoArma y dibujarIconoPasivo —ver
+// RADIO_HD en ui/hud.js—: el radio que llega allí está en unidades de esta
+// ficha, y sin la escala no se puede saber cuántos píxeles va a ocupar el icono
+// de verdad ni, por tanto, si toca la hoja de 96 o la de 32.
+const ESCALA_FICHA = 1.125;
+const ANCHO_VISTA = ANCHO_PANEL * ESCALA_FICHA;
+const ALTO_VISTA = ALTO_PANEL * ESCALA_FICHA;
 
 const COLOR_VIDA = '#c8443c';
 const COLOR_XP = '#4d7fd6';
@@ -267,10 +305,15 @@ function ranura(ctx, x, y, r, color, glifo, nivel, maximo, cuadrada) {
   // tope se pintaba detrás un disco de color con 'lighter', y eso es lo que
   // hacía que pareciera que brillaba el arma: sumaba luz POR DEBAJO del dibujo
   // y lo dejaba lavado. Ahora el resplandor es solo del marco.
+  //
+  // Lo que sí cambia es OCUPADA contra VACÍA: la que tiene algo dentro va en
+  // blanco, porque los iconos son pixel art recortado al filo y sobre el fondo
+  // oscuro las armas de silueta negra perdían el trazo. La vacía se queda
+  // oscura: es un hueco, y en blanco pediría la vista sin tener nada que contar.
   ctx.beginPath();
   if (cuadrada) ctx.roundRect(x - r, y - r, r * 2, r * 2, 3);
   else ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(10,11,13,.5)';
+  ctx.fillStyle = glifo ? 'rgba(255,255,255,.92)' : 'rgba(10,11,13,.5)';
   ctx.fill();
 
   // MARCO. Al máximo va más grueso y con halo; y el halo se consigue trazando
@@ -302,7 +345,27 @@ function ranura(ctx, x, y, r, color, glifo, nivel, maximo, cuadrada) {
     // Y `shadowBlur` llega aquí a cero a propósito: drawImage respeta la sombra
     // del contexto igual que fill/stroke (ver blitHoja en ui/hud.js), así que
     // dejarla puesta difuminaría el arma en vez del marco.
-    glifo(ctx, r * 0.58, color);
+    // EL ICONO LLENA LA RANURA, con el margen justo para no tocar el marco.
+    //
+    // Estaba en 0,58 para las dos formas, o sea que el dibujo ocupaba poco más
+    // de la mitad del medallón y el resto era aire. Lo pidió Sergio: más grande,
+    // sin llegar al marco.
+    //
+    // Y no puede ser el mismo número para las dos, porque no cabe lo mismo en un
+    // cuadrado que en un círculo. El icono se dibuja SIEMPRE encajado en un
+    // cuadrado de lado 2·rr:
+    //
+    //   - En la ranura cuadrada (armas) el límite lo pone el lado: con 0,82 el
+    //     dibujo mide 18 dentro de 22 y quedan 2 por lado, que es donde va el
+    //     trazo del marco y su punto de aire.
+    //   - En la redonda (objetos) el límite lo ponen las ESQUINAS del cuadrado,
+    //     que salen a rr·√2 del centro. Con 0,66 eso son 10,3 contra los 11 del
+    //     círculo; con el 0,82 del cuadrado se irían a 12,8 y el dibujo asomaría
+    //     por las cuatro diagonales.
+    //
+    // Sale más chico el de objetos, sí, y es lo correcto: es lo que de verdad
+    // cabe dentro de un círculo de ese radio.
+    glifo(ctx, r * (cuadrada ? 0.82 : 0.66), color);
     ctx.restore();
 
     if (!tope) {
@@ -358,15 +421,29 @@ function interruptor(ctx, x, y, activo, disponible, t) {
   ctx.restore();
 }
 
+// Devuelve la esquina superior izquierda YA EN PANTALLA, o sea contando el
+// tamaño aumentado. Es lo único que tuvo que enterarse de la escala.
 function situar(indice, unSolo) {
   if (unSolo || indice < 0) {
-    return { x: (ANCHO_UI - ANCHO_PANEL) / 2, y: (ALTO_UI - ALTO_PANEL) / 2 };
+    return { x: (ANCHO_UI - ANCHO_VISTA) / 2, y: (ALTO_UI - ALTO_VISTA) / 2 };
   }
   const derecha = (indice % 2) === 1;
   const abajo = indice >= 2;
+
+  // Antes la ficha se apartaba SIEMPRE de las fichas del HUD, arriba y abajo.
+  // Aumentada ya no cabe entre las dos: la banda libre son 373 y el panel mide
+  // 408, así que insistir dejaba la fila de abajo MÁS ARRIBA que la de arriba y
+  // se perdía la pista de a quién pertenece la ficha.
+  //
+  // Cuando no cabe, se cede lo que menos cuesta: taparle al jugador su propia
+  // ficha del HUD. La detallada dice lo mismo y con cifras, y el mundo está
+  // parado mientras está abierta. La condición deja el comportamiento de antes
+  // intacto si algún día la escala baja y vuelve a caber.
+  const cabeEntreFichas = ALTO_VISTA <= ALTO_UI - (ESTORBO_FICHA + HUECO) * 2;
+  const yArriba = cabeEntreFichas ? ESTORBO_FICHA + HUECO : MARGEN_PANTALLA;
   return {
-    x: derecha ? ANCHO_UI - ANCHO_PANEL - MARGEN_PANTALLA : MARGEN_PANTALLA,
-    y: abajo ? ALTO_UI - ESTORBO_FICHA - HUECO - ALTO_PANEL : ESTORBO_FICHA + HUECO
+    x: derecha ? ANCHO_UI - ANCHO_VISTA - MARGEN_PANTALLA : MARGEN_PANTALLA,
+    y: abajo ? ALTO_UI - ALTO_VISTA - yArriba : yArriba
   };
 }
 
@@ -376,10 +453,17 @@ export function dibujarFicha(ctx, jugadores, indice) {
 
   const t = Tema.actual;
   const unSolo = jugadores.length <= 1;
-  const { x: px, y: py } = situar(indice, unSolo);
+  const sitio = situar(indice, unSolo);
   const color = COLOR_JUGADOR[indice % COLOR_JUGADOR.length];
 
   ctx.save();
+  // El aumento, de una vez y para todo lo que viene detrás. A partir de aquí la
+  // ficha se dibuja en su propio sistema de coordenadas con el origen en su
+  // esquina, así que px y py son cero y el resto del cuerpo mide como siempre.
+  ctx.translate(sitio.x, sitio.y);
+  ctx.scale(ESCALA_FICHA, ESCALA_FICHA);
+  const px = 0, py = 0;
+
   panel(ctx, px, py, ANCHO_PANEL, ALTO_PANEL, color);
 
   // --- Columna izquierda: el personaje, de arriba abajo -------------------
@@ -432,14 +516,31 @@ export function dibujarFicha(ctx, jugadores, indice) {
 
   // Distintivo de jugador, esquina superior izquierda del retrato. Solo en
   // cooperativo: con un jugador no hay nada que distinguir.
-  if (!unSolo) distintivoJugador(ctx, xIzq + 12, yCol + 12, indice, color);
+  //
+  // 17 y no 12: con 12 el disco rozaba el marco doble del retrato. Lo vio
+  // Sergio. Los 5 que entra por cada lado son los mismos que separan ahora al
+  // hexágono del nivel de su esquina, que es la pareja de este distintivo.
+  if (!unSolo) distintivoJugador(ctx, xIzq + 17, yCol + 17, indice, color);
 
   // Placa de nivel, DENTRO del marco del retrato, esquina superior derecha (a
   // petición de Sergio; antes iba a caballo del borde y luego centrada abajo).
   // Es LA referencia de nivel de toda la ficha, y hace pareja con el
   // distintivo de jugador: una esquina cada una, arriba las dos, las dos sin
   // salirse del recuadro.
-  placaNivel(ctx, xIzq + COL_IZQ - 17, yCol + 17, 13, j.nivel, t);
+  //
+  // BAJA 1,74 respecto al centro geométrico de la esquina, y no es un ajuste a
+  // ojo. El hexágono es de PUNTA ARRIBA: por arriba llega hasta R_PLACA entero,
+  // pero por el lado solo hasta R_PLACA·cos(30°) = 11,26. Con el centro a la
+  // misma distancia del borde en los dos ejes —que es como estaba—, el aire de
+  // arriba salía 1,74 más corto que el del lado y la placa parecía pegada al
+  // marco por arriba. Lo vio Sergio. Bajarla esos 1,74 exactos iguala los dos
+  // huecos, y como está escrito en función del radio sigue cuadrando si algún
+  // día la placa cambia de tamaño.
+  const R_PLACA = 13;
+  const MARGEN_PLACA = 17;
+  placaNivel(ctx, xIzq + COL_IZQ - MARGEN_PLACA,
+             yCol + MARGEN_PLACA + R_PLACA * (1 - Math.cos(Math.PI / 6)),
+             R_PLACA, j.nivel, t);
 
   // --- Columna derecha ---------------------------------------------------
   const xDer = xIzq + COL_IZQ + HUECO_COL;
@@ -502,40 +603,71 @@ export function dibujarFicha(ctx, jugadores, indice) {
   // El hueco sube de 6 a 13: la etiqueta ya no se monta sobre el borde de la
   // caja, va encima, y necesita su sitio.
   y += 13;
-  const altoCaja = Math.ceil(CARACTERISTICAS.length / 2) * 13 + 8;
+  // TRES COLUMNAS, no dos, y el motivo es de ALTO, no de ancho.
+  //
+  // Con el medallón grande la caja del inventario pasó de 42 a 48, y con una
+  // descripción de personaje de dos líneas todo lo de abajo baja otros 10: la
+  // suma dejaba el inventario pisando el interruptor del pie. Repartir las ocho
+  // características en tres columnas en vez de dos las deja en tres filas en
+  // vez de cuatro y devuelve 13, que es más de lo que hacía falta.
+  //
+  // Cabe porque la columna derecha ensanchó al estrechar el retrato: cada
+  // columna tiene 117 y una etiqueta con su cifra ("Velocidad 240") no llega a
+  // 75. La última se queda con dos características en vez de tres; da igual,
+  // se leen igual de seguidas.
+  const COLS_ESTAD = 3;
+  const CANAL_ESTAD = 14;          // aire entre la cifra de una columna y la etiqueta de la siguiente
+  const filas = Math.ceil(CARACTERISTICAS.length / COLS_ESTAD);
+  const altoCaja = filas * 13 + 8;
   caja(ctx, xDer, y, anchoDer, altoCaja, 'ESTADÍSTICAS', t);
-  const anchoCol = anchoDer / 2;
-  const filas = Math.ceil(CARACTERISTICAS.length / 2);
+  const anchoCol = anchoDer / COLS_ESTAD;
   const yEstad = y + 9;
   ctx.font = `400 9.5px ${FUENTE}`;
   for (let i = 0; i < CARACTERISTICAS.length; i++) {
     const c = CARACTERISTICAS[i];
-    const cx = xDer + 6 + (i < filas ? 0 : anchoCol);
+    const cx = xDer + 6 + Math.floor(i / filas) * anchoCol;
     const cy = yEstad + (i % filas) * 13;
     ctx.textAlign = 'left';
     ctx.fillStyle = t.apagado;
     ctx.fillText(c.etiqueta, cx, cy);
     ctx.textAlign = 'right';
     ctx.fillStyle = t.titulo;
-    ctx.fillText(String(c.valor(j)), cx + anchoCol - 18, cy);
+    ctx.fillText(String(c.valor(j)), cx + anchoCol - CANAL_ESTAD, cy);
   }
   y += altoCaja + 15;
 
   // --- Inventario: armas y objetos, cada uno en su caja -------------------
   const armas = j.arsenal ? j.arsenal.equipadas : [];
   const idsPasivos = Object.keys(j.pasivos);
-  const r = 11;
+  // EL MEDALLÓN SE MIDE EN PÍXELES DE PANTALLA, no en unidades de maqueta, y es
+  // el único sitio de la ficha donde se hace así.
+  //
+  // Es lo que pidió Sergio: los medallones tienen un tamaño que se ve bien y
+  // tiene que quedarse ahí aunque la ventana cambie. Escrito al derecho —un
+  // radio en unidades de maqueta— cada retoque de ESCALA_FICHA los movía con
+  // ella y había que recalcularlos a mano; escrito así, la escala se cancela y
+  // el número de arriba es literalmente lo que se ve.
+  //
+  // 41,25 es lo que medían con el 1,5 del primer intento (13,75 de radio), que
+  // es el tamaño que Sergio dio por bueno.
+  const DIAMETRO_RANURA = 41.25;
+  const r = DIAMETRO_RANURA / 2 / ESCALA_FICHA;
   const anchoGrupo = (anchoDer - HUECO) / 2;
   const pasoArmas = anchoGrupo / MAX_ARMAS;
-  const altoGrupo = 42;
+  // 48 y no 42: el medallón mide ahora 36,67 de alto y con la caja de 42 se
+  // quedaba a un punto y medio del borde de abajo. Los 6 que sube salen del
+  // hueco que había entre el inventario y el pie de la ficha, que era de 17.
+  const altoGrupo = 48;
 
   caja(ctx, xDer, y, anchoGrupo, altoGrupo, 'ARMAS', t);
-  const yMedallon = y + 22;
+  // Centrado en su caja: 24 es la mitad de 48. Antes eran 22 de 42, un pelín
+  // por encima del centro, y con el medallón grande ese pelín se nota.
+  const yMedallon = y + altoGrupo / 2;
   for (let k = 0; k < MAX_ARMAS; k++) {
     const a = armas[k];
     const def = a ? ARMAS[a.id] : null;
     ranura(ctx, xDer + pasoArmas * (k + 0.5), yMedallon, r, a ? def.color : null,
-           def ? ((c, rr, col) => dibujarIconoArma(c, 0, 0, rr, a.id, col)) : null,
+           def ? ((c, rr, col) => dibujarIconoArma(c, 0, 0, rr, a.id, col, ESCALA_FICHA)) : null,
            a ? a.nivel : 0, def && def.esEvolucion ? 1 : MAX_NIVEL, true);
   }
 
@@ -546,7 +678,7 @@ export function dibujarFicha(ctx, jugadores, indice) {
     const id = idsPasivos[k];
     const def = id ? PASIVOS[id] : null;
     ranura(ctx, xObjetos + pasoObjetos * (k + 0.5), yMedallon, r, COLOR_PASIVO,
-           def ? ((c, rr, col) => dibujarIconoPasivo(c, 0, 0, rr, id, col)) : null,
+           def ? ((c, rr, col) => dibujarIconoPasivo(c, 0, 0, rr, id, col, ESCALA_FICHA)) : null,
            def ? j.pasivos[id] : 0, def ? def.maxNivel : 10, false);
   }
 

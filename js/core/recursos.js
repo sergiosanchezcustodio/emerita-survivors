@@ -22,6 +22,13 @@ const ATLAS_REPLIEGUE = {
 // un fotograma y medio, que es lo que dura.
 const COLOR_DANYO = 'rgba(216,44,52,.78)';
 
+// El azul del HIELO, para los enemigos que el Reloj de Emerita deja congelados.
+// Menos opaco que el destello blanco y que el rojo de daño, y a propósito: esos
+// dos duran un fotograma y medio y tienen que gritar; este dura doce segundos y
+// tiene que dejar reconocer al bicho que hay debajo, porque durante ese rato lo
+// que se hace es mirar la pantalla y decidir por dónde salir.
+const COLOR_HIELO = 'rgba(96,176,255,.60)';
+
 const COLORES_PLACEHOLDER = {
   eric: '#4b8fd6', lucy: '#d64b8f', sara: '#d6c14b', vicky: '#4bd6a1'
 };
@@ -34,6 +41,13 @@ export const Recursos = {
   tintesEspejo: new Map(),  // id -> el mismo, volteado
   tintesDanyo: new Map(),      // id -> canvas enrojecido (el jugador al recibir)
   tintesDanyoEspejo: new Map(),
+  tintesHielo: new Map(),      // id -> canvas azulado (congelado por el Reloj)
+  tintesHieloEspejo: new Map(),
+  // Sello anticaché que se cuelga de cada URL de imagen. Vacío hasta que se lee
+  // el atlas: las pantallas de título y selección piden sus ilustraciones antes
+  // de que haya nivel que cargar, y sin este valor por defecto les llegaría un
+  // 'undefined' pegado a la ruta. Ver `cargar`.
+  _sello: '',
   tilesSuelo: [],           // canvas o imágenes del suelo, todas del mismo tamaño
   // Lado del tile de suelo en unidades LÓGICAS. Con suelo procedural es TILE en
   // los dos ejes; con un mapa pintado sale del tamaño de la imagen, que no tiene
@@ -53,13 +67,28 @@ export const Recursos = {
     this.paleta = nivel.paleta;
 
     try {
-      const resp = await fetch('assets/atlas.json');
+      // `no-cache` OBLIGA A REVALIDAR el atlas contra el servidor. Es el único
+      // fichero que se pide así, y es el que lo arregla todo: dentro viene el
+      // sello de la última vez que se horneó el arte (ver `version` al final de
+      // herramientas/procesar-assets.ps1), y de ese sello cuelgan las URL de
+      // todas las imágenes. Si el atlas se cacheara, el sello sería el viejo y
+      // el navegador seguiría sirviendo los dibujos viejos con él.
+      const resp = await fetch('assets/atlas.json', { cache: 'no-cache' });
       if (!resp.ok) throw new Error(resp.status);
       this.atlas = await resp.json();
     } catch {
       this.atlas = ATLAS_REPLIEGUE;
       console.warn('[recursos] sin atlas.json: se usan placeholders generados');
     }
+
+    // EL SELLO ANTICACHÉ, colgado de cada imagen que se pida a partir de aquí.
+    //
+    // `python -m http.server` no manda cabeceras de caducidad, así que el
+    // navegador decide por su cuenta cuánto se queda con un PNG y, con ficheros
+    // de días, esa heurística son horas: se hornea un efecto nuevo, se recarga
+    // y se sigue viendo el viejo sin que nada avise. Cambiando la URL en cada
+    // horneado no hay nada que reutilizar y el problema desaparece.
+    this._sello = this.atlas.version ? '?v=' + this.atlas.version : '';
 
     const cargas = [];
     for (const id of Object.keys(this.atlas.entidades)) {
@@ -79,7 +108,7 @@ export const Recursos = {
       const img = new Image();
       img.onload = () => resolver(img);
       img.onerror = () => { console.warn(`[recursos] no carga ${ruta}`); resolver(null); };
-      img.src = ruta;
+      img.src = ruta + this._sello;
     });
   },
 
@@ -117,7 +146,7 @@ export const Recursos = {
         resolver();
       };
       img.onerror = conPlaceholder;
-      img.src = 'assets/' + meta.archivo;
+      img.src = 'assets/' + meta.archivo + this._sello;
     });
   },
 
@@ -206,6 +235,27 @@ export const Recursos = {
     if (meta && espejo && !this.tintesDanyoEspejo.has(id)) {
       this.tintesDanyoEspejo.set(id, this._tinte(espejo, meta, COLOR_DANYO));
     }
+  },
+
+  // --- Congelado del Reloj de Emerita --------------------------------------
+  //
+  // Mismo trato que el destello de daño del jugador y por el mismo motivo: se
+  // prepara ANTES del primer frame, nunca en caliente. Aquí importa más todavía
+  // porque el Reloj congela a la horda ENTERA de golpe: teñir al recogerlo
+  // serían cientos de lienzos nuevos en el mismo frame, justo lo que prohíbe el
+  // pooling.
+  //
+  // Va por lista y no dentro de _cargarEntidad —que ya hace el blanco y su
+  // espejo para todo lo que carga— para no pagar dos lienzos más por CADA
+  // entidad del atlas: solo los bichos se congelan. Lo llama prepararVariantes
+  // (entidades/enemigo.js), que es quien sabe cuáles son.
+  prepararTinteHielo(id) {
+    const meta = this.atlas.entidades[id];
+    const fuente = this.imagenes.get(id);
+    if (!meta || !fuente || this.tintesHielo.has(id)) return;
+    this.tintesHielo.set(id, this._tinte(fuente, meta, COLOR_HIELO));
+    const espejo = this.espejos.get(id);
+    if (espejo) this.tintesHieloEspejo.set(id, this._tinte(espejo, meta, COLOR_HIELO));
   },
 
   // Silueta geométrica con la forma y el tamaño correctos: permite tocar el
@@ -395,5 +445,7 @@ export const Recursos = {
   tinte(id) { return this.tintes.get(id); },
   tinteEspejo(id) { return this.tintesEspejo.get(id); },
   tinteDanyo(id) { return this.tintesDanyo.get(id); },
-  tinteDanyoEspejo(id) { return this.tintesDanyoEspejo.get(id); }
+  tinteDanyoEspejo(id) { return this.tintesDanyoEspejo.get(id); },
+  tinteHielo(id) { return this.tintesHielo.get(id); },
+  tinteHieloEspejo(id) { return this.tintesHieloEspejo.get(id); }
 };

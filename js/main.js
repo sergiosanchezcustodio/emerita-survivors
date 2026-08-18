@@ -31,7 +31,7 @@ import { dibujarFicha } from './ui/ficha.js';
 import { dibujarMapa } from './ui/mapa.js';
 import { dibujarTienda } from './ui/tienda.js';
 import { dibujarFinal, dibujarCartelFinal } from './ui/final.js';
-import { dibujarPaneles, dibujarReloj, dibujarBarraJefe, dibujarDenariosPartida } from './ui/hud.js';
+import { dibujarPaneles, dibujarReloj, dibujarBarraJefe } from './ui/hud.js';
 import { Pantallas, ocupantePersonaje, dibujarDespedida } from './ui/pantallas.js';
 import { dibujarConfig, dibujarConfirmacion } from './ui/configuracion.js';
 import { Capa, FUENTE } from './ui/capa.js';
@@ -468,11 +468,18 @@ addEventListener('fullscreenchange', () => {
 // Cuánto cura la comida y cuánto dura el lanzallamas prestado.
 const CURA_COMIDA = 20;
 const DURACION_LLAMARADA = 8;
-// El Reloj de Emerita para a la horda entera. Seis segundos son los que pidió
-// Sergio y son muchos: dan para cruzar un cerco andando, rematar a un élite o
-// levantar a quien se ha quedado en el suelo. Por eso es el consumible más raro
-// de los cinco (ver tipoConsumible en entidades/cofre.js).
-const PARALISIS_RELOJ = 6;
+// El Reloj de Emerita para a la horda entera. DOCE segundos —el doble de los
+// seis que tenía— y son muchísimos: dan para cruzar el anfiteatro de lado a
+// lado, rematar a un élite y levantar a quien se ha quedado en el suelo, todo
+// en la misma parada. Por eso es el consumible más raro de los cinco (ver
+// tipoConsumible en entidades/cofre.js).
+//
+// Y mientras dura, la horda congelada NO ES UN OBSTÁCULO: se la atraviesa
+// andando y no hace daño al tocarla (ver contactoJugador y apartarDelJugador en
+// sistemas/colisiones.js). Es lo que convierte el objeto en la salida de
+// verdad del peor momento de la partida: quedar rodeado y que los cuerpos
+// siguieran siendo pared dejaba el pánico intacto, solo que en silencio.
+const PARALISIS_RELOJ = 12;
 // Las monedas se cobran FUERA de la partida: van al progreso META y siguen ahí
 // mañana. Es el único consumible que no cambia nada de lo que está pasando.
 const DENARIOS_MONEDAS = 10;
@@ -1824,8 +1831,8 @@ function dibujar(alpha) {
   }
   dibujarAvisoArma(ctxUi);
   dibujarPaneles(ctxUi, jugadores);
-  dibujarReloj(ctxUi);
-  dibujarDenariosPartida(ctxUi, MetaProgreso.denarios - denariosAlEmpezar);
+  // Reloj y denarios comparten cinta arriba en el centro: ver ui/hud.js.
+  dibujarReloj(ctxUi, MetaProgreso.denarios - denariosAlEmpezar);
   // Un mismo Jefes.info() alimenta la barra Y decide si suena la música de
   // jefe: es el único punto donde main.js sabe si hay uno en pie ahora mismo.
   const infoJefe = Jefes.info(enemigos);

@@ -16,8 +16,8 @@
   nunca para nada que se lea durante la simulación de una partida activa.
 
 ## Comandos
-- `python -m http.server 8000` — servidor local
-- Abrir http://localhost:8000
+- `.\herramientas\jugar.ps1` — levanta el servidor y abre el juego (`jugar.bat` a doble clic)
+- `python -m http.server 8000` — servidor local a mano; abrir http://localhost:8000
 - `.\herramientas\procesar-assets.ps1` — convierte `resources/` en sprites
 - `.\herramientas\ver-assets.ps1 <ruta>` — describe imágenes sin abrirlas
 - `.\herramientas\instalar-lanzador.ps1` — deja el comando `emerita` en su sitio

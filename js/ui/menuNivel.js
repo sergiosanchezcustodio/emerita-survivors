@@ -31,15 +31,33 @@ import { PASIVOS } from '../datos/pasivos.js';
 // elección se lee de un vistazo y no interrumpe tanto el ritmo.
 
 const ANCHO_CARTA = 132;
-const ALTO_CARTA = 112;      // 18 más que antes: el icono pide su sitio
+const ALTO_CARTA = 116;      // 22 más que antes: el icono pide su sitio
 
 // Medallón del icono. Va entre la etiqueta y el nombre, centrado, y es lo
 // primero que se ve de la carta: la forma dice de qué familia es el arma —flecha
 // para proyectil, anillo para orbital, charco para zona— y eso se lee de un
 // vistazo, antes que el nombre. Con tres cartas y el mundo parado esperando, esa
 // décima de segundo es la diferencia entre elegir y leer.
-const ICONO_R = 15;          // radio del medallón
-const Y_ICONO = 36;
+// EL RADIO IMPORTA MÁS DE LO QUE PARECE: no es solo tamaño, decide de qué hoja
+// sale el dibujo. blitHoja (ui/hud.js) tira de la hoja GRANDE a partir de un
+// radio de icono de 11, y con el medallón en 15 el icono salía a 15·0,62 = 9,3,
+// o sea por debajo del umbral: se cogía la hoja de 32 y se dibujaba a 18,6
+// píxeles de interfaz SIN suavizar, que es una reducción a vecino más próximo y
+// tira filas enteras del dibujo. Por eso la katana se veía rota aquí y bien en
+// la ficha, que pide el mismo icono pero con escala 1,5 y sí cruza el umbral.
+//
+// Con 17 de medallón y 0,66 de icono salen 11,22: pasa el umbral por su propio
+// pie, coge la hoja de 96 y la reduce con suavizado. Y 0,66 es además lo que de
+// verdad cabe en un círculo: las esquinas del dibujo caen a 11,22·√2 = 15,9,
+// dentro de los 17 del aro.
+const ICONO_R = 17;          // radio del medallón
+const ICONO_GLIFO = 0.66;    // parte del medallón que ocupa el dibujo
+// Centrado A OJO EXACTO entre la etiqueta ("ARMA NUEVA", que baja hasta 18) y la
+// tapa del nombre (71 de línea base, o sea 61 arriba): (18+61)/2 = 39,5. Estaba
+// en 36, pegado a la etiqueta y con el hueco debajo, y con el medallón en blanco
+// —que pesa mucho más que el disco oscuro de antes— el desequilibrio cantaba.
+const Y_ICONO = 39.5;
+const Y_NOMBRE = 71;         // línea base del nombre del arma o del pasivo
 const HUECO = 8;
 const RELLENO = 12;         // margen interior del panel
 const CABECERA = 36;        // titular + cenefa
@@ -123,9 +141,19 @@ function partir(texto) {
 function dibujarMedallon(ctx, cx, cy, o, color, elegida) {
   ctx.save();
 
+  // FONDO BLANCO para armas y pasivos, que es el mismo blanco de las ranuras de
+  // la ficha del jugador y de la ventana de información (ui/hud.js, ui/ficha.js):
+  // el icono que se elige aquí es el que se va a buscar luego ahí, y tiene que
+  // llegar con el mismo papel debajo. Los iconos son pixel art recortado al filo
+  // y sobre el disco oscuro las siluetas negras perdían el trazo.
+  //
+  // La CURACIÓN se queda con el disco oscuro: no es un icono dibujado sino un
+  // glifo vectorial trazado con el color de la carta, y sobre blanco se perdería
+  // justo al revés.
+  const conIcono = o.clase === 'arma' || o.clase === 'pasivo';
   ctx.beginPath();
   ctx.arc(cx, cy, ICONO_R, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(10,7,6,.45)';
+  ctx.fillStyle = conIcono ? 'rgba(255,255,255,.92)' : 'rgba(10,7,6,.45)';
   ctx.fill();
   ctx.lineWidth = elegida ? 1.6 : 1;
   ctx.strokeStyle = color;
@@ -141,9 +169,9 @@ function dibujarMedallon(ctx, cx, cy, o, color, elegida) {
   ctx.lineCap = 'round';
 
   if (o.clase === 'arma') {
-    if (ARMAS[o.id]) dibujarIconoArma(ctx, 0, 0, ICONO_R * 0.62, o.id, color);
+    if (ARMAS[o.id]) dibujarIconoArma(ctx, 0, 0, ICONO_R * ICONO_GLIFO, o.id, color);
   } else if (o.clase === 'pasivo') {
-    if (PASIVOS[o.id]) dibujarIconoPasivo(ctx, 0, 0, ICONO_R * 0.62, o.id, COLOR_PASIVO);
+    if (PASIVOS[o.id]) dibujarIconoPasivo(ctx, 0, 0, ICONO_R * ICONO_GLIFO, o.id, COLOR_PASIVO);
   } else {
     // Curación: una copa. No tiene comportamiento ni campo del que sacar glifo,
     // y dejarla con el círculo por defecto la haría parecer un arma sin icono.
@@ -291,16 +319,16 @@ export function dibujarMenuNivel(ctx, jugadores) {
 
     ctx.font = `600 14px ${FUENTE}`;
     ctx.fillStyle = elegida ? '#ffffff' : t.titulo;
-    ctx.fillText(o.nombre, centro, y0 + 68);
+    ctx.fillText(o.nombre, centro, y0 + Y_NOMBRE);
 
     ctx.font = `400 9.5px ${FUENTE}`;
     ctx.fillStyle = t.texto;
     const [l1, l2] = partir(o.descripcion || '');
     if (l2) {
-      ctx.fillText(l1, centro, y0 + 85);
-      ctx.fillText(l2, centro, y0 + 98);
+      ctx.fillText(l1, centro, y0 + 90);
+      ctx.fillText(l2, centro, y0 + 102);
     } else {
-      ctx.fillText(l1, centro, y0 + 91);
+      ctx.fillText(l1, centro, y0 + 96);
     }
   }
 

@@ -50,16 +50,35 @@ import { Director } from '../sistemas/director.js';
 // localizar tu esquina; cuánta vida te queda se mira cada pocos segundos. Con
 // todo mezclado en una sola columna, el ojo tenía que recorrer la ficha entera
 // para encontrar la barra.
-const ANCHO = 162;
+//
+// TRES columnas desde que la experiencia es VERTICAL: la barra de xp pegada al
+// borde de casa, la tarjeta de identidad y el estado. La xp era una barra
+// horizontal más, justo debajo de la vida, y las dos juntas se leían como una
+// sola cosa de dos pisos —había que fijarse en el color para saber cuál era
+// cuál—. De canto y separada, ya no se confunden: la que se mira en mitad de
+// una horda es la de vida, y ahora está sola en su sitio.
+//
+// Lo pidió Sergio, y de paso deja la barra de vida más gruesa sin que la ficha
+// crezca de alto.
+// 180 y no 171: los NUEVE que gana la ficha van enteros a la columna de las
+// ranuras, para que crezcan un 10% sin quedarse pegadas unas a otras. Robarle
+// el ancho al hueco entre ranuras habría dejado el aire en 1, y cuatro
+// cuadrados a 1 de distancia se leen como una tira, no como cuatro ranuras.
+const ANCHO = 180;
 const MARGEN = 9;              // separación al borde de la pantalla
 const RELLENO_H = 5;           // margen interior horizontal
 const RELLENO_V = 4;           // margen interior vertical
 
+const ANCHO_XP = 5;            // la barra vertical de experiencia
+const HUECO_XP = 4;            // aire entre esa barra y la tarjeta
 const TARJETA_ANCHO = 42;      // bloque de identidad
 const HUECO_SEP = 4;           // aire a cada lado de la línea separadora
-const COLUMNA = ANCHO - RELLENO_H * 2 - TARJETA_ANCHO - HUECO_SEP * 2;
+// 111. Es lo único que se lleva el ensanche de la ficha: todo lo demás —la
+// tarjeta de identidad, la barra de xp y los huecos— se queda con su medida.
+const COLUMNA = ANCHO - RELLENO_H * 2 - ANCHO_XP - HUECO_XP
+                - TARJETA_ANCHO - HUECO_SEP * 2;
 
-const HUECO_RANURA = 5;        // entre ranuras de la misma fila
+const HUECO_RANURA = 4;        // entre ranuras de la misma fila
 const HUECO_FILA = 4;          // entre la fila de armas y la de pasivos
 
 // SIEMPRE cuatro ranuras por fila, llenas o vacías, y reparten el ancho entero
@@ -69,12 +88,58 @@ const HUECO_FILA = 4;          // entre la fila de armas y la de pasivos
 // llenan, la fila cambiaba de tamaño y no se sabía si cabía algo más.
 const RANURAS = 4;
 const RANURA_W = (COLUMNA - (RANURAS - 1) * HUECO_RANURA) / RANURAS;
-const RANURA_H = 17.5;         // algo más anchas que altas, como la referencia
+// RANURAS CUADRADAS. Eran 21,75 x 17,5 —achatadas— y eso tenía dos costes: el
+// arma se dibujaba dentro de un rectángulo con más aire a los lados que arriba,
+// y el pasivo, que se marca con esquinas redondas de radio ALTO/2, salía como
+// una píldora y no como un círculo. Igualando alto y ancho, el arma queda en un
+// cuadrado y el pasivo en un círculo de verdad, que es la pareja de formas con
+// la que se distinguen las dos filas de un vistazo.
+//
+// Y de paso son más grandes: 17,5 -> 22,5 -> 24,75, esto último un 10% más que
+// pidió Sergio, y que sale de ensanchar la ficha 9 (ver ANCHO) para que el aire
+// entre ranuras siga siendo 4.
+//
+// EL DIBUJO DE DENTRO NO CRECE CON ELLAS: lo que crece es el marco, y el icono
+// se queda en el tamaño que tenía (ver ICONO_CUADRADO / ICONO_REDONDO en
+// dibujarRanura). Un icono más grande no se lee mejor a este tamaño —son 32
+// píxeles de dibujo— y en cambio el aire alrededor sí: es lo que separa una
+// ranura de la siguiente cuando hay ocho pegadas.
+const RANURA_H = RANURA_W;
+
+// RADIO DEL DIBUJO DENTRO DE LA RANURA, en absoluto y no en fracción del marco.
+//
+// Eran 0,40 y 0,32 del alto de la ranura, y con las ranuras creciendo un 10% el
+// icono habría crecido con ellas. Lo que se pidió es lo contrario: marco más
+// grande, dibujo igual. Así que se congelan los dos valores que salían de la
+// ranura de 22,5, que son los que ya estaban bien vistos en pantalla.
+//
+// Son dos y no uno por lo mismo que en la ficha de jugador (ui/ficha.js): en un
+// cuadrado y en un círculo del mismo lado no cabe lo mismo. El icono siempre se
+// encaja en un cuadrado de lado 2·r.
+//
+//   - CUADRADA (armas): el tope lo pone el lado, y ahora sobra aire por los
+//     cuatro costados: 9 de radio dentro de 24,75/2 - 1 de subida son 2,4.
+//   - REDONDA (pasivos): el tope lo ponen las ESQUINAS del cuadrado, que caen a
+//     r·√2 del centro. 7,2 · √2 = 10,2 contra los 12,4 del arco. Con el 9 del
+//     cuadrado se irían a 12,7 y el dibujo asomaría por las cuatro diagonales,
+//     que es la trampa de meter un cuadrado en un círculo.
+const ICONO_CUADRADO = 9.0;
+const ICONO_REDONDO = 7.2;
 
 // --- Alturas, medidas desde el borde superior de la ficha --------------------
-const Y_VIDA = RELLENO_V, ALTO_VIDA = 9;
-const Y_XP = 15, ALTO_XP = 6;
-const Y_ARMAS = 24.5;
+//
+// ALTO_VIDA baja de 12 a 8, un tercio menos. Llegó a 12 quedándose con el hueco
+// que dejó la barra de xp al ponerse de canto, y era demasiado: una barra de
+// vida no necesita ser gruesa para leerse —lo que se mira es su LARGO— y con 12
+// competía en peso con las dos filas de ranuras, que es donde de verdad hay que
+// mirar cuando se abre la ficha.
+//
+// Y_ARMAS sube con ella para que el aire entre la barra y la primera fila siga
+// siendo el mismo 8,5 de siempre. Los cuatro que se ahorran no se quedan de
+// hueco muerto: el alto total de la ficha apenas se mueve, porque lo que la
+// barra suelta se lo llevan las ranuras al crecer un 10%.
+const Y_VIDA = RELLENO_V, ALTO_VIDA = 8;
+const Y_ARMAS = Y_VIDA + ALTO_VIDA + 8.5;
 const Y_PASIVOS = Y_ARMAS + RANURA_H + HUECO_FILA;
 
 // Alto total de la ficha, y su margen. Los exporta para que el menú de subida de
@@ -87,10 +152,22 @@ export const MARGEN_FICHA = MARGEN;
 const TARJETA_ALTO = ALTO_FICHA - RELLENO_V * 2;
 const RETRATO_INSET = 3;
 const RETRATO_ANCHO = TARJETA_ANCHO - RETRATO_INSET * 2;
-const Y_RETRATO = RELLENO_V + 2;
-const ALTO_RETRATO = 36;
-const Y_NOMBRE = 49.5;
-const Y_NIVEL = 58.5;
+// Nombre y nivel se miden DESDE ABAJO, no con dos números fijos. Con las
+// ranuras cuadradas la ficha creció 10 de alto y unas coordenadas absolutas
+// habrían dejado los dos textos flotando a media tarjeta con un palmo de vacío
+// debajo. Anclados al pie mantienen su sitio de siempre —el nivel a 5 del
+// borde interior, el nombre 9 por encima— crezca lo que crezca la ficha.
+const Y_NIVEL = ALTO_FICHA - RELLENO_V - 5;
+const Y_NOMBRE = Y_NIVEL - 9;
+// El retrato se queda CUADRADO, del mismo lado que el ancho que le deja la
+// tarjeta. Las caras del atlas son cuadradas (288x288) y dibujarCabeza encaja en
+// modo "cubrir": estirar el hueco a lo alto para llenar la tarjeta más grande
+// habría recortado un quinto de cabeza por cada lado. Lo que se hace con los 10
+// que ha crecido la tarjeta es repartirlos como aire, centrando el retrato en el
+// hueco que queda por encima del nombre.
+const ALTO_RETRATO = RETRATO_ANCHO;
+const Y_RETRATO = RELLENO_V
+                + ((Y_NOMBRE - 7.5) - RELLENO_V - ALTO_RETRATO) / 2;
 
 // Radios de esquina. Todo redondeado y en cascada: la ficha más que la tarjeta,
 // la tarjeta más que las ranuras. Es lo que hace que las piezas pequeñas se lean
@@ -109,7 +186,12 @@ export const COLOR_PASIVO = '#9fd0e8';
 // cuatro esquinas del anfiteatro.
 const PANEL_FONDO   = 'rgba(18,13,10,.34)';
 const PANEL_BORDE   = 'rgba(236,226,206,.30)';
-const HUECO_FONDO   = 'rgba(10,7,6,.26)';   // tarjeta y ranuras
+const HUECO_FONDO   = 'rgba(10,7,6,.26)';   // tarjeta y ranuras vacías
+// Fondo de la ranura OCUPADA: blanco, para que el icono del arma o del pasivo se
+// vea sobre su propio papel en vez de sobre la arena. Ligeramente translúcido
+// —no es un 255 plano— porque la ficha entera deja ver el juego por debajo y un
+// blanco opaco habría sido lo único macizo de toda la interfaz.
+const FONDO_ICONO   = 'rgba(255,255,255,.92)';
 const SEPARADOR     = 'rgba(236,226,206,.28)';
 const CARRIL        = 'rgba(8,6,5,.52)';    // fondo de las barras
 const CARRIL_BORDE  = 'rgba(236,226,206,.22)';
@@ -393,14 +475,27 @@ function repartoDe(idHoja) {
 // cien píxeles reales: ampliar 32 hasta ahí es multiplicar por más de tres, y a
 // vecino más próximo eso son bloques de tres y de cuatro píxeles mezclados. Es
 // lo que se veía como iconos sucios y descuadrados en la ruleta.
+//
+// El 11 se mantiene: las ranuras de la ficha, que eran el caso justo por debajo,
+// ahora piden 9,02 y se dibujan con la escala 1,5 de ui/ficha.js, o sea 13,5
+// reales, así que cruzan el umbral por su propio pie. El que sí hace falta para
+// que se note es `escala`, aquí abajo.
 const RADIO_HD = 11;
 
-function blitHoja(ctx, idHoja, hueco, x, y, r) {
+// `escala` es el aumento que quien llama tenga puesto en el contexto. NO se usa
+// para dibujar —de eso ya se encarga la transformación— sino solo para ELEGIR
+// HOJA: el radio que llega aquí está en las unidades de quien llama, y sin
+// saber su escala no se puede saber cuánto va a ocupar el icono de verdad.
+//
+// Se pasa a mano en vez de leerlo con ctx.getTransform() porque eso devuelve
+// una DOMMatrix NUEVA en cada llamada, y por aquí pasan ocho iconos por jugador
+// y fotograma: es justo el `new` en bucle de partida que el proyecto no quiere.
+function blitHoja(ctx, idHoja, hueco, x, y, r, escala) {
   // Con la hoja grande hay que SUAVIZAR: viene a 96 y se dibuja a menos, o sea
   // que se reduce, y reducir a vecino más próximo tira filas enteras. Es el caso
   // contrario al de la hoja pequeña, que se amplía y ahí el suavizado es lo que
   // emborrona.
-  const grande = r >= RADIO_HD && Recursos.meta(idHoja + 'Hd');
+  const grande = r * escala >= RADIO_HD && Recursos.meta(idHoja + 'Hd');
   const id = grande ? idHoja + 'Hd' : idHoja;
   const img = Recursos.imagen(id);
   const meta = Recursos.meta(id);
@@ -416,9 +511,9 @@ function blitHoja(ctx, idHoja, hueco, x, y, r) {
 //
 // `color` es el del arma en sus datos y ya SOLO se usa en el repliegue: los
 // iconos dibujados traen su propia paleta y teñirlos sería taparla.
-export function dibujarIconoArma(ctx, x, y, r, idArma, color) {
+export function dibujarIconoArma(ctx, x, y, r, idArma, color, escala = 1) {
   const hueco = repartoDe('iconosArmas').get(idArma);
-  if (hueco !== undefined) return blitHoja(ctx, 'iconosArmas', hueco, x, y, r);
+  if (hueco !== undefined) return blitHoja(ctx, 'iconosArmas', hueco, x, y, r, escala);
 
   const def = ARMAS[idArma];
   const comportamiento = def ? def.comportamiento : '';
@@ -450,7 +545,7 @@ const ARTE_PASIVO = {
   coronaLaurel: 'potPanacea'
 };
 
-export function dibujarIconoPasivo(ctx, x, y, r, idPasivo, color) {
+export function dibujarIconoPasivo(ctx, x, y, r, idPasivo, color, escala = 1) {
   const arte = ARTE_PASIVO[idPasivo];
   if (arte) {
     const meta = Recursos.meta(arte);
@@ -467,7 +562,7 @@ export function dibujarIconoPasivo(ctx, x, y, r, idPasivo, color) {
     }
   }
   const hueco = repartoDe('iconosObjetos').get(idPasivo);
-  if (hueco !== undefined) return blitHoja(ctx, 'iconosObjetos', hueco, x, y, r);
+  if (hueco !== undefined) return blitHoja(ctx, 'iconosObjetos', hueco, x, y, r, escala);
 
   const def = PASIVOS[idPasivo];
   const campo = def ? def.campo : '';
@@ -526,6 +621,33 @@ function caja(ctx, x, y, w, h, r, relleno, borde, grosor = 1) {
 // Barra con carril, relleno redondeado y un filo claro arriba que le da volumen.
 // El carril oscuro no es "fondo del panel": es parte de la barra, y sin él no se
 // distingue lo que falta de lo que directamente no hay.
+// Barra VERTICAL, que se llena de abajo arriba. Es la de experiencia, y va
+// aparte de dibujarBarra en vez de con un parámetro `vertical` porque de común
+// solo tienen el carril: el relleno crece por el otro extremo, el mínimo que
+// evita la astilla se mide en el otro eje y el filo de volumen va en el canto
+// que mira a la luz, no arriba.
+//
+// De abajo arriba y no de arriba abajo porque es lo que hace un depósito que se
+// llena. Al revés se leería como algo que se agota, que es justo lo contrario
+// de lo que cuenta la experiencia.
+function dibujarBarraVertical(ctx, x, y, w, h, frac, color, filo) {
+  caja(ctx, x, y, w, h, R_BARRA, CARRIL, CARRIL_BORDE);
+  if (frac <= 0) return;
+
+  const h2 = Math.max(w * 0.5, h * frac);
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, R_BARRA);
+  ctx.clip();
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(x, y + h - h2, w, h2, R_BARRA);
+  ctx.fill();
+  ctx.fillStyle = filo;
+  ctx.fillRect(x + 0.5, y + h - h2, 1, h2);
+  ctx.restore();
+}
+
 function dibujarBarra(ctx, x, y, w, h, frac, color, filo) {
   caja(ctx, x, y, w, h, R_BARRA, CARRIL, CARRIL_BORDE);
   if (frac <= 0) return;
@@ -554,20 +676,30 @@ function dibujarBarra(ctx, x, y, w, h, frac, color, filo) {
 // puedan leer de reojo.
 function dibujarRanura(ctx, x, y, marco, color, nivel, pintarGlifo, redonda) {
   const r = redonda ? RANURA_H / 2 : R_RANURA;
+  // FONDO BLANCO en las ranuras OCUPADAS. Los iconos son pixel art con la
+  // transparencia recortada al filo del dibujo, y sobre el relleno oscuro del
+  // panel las siluetas oscuras de varias armas se comían el trazo. El blanco es
+  // el mismo que usa la ficha de jugador, así que un arma se reconoce igual en
+  // las dos pantallas. Las VACÍAS siguen en el hueco oscuro: son ausencia, y
+  // cuatro cuadrados blancos vacíos pedirían la vista sin tener nada que contar.
   caja(ctx, x + 0.5, y + 0.5, RANURA_W - 1, RANURA_H - 1, r,
-       HUECO_FONDO, marco);
+       pintarGlifo === null ? HUECO_FONDO : FONDO_ICONO, marco);
 
   if (pintarGlifo === null) return;
 
   ctx.save();
-  ctx.translate(x + RANURA_W / 2, y + RANURA_H / 2 - 1);
+  // El píxel de subida es solo de la ranura CUADRADA: ahí el icono deja sitio
+  // al pie de la cifra de nivel y el marco recto no se le echa encima. En la
+  // redonda ese píxel se paga carísimo —acerca las dos esquinas de arriba al
+  // arco, que es justo por donde se sale el dibujo— así que va centrado.
+  ctx.translate(x + RANURA_W / 2, y + RANURA_H / 2 - (redonda ? 0 : 1));
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
   ctx.lineWidth = 1.5;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   sombraDura(ctx);
-  pintarGlifo(ctx, RANURA_H * 0.34);
+  pintarGlifo(ctx, redonda ? ICONO_REDONDO : ICONO_CUADRADO);
   ctx.restore();
 
   // El nivel va en la esquina inferior derecha, PISANDO el borde de la ranura.
@@ -579,79 +711,124 @@ function dibujarRanura(ctx, x, y, marco, color, nivel, pintarGlifo, redonda) {
   textoBorde(ctx, String(nivel), x + RANURA_W - 0.5, y + RANURA_H, '#ffffff', 2.4);
 }
 
-// --- Reloj de partida --------------------------------------------------------
+// --- Cinta de partida: reloj y denarios ---------------------------------------
 // El tiempo que llevas es el dato más importante que hay en pantalla después de
 // tu vida: la curva de dificultad está escrita contra el reloj, así que saber
 // que quedan dos minutos para el minuto 10 es saber lo que viene.
 //
-// Arriba en el centro, la única franja que ni las fichas ni los menús usan. Sin
-// caja: solo reborde oscuro, como manda la interfaz en capa nítida.
+// Arriba en el centro, la única franja que ni las fichas ni los menús usan.
 //
-// Debajo van los AVISOS del director —élites y hitos de jefe—, que duran unos
-// segundos y desaparecen. Es lo único de la interfaz que aparece y se va, y por
-// eso puede permitirse el amarillo: no compite con nada porque no está casi
+// LOS DENARIOS SE HAN VENIDO AQUÍ desde la esquina superior derecha, donde en
+// cooperativo caían justo encima de la ficha del P2. Lo vio Sergio jugando. Y
+// una vez juntos, comparten CAJA TRANSLÚCIDA —la misma receta que la ficha de
+// jugador: relleno por debajo del 40% de alfa, borde tenue y los textos con su
+// reborde oscuro—. Antes el reloj iba sin caja, a pelo sobre la arena, y con dos
+// datos sueltos en la misma franja parecían dos cosas que se habían encontrado
+// ahí por casualidad. Encerrados, se leen como lo que son: el marcador de la
+// partida.
+//
+// Debajo cuelgan los AVISOS del director —élites y hitos de jefe—, que duran
+// unos segundos y desaparecen. Es lo único de la interfaz que aparece y se va, y
+// por eso puede permitirse el amarillo: no compite con nada porque no está casi
 // nunca.
 const COLOR_AVISO = '#ffd45a';
 
-export function dibujarReloj(ctx) {
+const Y_CINTA = 6;             // separación al borde superior
+const ALTO_CINTA = 26;
+const RELLENO_CINTA = 11;      // margen interior a izquierda y derecha
+const HUECO_CINTA = 9;         // aire a cada lado del separador
+const TAM_RELOJ = 16;
+const TAM_DENARIOS = 15;
+const LADO_MONEDA = 15;
+
+export function dibujarReloj(ctx, ganados) {
   if (!Director.nivel) return;
   const t = Tema.actual;
   const cx = ANCHO_UI / 2;
 
   ctx.save();
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
+  ctx.textBaseline = 'middle';
 
-  ctx.font = `600 16px ${FUENTE}`;
-  textoBorde(ctx, Director.reloj, cx, 6, Director.activo ? t.titulo : t.apagado, 3);
+  // --- Medir antes de pintar --------------------------------------------
+  ctx.font = `600 ${TAM_RELOJ}px ${FUENTE}`;
+  const anchoReloj = ctx.measureText(Director.reloj).width;
 
+  ctx.font = `700 ${TAM_DENARIOS}px ${FUENTE}`;
+  // ANCHO RESERVADO, no el que mide la cifra de ahora. Si la caja se ajustara
+  // al número, cada denario que cambia de dígitos la ensancharía y el reloj se
+  // correría un par de píxeles: un reloj que se mueve mientras lo miras es
+  // exactamente lo que no se quiere de un reloj. Con el hueco de cuatro cifras
+  // reservado, la caja no se toca en toda la partida.
+  const anchoCifra = Math.max(ctx.measureText(String(ganados)).width,
+                              ctx.measureText('9999').width);
+  const anchoMonedas = LADO_MONEDA + 5 + anchoCifra;
+
+  const anchoCaja = RELLENO_CINTA * 2 + anchoReloj + HUECO_CINTA * 2 + 1 + anchoMonedas;
+  const x0 = cx - anchoCaja / 2;
+  const cyCaja = Y_CINTA + ALTO_CINTA / 2;
+
+  caja(ctx, x0 + 0.5, Y_CINTA + 0.5, anchoCaja - 1, ALTO_CINTA - 1, R_FICHA,
+       PANEL_FONDO, PANEL_BORDE);
+
+  // --- Reloj --------------------------------------------------------------
+  const xReloj = x0 + RELLENO_CINTA;
+  ctx.textAlign = 'left';
+  ctx.font = `600 ${TAM_RELOJ}px ${FUENTE}`;
+  textoBorde(ctx, Director.reloj, xReloj, cyCaja,
+             Director.activo ? t.titulo : t.apagado, 3);
+
+  // --- Separador ----------------------------------------------------------
+  // El mismo de la ficha de jugador, y por el mismo motivo: a un lado va el
+  // tiempo, que manda en lo que viene, y al otro el botín, que solo dice cómo
+  // ha ido. Son dos cosas distintas dentro de una misma cinta.
+  const xSep = xReloj + anchoReloj + HUECO_CINTA;
+  ctx.beginPath();
+  ctx.moveTo(xSep, Y_CINTA + 5);
+  ctx.lineTo(xSep, Y_CINTA + ALTO_CINTA - 5);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = SEPARADOR;
+  ctx.stroke();
+
+  // --- Denarios de ESTA partida -------------------------------------------
+  // Los de la partida y no el montón acumulado, que es lo que pidió Sergio y es
+  // lo correcto: el total ya sale en todos los menús y ahí es donde sirve —para
+  // decidir qué comprar—. Mientras se juega, lo que dice algo es cuánto llevas
+  // sacado en esta partida, porque es lo que se pierde si te matan pronto.
+  //
+  // Estaban arriba a la DERECHA y se han venido al centro: en cooperativo caían
+  // justo encima de la ficha del P2. Aquí no estorban a nadie, porque la franja
+  // de arriba en el centro es la única que ni las fichas ni los menús usan.
+  const xMoneda = xSep + HUECO_CINTA + LADO_MONEDA / 2;
+  const meta = Recursos.meta('monedaHud');
+  const img = Recursos.imagen('monedaHud');
+  if (meta && img) {
+    const esc = Math.min(LADO_MONEDA / meta.w, LADO_MONEDA / meta.h);
+    const w = meta.w * esc;
+    const h = meta.h * esc;
+    const suavizado = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(img, 0, 0, meta.w, meta.h, xMoneda - w / 2, cyCaja - h / 2, w, h);
+    ctx.imageSmoothingEnabled = suavizado;
+  }
+  ctx.textAlign = 'right';
+  ctx.font = `700 ${TAM_DENARIOS}px ${FUENTE}`;
+  textoBorde(ctx, String(ganados), x0 + anchoCaja - RELLENO_CINTA, cyCaja,
+             '#e8b73a', 3.5);
+
+  // --- Avisos del director, colgando de la cinta ---------------------------
   if (Director.avisoRestante > 0) {
     // Se desvanece al final en vez de cortarse en seco: un texto que se apaga
     // no roba la vista, y en este juego la vista hace falta en otro sitio.
     ctx.globalAlpha = Math.min(1, Director.avisoRestante / 1.2);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
     ctx.font = `600 11px ${FUENTE}`;
-    textoBorde(ctx, Director.aviso, cx, 26, COLOR_AVISO, 3);
+    textoBorde(ctx, Director.aviso, cx, Y_CINTA + ALTO_CINTA + 5, COLOR_AVISO, 3);
     ctx.globalAlpha = 1;
   }
   ctx.restore();
 }
 
-// LO GANADO EN ESTA PARTIDA, arriba a la derecha.
-//
-// Los de la partida y no el montón acumulado, que es lo que pidió Sergio y es lo
-// correcto: el total ya sale en todos los menús y ahí es donde sirve —para
-// decidir qué comprar—. Mientras se juega, lo que dice algo es cuánto llevas
-// sacado en esta partida, porque es lo que se pierde si te matan pronto.
-//
-// La cifra la calcula main.js restando lo que había al empezar; aquí solo se
-// pinta. Sin cartela, al revés que el contador de los menús: sobre el mundo un
-// recuadro opaco tapa juego, y un reborde basta porque el número es corto.
-export function dibujarDenariosPartida(ctx, ganados) {
-  ctx.save();
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  const x = ANCHO_UI - 14;
-  const y = 16;
-
-  ctx.font = `700 15px ${FUENTE}`;
-  const ancho = ctx.measureText(String(ganados)).width;
-  textoBorde(ctx, String(ganados), x, y, '#e8b73a', 3.5);
-
-  const meta = Recursos.meta('monedaHud');
-  const img = Recursos.imagen('monedaHud');
-  const lado = 15;
-  const cx = x - ancho - lado / 2 - 5;
-  if (meta && img) {
-    const esc = Math.min(lado / meta.w, lado / meta.h);
-    const w = meta.w * esc;
-    const h = meta.h * esc;
-    const suavizado = ctx.imageSmoothingEnabled;
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(img, 0, 0, meta.w, meta.h, cx - w / 2, y - h / 2, w, h);
-    ctx.imageSmoothingEnabled = suavizado;
-  }
-  ctx.restore();
-}
 
 export function dibujarPaneles(ctx, jugadores) {
   ctx.save();
@@ -677,8 +854,18 @@ export function dibujarPaneles(ctx, jugadores) {
          PANEL_FONDO, PANEL_BORDE);
 
     // --- Tarjeta de identidad: retrato, nombre y nivel --------------------
-    const xTarjeta = derecha ? x + ANCHO - RELLENO_H - TARJETA_ANCHO
-                             : x + RELLENO_H;
+    // La barra de xp va pegada al BORDE DE CASA, o sea al lado por el que la
+    // ficha toca la pantalla, igual que la tarjeta de identidad y por el mismo
+    // motivo: en las fichas espejadas todo lo de identidad mira hacia fuera.
+    const xXp = derecha ? x + ANCHO - RELLENO_H - ANCHO_XP : x + RELLENO_H;
+    const xTarjeta = derecha ? xXp - HUECO_XP - TARJETA_ANCHO
+                             : xXp + ANCHO_XP + HUECO_XP;
+
+    // A la misma altura exacta que la tarjeta: son las dos piezas altas de la
+    // ficha y cualquier desajuste entre ellas se ve como una torcida.
+    const fracXp = j.xpNecesaria > 0 ? Math.min(1, j.xp / j.xpNecesaria) : 0;
+    dibujarBarraVertical(ctx, xXp, y + RELLENO_V, ANCHO_XP, TARJETA_ALTO,
+                         fracXp, COLOR_XP, COLOR_XP_ALTO);
     caja(ctx, xTarjeta, y + RELLENO_V, TARJETA_ANCHO, TARJETA_ALTO, R_TARJETA,
          HUECO_FONDO, null);
     dibujarCabeza(ctx, xTarjeta + RETRATO_INSET, y + Y_RETRATO,
@@ -737,10 +924,6 @@ export function dibujarPaneles(ctx, jugadores) {
     // un número en el peor momento posible para leer nada. Las cifras exactas
     // están en la ficha de jugador (ui/ficha.js), que se abre a propósito y con
     // el mundo parado, que es cuando de verdad se quieren mirar.
-    const fracXp = j.xpNecesaria > 0 ? Math.min(1, j.xp / j.xpNecesaria) : 0;
-    dibujarBarra(ctx, bx, y + Y_XP, COLUMNA, ALTO_XP, fracXp,
-                 COLOR_XP, COLOR_XP_ALTO);
-
     // --- Filas de ranuras -----------------------------------------------
     // Se colocan de fuera hacia dentro: en las fichas espejadas, la primera
     // ranura queda pegada al borde de pantalla, que es el borde "de casa".

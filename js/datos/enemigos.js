@@ -220,8 +220,15 @@ export const ENEMIGOS = {
   // sismo caiga en un punto al azar de la pantalla en vez de sobre el
   // jugador: sigue habiendo que estar atento, pero deja de ser una trampa
   // perfecta cada vez.
+  //
+  // SEGUNDA REBAJA, jugándolo otra vez: 30 -> 22,5, un cuarto menos. Treinta
+  // seguía siendo un círculo del que no se sale andando si te pilla en el sitio
+  // equivocado, y con varios cíclopes a la vez el suelo era casi todo zona de
+  // impacto. A 22,5 el aviso de 0,85 s da de sobra para salirse: el sismo pasa
+  // de castigar dónde estabas a castigar quedarse quieto, que es lo que se le
+  // pedía desde el principio.
   ciclope:    { sprite:'ciclope',    rol:'tanque',    xp:45, vida:950,   velocidad:7,  danyo:30, radio:11.8, masa:20.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo',
-                ataque: { tipo:'sismo', danyo:24, cadencia:4.2, alcance:230, aviso:0.85, radio:30, azarObjetivo:0.33, color:'#c98a3a' } },
+                ataque: { tipo:'sismo', danyo:24, cadencia:4.2, alcance:230, aviso:0.85, radio:22.5, azarObjetivo:0.33, color:'#c98a3a' } },
   minotauro:  { sprite:'minotauro',  rol:'tanque',    xp:24, vida:520,   velocidad:15, danyo:21, radio:10.9, masa:14.0, vuela:false, inmuneEmpuje:false, movimiento:'acecho'    },
 
   // --- Élite: suelta cofre garantizado ------------------------------------

@@ -1883,6 +1883,132 @@ public class Procesador {
     }
 
     // ---------------------------------------------------------------------
+    // Iconos de arma, UN ARCHIVO POR ARMA
+    // ---------------------------------------------------------------------
+    //
+    // Sergio ha vuelto a dibujar las 52 armas, pero esta vez sueltas: un PNG
+    // por arma en resources/armas/, con el nombre del arma. Esto compone la
+    // tira a partir de esa lista, en el orden que se le pase.
+    //
+    // Es la version FACIL del problema que resolvia RecortarIconos con la hoja
+    // unica: no hay que adivinar donde acaba un icono y empieza el vecino, ni
+    // desmontar el marco dibujado a mano. Cada archivo es un icono y ya esta.
+    // A cambio hay que quitar el fondo de cada uno, y no todos lo tienen igual:
+    //
+    //   - los que ya traen alfa (pilum, gladius, pistola) se respetan tal cual;
+    //     meter ahi el recorte por color solo puede estropearlo, que es la
+    //     misma decision que toma Procesar en su paso 2.
+    //   - el resto vienen sobre BLANCO OPACO, y se quita por INUNDACION desde
+    //     el borde, no por umbral a secas: hay armas con brillos casi blancos
+    //     -el laser, el aspa de luz, el campo electrico- y un umbral global les
+    //     agujerearia el dibujo. Inundando, un blanco rodeado de dibujo no se
+    //     toca porque no se llega a el desde fuera.
+    //
+    // Las dos pasadas de erosion son las de RecortarCeldas y por lo mismo: el
+    // blanco del original no es blanco puro en el contorno y sin erosionarlo
+    // queda una orla clara pegada al icono, que a 96 se ve como un halo.
+    public static string RecortarIconosSueltos(string[] entradas, string salida, int lado) {
+        int n = entradas.Length;
+        int tiraW = lado * n;
+        int dStride = tiraW * 4;
+        byte[] dst = new byte[dStride * lado];
+        System.Text.StringBuilder informe = new System.Text.StringBuilder();
+        int hallados = 0;
+
+        for (int i = 0; i < n; i++) {
+            if (!System.IO.File.Exists(entradas[i])) { informe.Append(i + ":FALTA "); continue; }
+            byte[] px; int w, h, stride;
+            CargarPx(entradas[i], out px, out w, out h, out stride);
+
+            bool[] fondo = new bool[w * h];
+
+            // Trae alfa propia? Con el borde ya vacio no hay nada que recortar.
+            int transparentes = 0;
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    if (px[y * stride + x * 4 + 3] < 16) transparentes++;
+
+            if (transparentes * 100L > (long)w * h * 3) {
+                for (int y = 0; y < h; y++)
+                    for (int x = 0; x < w; x++)
+                        if (px[y * stride + x * 4 + 3] < 16) fondo[y * w + x] = true;
+            } else {
+                int umbral = 232;
+                Queue<int> cola = new Queue<int>();
+                for (int x = 0; x < w; x++) {
+                    SembrarBlanco(px, stride, w, fondo, cola, x, 0, umbral);
+                    SembrarBlanco(px, stride, w, fondo, cola, x, h - 1, umbral);
+                }
+                for (int y = 0; y < h; y++) {
+                    SembrarBlanco(px, stride, w, fondo, cola, 0, y, umbral);
+                    SembrarBlanco(px, stride, w, fondo, cola, w - 1, y, umbral);
+                }
+                while (cola.Count > 0) {
+                    int p = cola.Dequeue();
+                    int x = p % w, y = p / w;
+                    if (x + 1 < w)  SembrarBlanco(px, stride, w, fondo, cola, x + 1, y, umbral);
+                    if (x - 1 >= 0) SembrarBlanco(px, stride, w, fondo, cola, x - 1, y, umbral);
+                    if (y + 1 < h)  SembrarBlanco(px, stride, w, fondo, cola, x, y + 1, umbral);
+                    if (y - 1 >= 0) SembrarBlanco(px, stride, w, fondo, cola, x, y - 1, umbral);
+                }
+                for (int pase = 0; pase < 2; pase++) {
+                    List<int> orla = new List<int>();
+                    for (int y = 0; y < h; y++)
+                        for (int x = 0; x < w; x++) {
+                            if (fondo[y * w + x]) continue;
+                            if (Lum(px, y * stride + x * 4) <= umbral - 34) continue;
+                            if (!Vecino(fondo, w, h, x, y)) continue;
+                            orla.Add(y * w + x);
+                        }
+                    for (int q = 0; q < orla.Count; q++) fondo[orla[q]] = true;
+                }
+            }
+
+            int[] caja = CajaSilueta(fondo, w, 0, 0, w - 1, h - 1);
+            if (caja == null) { informe.Append(i + ":VACIA "); continue; }
+
+            int silW = caja[2] - caja[0] + 1, silH = caja[3] - caja[1] + 1;
+            // Encaje "contener" y CENTRADO en los dos ejes, igual que en la hoja
+            // unica: un icono no se apoya en ningun suelo. Y el mismo motivo
+            // para escalar desde un bufer con el fondo a alfa 0: si no, la media
+            // de area arrastra el blanco al borde del dibujo.
+            double esc = Math.Min((double)lado / silW, (double)lado / silH);
+            int dw = Math.Max(1, (int)Math.Round(silW * esc));
+            int dh = Math.Max(1, (int)Math.Round(silH * esc));
+
+            byte[] recorte = new byte[silW * 4 * silH];
+            int rStride = silW * 4;
+            for (int y = 0; y < silH; y++)
+                for (int x = 0; x < silW; x++) {
+                    int p = (caja[1] + y) * stride + (caja[0] + x) * 4;
+                    int q = y * rStride + x * 4;
+                    bool esFondo = fondo[(caja[1] + y) * w + (caja[0] + x)];
+                    recorte[q]     = px[p];
+                    recorte[q + 1] = px[p + 1];
+                    recorte[q + 2] = px[p + 2];
+                    recorte[q + 3] = esFondo ? (byte)0 : px[p + 3];
+                }
+
+            EscalarBloque(recorte, rStride, silW, silH, 0, 0, silW, silH,
+                          dst, dStride, i * lado + (lado - dw) / 2, (lado - dh) / 2, dw, dh);
+            informe.Append(i + ":" + silW + "x" + silH + " ");
+            hallados++;
+        }
+
+        Rematar(dst, tiraW, lado, dStride);
+
+        using (Bitmap sal = new Bitmap(tiraW, lado, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0, 0, tiraW, lado),
+                                         ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < lado; y++)
+                Marshal.Copy(dst, y * dStride, (IntPtr)(dd.Scan0.ToInt64() + y * dd.Stride), dStride);
+            sal.UnlockBits(dd);
+            sal.Save(salida, ImageFormat.Png);
+        }
+        return hallados + "|" + lado + "|" + informe.ToString();
+    }
+
+    // ---------------------------------------------------------------------
     // Celdas sueltas de una lamina sobre BLANCO
     // ---------------------------------------------------------------------
     //
@@ -3057,10 +3183,16 @@ $informe | Format-Table -AutoSize
 # HOJAS DE ICONOS
 # ---------------------------------------------------------------------------
 #
-# Sergio ha dibujado las dos hojas de golpe, una con las 52 armas y otra con los
-# 8 objetos, cada icono en su hueco y en el mismo orden en que están declarados
-# en datos/. Estas listas son ESE contrato, escrito donde se puede comprobar: el
-# hueco `i` de la hoja es el id `i` de la lista.
+# Los 8 objetos siguen viniendo en UNA hoja, cada icono en su hueco. Las 52
+# armas ya no: Sergio las volvió a dibujar SUELTAS, un PNG por arma en
+# resources/armas/ con el nombre del arma. La lista de ids sigue siendo el
+# contrato del hueco —el hueco `i` de la tira es el id `i` de la lista— y
+# $ARCHIVO_ICONO_ARMA dice de qué archivo sale cada uno.
+#
+# El nombre del archivo NO se deduce del id: el arma `agujas` está dibujada en
+# Lluvia_de_agujas.png y `rayoHorizontal` en Rayo_de_Jupiter.png. Deducirlo a
+# base de quitar acentos y juntar palabras habría funcionado en cuarenta armas y
+# fallado en silencio en las otras doce, así que va escrito.
 #
 # Sí, los ids están dos veces —aquí y en datos/armas.js—. Es a propósito y es lo
 # mismo que ya hace $CATALOGO con los enemigos: mapear un archivo de arte a un id
@@ -3081,6 +3213,39 @@ $ICONOS_ARMAS = @(
     'gritoDeGuerra','sismo','aceiteHirviendo','minas','alquitran','campoElectrico','laser','aspaDeLuz',
     'satelites','discosDeSierra','katana','sierrasVotivas'
 )
+
+# Un archivo por arma, en resources/armas/. Se resuelve con -Filter, así que
+# admite comodines: la guadaña lleva `?` en el sitio de la eñe porque este .ps1
+# no tiene BOM y PowerShell 5.1 lo lee como ANSI —los acentos sobreviven en los
+# comentarios, pero una eñe dentro de una CADENA no abriría el archivo—.
+$ARCHIVO_ICONO_ARMA = @{
+    pilum           = 'pilum.png';               gladius         = 'Gladius.png'
+    pistola         = 'Pistola.png';             escopeta        = 'Escopeta.png'
+    lanzasGemelas   = 'Lanzas_gemelas.png';      columnaDoble    = 'Columna_doble.png'
+    rosaDeVientos   = 'Rosa_de_los_vientos.png'; metralla        = 'Metralla.png'
+    lanzagranadas   = 'Lanzagranadas.png';       bombardeo       = 'Bombardeo.png'
+    ondaExpansiva   = 'Onda_expansiva.png';      aquila          = 'Aquila.png'
+    fuegoGriego     = 'Fuego_griego.png';        rete            = 'Rete.png'
+    rayoHorizontal  = 'Rayo_de_Jupiter.png';     rayoCruzado     = 'Rayo_cruzado.png'
+    scutum          = 'Scutum.png';              ballista        = 'Ballista.png'
+    tribulus        = 'Tribulus.png';            arcoCorto       = 'Arco_corto.png'
+    honda           = 'Honda_balear.png';        fusil           = 'Fusil.png'
+    subfusil        = 'subfusil.png';            revolver        = 'revolver.png'
+    hacha           = 'Hacha.png';               maza            = 'Maza.png'
+    latigo          = 'Latigo.png';              motosierra      = 'Motosierra.png'
+    guadanya        = 'Guada?a.png';             lanzallamas     = 'Lanzallamas.png'
+    recortada       = 'Recortada.png';           aspa            = 'Aspa.png'
+    enfilada        = 'Enfilada.png';            agujas          = 'Lluvia_de_agujas.png'
+    muroDeLanzas    = 'Muro_de_lanzas.png';      enjambre        = 'Enjambre.png'
+    molotov         = 'Coctel_molotov.png';      lanzacohetes    = 'Lanzacohetes.png'
+    artilleria      = 'Artilleria.png';          lluviaDeFlechas = 'Lluvia_de_flechas.png'
+    gritoDeGuerra   = 'Grito_de_guerra.png';     sismo           = 'Sismo.png'
+    aceiteHirviendo = 'Aceite_hirviendo.png';    minas           = 'Minas.png'
+    alquitran       = 'Alquitran.png';           campoElectrico  = 'Campo_electrico.png'
+    laser           = 'Laser.png';               aspaDeLuz       = 'Aspa_de_luz.png'
+    satelites       = 'Satelites.png';           discosDeSierra  = 'Discos_de_sierra.png'
+    katana          = 'Katana.png';              sierrasVotivas  = 'Sierras_votivas.png'
+}
 $ICONOS_OBJETOS = @(
     'sandalias','lorica','anilloAugusto','clepsidra',
     'coronaLaurel','antorcha','piedraIman','anfora'
@@ -3111,12 +3276,12 @@ $HOJAS_ICONOS = @(
     # `modo` rejilla: la hoja trae alfa y los iconos caen en celdas iguales.
     @{ src='objetos\objetos.png'; dst='iconos\objetos.png'; id='iconosObjetos'
        ids=$ICONOS_OBJETOS; modo='rejilla'; cols=4; filas=2; lado=$LADO_ICONO }
-    # `modo` marco: opaca, con los iconos enmarcados sobre negro y la rejilla
-    # irregular. Ver CajasDeMarco.
-    @{ src='armas\armas.png';    dst='iconos\armas.png';    id='iconosArmas'
-       ids=$ICONOS_ARMAS;   modo='marco';   cols=0; filas=0; lado=$LADO_ICONO }
-    @{ src='armas\armas.png';    dst='iconos\armas-hd.png'; id='iconosArmasHd'
-       ids=$ICONOS_ARMAS;   modo='marco';   cols=0; filas=0; lado=$LADO_ICONO_HD }
+    # `modo` sueltos: no hay hoja, hay un archivo por arma dentro de `src`. Ver
+    # RecortarIconosSueltos.
+    @{ src='armas';               dst='iconos\armas.png';    id='iconosArmas'
+       ids=$ICONOS_ARMAS;   modo='sueltos'; cols=0; filas=0; lado=$LADO_ICONO }
+    @{ src='armas';               dst='iconos\armas-hd.png'; id='iconosArmasHd'
+       ids=$ICONOS_ARMAS;   modo='sueltos'; cols=0; filas=0; lado=$LADO_ICONO_HD }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'iconos') | Out-Null
@@ -3131,8 +3296,25 @@ foreach ($hoja in $HOJAS_ICONOS) {
         continue
     }
     try {
-        $r = [Procesador]::RecortarIconos($rutaSrc, $rutaDst, $n, $hoja.lado,
-                                          $hoja.modo, $hoja.cols, $hoja.filas)
+        if ($hoja.modo -eq 'sueltos') {
+            # Un archivo por id, EN EL ORDEN DE LA LISTA. El que no aparezca se
+            # pasa igualmente como ruta inexistente: RecortarIconosSueltos lo
+            # cuenta como FALTA y deja su hueco vacío, que es lo que hay que ver
+            # en el informe. Saltárselo aquí correría los iconos siguientes.
+            $entradas = foreach ($id in $hoja.ids) {
+                $patron = $ARCHIVO_ICONO_ARMA[$id]
+                $f = $null
+                if ($patron) {
+                    $f = Get-ChildItem -Path $rutaSrc -Filter $patron -File |
+                         Select-Object -First 1
+                }
+                if ($f) { $f.FullName } else { Join-Path $rutaSrc "$id.NO-DECLARADO" }
+            }
+            $r = [Procesador]::RecortarIconosSueltos([string[]]$entradas, $rutaDst, $hoja.lado)
+        } else {
+            $r = [Procesador]::RecortarIconos($rutaSrc, $rutaDst, $n, $hoja.lado,
+                                              $hoja.modo, $hoja.cols, $hoja.filas)
+        }
     } catch {
         $informeIconos += [PSCustomObject]@{ Hoja=$hoja.id; Pedidos=$n; Hallados='-'; Tira='-'; Estado='ERROR' }
         continue
@@ -3157,7 +3339,7 @@ foreach ($hoja in $HOJAS_ICONOS) {
         Hoja    = $hoja.id
         Pedidos = $n
         Hallados= $hallados
-        Tira    = "$($LADO_ICONO * $n)x$LADO_ICONO"
+        Tira    = "$($hoja.lado * $n)x$($hoja.lado)"
         Estado  = if ($hallados -eq $n) { 'OK' } else { 'DESCUADRE' }
     }
     # Con la cuenta descuadrada el número solo dice que algo falla; lo que hace
@@ -3252,10 +3434,22 @@ $HOJAS_ALFA = @(
     @{ src='armas\efectos\sprite_sierrasVotivas.png'; dst='efectos\orb-sierras.png'
        id='orbSierras'; cols=1; filas=1; pivX=144; pivY=144; medio=144; lado=80 }
 
-    # Aquila: aura pasiva, radio 24 -> lado 192. NO gira: es un emblema con un
-    # arriba claro, igual que el escudo.
+    # Aquila: aura pasiva, radio 24 -> lado 192. SI GIRA (ver `giro` en
+    # datos/armas.js), asi que el pivote es el CENTRO DEL LIENZO y no el
+    # centroide del dibujo: en algo que rota hace falta el centro de simetria.
+    # El comentario de aqui decia "NO gira" y estaba obsoleto -- gira desde que
+    # se probo en el juego, porque un aura permanente quieta parece una
+    # calcomania pegada al suelo.
+    #
+    # REMEDIDO sobre la version nueva de Sergio, que es de 1024x1024 (la
+    # anterior era de 473x466, de ahi que pivote y medio cambien enteros):
+    # desde el centro del lienzo el contenido llega a radio 506,4 y caben 512,
+    # asi que entra completo y no se corta nada al dar la vuelta. `medio` = 507,
+    # el radio del contenido, para que el filo del dibujo caiga en el borde del
+    # fotograma y, dibujandolo con medio lado = radio del arma, el aura acabe
+    # exactamente donde acaba el dano.
     @{ src='armas\efectos\sprite_aquila.png'; dst='efectos\aura-aquila.png'
-       id='auraAquila'; cols=1; filas=1; pivX=236; pivY=233; medio=232; lado=192 }
+       id='auraAquila'; cols=1; filas=1; pivX=512; pivY=512; medio=507; lado=192 }
 
     # Aceite hirviendo: charco, radio 38 -> lado 304. Es una calcomania de
     # suelo, no un aura, pero se hornea igual: cuadrada y centrada.
@@ -3559,7 +3753,19 @@ if ($rutaMenu) {
 }
 $informeMusica | Format-Table -AutoSize
 
-$json = [ordered]@{ escalaArte = $ESCALA; entidades = $atlas } | ConvertTo-Json -Depth 5
+# `version` es el SELLO ANTICACHE, y es la razon por la que existe este campo:
+# el juego se sirve con `python -m http.server`, que no manda ninguna cabecera
+# de caducidad, asi que el navegador aplica su heuristica y se queda con el PNG
+# que ya tiene sin llegar a preguntar si hay uno nuevo. Resultado: se hornea un
+# efecto, se recarga la pagina y se sigue viendo el dibujo viejo. Paso de
+# verdad, con el aura del Aquila.
+#
+# core/recursos.js cuelga este sello de cada URL de imagen (`?v=...`), asi que
+# despues de cada horneado las rutas son OTRAS y el navegador no tiene nada
+# cacheado que reutilizar. Cuesta un campo en el JSON y quita para siempre el
+# "recarga con Ctrl+Shift+R a ver si ahora si".
+$sello = (Get-Date).ToString('yyyyMMddHHmmss')
+$json = [ordered]@{ escalaArte = $ESCALA; version = $sello; entidades = $atlas } | ConvertTo-Json -Depth 5
 # UTF-8 SIN BOM: Set-Content -Encoding utf8 lo añade en PowerShell 5.1 y deja un
 # JSON que algunos parsers rechazan de plano.
 [System.IO.File]::WriteAllText(

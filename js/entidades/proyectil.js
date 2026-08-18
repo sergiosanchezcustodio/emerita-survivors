@@ -179,6 +179,22 @@ export class Proyectiles {
           const ah = meta.h / ESCALA_ARTE;
           ctx.save();
           ctx.globalAlpha = 1;
+          // FUERA EL 'lighter' PARA LOS QUE TRAEN DIBUJO.
+          //
+          // El modo aditivo de arriba es para los proyectiles TRAZADOS: son
+          // destellos y sumar luz es lo que los hace legibles sobre la piedra
+          // oscura. Con una ilustración es al revés: sumando, los tonos
+          // oscuros del dibujo no aportan nada y desaparecen, los claros se
+          // queman, y la bala entera se ve translúcida — que es exactamente lo
+          // que Sergio vio en la de la pistola. Dibujada en 'source-over' se
+          // respeta el alfa que trae el PNG, que además es DURO (silueta
+          // recortada al pixel, sin bordes a medias), así que la bala sale
+          // maciza y con su contorno.
+          //
+          // Vale para TODAS las armas que usen un `spriteProyectil`, no solo
+          // para la pistola: el criterio es tener dibujo propio, no ser un
+          // arma concreta. Hoy son seis las que comparten esta bala.
+          ctx.globalCompositeOperation = 'source-over';
           ctx.translate(x, y);
           ctx.rotate(Math.atan2(p.vy, p.vx));
           // ESPEJADO, no girado 180°. El dibujo mira a la izquierda, y aquí hay

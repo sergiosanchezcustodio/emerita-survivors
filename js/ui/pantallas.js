@@ -4,7 +4,7 @@ import { Capa, FUENTE, FUENTE_TITULO, textoBorde, textoEspaciado } from './capa.
 import { Tema } from './tema.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from '../datos/personajes.js';
 import { ARMAS } from '../datos/armas.js';
-import { COLOR_JUGADOR } from './hud.js';
+import { COLOR_JUGADOR, dibujarIconoArma } from './hud.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
 import { MASCOTAS, MAX_NIVEL_MASCOTA } from '../datos/mascotas.js';
 
@@ -54,12 +54,22 @@ const K = ANCHO_FISICO / ANCHO_UI;
 // que devuelve `cubrir`, así que siguen valiendo con cualquier zoom o densidad.
 //
 // Los cuatro arcos de la pantalla de selección están a un paso constante de
-// 316,3 px medido sobre el arte; el primero, centrado en 360.
-const ARCO_X0 = 360;
+// 316,3 px medido sobre el arte; el primero, centrado en 374.
+//
+// RECUADRO AGRANDADO Y CORREGIDO DE SITIO. Lo vio Sergio: el marco quedaba
+// estrecho para el arco que enmarca —dejaba aire de sobra a los lados dentro
+// del propio arco— y encima estaba escorado a la izquierda, así que no se leía
+// como "este arco" sino como "un rectángulo por aquí". El centro se va 14 a la
+// derecha, el ancho crece 24 y el alto 20, repartido arriba y abajo (de ahí que
+// ARCO_Y baje 10): el recuadro sigue centrado sobre el mismo arco, solo que
+// ahora lo abraza.
+//
+// El paso entre arcos NO se toca: es la medida del arte y sigue siendo exacta.
+const ARCO_X0 = 374;
 const ARCO_PASO = 316.3;
-const ARCO_ANCHO = 268;
-const ARCO_Y = 274;
-const ARCO_ALTO = 462;
+const ARCO_ANCHO = 292;
+const ARCO_Y = 264;
+const ARCO_ALTO = 482;
 
 // LAS CUATRO OPCIONES DEL MENÚ, medidas sobre la ilustración nueva
 // (Nueva_Pantalla_Start.jpg, 1248x832). Vienen pintadas en la lápida —JUGAR,
@@ -412,7 +422,14 @@ function dibujarSeleccion(ctxMundo, ctxUi, puestos) {
   else if (faltan) pie = '';
   if (pie) {
     ctxUi.globalAlpha = faltan ? 0.9 : latido(700, 0.4);
-    textoBorde(ctxUi, pie, ANCHO_UI / 2, ALTO_UI - 44, t.texto, 3.5);
+    // MÁS ABAJO, hasta 20 del borde. La cartela del arma llega a 500 y con el
+    // renglón donde estaba (a 44 del borde, o sea 496) se le echaba encima. Y
+    // más abajo es además donde tiene que estar: es una nota al pie sobre cómo
+    // se suma otro mando, no algo que compita con las cuatro cartelas.
+    //
+    // El renglón sigue siendo UNO, que es lo que de verdad protegía del recorte
+    // de una ventana baja (ver ESCALA_ARTE en core/constantes.js).
+    textoBorde(ctxUi, pie, ANCHO_UI / 2, ALTO_UI - 20, t.texto, 3.5);
   }
   ctxUi.restore();
 }
@@ -425,12 +442,53 @@ export function ocupantePersonaje(puestos, p) {
   return -1;
 }
 
+// Reparte un texto en UNA o DOS líneas que quepan en `ancho`, con la fuente que
+// tenga puesta el contexto. Devuelve null si no hay forma, para que quien llama
+// pruebe con una letra más pequeña; con `forzar`, devuelve el mejor reparto que
+// haya aunque se salga.
+//
+// Se prueban TODOS los cortes por espacio y gana el más equilibrado, no el
+// primero que quepa: el reparto codicioso deja siempre la segunda línea corta y
+// eso, en cuatro cartelas alineadas, se ve como un fallo de maquetación.
+//
+// Aquí sí se pueden crear arrays y cadenas: esto es un MENÚ, no la partida. La
+// prohibición de reservar memoria (criterio 6) vale para el bucle de juego.
+function repartirDosLineas(ctxUi, texto, ancho, forzar = false) {
+  if (ctxUi.measureText(texto).width <= ancho) return [texto, ''];
+
+  const palabras = texto.split(' ');
+  let mejor = -1;
+  let mejorDif = Infinity;
+  let respaldo = -1;
+  let respaldoDif = Infinity;
+  for (let i = 1; i < palabras.length; i++) {
+    const a = palabras.slice(0, i).join(' ');
+    const b = palabras.slice(i).join(' ');
+    const wa = ctxUi.measureText(a).width;
+    const wb = ctxUi.measureText(b).width;
+    const dif = Math.abs(wa - wb);
+    if (dif < respaldoDif) { respaldoDif = dif; respaldo = i; }
+    if (wa > ancho || wb > ancho) continue;
+    if (dif < mejorDif) { mejorDif = dif; mejor = i; }
+  }
+  if (mejor < 0) {
+    if (!forzar || respaldo < 0) return null;
+    mejor = respaldo;
+  }
+  return [palabras.slice(0, mejor).join(' '), palabras.slice(mejor).join(' ')];
+}
+
 function dibujarPuesto(ctxUi, e, indice, puesto, t) {
   const color = COLOR_JUGADOR[indice % COLOR_JUGADOR.length];
   const r = enUi(e, ARCO_X0 + puesto.personaje * ARCO_PASO - ARCO_ANCHO / 2,
                  ARCO_Y, ARCO_ANCHO, ARCO_ALTO);
+  const def = PERSONAJES[ORDEN_PERSONAJES[puesto.personaje]];
+  const arma = ARMAS[def.arma];
+  const cx = r.x + r.w / 2;
 
   ctxUi.save();
+  ctxUi.textAlign = 'center';
+  ctxUi.textBaseline = 'middle';
 
   // Marco del color del jugador. Mientras elige PARPADEA y al confirmar se
   // queda fijo y más grueso: es la diferencia que hay que poder ver desde el
@@ -441,60 +499,153 @@ function dibujarPuesto(ctxUi, e, indice, puesto, t) {
   ctxUi.strokeRect(r.x, r.y, r.w, r.h);
   ctxUi.globalAlpha = 1;
 
-  // Etiqueta "P1" pegada al borde superior del arco, con su cartela oscura:
-  // el fondo del arte es piedra y ruinas, y un texto suelto ahí no se lee.
-  const et = `P${indice + 1}`;
+  // --- QUIÉN ES: cartela de ARRIBA, sobre el arco -------------------------
+  //
+  // El nombre y la frase se han venido aquí desde debajo del retrato, que es lo
+  // que pidió Sergio: se lee de arriba abajo —quién es, cómo es, y ya luego con
+  // qué pelea—, y de paso deja la cartela de abajo entera para el arma.
+  //
+  // EL ALTO ESTÁ MEDIDO CONTRA EL ARTE, no elegido a ojo. Entre el pie del
+  // rótulo "Elige a tu Héroe" (fila 215 de la ilustración) y la cornisa de los
+  // arcos (fila 285) hay setenta filas, que en unidades de interfaz son unas
+  // cuarenta y una. La cartela ocupa 34 y se cuelga a 4 del arco: así los dos
+  // arcos centrales, que son los que caen bajo el rótulo, no le tapan ni una
+  // letra. Crecer más obligaría a pisarlo.
+  const CAJA_SUP = 34;
+  const ySup = r.y - 4 - CAJA_SUP;
+  cartela(ctxUi, r.x, ySup, r.w, CAJA_SUP, puesto.listo ? color : null);
+
+  ctxUi.font = `700 12px ${FUENTE_TITULO}`;
+  ctxUi.fillStyle = t.titulo;
+  textoEspaciado(ctxUi, def.nombre.toUpperCase(), cx, ySup + 11, 1.5);
+
+  // LA FRASE SE PARTE, NO SE ENCOGE HASTA DESAPARECER.
+  //
+  // Antes cabía siempre en UNA línea, y como las frases de Sara y de Vicky pasan
+  // de noventa caracteres, la única forma de meterlas era bajar la letra hasta
+  // el suelo de 6 px: se veía la frase, pero no se leía. Ahora se reparte en dos
+  // renglones y solo se encoge lo justo para que los dos quepan en el ancho de
+  // la cartela, que es el ancho del recuadro del jugador.
+  //
+  // El corte se busca lo más EQUILIBRADO posible (ver repartirDosLineas): una
+  // línea larga y otra de dos palabras se lee peor que dos medias, y con cuatro
+  // cartelas en fila las de renglones desiguales cantan.
+  //
+  // ENTRECOMILLADA. Es lo que cada personaje DICE, no una descripción escrita
+  // por el juego —"Coraje y Corazón" es el lema de Eric, no una etiqueta que
+  // le hayamos puesto—, y las comillas son lo que separa una cosa de la otra
+  // sin gastar una línea en explicarlo. Se añaden aquí y no en
+  // datos/personajes.js: los datos guardan la frase, y cómo se puntúa al
+  // pintarla es decisión de quien la pinta.
+  const frase = `“${def.descripcion}”`;
+  const anchoDesc = r.w - 10;
+  let tamDesc = 8;
+  let lineas = null;
+  while (tamDesc >= 6) {
+    ctxUi.font = `500 ${tamDesc}px ${FUENTE}`;
+    lineas = repartirDosLineas(ctxUi, frase, anchoDesc);
+    if (lineas) break;
+    tamDesc -= 0.5;
+  }
+  // Ni partiéndola a 6 px cabe: se pinta el mejor reparto posible y que
+  // desborde un pelo. Que falte un trozo de frase nunca puede impedir elegir
+  // personaje, que es para lo que está esta pantalla.
+  if (!lineas) {
+    ctxUi.font = `500 6px ${FUENTE}`;
+    lineas = repartirDosLineas(ctxUi, frase, anchoDesc, true);
+  }
+  ctxUi.fillStyle = t.texto;
+  if (lineas[1]) {
+    ctxUi.fillText(lineas[0], cx, ySup + 21);
+    ctxUi.fillText(lineas[1], cx, ySup + 29);
+  } else {
+    ctxUi.fillText(lineas[0], cx, ySup + 25);
+  }
+
+  // --- Etiqueta del puesto, DENTRO del arco -------------------------------
+  //
+  // Estaba a caballo del borde superior y ahí ya no cabe: ese sitio lo ocupa
+  // ahora la cartela del nombre. Baja al interior, donde el fondo del arco es
+  // negro y cualquier texto se lee sin pelearse con la piedra.
+  //
+  // Y se lleva el "LISTO", que antes estaba abajo ocupando el renglón que ahora
+  // es del arma. Es donde le toca: quién eres y si ya has decidido son la misma
+  // pregunta —"¿falta alguien?"— y se responde de un vistazo por los cuatro
+  // arcos, sin bajar la vista a cuatro cartelas distintas.
+  // ARRIBA A LA IZQUIERDA, a 4 de cada línea del marco. Centrada quedaba en
+  // mitad del arco, justo por donde asoma la cabeza del personaje; en la
+  // esquina no se pone delante de nadie y, con los cuatro arcos en fila, los
+  // cuatro números caen a la misma altura y a la misma sangría, que es lo que
+  // permite contar de un vistazo quién se ha sumado.
+  const et = puesto.listo ? `P${indice + 1}  ·  LISTO` : `P${indice + 1}`;
   ctxUi.font = `700 12px ${FUENTE}`;
-  ctxUi.textAlign = 'center';
-  ctxUi.textBaseline = 'middle';
   const anchoEt = ctxUi.measureText(et).width + 14;
+  const ALTO_ET = 18;
+  const xEt = r.x + 4;
+  const yEt = r.y + 4;
   ctxUi.fillStyle = 'rgba(6,5,10,.82)';
   ctxUi.beginPath();
-  ctxUi.roundRect(r.x + (r.w - anchoEt) / 2, r.y - 9, anchoEt, 18, 4);
+  ctxUi.roundRect(xEt, yEt, anchoEt, ALTO_ET, 4);
   ctxUi.fill();
   ctxUi.strokeStyle = color;
   ctxUi.lineWidth = 1.2;
   ctxUi.stroke();
   ctxUi.fillStyle = color;
-  ctxUi.fillText(et, r.x + r.w / 2, r.y);
+  ctxUi.fillText(et, xEt + anchoEt / 2, yEt + ALTO_ET / 2);
 
-  // Cartela de abajo: nombre, qué hace y con qué arma empieza. El arte enseña
-  // QUIÉN es cada uno; esto es lo que hace falta para ELEGIR, y por eso está
-  // aquí y no horneado.
-  const def = PERSONAJES[ORDEN_PERSONAJES[puesto.personaje]];
-  const arma = ARMAS[def.arma];
-  const yCaja = r.y + r.h + 4;
-  const altoCaja = 42;
-  ctxUi.fillStyle = 'rgba(6,5,10,.8)';
-  ctxUi.beginPath();
-  ctxUi.roundRect(r.x, yCaja, r.w, altoCaja, 4);
-  ctxUi.fill();
-  ctxUi.strokeStyle = puesto.listo ? color : 'rgba(255,255,255,.16)';
-  ctxUi.lineWidth = 1;
-  ctxUi.stroke();
-
-  ctxUi.font = `700 13px ${FUENTE_TITULO}`;
-  ctxUi.fillStyle = t.titulo;
-  textoEspaciado(ctxUi, def.nombre.toUpperCase(), r.x + r.w / 2, yCaja + 11, 1.5);
-
-  // La cartela es fija y compacta —no hay alto de sobra para una segunda
-  // línea—, así que una descripción más larga que de costumbre se encoge
-  // hasta que quepa en una, en vez de desbordar la tarjeta.
-  let tamDesc = 9;
-  ctxUi.font = `500 ${tamDesc}px ${FUENTE}`;
-  while (ctxUi.measureText(def.descripcion).width > r.w - 10 && tamDesc > 6) {
-    tamDesc -= 0.5;
-    ctxUi.font = `500 ${tamDesc}px ${FUENTE}`;
-  }
-  ctxUi.fillStyle = t.texto;
-  ctxUi.fillText(def.descripcion, r.x + r.w / 2, yCaja + 24);
+  // --- CON QUÉ PELEA: cartela de ABAJO ------------------------------------
+  //
+  // El arma ya no es un renglón de texto: es SU DIBUJO, el mismo que se va a
+  // ver luego en la ficha y en el menú de subida de nivel, sobre el mismo fondo
+  // blanco que en esos dos sitios. Un nombre de arma no dice nada la primera
+  // vez que se lee; la silueta del pilum sí, y además es la que hay que
+  // reconocer durante toda la partida.
+  //
+  // El nombre se queda ENCIMA del dibujo, no debajo: es el orden en que se usan
+  // —se mira el icono, y si no se sabe qué es, se lee— y así el icono queda
+  // pegado al borde inferior de la cartela, que es donde tiene sitio para ser
+  // grande.
+  const LADO_ARMA = 32;
+  const CAJA_INF = 56;
+  const yInf = r.y + r.h + 4;
+  cartela(ctxUi, r.x, yInf, r.w, CAJA_INF, puesto.listo ? color : null);
 
   ctxUi.font = `600 9px ${FUENTE}`;
   ctxUi.fillStyle = puesto.listo ? color : t.apagado;
-  ctxUi.fillText(puesto.listo ? 'LISTO' : (arma ? arma.nombre : ''),
-                 r.x + r.w / 2, yCaja + 35);
+  ctxUi.fillText(arma ? arma.nombre : '', cx, yInf + 11);
+
+  if (arma) {
+    // Fondo blanco, como en la ficha del jugador y en el menú de subida de
+    // nivel: los iconos son pixel art recortado al filo y sobre la cartela
+    // oscura las siluetas negras perdían el trazo.
+    const yArma = yInf + 18;
+    ctxUi.beginPath();
+    ctxUi.roundRect(cx - LADO_ARMA / 2, yArma, LADO_ARMA, LADO_ARMA, 4);
+    ctxUi.fillStyle = 'rgba(255,255,255,.92)';
+    ctxUi.fill();
+    ctxUi.lineWidth = 1;
+    ctxUi.strokeStyle = puesto.listo ? color : 'rgba(255,255,255,.22)';
+    ctxUi.stroke();
+    // 13 de radio, por encima del umbral de la hoja grande (ver blitHoja en
+    // ui/hud.js): por debajo saldría de la hoja de 32 ampliada y con el canto
+    // roto, que es lo que se veía en el menú de subida de nivel.
+    dibujarIconoArma(ctxUi, cx, yArma + LADO_ARMA / 2, 13, def.arma, arma.color);
+  }
 
   ctxUi.restore();
+}
+
+// La caja oscura de las dos cartelas del puesto. Misma receta que tenían: negro
+// casi opaco porque el fondo es piedra y ruinas, y borde del color del jugador
+// solo cuando ya ha confirmado.
+function cartela(ctxUi, x, y, ancho, alto, color) {
+  ctxUi.fillStyle = 'rgba(6,5,10,.8)';
+  ctxUi.beginPath();
+  ctxUi.roundRect(x, y, ancho, alto, 4);
+  ctxUi.fill();
+  ctxUi.strokeStyle = color || 'rgba(255,255,255,.16)';
+  ctxUi.lineWidth = 1;
+  ctxUi.stroke();
 }
 
 // --- Elección de mascota ------------------------------------------------------

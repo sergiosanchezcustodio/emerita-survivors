@@ -239,14 +239,19 @@ export const ARMAS = {
     // dos; visto en el juego, no molesta y en cambio la quietud sí — un aura
     // permanente que no se mueve parece una calcomanía pegada al suelo.
     //
-    // 1.1 rad/s, casi seis segundos por vuelta: la mitad de rápido que el campo
-    // eléctrico, que es un chisporroteo. Un estandarte no chisporrotea.
+    // 0,619 rad/s, algo más de diez segundos por vuelta. Ha bajado dos veces un
+    // cuarto desde el 1,1 original —que ya era la mitad de rápido que el campo
+    // eléctrico, un chisporroteo— y las dos por lo mismo: cuanto más detalle
+    // tiene el emblema, más tira de la vista el giro, y esto es un aura
+    // PERMANENTE, lo único de la pantalla que no para nunca. A esta velocidad
+    // se nota que está vivo sin que se pueda mirar otra cosa. Un estandarte no
+    // chisporrotea: ondea.
     //
     // Comprobado que puede girar sin cortarse: su dibujo llega a 225 unidades
     // del pivote y el recorte da 232 (ver $HOJAS_ALFA en procesar-assets.ps1).
     // Lo que se saliera del recorte entraría y saldría del cuadro al dar la
     // vuelta, que es el defecto que hay que vigilar en todo lo que rota.
-    giro: 1.1,
+    giro: 0.61875,
     color: '#ffd98a',
     niveles: [{}, { radio: 5 }, { danyo: 1, radio: 4 }, { radio: 6 },
               { danyo: 2, radio: 5 }, { empuje: 40, radio: 5 }, { radio: 7 }, { danyo: 3, radio: 6 },

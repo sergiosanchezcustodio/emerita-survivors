@@ -57,8 +57,13 @@ export const PASIVOS = {
     campo: 'radioRecogida', tipo: 'factor', valor: 0.125, maxNivel: 10
   },
   anfora: {
+    // 30 y no 10: un 200% más de lo que daba. Con 10 por nivel, el Ánfora al
+    // máximo sumaba 100 de vida sobre una base de poco más de 100, o sea que
+    // diez elecciones seguidas doblaban el aguante justo cuando los golpes de
+    // la horda ya pegan por cientos. Era la elección que nunca compensaba.
+    // Ahora al tope son 300, que sí cambia con qué te atreves a cruzar.
     nombre: 'Ánfora de vino',
-    descripcion: '+10 de vida máxima, y cura esa cantidad',
-    campo: 'vidaMaxima', tipo: 'suma', valor: 10, maxNivel: 10, curaAlSubir: 10
+    descripcion: '+30 de vida máxima, y cura esa cantidad',
+    campo: 'vidaMaxima', tipo: 'suma', valor: 30, maxNivel: 10, curaAlSubir: 30
   }
 };

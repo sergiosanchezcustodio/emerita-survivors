@@ -27,7 +27,7 @@ export const PERSONAJES = {
   eric: {
     nombre: 'Eric',
     sprite: 'eric',
-    descripcion: 'Aguanta el tipo en primera línea.',
+    descripcion: 'Coraje y Corazón.',
     arma: 'scutum',
     coste: 0,
     mods: { vidaMaxima: 1.15, velocidad: 0.95, radioRecogida: 1.0 }
@@ -35,7 +35,7 @@ export const PERSONAJES = {
   lucy: {
     nombre: 'Lucy',
     sprite: 'lucy',
-    descripcion: 'Frágil, pero no la alcanza nadie.',
+    descripcion: 'Divierte, sonríe, y sigue pintándote los labios.',
     arma: 'pistola',
     coste: 0,
     mods: { vidaMaxima: 0.85, velocidad: 1.15, radioRecogida: 1.0 }
@@ -43,7 +43,7 @@ export const PERSONAJES = {
   sara: {
     nombre: 'Sara',
     sprite: 'sara',
-    descripcion: 'Recoge el botín desde lejos.',
+    descripcion: 'A veces, perderse en la sombra es la única forma de descubrir la luz que llevas dentro.',
     arma: 'campoElectrico',
     coste: 0,
     mods: { vidaMaxima: 1.0, velocidad: 1.0, radioRecogida: 1.45 }

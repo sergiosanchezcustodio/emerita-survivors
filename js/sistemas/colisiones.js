@@ -143,10 +143,15 @@ function separarDuro(a, b) {
     nx = 1; ny = 0; pen = r;
   }
 
-  const total = a.invMasa + b.invMasa;
+  // Un congelado por el Reloj cuenta como INAMOVIBLE: masa inversa cero, igual
+  // que una antorcha. Aparta a quien le empuje pero no cede un píxel, que es lo
+  // que hace que el bloque de hielo se quede clavado los doce segundos.
+  const ma = a.paralizado > 0 ? 0 : a.invMasa;
+  const mb = b.paralizado > 0 ? 0 : b.invMasa;
+  const total = ma + mb;
   if (total <= 0) return;   // dos inamovibles solapados: nada que repartir (ver empujar)
-  const ca = (pen * a.invMasa) / total;
-  const cb = (pen * b.invMasa) / total;
+  const ca = (pen * ma) / total;
+  const cb = (pen * mb) / total;
   a.x -= nx * ca;
   a.y -= ny * ca;
   b.x += nx * cb;
@@ -209,6 +214,12 @@ function aplicarCorrecciones(items, n) {
     const e = items[k];
     const c = e.contactos;
     if (c === 0) continue;
+    // Congelado por el Reloj: inmóvil de verdad. Sigue sumando su parte a los
+    // vecinos —es un cuerpo y ocupa sitio— pero no se mueve él. Sin esto, una
+    // horda amontonada seguía deshaciéndose sola durante los doce segundos y el
+    // bloque de hielo se veía respirar, que es justo lo contrario de lo que
+    // tiene que contar una parada del tiempo.
+    if (e.paralizado > 0) continue;
 
     const div = Math.sqrt(c);
     let cx = e.sepX / div;
@@ -291,6 +302,15 @@ function apartarDelJugador(items, rejilla, jugador) {
       const c = fy * columnas + fx;
       for (let p = inicio[c]; p < inicio[c + 1]; p++) {
         const e = items[indices[p]];
+        // CONGELADO POR EL RELOJ DE EMERITA: SE ATRAVIESA.
+        //
+        // Mientras dura la parada, un enemigo deja de ser un cuerpo: ni empuja
+        // ni se le empuja, se le cruza por encima. Sin esto el Reloj no sacaba
+        // de un cerco —los cuerpos seguían siendo pared y quedabas encajado
+        // igual, solo que en silencio—, y sacar de un cerco es exactamente
+        // para lo que existe. El daño por contacto se apaga en el mismo sitio
+        // en el que se mide (ver contactoJugador).
+        if (e.paralizado > 0) continue;
         const dx = e.x - jx;
         const dy = e.y - jy;
         const r = jugador.radioCuerpo + e.radioCuerpo;
@@ -603,6 +623,11 @@ export function contactoJugador(enemigos, jugador) {
       const c = fy * columnas + fx;
       for (let p = inicio[c]; p < inicio[c + 1]; p++) {
         const e = items[indices[p]];
+        // Congelado por el Reloj de Emerita: no muerde. Es la otra mitad de
+        // poder atravesarlo (ver apartarDelJugador): cruzar por encima de un
+        // bloque de hielo y salir con la vida a la mitad sería la peor manera
+        // posible de contar lo que hace el objeto.
+        if (e.paralizado > 0) continue;
         const dx = e.x - jx;
         const dy = e.y - jy;
         const r = (e.radioCuerpo + jugador.radioCuerpo) * MARGEN_DANYO;

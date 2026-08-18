@@ -221,6 +221,11 @@ export function prepararVariantes() {
       def.sprite = def.spriteBase;
     }
   }
+
+  // Y el AZUL DEL CONGELADO, ya con los sprites definitivos: si una variante se
+  // ha quedado en su base, el hielo tiene que teñir la base y no un id que no
+  // existe. Solo para el bestiario, que es lo único que el Reloj congela.
+  for (const id in ENEMIGOS) Recursos.prepararTinteHielo(ENEMIGOS[id].sprite);
 }
 
 // DE QUÉ ESTÁ HECHO CADA BICHO. `restos` lo declara la ficha (datos/enemigos.js)
@@ -292,7 +297,8 @@ function crearEnemigo() {
     // Referencias resueltas al aparecer: dibujar 800 entidades no puede pagar
     // dos búsquedas en Map por entidad y frame.
     objetivo: null,          // jugador al que persigue este paso
-    meta: null, img: null, imgEspejo: null, imgTinte: null, imgTinteEspejo: null
+    meta: null, img: null, imgEspejo: null, imgTinte: null, imgTinteEspejo: null,
+    imgHielo: null, imgHieloEspejo: null
   };
 }
 
@@ -450,6 +456,11 @@ export class Enemigos {
     e.imgEspejo = Recursos.espejo(def.sprite);
     e.imgTinte = Recursos.tinte(def.sprite);
     e.imgTinteEspejo = Recursos.tinteEspejo(def.sprite);
+    // Copia azulada para cuando el Reloj de Emerita lo deja congelado. Se
+    // resuelve aquí, con las otras tres hojas, para que el dibujado no tenga que
+    // preguntar nada: elige imagen y ya.
+    e.imgHielo = Recursos.tinteHielo(def.sprite);
+    e.imgHieloEspejo = Recursos.tinteHieloEspejo(def.sprite);
     // De qué está hecho. Se resuelve AQUÍ, con el resto de lo que se saca de la
     // ficha una sola vez, y no en `danyar`: así la muerte no tiene que buscar en
     // ningún diccionario ni preguntar si el campo existe. Es lo mismo que se
@@ -1167,9 +1178,16 @@ export class Enemigos {
       // área a nivel alto, casi todos los enemigos visibles destellan a la vez y
       // el dibujado pasa a alternar entre dos imágenes distintas cientos de
       // veces por frame, que es lo que rompe el agrupado del canvas.
-      const img = (e.destello > 0 && Enemigos.destelloActivo)
-        ? (e.mirandoDerecha ? e.imgTinte : e.imgTinteEspejo)
-        : (e.mirandoDerecha ? e.img : e.imgEspejo);
+      // CONGELADO POR DELANTE DEL DESTELLO. Mientras el Reloj de Emerita tiene
+      // parada a la horda, el bicho se pinta en azul hielo y ahí se queda: es lo
+      // que dice que no se puede mover ni hacer daño. Un fogonazo blanco encima
+      // de un enemigo congelado contaría lo contrario de lo que pasa —que sigue
+      // en la pelea— justo cuando el jugador está decidiendo por dónde cruzar.
+      const img = (e.paralizado > 0 && e.imgHielo)
+        ? (e.mirandoDerecha ? e.imgHielo : e.imgHieloEspejo)
+        : (e.destello > 0 && Enemigos.destelloActivo)
+          ? (e.mirandoDerecha ? e.imgTinte : e.imgTinteEspejo)
+          : (e.mirandoDerecha ? e.img : e.imgEspejo);
 
       // Todo se cuadra a PÍXEL FÍSICO ENTERO antes de dibujar.
       //

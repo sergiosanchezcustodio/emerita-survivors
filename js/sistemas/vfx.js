@@ -32,23 +32,13 @@ const ESPERA_HITSTOP = 0.6;
 // golpe y pasa a estorbar: no se lee la pantalla.
 const TOPE_SACUDIDA = 5.5;
 
-// LA SACUDIDA DE MASA VA RACIONADA APARTE.
+// LA SACUDIDA DE MASA SE QUITÓ.
 //
-// `sacudir` se queda con la mayor y no suma, y eso ya evita que tres muertes en
-// el mismo frame tripliquen el temblor. Pero no evita lo que de verdad marea,
-// que es que la petición SE REPITA: con el Lanzacohetes a nivel alto —radio de
-// explosión 61 y dos cohetes— cada disparo mata a decenas de enemigos pesados
-// y detrás viene el siguiente, así que la sacudida se rearma a tope antes de
-// haber decaído y la pantalla no se queda quieta nunca. Era incómodo de mirar.
-//
-// Dos frenos: no más de una cada ESPERA_MASA, y con un techo MUY por debajo del
-// de los sucesos únicos. Una matanza tiene que ser un rumor de fondo; un jefe
-// embistiendo o un jugador cayendo siguen siendo un golpe seco.
-//
-// Es el mismo reparto que ya hace el hitstop con su ESPERA_HITSTOP, y por el
-// mismo motivo: lo que se repite hay que racionarlo, lo que pasa una vez no.
-const ESPERA_MASA = 0.22;
-const TOPE_MASA = 1.7;
+// Estuvo racionada —una cada 0,22 s y con un techo bajo— para que la matanza
+// fuera un rumor de fondo en vez de un terremoto. No bastaba: con un arma de
+// explosión las muertes en cadena no paran, así que el racionamiento solo
+// convertía el terremoto en un zumbido continuo, y una cámara que nunca está
+// quieta no cuenta nada, solo cansa. Ver `sacudir`.
 
 // Fracción de vida por debajo de la cual el borde de la pantalla late en rojo.
 // Un tercio y no un cuarto: con el ritmo de la horda, la diferencia entre 25 y
@@ -125,7 +115,6 @@ export const VFX = {
     this.sacudida = 0;
     this.congelado = 0;
     this._esperaHitstop = 0;
-    this._esperaMasa = 0;
     this._presupuesto = 0;
     this.herida = 0;
     this._faseVida = 0;
@@ -159,11 +148,18 @@ export const VFX = {
   // muertes del bestiario (ver entidades/enemigo.js). Lo que pasa una vez —un
   // jefe, una caída, una evolución— no la pone y conserva toda su fuerza.
   sacudir(amplitud, masa = false) {
-    if (masa) {
-      if (this._esperaMasa > 0) return;
-      this._esperaMasa = ESPERA_MASA;
-      if (amplitud > TOPE_MASA) amplitud = TOPE_MASA;
-    }
+    // LA SACUDIDA DE MASA SE HA QUITADO DEL TODO. El racionamiento de abajo
+    // —una cada 0,22 s y con techo bajo— hacía la pantalla legible, pero
+    // no arreglaba el fondo del problema: con un arma de explosión hay muertes
+    // en cadena TODO EL RATO, así que la cámara nunca llegaba a estar quieta y
+    // lo que quedaba era un zumbido constante. Lo pidió Sergio y es lo correcto:
+    // una sacudida que no para de sonar deja de contar nada y solo cansa.
+    //
+    // La llamada y el parámetro se quedan: el hitstop de esas mismas muertes SÍ
+    // sigue (ese es un parón, no un temblor, y se lee como el golpe que es), y
+    // las sacudidas de suceso único —jefe, jugador abatido, llamarada— entran
+    // por aquí sin `masa` y conservan toda su fuerza.
+    if (masa) return;
     if (amplitud > TOPE_SACUDIDA) amplitud = TOPE_SACUDIDA;
     if (amplitud > this.sacudida) this.sacudida = amplitud;
   },
@@ -234,7 +230,6 @@ export const VFX = {
     // Corre también durante la congelación: es quien la deja expirar. Por eso
     // el bucle llama a VFX.actualizar aunque salte el resto de la lógica.
     if (this._esperaHitstop > 0) this._esperaHitstop -= dt;
-    if (this._esperaMasa > 0) this._esperaMasa -= dt;
     const items = this.pool.items;
     let k = 0;
     while (k < this.pool.activos) {

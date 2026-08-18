@@ -6,9 +6,10 @@ import { POTENCIADORES } from '../datos/potenciadores.js';
 import { MASCOTAS, ORDEN_MASCOTAS, MAX_NIVEL_MASCOTA, factorMascota } from '../datos/mascotas.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from '../datos/personajes.js';
 import { ARMAS } from '../datos/armas.js';
+import { dibujarIconoArma } from './hud.js';
 import {
   rejilla, armazon, resalte, puntos, descripcion, nombreFila,
-  MARGEN, X_ICONO, X_NOMBRE, X_NIVEL, X_EFECTO, X_VALOR, RADIO_PUNTO
+  MARGEN, X_ICONO, X_NOMBRE, X_ARMA, X_NIVEL, X_EFECTO, X_VALOR, RADIO_PUNTO
 } from './tabla.js';
 
 // TIENDA. Se abre desde el menú principal y no desde dentro de la partida: son
@@ -182,7 +183,13 @@ export function dibujarTienda(ctxMundo, ctx, cursor, seccion) {
   const r = rejilla(nFilas, altoMax);
 
   ctx.save();
-  armazon(ctxMundo, ctx, r, NOMBRES, seccion, ['OBJETO', 'NIVEL', 'EFECTO', 'PRECIO']);
+  // La pestaña de JUGADORES lleva una columna más —el arma con la que empieza
+  // cada uno— y por eso los rótulos no son los mismos en las tres. En las otras
+  // dos ese hueco no tiene nada que enseñar: un potenciador o una mascota no
+  // traen arma.
+  armazon(ctxMundo, ctx, r, NOMBRES, seccion,
+          seccion === 2 ? ['OBJETO', 'NIVEL', 'EFECTO', 'PRECIO', 'ARMA']
+                        : ['OBJETO', 'NIVEL', 'EFECTO', 'PRECIO']);
   if (seccion === 1) filasMascotas(ctx, cursor, r);
   else if (seccion === 2) filasPersonajes(ctx, cursor, r);
   else filasPotenciadores(ctx, cursor, r);
@@ -293,6 +300,9 @@ function filasMascotas(ctx, cursor, r) {
 // funcionando, así que convertir cualquiera en comprable es subirle el número en
 // los datos y nada más.
 const ALTO_PERSONAJE = 58;
+// Lado del cuadro blanco del arma. 30 en una fila de 58: deja 14 de aire arriba
+// y abajo, y el icono de 26 que va dentro cruza el umbral de la hoja grande.
+const LADO_ARMA = 30;
 
 function filasPersonajes(ctx, cursor, r) {
   const t = Tema.actual;
@@ -327,15 +337,41 @@ function filasPersonajes(ctx, cursor, r) {
     }
     ctx.globalAlpha = 1;
 
-    nombreFila(ctx, def.nombre, X_NOMBRE, yc - 8,
+    // El nombre, ya CENTRADO en su fila. Estaba subido 8 para dejarle sitio
+    // debajo al renglón "Arma: ..." en letra pequeña, y ese renglón se ha ido a
+    // su propia columna: un dato con rótulo en la cabecera se compara entre las
+    // cuatro filas de un vistazo, y colgado bajo el nombre había que leerlo
+    // cuatro veces.
+    nombreFila(ctx, def.nombre, X_NOMBRE, yc,
                elegida ? '#ffffff' : (tuyo ? t.titulo : t.texto));
 
-    // Su arma exclusiva, que es lo que de verdad diferencia a un personaje de
-    // otro: los `mods` mueven los números, el arma cambia a qué se juega.
+    // COLUMNA DE ARMA: el dibujo y el nombre. Es lo que de verdad diferencia a
+    // un personaje de otro —los `mods` mueven los números, el arma cambia a qué
+    // se juega—, así que se enseña con su icono y no solo con su nombre: es el
+    // mismo dibujo que se va a ver luego en la ficha y en el menú de subida de
+    // nivel, sobre el mismo fondo blanco.
     const arma = ARMAS[def.arma];
-    ctx.font = `500 10px ${FUENTE}`;
-    ctx.fillStyle = t.apagado;
-    ctx.fillText(arma ? 'Arma: ' + arma.nombre : '', X_NOMBRE, yc + 9);
+    if (arma) {
+      ctx.globalAlpha = tuyo ? 1 : 0.4;
+      ctx.beginPath();
+      ctx.roundRect(X_ARMA, yc - LADO_ARMA / 2, LADO_ARMA, LADO_ARMA, 4);
+      ctx.fillStyle = 'rgba(255,255,255,.92)';
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = elegida ? t.filo : 'rgba(255,255,255,.22)';
+      ctx.stroke();
+      // 13 de radio: por encima del umbral de la hoja grande (ver blitHoja en
+      // ui/hud.js), así que el icono sale del arte de 96 reducido y no del de
+      // 32 ampliado, que es lo que se veía roto.
+      dibujarIconoArma(ctx, X_ARMA + LADO_ARMA / 2, yc, 13, def.arma, arma.color);
+
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.font = `600 11px ${FUENTE}`;
+      ctx.fillStyle = tuyo ? t.titulo : t.texto;
+      ctx.fillText(arma.nombre, X_ARMA + LADO_ARMA + 8, yc);
+      ctx.globalAlpha = 1;
+    }
 
     // Un personaje no tiene niveles: se tiene o no se tiene. Un solo punto.
     puntos(ctx, X_NIVEL + RADIO_PUNTO, yc, tuyo ? 1 : 0, 1, elegida);
