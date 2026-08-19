@@ -1,3 +1,4 @@
+import { nuevoSello } from '../entidades/proyectil.js';
 import { DT } from '../core/constantes.js';
 
 // Colisiones sobre la rejilla espacial. Dos consumidores:
@@ -702,14 +703,17 @@ export function separarJugadores(jugadores) {
 // 800 comprobaciones de distancia al cuadrado no se notan. Si algún arma
 // llegara a disparar todos los frames, esto tendría que pasar a recorrer
 // anillos de celdas de la rejilla.
-export function enemigoMasCercano(enemigos, x, y, alcance) {
+// `excluir` es un enemigo al que NO mirar. Lo usa el rebote de proyectil: el
+// que se acaba de golpear es siempre el más cercano a sí mismo, así que sin
+// excluirlo la piedra rebotaría eternamente contra el mismo cuerpo.
+export function enemigoMasCercano(enemigos, x, y, alcance, excluir = null) {
   const items = enemigos.pool.items;
   const n = enemigos.pool.activos;
   let mejor = null;
   let mejorD2 = alcance * alcance;
   for (let k = 0; k < n; k++) {
     const e = items[k];
-    if (e.vida <= 0) continue;
+    if (e.vida <= 0 || e === excluir) continue;
     const dx = e.x - x;
     const dy = e.y - y;
     const d2 = dx * dx + dy * dy;
@@ -762,6 +766,11 @@ export function enemigosEnRadio(enemigos, x, y, radio, salida) {
 // proyectil lleva una marca única y el enemigo guarda la del último que le dio,
 // así que atravesar a alguien nunca cuenta dos veces aunque sigan solapados
 // varios frames seguidos.
+// Hasta dónde busca un proyectil que rebota su siguiente blanco. Corto a
+// propósito: un rebote que cruza media pantalla no se lee como un rebote, se
+// lee como un proyectil teledirigido.
+const ALCANCE_REBOTE = 110;
+
 export function impactosProyectiles(proyectiles, enemigos, alEstallar) {
   const rejilla = enemigos.rejilla;
   const items = enemigos.pool.items;
@@ -798,8 +807,35 @@ export function impactosProyectiles(proyectiles, enemigos, alEstallar) {
           const v = Math.hypot(p.vx, p.vy) || 1;
           enemigos.danyar(e, p.danyo, p.vx / v, p.vy / v, p.empuje);
 
-          if (p.perforacion > 0) p.perforacion--;
-          else { agotado = true; break; }
+          if (p.perforacion > 0) { p.perforacion--; continue; }
+
+          // REBOTE A OTRO ENEMIGO. Antes de darlo por gastado, si le quedan
+          // rebotes salta al enemigo vivo más cercano que NO sea este. Es la
+          // Honda: una piedra que va haciendo cabriolas por la horda.
+          //
+          // Se distingue de la perforación a propósito: perforar es seguir
+          // recto atravesando cuerpos, rebotar es CAMBIAR DE RUMBO hacia otro
+          // blanco. La primera premia alinearse, la segunda premia el bulto.
+          if (p.rebotesEnemigo > 0) {
+            const otro = enemigoMasCercano(enemigos, p.x, p.y, ALCANCE_REBOTE, e);
+            if (otro) {
+              p.rebotesEnemigo--;
+              const ddx = otro.x - p.x, ddy = otro.y - p.y;
+              const dd = Math.hypot(ddx, ddy) || 1;
+              // Conserva la RAPIDEZ y cambia solo la dirección: si se copiara
+              // el vector al blanco, un rebote corto dejaría la piedra parada.
+              const rapidez = Math.hypot(p.vx, p.vy) || 1;
+              p.vx = (ddx / dd) * rapidez;
+              p.vy = (ddy / dd) * rapidez;
+              // Sello nuevo: puede volver a tocar a quien ya tocó si el rebote
+              // lo devuelve. Y vida repuesta, que si no llega sin alcance.
+              p.sello = nuevoSello();
+              p.vida = p.vidaMax;
+              agotado = false;
+              break;                       // sale de esta celda; sigue vivo
+            }
+          }
+          agotado = true; break;
         }
       }
     }

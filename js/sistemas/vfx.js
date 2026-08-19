@@ -1,5 +1,6 @@
 import { ESCALA_ARTE } from '../core/constantes.js';
 import { Pool } from '../core/pool.js';
+import { Recursos } from '../core/recursos.js';
 import { FUENTE } from '../ui/capa.js';
 
 // Efectos de realimentación: números de daño flotantes, sacudida de cámara y
@@ -48,6 +49,29 @@ const UMBRAL_VIDA_BAJA = 0.33;
 
 function crearNumero() {
   return { x: 0, y: 0, vida: 0, texto: '0', gordo: false, desvio: 0 };
+}
+
+// REVENTONES: una hoja de efecto animada que se reproduce UNA vez en un punto
+// del mundo y se acaba. Es la versión "esto pasa y ya está" de las zonas de
+// daño: no golpea a nadie —de eso ya se encargó quien lo pidió— y solo se ve.
+//
+// Existe porque los ataques de los ENEMIGOS no viven en el pool de zonas. El
+// sismo del cíclope, por ejemplo, es un `Disparo` (entidades/disparo.js), y al
+// reventar solo soltaba cuatro chispas: telegrafiaba de maravilla durante casi
+// un segundo y luego el golpe no se veía. Aquí es donde se le pone el golpe.
+//
+// Doce a la vez: son adorno, y si con la pantalla ardiendo se pierde uno no lo
+// nota nadie. Mismo criterio que los anillos.
+const REVENTONES = 12;
+
+function crearReventon() {
+  return {
+    x: 0, y: 0,
+    radio: 0,             // radio en unidades lógicas al que se dibuja
+    vida: 0, vidaMax: 1,
+    hoja: null,           // id de atlas de la hoja animada
+    giro: 0               // orientación fija, sorteada al nacer
+  };
 }
 
 // MARCAS DE IMPACTO: un trazo corto y luminoso, atravesado en la dirección del
@@ -108,10 +132,14 @@ export const VFX = {
   // --- Anillos de recompensa -----------------------------------------------
   anillos: null,
 
+  // --- Reventones dibujados -------------------------------------------------
+  reventones: null,
+
   iniciar(capacidad) {
     this.pool = new Pool(crearNumero, capacidad);
     this.marcas = new Pool(crearMarca, MARCAS);
     this.anillos = new Pool(crearAnillo, ANILLOS);
+    this.reventones = new Pool(crearReventon, REVENTONES);
     this.sacudida = 0;
     this.congelado = 0;
     this._esperaHitstop = 0;
@@ -247,6 +275,14 @@ export const VFX = {
       else j++;
     }
 
+    const reventones = this.reventones.items;
+    let v = 0;
+    while (v < this.reventones.activos) {
+      reventones[v].vida -= dt;
+      if (reventones[v].vida <= 0) this.reventones.liberarEn(v);
+      else v++;
+    }
+
     const anillos = this.anillos.items;
     let a = 0;
     while (a < this.anillos.activos) {
@@ -296,6 +332,71 @@ export const VFX = {
     a.color = color;
     a.grosor = grosor;
     a.vida = a.vidaMax = vida;
+  },
+
+  // UN REVENTÓN. `hoja` es el id de atlas de una tira generada por
+  // herramientas/generar-efectos.ps1; `radio` es en unidades lógicas y marca
+  // dónde tiene que caer el filo del dibujo, o sea el borde de lo que ha hecho
+  // daño. Si la hoja no está cargada no se dibuja nada y no pasa nada: misma
+  // red que los placeholders del atlas.
+  reventon(x, y, radio, hoja, vida = 0.34, rng = null) {
+    if (!this.reventones || !hoja) return;
+    const r = this.reventones.obtener();
+    if (!r) return;
+    r.x = x; r.y = y;
+    r.radio = radio;
+    r.hoja = hoja;
+    r.vida = r.vidaMax = vida;
+    // Orientación al azar. La hoja es una sola, así que sin esto dos sismos
+    // seguidos en el mismo sitio salen calcados y se lee como un sello
+    // repetido en vez de como dos reventones. Mismo truco que el tajo.
+    r.giro = rng ? rng() * Math.PI * 2 : 0;
+  },
+
+  // Los reventones, en el lienzo del MUNDO y en ADITIVO. Aditivo por lo mismo
+  // que las explosiones: son luz, y dos solapados tienen que verse más
+  // calientes. Las hojas están horneadas sin tonos oscuros justo para esto.
+  dibujarReventones(ctx) {
+    if (!this.reventones) return;
+    const items = this.reventones.items;
+    const n = this.reventones.activos;
+    if (n === 0) return;
+
+    ctx.save();
+    for (let k = 0; k < n; k++) {
+      const v = items[k];
+      const img = Recursos.imagen(v.hoja);
+      const meta = Recursos.meta(v.hoja);
+      if (!img || !meta) continue;
+
+      // La composición la trae la hoja: el fuego y el veneno suman luz, la
+      // tierra tapa. Ver el mismo criterio en zonaDanyo.dibujarAire.
+      ctx.globalCompositeOperation = meta.aditivo === false ? 'source-over' : 'lighter';
+
+      const t = 1 - v.vida / v.vidaMax;       // 0 al nacer, 1 al apagarse
+      const fases = meta.frames || 1;
+
+      // La hoja se recorre de principio a fin en la vida del reventón. Aquí no
+      // hay radio de daño que seguir —el golpe ya se resolvió cuando nació—
+      // así que el fotograma va por reloj, y esto es lo que lo diferencia de
+      // una zona de modo 'onda': allí el dibujo tiene que ir clavado al radio
+      // que mata, aquí no hay nada a lo que ir clavado.
+      let f = (t * fases) | 0;
+      if (f >= fases) f = fases - 1;
+      if (f < 0) f = 0;
+
+      ctx.globalAlpha = t > 0.82 ? (1 - t) / 0.18 : 1;
+
+      // Medio lado = radio * margen, igual que las ondas: la bola nominal de la
+      // hoja llega al radio pedido y lo que sobresale son cascotes y chispas.
+      const r = v.radio * (meta.margen || 1);
+      ctx.save();
+      ctx.translate(v.x, v.y);
+      if (v.giro !== 0) ctx.rotate(v.giro);
+      ctx.drawImage(img, f * meta.w, 0, meta.w, meta.h, -r, -r, r * 2, r * 2);
+      ctx.restore();
+    }
+    ctx.restore();
   },
 
   // Con las marcas de impacto, en el lienzo del MUNDO: es algo que le pasa a un
@@ -364,6 +465,7 @@ export const VFX = {
 
   vaciar() {
     if (this.anillos) this.anillos.vaciar();
+    if (this.reventones) this.reventones.vaciar();
     if (this.marcas) this.marcas.vaciar();
     if (this.pool) this.pool.vaciar();
     this.escarcha = 0;

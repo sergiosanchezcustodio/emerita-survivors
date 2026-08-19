@@ -158,6 +158,20 @@ export class Jugador {
     this.resurreccionesUsadas = 0;
 
     this.mirandoDerecha = true;
+
+    // RUMBO: la última dirección hacia la que se movió, unitaria y COMPLETA.
+    //
+    // `mirandoDerecha` solo guarda el eje horizontal, que es lo que necesita el
+    // sprite —está dibujado de frente y solo se voltea—, pero las armas apuntan
+    // en dos ejes. Al soltar el stick, quien apuntaba con el movimiento se
+    // quedaba sin dato y caía a "izquierda o derecha según mire": si ibas hacia
+    // arriba y parabas, el arma daba un volantazo a la horizontal.
+    //
+    // Un arma apunta hacia donde ENCARAS, y encarar no deja de ser cierto
+    // porque hayas dejado de andar. Ver `golpear` y `conoCorto`.
+    this.rumboX = 1;
+    this.rumboY = 0;
+
     this.andando = false;
     this.lateral = false;    // se mueve más en horizontal que en vertical
     this.magAndar = 0;       // 0..1, cuánto se inclina el stick
@@ -477,6 +491,13 @@ export class Jugador {
       this.lateral = Math.abs(entrada.ejeX) > Math.abs(entrada.ejeY);
       if (entrada.ejeX > 0.05) this.mirandoDerecha = true;
       else if (entrada.ejeX < -0.05) this.mirandoDerecha = false;
+      // El rumbo se refresca mientras haya stick y NO se borra al soltarlo:
+      // ese es todo el arreglo. Se guarda normalizado para que quien apunte no
+      // tenga que volver a dividir.
+      if (mag > 0.0001) {
+        this.rumboX = entrada.ejeX / mag;
+        this.rumboY = entrada.ejeY / mag;
+      }
     }
     this._animar(dt);
   }

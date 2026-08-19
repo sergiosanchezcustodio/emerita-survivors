@@ -67,8 +67,20 @@ export function dibujarDepuracion(ctx, datos) {
     const eq = datos.arsenales[i].equipadas;
     for (let k = 0; k < eq.length; k++) {
       const a = eq[k];
-      LINEAS.push(`   ${a.def.nombre.padEnd(9)} niv ${a.nivel}  ` +
-                  `${a.stats.danyo} dmg · ${a.stats.recarga.toFixed(2)}s`);
+      // El NOMBRE del arma, su nivel y si trae dibujo propio. Lo del dibujo
+      // importa al repasar arte: dice de un vistazo si lo que se está viendo
+      // es un sprite o el trazo por código, que es justo la pregunta que se
+      // hace uno cuando algo "parece igual que antes".
+      const d = a.def;
+      const conDibujo = !!(d.sprite || d.spriteTajo || d.spriteOnda ||
+                           d.spriteOrbital || d.spriteProyectil);
+      LINEAS.push(`   ${a.def.nombre.padEnd(20)} niv ${a.nivel}  ` +
+                  `${a.stats.danyo} dmg · ${a.stats.recarga.toFixed(2)}s` +
+                  (conDibujo ? ' · dibujo' : ' · trazo'));
+    }
+    // Solo en el jugador 1, que es el que cicla, y solo si se ha usado.
+    if (i === 0 && datos.cicloArma >= 0) {
+      LINEAS.push(`   catalogo ${datos.cicloArma + 1}/${datos.cicloTotal} (M / , para cambiar)`);
     }
   }
 

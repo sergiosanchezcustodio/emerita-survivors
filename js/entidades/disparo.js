@@ -1,6 +1,7 @@
 import { Pool } from '../core/pool.js';
 import { Recursos } from '../core/recursos.js';
 import { Particulas, COLOR_CHISPA } from '../sistemas/particulas.js';
+import { VFX } from '../sistemas/vfx.js';
 import { HOJA_ZONAS, huecoDe } from './zonaDanyo.js';
 
 // DISPAROS ENEMIGOS. Los sueltan los enemigos que llevan `ataque` en su ficha
@@ -43,7 +44,17 @@ function crearDisparo() {
     color: '#ffffff', fase: 0,
     // Calcomanía de suelo del charco, cuando la tiene. Misma hoja y mismo
     // resolutor que las zonas del jugador (ver entidades/zonaDanyo.js).
-    sprite: -1
+    sprite: -1,
+    // Hoja propia del charco, si la tiene (id de atlas). Ver `charco`.
+    hoja: null,
+    // Hoja del REVENTÓN: la animación que se suelta al estallar. Es id de
+    // atlas, no índice, porque cada una es su propia tira (ver VFX.reventon).
+    // Sin ella el estallido se queda en las cuatro chispas de siempre.
+    reventon: null,
+    // Radio al que se dibuja ese reventón. Se guarda aparte de `radio` porque
+    // un proyectil que muere al chocar no tiene radio de área: el suyo es un
+    // salpicón pequeño y fijo, no el círculo de daño de un sismo.
+    radioReventon: 0
   };
 }
 
@@ -73,7 +84,13 @@ export class Disparos {
     d.aviso = 0;
     d.sismo = false;
     d.charco = false;           // por si este hueco del pool venía de un charco
+    d.hoja = null;
     d.fase = this._rng() * Math.PI * 2;
+    d.reventon = def.spriteReventon || null;
+    // El salpicón de un proyectil no es su radio de impacto —que son 4-6 px y
+    // no se vería— sino algo mayor: lo que se quiere enseñar es DÓNDE ha caído
+    // el veneno de la medusa, no cuánto medía la bola.
+    d.radioReventon = (def.radio || 4) * 3.2;
     return d;
   }
 
@@ -97,8 +114,11 @@ export class Disparos {
     d.aviso = def.aviso;
     d.sismo = true;
     d.charco = false;           // por si este hueco del pool venía de un charco
+    d.hoja = null;
     d.color = def.color;
     d.fase = 0;
+    d.reventon = def.spriteReventon || null;
+    d.radioReventon = def.radio;   // el sismo revienta exactamente su círculo
     return d;
   }
 
@@ -125,7 +145,22 @@ export class Disparos {
     d.sismo = false;
     d.color = def.color;
     d.fase = 0;
-    d.sprite = def.sprite ? huecoDe(def.sprite) : -1;
+    // Mismo criterio que Zonas.crear: si `sprite` nombra una entrada del atlas
+    // es una HOJA PROPIA —su PNG, con sus fotogramas— y si no, se busca como
+    // celda de la hoja compartida. Los charcos de jefe salen ahora de su hoja
+    // propia generada, igual que los del jugador.
+    if (def.sprite && Recursos.meta(def.sprite)) {
+      d.hoja = def.sprite;
+      d.sprite = 0;
+    } else {
+      d.hoja = null;
+      d.sprite = def.sprite ? huecoDe(def.sprite) : -1;
+    }
+    // Explícito aunque hoy ningún charco reviente: es campo COMPARTIDO del
+    // pool, y lo que no se escribe aquí se hereda del disparo anterior. Es el
+    // mismo cuidado que ya tienen `sismo` y `charco` dos líneas más arriba.
+    d.reventon = def.spriteReventon || null;
+    d.radioReventon = def.radio;
     return d;
   }
 
@@ -143,10 +178,6 @@ export class Disparos {
     const items = this.pool.items;
     const n = this.pool.activos;
     if (n === 0) return;
-    const img = Recursos.imagen(HOJA_ZONAS);
-    const meta = Recursos.meta(HOJA_ZONAS);
-    if (!img || !meta) return;
-
     ctx.save();
     // Base tenue bajo la calcomanía, por el mismo motivo que en zonaDanyo.js:
     // los entrantes de la silueta dejarían ver suelo limpio dentro del aro, y
@@ -168,9 +199,25 @@ export class Disparos {
       // Late con la misma fase que usaba el relleno trazado: el charco de un
       // jefe respira, y esa es la diferencia entre "hay una mancha" y "esa
       // mancha sigue viva".
-      const r = d.radio * (1 + Math.sin(d.fase) * 0.06);
-      ctx.globalAlpha = 0.92;
-      ctx.drawImage(img, d.sprite * meta.w, 0, meta.w, meta.h,
+      // La hoja se resuelve por charco: la suya propia o la compartida.
+      const idHoja = d.hoja || HOJA_ZONAS;
+      const img = Recursos.imagen(idHoja);
+      const meta = Recursos.meta(idHoja);
+      if (!img || !meta) continue;
+
+      // Fotograma del hervor, en bucle y a fps fijos. Mismo criterio que las
+      // zonas del jugador (ver zonaDanyo.dibujarSuelo): el veneno de la Hidra y
+      // el fuego de Cerbero duran distinto y tienen que borbotear igual.
+      let hueco = d.sprite;
+      if (meta.bucle && meta.frames > 1) {
+        hueco = ((d.fase * (meta.fps || 11) / 9) | 0) % meta.frames;
+      }
+
+      const r = d.radio * (1 + Math.sin(d.fase) * 0.06) * (meta.margen || 1);
+      // Translúcido, mismo criterio y mismo número que las zonas del jugador
+      // (ver OPACIDAD_ZONA en entidades/zonaDanyo.js).
+      ctx.globalAlpha = 0.40;
+      ctx.drawImage(img, hueco * meta.w, 0, meta.w, meta.h,
                     x - r, y - r, r * 2, r * 2);
     }
     ctx.restore();
@@ -226,6 +273,15 @@ export class Disparos {
         d.duracion -= dt;
         d.relojTic -= dt;
         if (d.relojTic <= 0) {
+          // EL PRIMER TIC ES EL MOMENTO EN QUE PRENDE, y se marca con su
+          // reventón. `relojTic` arranca en 0 justo para que el primer tic
+          // entre ya, así que este es el instante exacto en que el aviso deja
+          // de ser aviso — que es lo que hay que enseñar. Después no se repite
+          // porque el reventón se consume aquí mismo.
+          if (d.reventon) {
+            VFX.reventon(d.x, d.y, d.radio, d.reventon, 0.3, this._rng);
+            d.reventon = null;
+          }
           d.relojTic = d.intervalo;
           for (let i = 0; i < jugadores.length; i++) {
             const j = jugadores[i];
@@ -393,7 +449,18 @@ export class Disparos {
     }
   }
 
+  // LO QUE SE VE CUANDO ESTALLA.
+  //
+  // Antes eran cuatro chispas y ya. Para un proyectil da igual, pero para el
+  // sismo del cíclope era un fallo de bulto: telegrafía casi un segundo con un
+  // círculo que se va llenando —lo único que da tiempo a apartarse— y luego el
+  // golpe no se veía. La mitad que dice "ha llegado" no existía.
+  //
+  // Las chispas se quedan, y no como redundancia: pasan por el racionamiento de
+  // Particulas y desaparecen con la pantalla llena, mientras que el reventón no.
   _reventar(d) {
+    VFX.reventon(d.x, d.y, d.radioReventon || d.radio, d.reventon,
+                 d.sismo ? 0.42 : 0.28, this._rng);
     if (Particulas.saturado()) return;
     Particulas.estallido(d.x, d.y, 4, 60, 0.25, 1.5, COLOR_CHISPA, 0.8, this._rng);
   }

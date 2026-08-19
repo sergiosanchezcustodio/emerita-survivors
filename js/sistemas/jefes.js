@@ -50,7 +50,11 @@ const MARCAS_HIDRA = [JEFES.hidra.furia.umbral];      // [0.5]: donde se enfurec
 // Def del charco, reutilizada en cada disparo. Igual que `punto` en
 // sistemas/director.js: esto se llama varias veces por asalto de fuego y
 // crear un literal por llamada sería asignar en caliente durante la partida.
-const defCharco = { danyo: 0, radio: 0, aviso: 0, duracion: 0, intervalo: 0, color: '', sprite: null };
+// Descriptor COMPARTIDO, como el resto de este archivo: se rellena entero en
+// cada uso. `spriteReventon` es la animación que se suelta cuando el charco
+// PRENDE, o sea al acabar su aviso — el charco en sí persiste y no revienta,
+// pero el momento en que cae sí es un golpe y hasta ahora no se veía.
+const defCharco = { danyo: 0, radio: 0, aviso: 0, duracion: 0, intervalo: 0, color: '', sprite: null, spriteReventon: null };
 
 // --- Cerbero ------------------------------------------------------------
 
@@ -84,6 +88,8 @@ function actualizarFuego(dt, e, objetivo, disparos, rng) {
   defCharco.duracion = cfg.duracionCharco;
   defCharco.intervalo = cfg.intervaloCharco;
   defCharco.color = cfg.color;
+  defCharco.spriteReventon = 'reventonLlama';
+  defCharco.sprite = cfg.sprite || null;
 
   const cx = Math.cos(base), cy = Math.sin(base);
   for (let p = 0; p < cfg.pasos; p++) {
@@ -231,6 +237,7 @@ function actualizarVeneno(dt, e, objetivo, disparos, rng) {
   defCharco.duracion = cfg.duracionCharco;
   defCharco.intervalo = cfg.intervaloCharco;
   defCharco.color = cfg.color;
+  defCharco.spriteReventon = 'reventonVeneno';
   defCharco.sprite = cfg.sprite || null;
 
   const cx = Math.cos(base), cy = Math.sin(base);

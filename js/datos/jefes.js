@@ -35,7 +35,8 @@ export const JEFES = {
       angulos: [-0.34, 0, 0.34],   // rad, alterna una cabeza distinta por disparo
       pasos: 3, paso: 20,          // charcos por cono y separación entre ellos
       radioCharco: 15, duracionCharco: 3, danyoCharco: 6, intervaloCharco: 0.5,
-      color: '#ff7a2a'
+      color: '#ff7a2a',
+      sprite: 'charcoLava'
     },
 
     embestida: {
@@ -87,7 +88,8 @@ export const JEFES = {
       angulos: [-0.3, 0.3],         // dos cabezas, no tres como Cerbero
       pasos: 3, paso: 22,
       radioCharco: 18, duracionCharco: 2.6, danyoCharco: 6, intervaloCharco: 0.6,
-      color: '#6fbf4a'
+      color: '#6fbf4a',
+      sprite: 'charcoPonzona'
     },
     furia: {
       umbral: 0.5,                 // se dispara UNA vez, al cruzar el 50% de vida

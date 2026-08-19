@@ -370,7 +370,7 @@ function estallar(p) {
     x: p.x, y: p.y,
     radio: p.radioExplosion, radioIni: p.radioExplosion * 0.15,
     duracion: 0.32, danyo: p.danyoExplosion, empuje: p.empuje * 1.6,
-    modo: 'onda', color: p.color, relleno: 0.3
+    modo: 'onda', color: p.color, relleno: 0.3, sprite: p.spriteOnda
   });
 }
 
@@ -1371,7 +1371,7 @@ function actualizar(dt) {
   Mascotas.actualizar(dt, jugadores, ctxArmas);
   for (let i = 0; i < jugadores.length; i++) clamparXNivel(jugadores[i]);
   enemigos.mover(dt, jugadores, camara);
-  proyectiles.mover(dt, estallar);
+  proyectiles.mover(dt, estallar, camara);
 
   // Orden deliberado: primero se recicla (el pool intercambia posiciones y
   // dejaría los índices de la rejilla apuntando a otras entidades), y solo
@@ -1575,21 +1575,45 @@ let indiceCatalogo = -1;
 const AVISO_ARMA = { texto: '', restante: 0 };
 const DURACION_AVISO_ARMA = 2.2;
 
+// ORDEN ALFABÉTICO POR NOMBRE, y no el del catálogo.
+//
+// `Object.keys(ARMAS)` da el orden de declaración, que agrupa por familias y
+// va bien para leer el archivo pero fatal para recorrerlas a mano: no hay
+// forma de saber si ya has pasado por la Guadaña ni de volver a un arma
+// concreta. Alfabético por el nombre VISIBLE —no por el identificador— porque
+// es lo que se lee en pantalla, y con `localeCompare` en español para que la
+// Ñ y los acentos caigan donde un humano los busca.
+//
+// Se ordena UNA vez al cargar el módulo: el catálogo no cambia en partida.
+const ORDEN_CATALOGO = Object.keys(ARMAS)
+  .sort((a, b) => ARMAS[a].nombre.localeCompare(ARMAS[b].nombre, 'es'));
+
+// ¿Trae dibujo propio o se dibuja por código? Es lo que más se consulta cuando
+// se está repasando el arte, así que sale en el aviso y en el panel de F3.
+//
+// `spriteOnda` estaba SIN mirar y son diez armas —las seis explosivas y las
+// cuatro de onda expansiva—: salían marcadas como si no tuvieran dibujo justo
+// cuando se estaba comprobando su dibujo.
+export function armaTieneDibujo(def) {
+  return !!(def.sprite || def.spriteTajo || def.spriteOnda ||
+            def.spriteOrbital || def.spriteProyectil);
+}
+
 function cicladorArmas(haciaAtras) {
-  const ids = Object.keys(ARMAS);
+  const ids = ORDEN_CATALOGO;
   indiceCatalogo = (indiceCatalogo + (haciaAtras ? -1 : 1) + ids.length) % ids.length;
   const id = ids[indiceCatalogo];
   const a = arsenales[0];
+  // Se queda SOLO con la nueva, y a nivel 1: `equipar` siempre crea en 1, así
+  // que un arma que estuviera al 8 vuelve a su forma base. Es lo que hace que
+  // dos armas se puedan comparar entre sí.
   a.equipadas.length = 0;
   a.vaciar();
   a.equipar(id);
 
-  // Cuál de las 57 es, cómo se llama, y si trae dibujo propio o se dibuja por
-  // código. Lo último es lo que más se consulta cuando se está repasando arte.
   const def = ARMAS[id];
-  const conDibujo = def.sprite || def.spriteTajo || def.spriteOrbital || def.spriteProyectil;
   AVISO_ARMA.texto = `${indiceCatalogo + 1}/${ids.length}  ${def.nombre}` +
-                     (conDibujo ? '  [dibujo]' : '');
+                     (armaTieneDibujo(def) ? '  [dibujo]' : '');
   AVISO_ARMA.restante = DURACION_AVISO_ARMA;
 }
 
@@ -1747,13 +1771,27 @@ function dibujar(alpha) {
     for (let i = 0; i < arsenales.length; i++) {
       arsenales[i].dibujarTajos(ctx);
       arsenales[i].dibujarRayos(ctx);
+    }
+  }
+  // LAS MASCOTAS, EN DOS MITADES, CON LOS ORBITALES EN MEDIO.
+  //
+  // Primero las que pisan el suelo. Un disco de sierra o un escudo giran a la
+  // altura del pecho del jugador y la mascota se los comía: un orbital que
+  // desaparece detrás del perro deja de decir dónde estás protegido.
+  Mascotas.dibujar(ctx, jugadores, false);
+  if (activo.efectos) {
+    for (let i = 0; i < arsenales.length; i++) {
       arsenales[i].dibujarOrbitales(ctx, jugadores[i]);
     }
   }
+  // Y luego las voladoras, que quedan por encima de los orbitales: el búho y el
+  // pollito fantasma vuelan más alto que un escudo. Manda la altura, no el
+  // sistema al que pertenece cada cosa.
+  Mascotas.dibujar(ctx, jugadores, true);
+
   // Los disparos enemigos, por encima de todo lo del mundo: uno que viene tiene
   // que verse aunque cruce por detrás de un cíclope.
   disparos.dibujar(ctx, alpha);
-  Mascotas.dibujar(ctx, jugadores);
   // Los avisos de disparo van DESPUÉS de la horda: son de los pocos adornos que
   // tienen que verse por encima de los cuerpos, porque avisan de algo que va a
   // pasar y llegar tarde a verlos es no verlos.
@@ -1762,6 +1800,11 @@ function dibujar(alpha) {
   // Las marcas de golpe van DESPUÉS de las partículas y con ellas en el lienzo
   // del mundo: son lo último del impacto y tienen que quedar por encima.
   if (activo.efectos) VFX.dibujarImpactos(ctx);
+  // Los reventones de los ataques enemigos, por encima de la horda. Es el mismo
+  // criterio que los avisos de disparo de un par de líneas más arriba: el aviso
+  // dice que viene y el reventón dice que ha llegado, y las dos mitades del
+  // mismo mensaje tienen que leerse aunque estés rodeado.
+  if (activo.efectos) VFX.dibujarReventones(ctx);
   // Y los anillos de recompensa los últimos del mundo: subir de nivel o curarse
   // tapa por un instante lo que haya debajo, y eso es lo que se quiere.
   if (activo.efectos) VFX.dibujarAnillos(ctx);
@@ -1814,6 +1857,9 @@ function dibujar(alpha) {
       numeros: VFX.numerosActivos,
       jugadores,
       arsenales,
+      // Por dónde va el ciclador de armas (teclas M y coma). -1 = sin usar.
+      cicloArma: indiceCatalogo,
+      cicloTotal: ORDEN_CATALOGO.length,
       perfil,
       activo,
       celdas: enemigos.rejilla.numCeldas,

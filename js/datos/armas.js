@@ -51,7 +51,9 @@ export const ARMAS = {
     nombre: 'Gladius',
     descripcion: 'Arco de corte en la dirección de avance.',
     comportamiento: 'arcoMelee',
-    danyo: 12,
+    spriteTajo: 'tajoGladius',
+    duracionTajo: 0.24,
+    danyo: 20,
     recarga: 1.0,
     alcance: 46,
     angulo: 90,              // apertura total del arco
@@ -60,18 +62,9 @@ export const ARMAS = {
     empuje: 150,
     color: '#dfe6ef',
     evolucion: { pasivo: 'lorica', arma: 'gladiusHispaniensis' },
-    niveles: [
-      {},
-      { danyo: 4 },
-      { angulo: 20, alcance: 6 },
-      { danyo: 6 },
-      { golpes: 1 },
-      { angulo: 25, alcance: 8 },
-      { danyo: 9 },
-      { danyo: 12, alcance: 10 },
-      { danyo: 6 },
-      { danyo: 9, recarga: -0.15 }
-    ]
+    niveles: [{}, { danyo: 8 }, { angulo: 20, alcance: 6 }, { danyo: 11 },
+      { golpes: 1, danyo: 10 }, { angulo: 25, alcance: 8 }, { danyo: 16 },
+      { danyo: 20, alcance: 10 }, { danyo: 11 }, { danyo: 16, recarga: -0.15 }]
   },
 
   pistola: {
@@ -181,9 +174,9 @@ export const ARMAS = {
     danyo: 6, recarga: 0.45, proyectiles: 2, velocidad: 200, alcance: 150,
     radio: 3, perforacion: 0, empuje: 40,
     color: '#ffcf8a', estela: '#8a5a2a', largoTrazo: 6,
-    niveles: [{}, { proyectiles: 1 }, { danyo: 2 }, { recarga: -0.08 },
-              { proyectiles: 1 }, { danyo: 3 }, { alcance: 50 }, { proyectiles: 2 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { proyectiles: 1 }, { danyo: 2, proyectiles: 1 }, { recarga: -0.08, proyectiles: 1 },
+              { proyectiles: 1 }, { danyo: 3, proyectiles: 1 }, { alcance: 50, proyectiles: 1 },
+              { proyectiles: 2 }, { danyo: 6, proyectiles: 1 }, { danyo: 9, recarga: -0.15, proyectiles: 1 }]
   },
 
   // --- Explosivos: mucha área, poco daño directo ------------------------
@@ -191,6 +184,7 @@ export const ARMAS = {
     nombre: 'Lanzagranadas',
     descripcion: 'Sale disparada y revienta al tocar. Área amplia.',
     comportamiento: 'proyectilExplosivo',
+    spriteOnda: 'explosionFuego',
     danyo: 4, danyoExplosion: 22, radioExplosion: 27,
     recarga: 2.0, proyectiles: 1, velocidad: 170, alcance: 200,
     radio: 4, perforacion: 0, dispersion: 12, empuje: 150,
@@ -204,6 +198,7 @@ export const ARMAS = {
     nombre: 'Bombardeo',
     descripcion: 'Bombas al azar por toda la pantalla. No hay que apuntar.',
     comportamiento: 'bombardeoAleatorio',
+    spriteOnda: 'explosionFuego',
     danyo: 0, danyoExplosion: 26, radioExplosion: 24, duracion: 0.35,
     recarga: 2.6, proyectiles: 2, empuje: 120,
     color: '#ffb14a',
@@ -218,6 +213,7 @@ export const ARMAS = {
     nombre: 'Onda expansiva',
     descripcion: 'Anillo que se abre desde ti en todas direcciones.',
     comportamiento: 'ondaCircular',
+    spriteOnda: 'ondaChoque',
     danyo: 12, radio: 58, duracion: 0.45, recarga: 2.4, empuje: 200,
     color: '#9adfff',
     niveles: [{}, { radio: 12 }, { danyo: 4, radio: 8 }, { recarga: -0.3 },
@@ -261,6 +257,7 @@ export const ARMAS = {
   // --- Suelo: control de zona -------------------------------------------
   fuegoGriego: {
     nombre: 'Fuego griego',
+    sprite: 'charcoLava',
     descripcion: 'Charco incendiario que quema a quien lo pisa.',
     comportamiento: 'zonaPersistente',
     danyo: 4, intervalo: 0.35, recarga: 3.4, charcos: 1, duracion: 4.5, radio: 19,
@@ -275,6 +272,7 @@ export const ARMAS = {
   },
   rete: {
     nombre: 'Rete',
+    sprite: 'charcoZarza',
     descripcion: 'Red que frena a la mitad. Control, no matanza.',
     comportamiento: 'zonaPersistente',
     danyo: 3, intervalo: 0.5, recarga: 3.0, charcos: 1, duracion: 3.5, radio: 25,
@@ -348,6 +346,7 @@ export const ARMAS = {
   },
   tribulus: {
     nombre: 'Tribulus',
+    sprite: 'charcoAcero',
     descripcion: 'Abrojos que quedan clavados donde pisas.',
     comportamiento: 'zonaPersistente',
     danyo: 6, intervalo: 0.45, recarga: 2.8, charcos: 3, duracion: 5, radio: 10,
@@ -396,26 +395,34 @@ export const ARMAS = {
     nombre: 'Honda balear',
     descripcion: 'Piedra lenta que descalabra y tira de espaldas.',
     comportamiento: 'proyectilDirigido',
+    // La piedra salta de un enemigo al siguiente: uno más al nivel 3, dos al 6
+    // y tres al 10. Rebotar no es perforar — cambia de rumbo hacia otro blanco,
+    // así que premia el bulto y no el alineamiento.
+    rebotesEnemigo: 0,
     forma: 'bala',
-    danyo: 17, recarga: 1.5, proyectiles: 1, velocidad: 190, alcance: 250,
+    danyo: 26, recarga: 1.0, proyectiles: 1, velocidad: 190, alcance: 250,
     radio: 5, perforacion: 0, dispersion: 8, empuje: 280,
     color: '#b9b2a4', estela: '#5d5850', largoTrazo: 6,
-    niveles: [{}, { danyo: 6 }, { empuje: 60 }, { proyectiles: 1 },
-              { danyo: 8 }, { recarga: -0.25 }, { empuje: 80 }, { danyo: 12 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { danyo: 9 }, { empuje: 60, rebotesEnemigo: 1 }, { proyectiles: 1, danyo: 8 },
+              { danyo: 11 }, { recarga: -0.2, rebotesEnemigo: 1 }, { empuje: 80, proyectiles: 1 },
+              { danyo: 16 }, { danyo: 10, proyectiles: 1 },
+              { danyo: 14, recarga: -0.15, rebotesEnemigo: 1 }]
   },
   fusil: {
     nombre: 'Fusil',
     descripcion: 'Disparo largo y perforante. Pega donde mira.',
     comportamiento: 'proyectilDirigido',
+    // Rebota en los márgenes de la pantalla: gana un rebote al nivel 3 y otro
+    // al 10. Ver `rebotesPared` en entidades/proyectil.js.
+    rebotesPared: 0,
     forma: 'bala',
-    danyo: 19, recarga: 1.45, proyectiles: 1, velocidad: 560, alcance: 440,
+    danyo: 38, recarga: 1.35, proyectiles: 1, velocidad: 560, alcance: 440,
     radio: 3, perforacion: 1, dispersion: 3, empuje: 100,
     color: '#cfd6dd', estela: '#6d7480', largoTrazo: 14,
     spriteProyectil: 'balaPistola',
-    niveles: [{}, { danyo: 6 }, { perforacion: 1 }, { recarga: -0.2 },
-              { danyo: 8 }, { perforacion: 1 }, { velocidad: 80 }, { danyo: 13, recarga: -0.2 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { danyo: 18 }, { perforacion: 1, danyo: 14, rebotesPared: 1 }, { recarga: -0.2, danyo: 16 },
+              { danyo: 24 }, { perforacion: 1, danyo: 20 }, { velocidad: 80, danyo: 22 },
+              { danyo: 32, recarga: -0.2 }, { danyo: 24 }, { danyo: 32, recarga: -0.15, rebotesPared: 1 }]
   },
   subfusil: {
     nombre: 'Subfusil',
@@ -449,53 +456,65 @@ export const ARMAS = {
   // no son un castigo: el arco corta a varios a la vez y el empuje abre hueco.
   hacha: {
     nombre: 'Hacha',
+    spriteTajo: 'tajoHacha',
+    duracionTajo: 0.26,
     descripcion: 'Tajo corto y brutal. Poco alcance, mucho destrozo.',
     comportamiento: 'arcoMelee',
-    danyo: 24, recarga: 1.35, alcance: 42, angulo: 70, golpes: 1, demoraGolpe: 0.1,
+    danyo: 40, recarga: 1.35, alcance: 42, angulo: 70, golpes: 1, demoraGolpe: 0.1,
     empuje: 200, color: '#e0d2c0',
-    niveles: [{}, { danyo: 8 }, { angulo: 15 }, { danyo: 10 },
-              { golpes: 1 }, { alcance: 8 }, { danyo: 13 }, { danyo: 16, recarga: -0.2 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { danyo: 14 }, { angulo: 15 }, { danyo: 18 }, { golpes: 1, danyo: 14 },
+              { alcance: 8, danyo: 12 }, { danyo: 22 }, { danyo: 28, recarga: -0.2 },
+              { danyo: 12 }, { danyo: 16, recarga: -0.15 }]
   },
   maza: {
     nombre: 'Maza',
+    spriteTajo: 'tajoMaza',
+    duracionTajo: 0.28,
     descripcion: 'Lenta y demoledora. Los manda por los aires.',
     comportamiento: 'arcoMelee',
-    danyo: 34, recarga: 1.9, alcance: 40, angulo: 60, golpes: 1, demoraGolpe: 0.1,
+    danyo: 60, recarga: 1.8, alcance: 40, angulo: 60, golpes: 1, demoraGolpe: 0.1,
     empuje: 340, color: '#c2b8a8',
-    niveles: [{}, { danyo: 11 }, { empuje: 70 }, { angulo: 18 },
-              { danyo: 14 }, { recarga: -0.3 }, { empuje: 90 }, { danyo: 20 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { danyo: 20 }, { empuje: 70, danyo: 14 }, { angulo: 18, danyo: 16 },
+              { danyo: 26 }, { recarga: -0.3, danyo: 18 }, { empuje: 90, danyo: 20 },
+              { danyo: 34, recarga: -0.25 }, { danyo: 18 }, { danyo: 24, recarga: -0.15 }]
   },
   latigo: {
     nombre: 'Látigo',
+    spriteTajo: 'tajoLatigo',
+    duracionTajo: 0.22,
     descripcion: 'Restallido largo y estrecho, casi sin pausa.',
     comportamiento: 'arcoMelee',
-    danyo: 10, recarga: 0.65, alcance: 74, angulo: 38, golpes: 1, demoraGolpe: 0.08,
+    danyo: 17, recarga: 0.65, alcance: 74, angulo: 38, golpes: 1, demoraGolpe: 0.08,
     empuje: 110, color: '#d8b48a',
-    niveles: [{}, { danyo: 3 }, { alcance: 10 }, { recarga: -0.08 },
-              { golpes: 1 }, { danyo: 5 }, { angulo: 14 }, { danyo: 8, alcance: 12 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { danyo: 6, angulo: 15 }, { alcance: 10, danyo: 5, angulo: 16 },
+              { recarga: -0.08, danyo: 7, angulo: 17 }, { golpes: 1, danyo: 6, angulo: 17 },
+              { danyo: 9, angulo: 17 }, { angulo: 17, danyo: 8 },
+              { danyo: 14, alcance: 12, angulo: 18 }, { danyo: 10, angulo: 18 },
+              { danyo: 14, recarga: -0.15, angulo: 17 }]
   },
   motosierra: {
     nombre: 'Motosierra',
+    spriteTajo: 'tajoMotosierra',
+    duracionTajo: 0.2,
     descripcion: 'No corta: muele. Pégate y no sueltes.',
     comportamiento: 'arcoMelee',
-    danyo: 4, recarga: 0.16, alcance: 32, angulo: 55, golpes: 1, demoraGolpe: 0.06,
+    danyo: 9, recarga: 0.16, alcance: 32, angulo: 55, golpes: 1, demoraGolpe: 0.06,
     empuje: 20, color: '#ff8a6b',
-    niveles: [{}, { danyo: 1 }, { angulo: 12 }, { danyo: 2 },
-              { alcance: 6 }, { danyo: 2 }, { recarga: -0.03 }, { danyo: 3, angulo: 15 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { danyo: 6 }, { angulo: 12, danyo: 7 }, { danyo: 8 }, { alcance: 6, danyo: 9 },
+              { danyo: 9 }, { recarga: -0.03, danyo: 10 }, { danyo: 11, angulo: 15 },
+              { danyo: 10 }, { danyo: 11, recarga: -0.02 }]
   },
   guadanya: {
     nombre: 'Guadaña',
+    spriteTajo: 'tajoGuadanya',
+    duracionTajo: 0.3,
     descripcion: 'Siega en semicírculo. Ancha antes que fuerte.',
     comportamiento: 'arcoMelee',
-    danyo: 16, recarga: 1.25, alcance: 54, angulo: 145, golpes: 1, demoraGolpe: 0.1,
+    danyo: 28, recarga: 1.25, alcance: 54, angulo: 145, golpes: 1, demoraGolpe: 0.1,
     empuje: 120, color: '#cfe0d0',
-    niveles: [{}, { danyo: 5 }, { angulo: 25 }, { alcance: 8 },
-              { danyo: 7 }, { golpes: 1 }, { angulo: 30 }, { danyo: 11, alcance: 10 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { danyo: 10 }, { angulo: 25, danyo: 8 }, { alcance: 8, danyo: 10 },
+              { danyo: 15 }, { golpes: 1, danyo: 12 }, { angulo: 30, danyo: 14 },
+              { danyo: 22, alcance: 10 }, { danyo: 12 }, { danyo: 18, recarga: -0.2 }]
   },
 
   // --- Conos: sucios, cortos y contundentes -------------------------------
@@ -503,12 +522,12 @@ export const ARMAS = {
     nombre: 'Lanzallamas',
     descripcion: 'Lengua de fuego continua. Corto y sin descanso.',
     comportamiento: 'conoCorto',
-    danyo: 3, recarga: 0.26, proyectiles: 5, velocidad: 150, alcance: 78, angulo: 42,
+    danyo: 2, recarga: 0.26, proyectiles: 5, velocidad: 150, alcance: 78, angulo: 42,
     radio: 5, perforacion: 2, empuje: 15,
     color: '#ff9a3a', estela: '#a03a10',
     niveles: [{}, { proyectiles: 2 }, { danyo: 1 }, { alcance: 14 },
-              { proyectiles: 2 }, { danyo: 2 }, { angulo: 10 }, { proyectiles: 3, danyo: 2 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+              { proyectiles: 2 }, { danyo: 1 }, { angulo: 10 }, { proyectiles: 3, danyo: 1 },
+              { danyo: 3 }, { danyo: 5, recarga: -0.15 }]
   },
   recortada: {
     nombre: 'Recortada',
@@ -586,6 +605,7 @@ export const ARMAS = {
     nombre: 'Cóctel molotov',
     descripcion: 'Botella que revienta en llamas. Poco alcance.',
     comportamiento: 'proyectilExplosivo',
+    spriteOnda: 'explosionMolotov',
     danyo: 2, danyoExplosion: 18, radioExplosion: 48,
     recarga: 1.8, proyectiles: 1, velocidad: 150, alcance: 150,
     radio: 4, perforacion: 0, dispersion: 16, empuje: 110,
@@ -599,24 +619,26 @@ export const ARMAS = {
     nombre: 'Lanzacohetes',
     descripcion: 'Un cohete cada mucho. Se lleva media pantalla.',
     comportamiento: 'proyectilExplosivo',
+    spriteOnda: 'explosionCohete',
     // CADENCIA A LA MITAD (3.4 -> 6.8 de recarga). Disparaba casi tan a menudo
     // como el lanzagranadas llevándose media pantalla por disparo, así que no
     // había ningún motivo para llevar otra cosa. Ahora es lo que dice su nombre:
     // un cohete cada mucho, y hay que elegir el momento. El área también baja,
     // como en el resto de la familia.
     danyo: 6, danyoExplosion: 46, radioExplosion: 44,
-    recarga: 6.8, proyectiles: 1, velocidad: 210, alcance: 300,
+    recarga: 3.4, proyectiles: 1, velocidad: 210, alcance: 300,
     radio: 5, perforacion: 0, dispersion: 0, empuje: 260,
     color: '#ff7a5a', estela: '#8a2a10', largoTrazo: 12,
-    niveles: [{}, { danyoExplosion: 14 }, { radioExplosion: 8 }, { recarga: -0.6 },
+    niveles: [{}, { danyoExplosion: 14 }, { radioExplosion: 8 }, { recarga: -0.3 },
               { danyoExplosion: 16 }, { radioExplosion: 9 }, { proyectiles: 1 },
-              { danyoExplosion: 22, recarga: -0.6 },
-              { danyoExplosion: 6 }, { danyoExplosion: 9, recarga: -0.4 }]
+              { danyoExplosion: 22, recarga: -0.3 },
+              { danyoExplosion: 6 }, { danyoExplosion: 9, recarga: -0.2 }]
   },
   artilleria: {
     nombre: 'Artillería',
     descripcion: 'Obuses pesados que caen lejos y solos.',
     comportamiento: 'bombardeoAleatorio',
+    spriteOnda: 'explosionFuego',
     danyo: 0, danyoExplosion: 40, radioExplosion: 54, duracion: 0.4,
     recarga: 3.2, proyectiles: 1, empuje: 200,
     color: '#ffa06a',
@@ -643,6 +665,7 @@ export const ARMAS = {
     nombre: 'Grito de guerra',
     descripcion: 'Empujón sonoro. Aparta más de lo que mata.',
     comportamiento: 'ondaCircular',
+    spriteOnda: 'ondaGrito',
     danyo: 7, radio: 74, duracion: 0.35, recarga: 1.5, empuje: 380,
     color: '#ffd8a0',
     niveles: [{}, { radio: 10 }, { empuje: 70 }, { danyo: 3 },
@@ -653,6 +676,7 @@ export const ARMAS = {
     nombre: 'Sismo',
     descripcion: 'La tierra se abre a lo ancho. Tarda, pero llega lejos.',
     comportamiento: 'ondaCircular',
+    spriteOnda: 'reventonTierra',
     danyo: 22, radio: 140, duracion: 0.7, recarga: 4.0, empuje: 150,
     color: '#c0a070',
     niveles: [{}, { radio: 18 }, { danyo: 7 }, { recarga: -0.5 },
@@ -675,16 +699,21 @@ export const ARMAS = {
   },
   minas: {
     nombre: 'Minas',
-    descripcion: 'Cargas pequeñas repartidas. Pisa y paga.',
-    comportamiento: 'zonaPersistente',
-    danyo: 14, intervalo: 0.9, recarga: 3.6, charcos: 2, duracion: 8, radio: 16,
+    sprite: 'minaExplosiva',
+    // Con qué revienta al pisarla.
+    spriteOnda: 'explosionFuego',
+    descripcion: 'Siembra minas. Explotan cuando algo las pisa.',
+    comportamiento: 'minaProximidad',
+    danyo: 70, intervalo: 0.9, recarga: 3.6, charcos: 2, duracion: 8, radio: 16,
     ralentiza: 0, empuje: 180, color: '#ff8a6b',
-    niveles: [{}, { charcos: 1 }, { danyo: 5 }, { duracion: 2 },
-              { charcos: 1 }, { danyo: 6 }, { radio: 5 }, { charcos: 2, danyo: 8 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { charcos: 1 }, { danyo: 25 }, { duracion: 2 },
+              { charcos: 1, danyo: 20 }, { danyo: 30 }, { radio: 5 },
+              { charcos: 2, danyo: 40 }, { danyo: 30 },
+              { danyo: 45, recarga: -0.15 }]
   },
   alquitran: {
     nombre: 'Alquitrán',
+    sprite: 'charcoAlquitran',
     descripcion: 'Casi no duele, pero de ahí no salen.',
     comportamiento: 'zonaPersistente',
     danyo: 2, intervalo: 0.6, recarga: 3.2, charcos: 1, duracion: 6, radio: 46,
@@ -717,9 +746,10 @@ export const ARMAS = {
     comportamiento: 'rayoPerforante', patron: 'horizontal',
     danyo: 16, recarga: 1.4, alcance: 420, grosor: 3, empuje: 40,
     color: '#ff6b8a',
-    niveles: [{}, { danyo: 6 }, { grosor: 2 }, { recarga: -0.2 },
-              { danyo: 8 }, { alcance: 70 }, { grosor: 2 }, { danyo: 12, recarga: -0.2 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { danyo: 6, grosor: 1 }, { grosor: 1 }, { recarga: -0.2, grosor: 1 },
+              { danyo: 8, grosor: 1 }, { alcance: 70, grosor: 1 }, { grosor: 1 },
+              { danyo: 12, recarga: -0.2, grosor: 1 }, { danyo: 6, grosor: 1 },
+              { danyo: 9, recarga: -0.15, grosor: 1 }]
   },
   aspaDeLuz: {
     nombre: 'Aspa de luz',
@@ -776,7 +806,7 @@ export const ARMAS = {
     nombre: 'Katana',
     descripcion: 'Barrido de 360° a tu alrededor. Hay que estar dentro.',
     comportamiento: 'arcoMelee',
-    danyo: 15,
+    danyo: 24,
     recarga: 1.35,
     alcance: 38,
     angulo: 360,
@@ -797,11 +827,9 @@ export const ARMAS = {
     // trazado, que es un destello; repartidos entre los seis fotogramas de la
     // hoja salían a 27 ms cada uno y la animación pasaba sin verse.
     duracionTajo: 0.34,
-    niveles: [
-      {}, { danyo: 5 }, { alcance: 5 }, { danyo: 7 },
-      { golpes: 1 }, { alcance: 6, danyo: 6 }, { recarga: -0.2 }, { danyo: 12, alcance: 6 },
-      { danyo: 6 }, { danyo: 9, recarga: -0.15 }
-    ]
+    niveles: [{}, { danyo: 8 }, { alcance: 5, danyo: 6 }, { danyo: 11 }, { golpes: 1, danyo: 8 },
+              { alcance: 6, danyo: 10 }, { recarga: -0.2, danyo: 8 },
+              { danyo: 18, alcance: 6 }, { danyo: 10 }, { danyo: 14, recarga: -0.15 }]
   },
 
   // --- Orbital intermitente ----------------------------------------------
@@ -846,6 +874,7 @@ export const ARMAS = {
     nombre: 'Pilum de Júpiter',
     descripcion: 'La jabalina revienta en rayo al clavarse.',
     comportamiento: 'proyectilExplosivo',
+    spriteOnda: 'explosionJupiter',
     esEvolucion: true,
     danyo: 26, danyoExplosion: 40, radioExplosion: 46,
     recarga: 0.85, proyectiles: 3, velocidad: 300, alcance: 340,
@@ -858,6 +887,7 @@ export const ARMAS = {
     nombre: 'Gladius Hispaniensis',
     descripcion: 'Corte de 360° que barre y empuja.',
     comportamiento: 'ondaCircular',
+    spriteOnda: 'ondaChoque',
     esEvolucion: true,
     danyo: 62, radio: 108, duracion: 0.34, recarga: 1.15, empuje: 320,
     color: '#ffffff'
@@ -874,6 +904,7 @@ export const ARMAS = {
   },
   incendioEmerita: {
     nombre: 'Incendio de Emerita',
+    sprite: 'charcoLava',
     descripcion: 'El fuego cubre el suelo y no se apaga.',
     comportamiento: 'zonaPersistente',
     esEvolucion: true,
@@ -887,7 +918,14 @@ export const ARMAS = {
     descripcion: 'Disparo continuo que atraviesa la fila entera.',
     comportamiento: 'direccionFija', patron: 'horizontal',
     esEvolucion: true,
-    danyo: 40, recarga: 0.3, proyectiles: 2, velocidad: 460, alcance: 620,
+    // DAÑO DIVIDIDO ENTRE TRES (40 -> 13). Arrasaba desde el momento en que se
+    // conseguía. El número single-target no contaba la mitad del problema:
+    // `perforacion: 999` sobre un alcance de 620 significa que cada disparo
+    // cruza la pantalla entera atravesando TODO, así que su daño real es el de
+    // aquí multiplicado por cuánta gente haya en la línea — en una horda, por
+    // decenas. Medido, era la evolución más fuerte del juego a igualdad de
+    // blanco (266 de dps contra 54 del Gladius Hispaniensis).
+    danyo: 13, recarga: 0.3, proyectiles: 2, velocidad: 460, alcance: 620,
     radio: 6, perforacion: 999, dispersion: 4, empuje: 240,
     color: '#fff4d8', estela: '#c08a3a', largoTrazo: 18
   }

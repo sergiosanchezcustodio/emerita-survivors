@@ -153,12 +153,27 @@ export const Mascotas = {
   // Si falta el sprite se cae a la silueta de color con la inicial, que es lo
   // que hubo mientras no había arte: una mascota invisible sería peor que un
   // círculo, porque media gracia de llevar a Karim es verlo correr al lado.
-  dibujar(ctx, jugadores) {
+  // SE DIBUJA EN DOS PASADAS, y el motivo es de lectura, no de estética.
+  //
+  // Los orbitales —Scutum, Discos de sierra, Sierras votivas, Testudo— giran
+  // pegados al jugador y ahí es justo donde va la mascota, así que la mascota
+  // los tapaba: un escudo que desaparece detrás del perro deja de decir dónde
+  // estás protegido, que es lo único que un orbital tiene que decir.
+  //
+  // Pasan por ENCIMA de las mascotas que pisan el suelo, porque un disco de
+  // sierra vuela a la altura del pecho y el perro no. Y por DEBAJO de las que
+  // vuelan —el búho y el pollito fantasma, `vuela` en datos/mascotas.js— que
+  // están por encima de todo eso. La altura del sprite manda sobre el orden.
+  //
+  // `soloVuelan`: null dibuja todas (por si alguien quiere una sola pasada),
+  // false solo las de suelo, true solo las voladoras. Ver el orden en main.js.
+  dibujar(ctx, jugadores, soloVuelan = null) {
     ctx.save();
     for (let i = 0; i < jugadores.length && i < MAX; i++) {
       const m = this.activas[i];
       if (!m.viva || !m.def) continue;
       const d = m.def;
+      if (soloVuelan !== null && !!d.vuela !== soloVuelan) continue;
       const idAtlas = m.idAtlas;
       const meta = Recursos.meta(idAtlas);
 

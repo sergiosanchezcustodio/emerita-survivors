@@ -195,7 +195,7 @@ export const ENEMIGOS = {
   //   proyectiles + dispersion   abanico, en grados entre uno y otro
   //   vida        impactos que aguanta antes de romperse
   medusa:     { sprite:'medusa',     rol:'distancia', xp:8, vida:160,   velocidad:8,  danyo:7,  radio:7.6,  masa:3.5,  vuela:false, inmuneEmpuje:false, movimiento:'acecho',
-                ataque: { danyo:12, cadencia:2.8, alcance:190, velocidad:78, proyectiles:1, dispersion:0, radio:4.5, color:'#9ae86a', vida:1 },
+                ataque: { danyo:12, cadencia:2.8, alcance:190, velocidad:78, proyectiles:1, dispersion:0, radio:4.5, color:'#9ae86a', vida:1, spriteReventon:'reventonVeneno' },
                 // Muere en el mismo verde con el que dispara: lo que le sale del
                 // cuerpo es lo que llevaban sus púas, y eso se lee sin leer nada.
                 restos:'veneno' },
@@ -228,7 +228,7 @@ export const ENEMIGOS = {
   // de castigar dónde estabas a castigar quedarse quieto, que es lo que se le
   // pedía desde el principio.
   ciclope:    { sprite:'ciclope',    rol:'tanque',    xp:45, vida:950,   velocidad:7,  danyo:30, radio:11.8, masa:20.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo',
-                ataque: { tipo:'sismo', danyo:24, cadencia:4.2, alcance:230, aviso:0.85, radio:22.5, azarObjetivo:0.33, color:'#c98a3a' } },
+                ataque: { tipo:'sismo', danyo:24, cadencia:4.2, alcance:230, aviso:0.85, radio:22.5, azarObjetivo:0.33, color:'#c98a3a', spriteReventon:'reventonTierra' } },
   minotauro:  { sprite:'minotauro',  rol:'tanque',    xp:24, vida:520,   velocidad:15, danyo:21, radio:10.9, masa:14.0, vuela:false, inmuneEmpuje:false, movimiento:'acecho'    },
 
   // --- Élite: suelta cofre garantizado ------------------------------------
@@ -236,7 +236,7 @@ export const ENEMIGOS = {
   // plan. Desde lejos y en abanico: es lo que la convierte en un enemigo al que
   // hay que acercarse con cuidado, en vez de un saco de vida al que rodear.
   manticora:  { sprite:'manticora',  rol:'elite',     xp:120, vida:2600,  velocidad:28, danyo:13, radio:15.0, masa:30.0, vuela:true,  inmuneEmpuje:false, movimiento:'orbita',  cofre:true, persistente:true,
-                ataque: { danyo:14, cadencia:2.5, alcance:260, velocidad:105, proyectiles:3, dispersion:16, radio:4, color:'#ffb14a', vida:1 } },
+                ataque: { danyo:14, cadencia:2.5, alcance:260, velocidad:105, proyectiles:3, dispersion:16, radio:4, color:'#ffb14a', vida:1, spriteReventon:'reventonLlama' } },
 
   // Serpiente dorada (sección 11 del plan): la SEGUNDA vía de las evoluciones.
   // Variante de color de la serpiente, así que no cuesta ni un PNG.

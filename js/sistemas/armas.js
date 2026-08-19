@@ -180,9 +180,10 @@ const COMPORTAMIENTOS = {
     if (objetivo) {
       base = Math.atan2(objetivo.y - j.y, objetivo.x - j.x);
     } else {
-      // Sin blanco dispara igual, hacia donde mira: una escopeta a bocajarro no
-      // espera a tener puntería.
-      base = j.mirandoDerecha ? 0 : Math.PI;
+      // Sin blanco dispara igual, hacia donde ENCARA: una escopeta a bocajarro
+      // no espera a tener puntería. Y encara con el rumbo completo, no con la
+      // horizontal: apuntando hacia arriba y parado, disparaba a un lado.
+      base = Math.atan2(j.rumboY, j.rumboX);
     }
 
     const semi = s.angulo * 0.5 * GRADOS;
@@ -303,7 +304,7 @@ const COMPORTAMIENTOS = {
       ctx.zonas.crear({
         x, y, radio, radioIni: radio * 0.15, duracion: s.duracion,
         danyo, empuje: s.empuje, modo: 'onda', color: arma.def.color,
-        relleno: 0.3
+        relleno: 0.3, sprite: arma.def.spriteOnda
       });
     }
     return true;
@@ -319,7 +320,8 @@ const COMPORTAMIENTOS = {
       radio: areaDe(s.radio, j), radioIni: 6,
       duracion: s.duracion,
       danyo: danyoDe(s, j), empuje: s.empuje,
-      modo: 'onda', color: arma.def.color, relleno: 0.08
+      modo: 'onda', color: arma.def.color, relleno: 0.08,
+      sprite: arma.def.spriteOnda
     });
     return true;
   },
@@ -339,6 +341,40 @@ const COMPORTAMIENTOS = {
         empuje: s.empuje, ralentiza: s.ralentiza || 0,
         modo: 'zona', color: arma.def.color, relleno: 0.22,
         sprite: arma.def.sprite, giro: arma.def.giro
+      });
+    }
+    return true;
+  },
+
+  // MINAS. Se siembran en el suelo y esperan; explotan cuando algo las pisa.
+  //
+  // Comportamiento propio y no `zonaPersistente` con otro nombre, porque la
+  // pregunta que le hace al jugador es distinta: un charco castiga a quien se
+  // queda dentro y hay que colocarlo donde va a haber gente; una mina castiga
+  // a quien PASA, así que se siembra por donde vas a huir. Una es un área de
+  // negación y la otra es una trampa.
+  //
+  // Antes eran un charco disfrazado —dañaban por tics a quien estuviera
+  // encima— y no se leían como minas ni hacían lo que promete su nombre.
+  minaProximidad(arma, sis, ctx) {
+    const s = arma.stats;
+    const j = ctx.jugador;
+    for (let i = 0; i < s.charcos; i++) {
+      const a = ctx.rng() * Math.PI * 2;
+      const d = i === 0 ? 0 : 20 + ctx.rng() * 45;
+      ctx.zonas.crear({
+        x: j.x + Math.cos(a) * d, y: j.y + Math.sin(a) * d,
+        // `radio` es el de la EXPLOSIÓN; el gatillo es mucho más chico, para
+        // que haya que pisarla de verdad y no basta con rozarla.
+        radio: areaDe(s.radio, j),
+        radioGatillo: areaDe(s.radio, j) * 0.38,
+        duracion: s.duracion,
+        danyo: danyoDe(s, j),
+        empuje: s.empuje,
+        modo: 'mina', color: arma.def.color,
+        sprite: arma.def.sprite,
+        // Con qué se dibuja el reventón cuando la pisen.
+        spriteOnda: arma.def.spriteOnda
       });
     }
     return true;
@@ -525,6 +561,14 @@ export class Armas {
     d.radioExplosion = 0;
     d.danyoExplosion = 0;
     d.estallaAlExpirar = false;
+    // Hoja de la explosión, si el arma la declara. Viaja con el proyectil
+    // porque quien crea la onda es main.js al estallar, y allí ya no hay arma:
+    // solo el proyectil. Mismo camino que `spriteProyectil`.
+    d.spriteOnda = arma.def.spriteOnda || null;
+    // Rebotes. Salen de las STATS y no de la definición porque crecen con el
+    // nivel: el Fusil gana uno en el 3 y otro en el 10, la Honda hasta tres.
+    d.rebotesPared = s.rebotesPared || 0;
+    d.rebotesEnemigo = s.rebotesEnemigo || 0;
   }
 
   // UN rayo de la tormenta. Va aquí y no dentro del comportamiento porque se
@@ -856,12 +900,17 @@ export class Armas {
   golpear(arma, ctx) {
     const s = arma.stats;
     const j = ctx.jugador;
-    // Dirección: hacia donde se mueve; si está parado, hacia donde mira.
+    // Dirección: hacia donde se mueve; si está parado, hacia donde ENCARA.
+    //
+    // El repliegue era `mirandoDerecha ? 1 : -1`, o sea la horizontal pura, y
+    // eso perdía el eje vertical: yendo hacia arriba y soltando el stick, el
+    // tajo saltaba de golpe a un lado. Ahora cae al `rumbo` del jugador, que es
+    // la última dirección completa y no se borra al parar.
     let ax = j.x - j.xPrev;
     let ay = j.y - j.yPrev;
     if (Math.abs(ax) < 0.0001 && Math.abs(ay) < 0.0001) {
-      ax = j.mirandoDerecha ? 1 : -1;
-      ay = 0;
+      ax = j.rumboX;
+      ay = j.rumboY;
     }
     const ang = Math.atan2(ay, ax);
     const semi = s.angulo * 0.5 * GRADOS;

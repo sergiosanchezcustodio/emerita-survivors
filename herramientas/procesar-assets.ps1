@@ -3514,6 +3514,35 @@ foreach ($p in $DIBUJOS_SUELTOS) {
     }
 }
 
+# ---------------------------------------------------------------------------
+# EFECTOS GENERADOS POR CODIGO
+# ---------------------------------------------------------------------------
+#
+# Las explosiones no salen de resources/: las fabrica herramientas/
+# generar-efectos.ps1 directamente sobre assets/, porque una secuencia de
+# explosion es aritmetica y no hay lamina que recortar (ver efectos-mapa.md,
+# donde el hueco de la explosion quedo medido y sin llenar).
+#
+# Aqui solo se FUNDE su ficha en el atlas. Ni se generan ni se validan desde
+# esta herramienta: cada una declara lo que sabe, y asi retocar una paleta no
+# obliga a repasar los 259 assets. Si la ficha no esta, no pasa nada — el
+# motor cae al circulo trazado de siempre, igual que con cualquier hueco del
+# atlas.
+$fichaEfectos = Join-Path $DESTINO 'efectos\explosiones.json'
+if (Test-Path $fichaEfectos) {
+    $gen = Get-Content $fichaEfectos -Raw | ConvertFrom-Json
+    $n = 0
+    foreach ($prop in $gen.PSObject.Properties) {
+        $e = [ordered]@{}
+        foreach ($c in $prop.Value.PSObject.Properties) { $e[$c.Name] = $c.Value }
+        $atlas[$prop.Name] = $e
+        $n++
+    }
+    "EFECTOS GENERADOS: $n hojas fundidas desde efectos\explosiones.json"
+} else {
+    "EFECTOS GENERADOS: sin ficha (correr herramientas\generar-efectos.ps1)"
+}
+
 $informeAlfa = @()
 foreach ($hoja in $HOJAS_ALFA) {
     $rutaSrc = Join-Path $ORIGEN $hoja.src

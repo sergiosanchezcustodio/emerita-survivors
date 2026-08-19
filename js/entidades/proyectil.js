@@ -20,6 +20,7 @@ function crearProyectil() {
     x: 0, y: 0, xPrev: 0, yPrev: 0,
     vx: 0, vy: 0,
     vida: 0,                 // segundos que le quedan
+    vidaMax: 0,              // con los que nació; se repone al rebotar
     danyo: 0, empuje: 0,
     radio: 0,
     perforacion: 0,          // enemigos que aún puede atravesar
@@ -27,6 +28,19 @@ function crearProyectil() {
     // Al agotarse deja una onda expansiva de este radio. 0 = no estalla.
     radioExplosion: 0, danyoExplosion: 0,
     estallaAlExpirar: false, // las granadas revientan aunque no den a nadie
+    // Id de atlas de la hoja de explosión, para que la onda que deja al
+    // estallar sepa con qué dibujarse. Quien la crea es main.js, y allí ya no
+    // queda arma: solo el proyectil.
+    spriteOnda: null,
+    // REBOTES CONTRA EL BORDE DE LA PANTALLA. Cuántas veces le queda por
+    // rebotar antes de seguir de largo. El Fusil los usa: la bala vuelve del
+    // margen y barre otra vez, que convierte un arma de un solo blanco en una
+    // que castiga los pasillos.
+    rebotesPared: 0,
+    // REBOTES DE ENEMIGO A ENEMIGO. Al gastarse contra uno, en vez de morir
+    // salta al más cercano que no haya tocado ya. Es la Honda: una piedra que
+    // va haciendo cabriolas entre la horda.
+    rebotesEnemigo: 0,
     color: '#fff', estela: null,
     largo: 8,                // longitud del trazo al dibujar
     // Cómo se dibuja: dardo, bala, bola, rayo o el trazo de siempre. Sale del
@@ -46,6 +60,12 @@ function crearProyectil() {
 // lista habría que asignarla, vaciarla y recorrerla, y los índices del pool de
 // enemigos cambian de posición al reciclar.
 let contadorSello = 1;
+
+// Un sello nuevo. Lo necesita el rebote entre enemigos (sistemas/colisiones.js):
+// un proyectil que cambia de rumbo hacia otro blanco es un golpe nuevo y tiene
+// que poder volver a tocar a quien ya tocó. Se exporta el CONTADOR y no se
+// duplica en el otro archivo para que no haya dos series que puedan chocar.
+export function nuevoSello() { return contadorSello++; }
 
 export class Proyectiles {
   constructor(capacidad) {
@@ -75,13 +95,20 @@ export class Proyectiles {
     p.radioExplosion = def.radioExplosion || 0;
     p.danyoExplosion = def.danyoExplosion || 0;
     p.estallaAlExpirar = !!def.estallaAlExpirar;
+    p.spriteOnda = def.spriteOnda || null;
+    p.vidaMax = p.vida;
+    p.rebotesPared = def.rebotesPared || 0;
+    p.rebotesEnemigo = def.rebotesEnemigo || 0;
     p.sello = contadorSello++;
     return p;
   }
 
   // `alEstallar` es una referencia de función, no una closure: la fija main.js
   // una vez. Se llama con el proyectil que acaba de expirar y que debe reventar.
-  mover(dt, alEstallar) {
+  // `camara` solo hace falta para los proyectiles que rebotan; se pasa siempre
+  // porque comprobar `rebotesPared` es una comparación con cero y no compensa
+  // tener dos caminos.
+  mover(dt, alEstallar, camara) {
     const items = this.pool.items;
     let k = 0;
     while (k < this.pool.activos) {
@@ -90,6 +117,37 @@ export class Proyectiles {
       p.yPrev = p.y;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
+
+      // REBOTE CONTRA EL MARGEN VISIBLE, y contra el visible a propósito: el
+      // borde contra el que rebota tiene que ser uno que el jugador VEA, o el
+      // rebote parece que sale de la nada. Por eso se usa la cámara y no los
+      // límites del nivel.
+      //
+      // Se invierte la componente y se recoloca justo dentro del borde: sin
+      // recolocar, un proyectil rápido puede quedarse fuera un paso más y
+      // gastar los dos rebotes contra la misma pared en dos frames seguidos.
+      if (p.rebotesPared > 0 && camara) {
+        const izq = camara.izquierda, der = camara.izquierda + ANCHO_LOGICO;
+        const arr = camara.arriba, aba = camara.arriba + ALTO_LOGICO;
+        let reboto = false;
+        if (p.x < izq && p.vx < 0)      { p.x = izq; p.vx = -p.vx; reboto = true; }
+        else if (p.x > der && p.vx > 0) { p.x = der; p.vx = -p.vx; reboto = true; }
+        else if (p.y < arr && p.vy < 0) { p.y = arr; p.vy = -p.vy; reboto = true; }
+        else if (p.y > aba && p.vy > 0) { p.y = aba; p.vy = -p.vy; reboto = true; }
+        if (reboto) {
+          p.rebotesPared--;
+          // Se le devuelve el alcance. El `vida` de un proyectil es su alcance
+          // partido por su velocidad, o sea la distancia que le queda: sin
+          // reponerlo, la bala llega al margen ya agotada y el rebote se ve
+          // apagarse a los dos palmos en vez de volver.
+          p.vida = p.vidaMax;
+          // Y vuelve a poder golpear a quien ya golpeó: el sello es lo que
+          // impide que un proyectil dañe dos veces al mismo, y una bala que
+          // vuelve del margen es un golpe nuevo.
+          p.sello = contadorSello++;
+        }
+      }
+
       p.vida -= dt;
       if (p.vida <= 0) {
         // Una granada que no acierta a nadie tiene que estallar igual: caer al

@@ -75,7 +75,13 @@ function crearZona() {
     // gira. Lo usan los campos y auras, donde la rotación es lo que los hace
     // parecer vivos sin necesitar fotogramas.
     giro: 0,
-    fase: 0
+    fase: 0,
+    // MINA. `radioGatillo` es lo que hay que pisar para que salte; `radio` es
+    // lo que revienta después, y es bastante mayor. `hojaOnda` es con qué se
+    // dibuja ese reventón: se guarda al sembrarla porque al detonar ya no hay
+    // arma a la que preguntárselo.
+    radioGatillo: 0,
+    hojaOnda: null
   };
 }
 
@@ -118,6 +124,8 @@ export class Zonas {
     }
     z.giro = def.giro || 0;
     z.fase = 0;
+    z.radioGatillo = def.radioGatillo || 0;
+    z.hojaOnda = (def.spriteOnda && Recursos.meta(def.spriteOnda)) ? def.spriteOnda : null;
     z.desvioY = def.desvioY || 0;
     z.sello = contadorSello++;
     return z;
@@ -139,6 +147,16 @@ export class Zonas {
       if (z.giro !== 0) z.fase += z.giro * dt;
 
       const t = 1 - z.vida / z.vidaMax;      // 0 recién nacida, 1 al expirar
+      // MINA ARMADA: no hace nada hasta que algo la pisa. No daña por tics, no
+      // crece, solo mira. En cuanto entra un enemigo en su gatillo, detona.
+      if (z.modo === 'mina') {
+        z.radioActual = z.radioGatillo;
+        if (enemigosEnRadio(enemigos, z.x, z.y, z.radioGatillo, this._alcanzados) > 0) {
+          this._detonar(z);
+        }
+        k++;
+        continue;
+      }
       if (z.modo === 'onda') {
         // El radio crece deprisa al principio y frena al final: es lo que hace
         // que una explosión se sienta como un golpe y no como un globo.
@@ -154,6 +172,24 @@ export class Zonas {
       }
       k++;
     }
+  }
+
+  // La mina se convierte en onda EN SU SITIO. Ni se libera ni se pide otra
+  // zona: mutar el objeto que ya está en el pool evita tocar la lista mientras
+  // se la está recorriendo, que es la clase de cosa que rompe un bucle de
+  // pool, y además no asigna nada. La mina y su explosión son la misma cosa en
+  // dos momentos distintos, así que también es lo que mejor lo describe.
+  _detonar(z) {
+    z.modo = 'onda';
+    z.radioIni = z.radio * 0.15;
+    z.radioActual = z.radioIni;
+    z.vida = z.vidaMax = 0.32;
+    z.relleno = 0.3;
+    z.hoja = z.hojaOnda;      // el dibujo pasa de ser la mina a ser el reventón
+    z.sprite = z.hojaOnda ? 0 : -1;
+    // Sello nuevo: una onda golpea UNA vez a cada enemigo, y el reparto de
+    // sellos es lo que lo garantiza. Sin renovarlo, heredaría el de la mina.
+    z.sello = contadorSello++;
   }
 
   _danyar(z, enemigos, unaVez) {
@@ -254,8 +290,38 @@ export class Zonas {
         // Entra a plena opacidad y solo se apaga en el último cuarto de vida:
         // un charco no se desvanece mientras quema, desaparece cuando se
         // consume. Aparecer ya translúcido lo haría parecer un fantasma.
-        ctx.globalAlpha = t > 0.25 ? 0.92 : (t / 0.25) * 0.92;
-        const r = z.radioActual;
+        // TRANSLÚCIDAS AL 40%. Estaban al 92% y con nueve armas de zona a la vez
+        // la pantalla acababa siendo una mancha: el charco tapaba el terreno,
+        // los cuerpos y los otros charcos. Una zona tiene que decir DÓNDE
+        // quema, no sustituir al suelo.
+        //
+        // El número es EL que hay que tocar si se ven poco: subirlo devuelve la
+        // pantalla manchada, bajarlo hace que un charco de alquitrán sobre
+        // losa oscura desaparezca.
+        const OPACIDAD_ZONA = 0.40;
+        ctx.globalAlpha = (t > 0.25 ? 1 : t / 0.25) * OPACIDAD_ZONA;
+
+        // CHARCO ANIMADO EN BUCLE. Una hoja con `bucle` trae un hervor cíclico
+        // —el fotograma último enlaza con el primero por construcción, ver
+        // Pirotecnia.Charco— y se recorre a `fps` fijos, no repartido sobre la
+        // vida de la zona: un charco de 2,6 s y otro de 5 s tienen que hervir
+        // al mismo ritmo, porque es el mismo líquido. Repartir sobre la vida
+        // haría que el Alquitrán burbujeara a cámara lenta solo por durar más.
+        //
+        // El reloj sale del tiempo YA VIVIDO y no de un contador propio, así
+        // que no hay estado nuevo que guardar ni que reproducir con la semilla.
+        let hueco = z.sprite;
+        if (meta.bucle && meta.frames > 1) {
+          const vivido = z.vidaMax - z.vida;
+          hueco = ((vivido * (meta.fps || 11)) | 0) % meta.frames;
+        }
+
+        // El margen de la celda, igual que en las ondas: la mancha llega al
+        // radio de daño y lo que sobresale es el borde irregular. Sin esto la
+        // calcomanía se dibujaría un 18% pequeña y volvería a dejar corona de
+        // suelo limpio dentro de la zona, que es el defecto que retiró las
+        // cinco calcomanías del intento anterior.
+        const r = z.radioActual * (meta.margen || 1);
 
         // BLIT ESCALADO, y aquí sí se puede. El radio de una zona crece con el
         // nivel del arma —el Alquitrán va de 46 a 77— así que no existe un
@@ -270,13 +336,47 @@ export class Zonas {
           ctx.save();
           ctx.translate(z.x, z.y);
           ctx.rotate(z.fase);
-          ctx.drawImage(img, z.sprite * meta.w, 0, meta.w, meta.h,
+          ctx.drawImage(img, hueco * meta.w, 0, meta.w, meta.h,
                         -r, -r, r * 2, r * 2);
           ctx.restore();
         } else {
-          ctx.drawImage(img, z.sprite * meta.w, 0, meta.w, meta.h,
+          ctx.drawImage(img, hueco * meta.w, 0, meta.w, meta.h,
                         z.x - r, z.y - r, r * 2, r * 2);
         }
+      }
+      ctx.restore();
+    }
+
+    // 1.bis LAS MINAS ARMADAS.
+    //
+    // Van aparte de las calcomanías por una razón concreta: se dibujan a TAMAÑO
+    // FIJO. Una mina es un objeto que hay en el suelo, y su tamaño no tiene
+    // nada que ver con lo que revienta al pisarla; el radio del arma crece con
+    // el nivel y la mina no. El tamaño sale de `radioDibujo` del atlas, que lo
+    // fija quien la horneó.
+    //
+    // Opacas, y en composición normal: es chapa, no luz.
+    {
+      ctx.save();
+      ctx.globalAlpha = 1;
+      for (let k = 0; k < n; k++) {
+        const z = items[k];
+        if (z.modo !== 'mina' || !z.hoja) continue;
+        const img = Recursos.imagen(z.hoja);
+        const meta = Recursos.meta(z.hoja);
+        if (!img || !meta) continue;
+
+        const fases = meta.frames || 1;
+        let hueco = 0;
+        if (meta.bucle && fases > 1) {
+          const vivido = z.vidaMax - z.vida;
+          hueco = ((vivido * (meta.fps || 9)) | 0) % fases;
+        }
+        // Parpadea más deprisa cuando le queda poco: es un aviso de que se va
+        // a desarmar sola, y le da al arma una lectura que no tenía.
+        const r = meta.radioDibujo || 9;
+        ctx.drawImage(img, hueco * meta.w, 0, meta.w, meta.h,
+                      z.x - r, z.y - r, r * 2, r * 2);
       }
       ctx.restore();
     }
@@ -349,13 +449,93 @@ export class Zonas {
     const n = this.pool.activos;
     if (n === 0) return;
 
-    // El relleno de las ondas sigue siendo aditivo: dos explosiones solapadas
-    // se ven más calientes, y eso es correcto.
+    // 1. Las ondas CON HOJA PROPIA: la explosión dibujada, en aditivo.
+    //
+    // La hoja trae la secuencia entera —la bola creciendo, vaciándose y
+    // apagándose— así que el blit es de TAMAÑO CONSTANTE y quien crece es el
+    // dibujo de dentro. Es al revés que las calcomanías de suelo, que son una
+    // imagen fija escalada al radio del momento.
+    //
+    // Y por eso el radio de la hoja tiene que abrirse con la MISMA curva que
+    // el daño. Lo hace: generar-efectos.ps1 hornea la bola con el
+    // `0.15 + 0.85*sqrt(t)` de `actualizar`, que es el sitio donde se calcula
+    // `radioActual`. Si las dos curvas se separan, el fuego va por delante o
+    // por detrás de lo que mata.
+    ctx.save();
+    for (let k = 0; k < n; k++) {
+      const z = items[k];
+      if (z.modo !== 'onda' || !z.hoja) continue;
+      const img = Recursos.imagen(z.hoja);
+      const meta = Recursos.meta(z.hoja);
+      if (!img || !meta) continue;
+
+      // LA COMPOSICIÓN LA DECIDE LA HOJA, no este bucle. Casi todas son luz
+      // —fuego, veneno, ondas de choque— y van sumando, que es lo que hace que
+      // dos explosiones solapadas se vean más calientes. Pero el reventón de
+      // TIERRA no es luz: es polvo y cascotes, y tiene que tapar lo que hay
+      // detrás en vez de sumarse a ello.
+      //
+      // Se montó todo aditivo y la tierra sencillamente no se veía: aporta un
+      // tercio de la luz que aporta el fuego, y sobre un suelo claro eso es
+      // nada. El error no era el brillo, era la premisa.
+      ctx.globalCompositeOperation = meta.aditivo === false ? 'source-over' : 'lighter';
+
+      const t = 1 - z.vida / z.vidaMax;        // 0 al nacer, 1 al expirar
+      const fases = meta.frames || 1;
+
+      // EL FOTOGRAMA SE ELIGE POR RADIO, NO POR RELOJ, y se busca el MÁS
+      // CERCANO en la tabla de la hoja.
+      //
+      // Por radio, porque con el reparto por reloj el primer fotograma se comía
+      // el 26% del radio de golpe —sqrt es empinadísima al principio— y el
+      // fuego se quedaba muy por detrás de lo que ya estaba matando.
+      //
+      // Y por tabla en vez de por fórmula, porque así el motor NO necesita
+      // saber cómo repartió los fotogramas quien horneó la hoja. Hoy es una
+      // progresión geométrica; si mañana es otra cosa, esto sigue valiendo. Son
+      // diez comparaciones sobre las dos o tres explosiones que hay en pantalla.
+      const objetivo = z.radio > 0 ? z.radioActual / z.radio : 1;
+      let f = 0;
+      if (meta.radios) {
+        let mejor = Infinity;
+        for (let i = 0; i < meta.radios.length; i++) {
+          // Distancia en PROPORCIÓN y no en diferencia: lo que se quiere
+          // minimizar es cuánto hay que ampliar o encoger la celda, y eso es un
+          // cociente. Con la diferencia, los fotogramas pequeños salían siempre
+          // perdiendo y se ampliaban de más.
+          const rr = meta.radios[i];
+          const d = rr > objetivo ? rr / objetivo : objetivo / rr;
+          if (d < mejor) { mejor = d; f = i; }
+        }
+      }
+      if (f >= fases) f = fases - 1;
+      if (f < 0) f = 0;
+
+      // Un desvanecido corto al final. La hoja termina a poco más de un tercio
+      // de su brillo de pico, pero no en cero: sin esto la explosión se
+      // cortaría en seco. Mismo remate que el tajo de la Katana.
+      ctx.globalAlpha = t > 0.82 ? (1 - t) / 0.18 : 1;
+
+      // MEDIO LADO. La celda se escala para que el filo del fuego caiga
+      // EXACTAMENTE sobre el radio que mata en este instante, no en el del
+      // fotograma más cercano: `radios[f]` dice a qué radio se horneó esta
+      // fase, y dividir por él quita el error de cuantización que dejaría el
+      // salto de un fotograma al siguiente. Lo que sobresale del cuadro son el
+      // desgarro de la silueta y las chispas, y para eso está `margen`.
+      const rn = (meta.radios && meta.radios[f]) || 1;
+      const r = z.radioActual * (meta.margen || 1) / rn;
+      ctx.drawImage(img, f * meta.w, 0, meta.w, meta.h,
+                    z.x - r, z.y - r, r * 2, r * 2);
+    }
+    ctx.restore();
+
+    // 2. Y las que NO la tienen, con el círculo aditivo de siempre. Dos
+    //    explosiones solapadas se ven más calientes, y eso es correcto.
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (let k = 0; k < n; k++) {
       const z = items[k];
-      if (z.modo !== 'onda' || z.relleno <= 0) continue;
+      if (z.modo !== 'onda' || z.hoja || z.relleno <= 0) continue;
       const t = z.vida / z.vidaMax;
       ctx.globalAlpha = t * 0.75 * z.relleno;
       ctx.fillStyle = z.color;
@@ -365,13 +545,19 @@ export class Zonas {
     }
     ctx.restore();
 
-    // El canto de la onda, en composición normal y con una línea oscura por
+    // 3. El canto de la onda, en composición normal y con una línea oscura por
     // fuera. Un canto oscuro contra uno claro se lee sobre cualquier fondo, que
     // es lo que un contorno tiene que garantizar.
+    //
+    // NO SE DIBUJA SOBRE LAS HOJAS PROPIAS, mismo criterio que en dibujarSuelo:
+    // el aro existe para decir dónde acaba el daño cuando lo de dentro no lo
+    // dice, y una explosión horneada al radio de daño YA ES la frontera.
+    // Añadírselo encima es pintar dos veces el mismo borde, y se ve como lo que
+    // es: el círculo de siempre encima de la animación nueva.
     ctx.save();
     for (let k = 0; k < n; k++) {
       const z = items[k];
-      if (z.modo !== 'onda') continue;
+      if (z.modo !== 'onda' || z.hoja) continue;
       const t = z.vida / z.vidaMax;
       // Adelgaza según se abre: es lo que la lee como onda que se disipa y no
       // como un círculo que crece.
