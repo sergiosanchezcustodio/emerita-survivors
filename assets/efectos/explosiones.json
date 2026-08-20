@@ -425,17 +425,6 @@
                           "fps":  24,
                           "radioDibujo":  9
                       },
-    "pinchos":  {
-                    "archivo":  "efectos/pinchos.png",
-                    "w":  376,
-                    "h":  376,
-                    "anclaX":  188,
-                    "anclaY":  188,
-                    "frames":  1,
-                    "plano":  true,
-                    "margen":  1.18,
-                    "aditivo":  false
-                },
     "auraRoja":  {
                      "archivo":  "efectos/aura-roja.png",
                      "w":  64,

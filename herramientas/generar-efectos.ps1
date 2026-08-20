@@ -678,110 +678,6 @@ public class Pirotecnia {
     }
 
     // Cada pixel logico como un cuadrado de escala x escala en la tira.
-    // PINCHOS SUELTOS. Para el Tribulus, que son abrojos: piezas de hierro de
-    // cuatro puntas tiradas por el suelo para que quien pise se clave una.
-    //
-    // Y por eso NO es una mancha. El arma venia usando el charco de acero, que
-    // a la vista era mercurio derramado; lo que hay de verdad en el suelo son
-    // objetos separados, con suelo limpio entre medias. Es la primera zona del
-    // juego cuya calcomania no cubre: cubre a trozos, a proposito.
-    //
-    // Cada pincho es un TRIANGULO con orientacion propia, y se dibuja recorriendo
-    // solo su caja y no la celda entera: treinta triangulos sobre una celda de
-    // 376 serian cuatro millones de pruebas por nada.
-    public static string Pinchos(string salida, int radioDanyo, double margen, int escala,
-                                 uint semilla, string paletaTxt, int cuantos,
-                                 double tam, double variacion) {
-
-        int[] pal = LeerPaleta(paletaTxt);
-        int radioLog = (int)Math.Round(radioDanyo * margen);
-        int lado = radioLog * 2;
-        Az az = new Az(semilla);
-
-        byte[] alfa = new byte[lado * lado];
-        int[] rgb = new int[lado * lado];
-        int anchoTira = lado * escala, altoTira = lado * escala;
-        int stride = anchoTira * 4;
-        byte[] buf = new byte[stride * altoTira];
-
-        int pintados = 0;
-        for (int k = 0; k < cuantos; k++) {
-            // REPARTO EN ESPIRAL AUREA, no al azar puro.
-            //
-            // Al azar salia apelotonado: con treinta y cuatro piezas, media
-            // docena caian una encima de otra y quedaba un cuadrante entero
-            // vacio. En una zona que se ve entera de un vistazo, un hueco asi no
-            // se lee como reparto irregular sino como que ahi no hay nada, y en
-            // una zona que hace dano eso es informacion falsa.
-            //
-            // El angulo aureo -2,39996 radianes- es el que reparte puntos por un
-            // disco sin que ninguno se alinee con otro; es como se colocan las
-            // pipas de un girasol. La raiz sobre el indice mantiene la densidad
-            // constante por AREA. Y encima va un temblor sorteado, para que se
-            // vea tirado por el suelo y no plantado en un patron.
-            double ang = k * 2.39996 + az.R(-0.35, 0.35);
-            double dist = Math.Sqrt((k + 0.5) / cuantos) * radioDanyo * 0.92
-                        + az.R(-0.05, 0.05) * radioDanyo;
-            if (dist < 0) dist = 0;
-            double px = radioLog + Math.Cos(ang) * dist;
-            double py = radioLog + Math.Sin(ang) * dist;
-
-            double r = radioDanyo * tam * az.R(1 - variacion, 1 + variacion);
-            double giro = az.R(0, Math.PI * 2);
-
-            // Triangulo isosceles: punta larga y base corta, que es lo que se
-            // lee como pincho y no como pedrusco.
-            double[] vx = new double[3], vy = new double[3];
-            for (int v = 0; v < 3; v++) {
-                double a = giro + v * (Math.PI * 2 / 3);
-                double largo = (v == 0) ? r * 1.45 : r * 0.72;
-                vx[v] = px + Math.Cos(a) * largo;
-                vy[v] = py + Math.Sin(a) * largo;
-            }
-
-            int x0 = (int)Math.Floor(Math.Min(vx[0], Math.Min(vx[1], vx[2])));
-            int x1 = (int)Math.Ceiling(Math.Max(vx[0], Math.Max(vx[1], vx[2])));
-            int y0 = (int)Math.Floor(Math.Min(vy[0], Math.Min(vy[1], vy[2])));
-            int y1 = (int)Math.Ceiling(Math.Max(vy[0], Math.Max(vy[1], vy[2])));
-            if (x0 < 0) x0 = 0;
-            if (y0 < 0) y0 = 0;
-            if (x1 > lado - 1) x1 = lado - 1;
-            if (y1 > lado - 1) y1 = lado - 1;
-
-            for (int y = y0; y <= y1; y++) {
-                for (int x = x0; x <= x1; x++) {
-                    double qx = x + 0.5, qy = y + 0.5;
-                    // Dentro del triangulo: los tres productos cruzados con el
-                    // mismo signo. Y de paso, el minimo de los tres dice lo
-                    // cerca que esta del borde, que sirve para sombrear.
-                    double d0 = (vx[1] - vx[0]) * (qy - vy[0]) - (vy[1] - vy[0]) * (qx - vx[0]);
-                    double d1 = (vx[2] - vx[1]) * (qy - vy[1]) - (vy[2] - vy[1]) * (qx - vx[1]);
-                    double d2 = (vx[0] - vx[2]) * (qy - vy[2]) - (vy[0] - vy[2]) * (qx - vx[2]);
-                    bool neg = (d0 < 0) || (d1 < 0) || (d2 < 0);
-                    bool pos = (d0 > 0) || (d1 > 0) || (d2 > 0);
-                    if (neg && pos) continue;
-
-                    // Hierro: claro hacia el centro de la pieza y oscuro en el
-                    // filo. Un contorno oscuro es lo unico que separa un pincho
-                    // del de al lado cuando dos caen juntos.
-                    double borde = Math.Min(Math.Abs(d0), Math.Min(Math.Abs(d1), Math.Abs(d2))) / (r * r);
-                    int idx = borde < 0.25 ? pal.Length - 1 : (int)((1 - Math.Min(1, borde * 1.6)) * (pal.Length - 2));
-                    if (idx < 0) idx = 0;
-                    if (idx >= pal.Length) idx = pal.Length - 1;
-                    Poner(alfa, rgb, lado, x, y, pal[idx], 1.0);
-                    pintados++;
-                }
-            }
-        }
-
-        Ampliar(buf, stride, alfa, rgb, lado, escala, 0);
-        Volcar(salida, buf, anchoTira, altoTira, stride);
-        double area = Math.PI * radioDanyo * radioDanyo;
-        double ocupa = pintados / area;
-        return pintados + "|" + cuantos + "|" +
-               ocupa.ToString("0.000", CultureInfo.InvariantCulture);
-    }
-
     // AURA SUELTA: un resplandor radial que se apaga hacia afuera, sin nada
     // dentro. Se dibuja DETRAS de otra cosa —hoy, los escudos del Testudo— para
     // encenderla sin tener que rehornear su hoja.
@@ -2226,30 +2122,17 @@ $MINAS = @(
        remaches = 8 }
 )
 
-# --- Pinchos y auras ---------------------------------------------------------
+# --- Auras -------------------------------------------------------------------
 #
-# Los PINCHOS son la calcomania del Tribulus. Comparten medidas con los charcos
-# porque son lo mismo -una zona de suelo que se escala a su radio- pero no
-# cubren: son piezas sueltas con suelo limpio entre ellas.
-$PINCHOS = @(
-    @{ id = 'pinchos'; atlas = 'pinchos'; archivo = 'pinchos.png'; semilla = 61224
-       # HIERRO AL ROJO, no acero limpio: del rescoldo del filo al oxido casi
-       # negro del contorno. Un abrojo que ha estado en la fragua y se ha
-       # quedado ahi, que ademas es lo que avisa de que eso pincha.
-       #
-       # La rampa arranca en un rojo CLARO y no en un naranja palido: la cara
-       # iluminada de cada pieza es la que manda en el color que se ve a tamano
-       # de juego, y con el naranja el conjunto salia salmon.
-       paleta = 'ffb4a0,f0604a,cf2b1c,981a0e,5e0f07,2f0704'
-       # `cuantos` piezas, de `tam` en fracciones del radio de dano y con
-       # `variacion` de tamano entre unas y otras.
-       #
-       # `tam` sube de 0,085 a 0,1275, o sea un 50% mas grandes. Con 44 piezas
-       # a ese tamano la malla se aprieta pero sigue habiendo suelo entre ellas
-       # -la medicion de mas abajo es justo eso- y a cambio se ven a los radios
-       # pequenos, que es donde antes se perdian.
-       cuantos = 44; tam = 0.1275; variacion = 0.30 }
-)
+# NOTA: aqui hubo un catalogo de PINCHOS —cuarenta y cuatro triangulos de hierro
+# repartidos en espiral aurea— que hacia la calcomania del Tribulus. Se retiro
+# al llegar sprite_abrojos.png: el arma pasa a dibujarse con copias de ESE
+# abrojo, una por una y llegando volando desde el jugador (ver `hojaPieza` en
+# entidades/zonaDanyo.js), asi que ya no hay una lamina que hornear.
+#
+# Lo que sobrevivio del experimento es el reparto: la espiral aurea con temblor
+# esta ahora en el dibujado de la zona, y por el mismo motivo por el que se
+# escribio aqui — al azar puro salian corros y un cuadrante vacio.
 
 # Las AURAS son resplandores sueltos que se dibujan detras de otra cosa.
 $RADIO_AURA = 16          # fuente; 64x64 fisicos, como la luna
@@ -2530,26 +2413,8 @@ foreach ($mn in $MINAS) {
     Write-Host ""
 }
 
-Write-Host "Pinchos y auras"
+Write-Host "Auras"
 Write-Host ""
-
-foreach ($pn in $PINCHOS) {
-    if ($Solo -and $pn.id -ne $Solo) { continue }
-    $ruta = Join-Path $Destino $pn.archivo
-    $m = [Pirotecnia]::Pinchos($ruta, $radioCharcoFuente, [double]$MARGEN_CHARCO, $DETALLE,
-                               [uint32]$pn.semilla, $pn.paleta, [int]$pn.cuantos,
-                               [double]$pn.tam, [double]$pn.variacion)
-    $q = $m -split '\|'
-    $ocupa = [double]$q[2]
-    # Al reves que un charco: aqui NO se busca cubrir el aro. Lo que hay que
-    # comprobar es que se vea suelo entre pieza y pieza -si pasa de la mitad, se
-    # han fundido en una placa- y que no sea tan poco que no se vea nada.
-    $ok = ($ocupa -gt 0.06) -and ($ocupa -lt 0.45)
-    Write-Host ("  {0,-10} {1}" -f $pn.id, $pn.archivo)
-    Write-Host ("             {0} piezas, {1} px de hierro, {2:P0} del aro -> {3}" -f `
-                $q[1], $q[0], $ocupa, $(if ($ok) { 'OK' } else { 'REVISAR' }))
-    Write-Host ""
-}
 
 foreach ($au in $AURAS) {
     if ($Solo -and $au.id -ne $Solo) { continue }
@@ -2838,20 +2703,6 @@ foreach ($mn in $MINAS) {
         # Radio del dibujo en unidades LOGICAS. Lo lee el motor para dibujarla
         # a su tamano real sin depender del radio del arma.
         radioDibujo = $RADIO_MINA
-    }
-}
-
-# Los pinchos: ficha de charco con UN fotograma. Llevan `margen` porque se
-# escalan al radio de la zona igual que cualquier calcomania.
-foreach ($pn in $PINCHOS) {
-    $ficha[$pn.atlas] = [ordered]@{
-        archivo = 'efectos/' + $pn.archivo
-        w = $ladoCharco; h = $ladoCharco
-        anclaX = [int]($ladoCharco / 2); anclaY = [int]($ladoCharco / 2)
-        frames = 1
-        plano  = $true
-        margen = $MARGEN_CHARCO
-        aditivo = $false
     }
 }
 

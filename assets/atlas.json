@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260820200033",
+    "version":  "20260820203253",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -1225,6 +1225,15 @@
                                           "frames":  1,
                                           "plano":  true
                                       },
+                      "abrojo":  {
+                                     "archivo":  "efectos/abrojo.png",
+                                     "w":  24,
+                                     "h":  22,
+                                     "anclaX":  12,
+                                     "anclaY":  11,
+                                     "frames":  1,
+                                     "plano":  true
+                                 },
                       "zonaAceite":  {
                                          "archivo":  "efectos/zona-aceite.png",
                                          "w":  304,
@@ -1660,17 +1669,6 @@
                                             "fps":  24,
                                             "radioDibujo":  9
                                         },
-                      "pinchos":  {
-                                      "archivo":  "efectos/pinchos.png",
-                                      "w":  376,
-                                      "h":  376,
-                                      "anclaX":  188,
-                                      "anclaY":  188,
-                                      "frames":  1,
-                                      "plano":  true,
-                                      "margen":  1.18,
-                                      "aditivo":  false
-                                  },
                       "auraRoja":  {
                                        "archivo":  "efectos/aura-roja.png",
                                        "w":  64,

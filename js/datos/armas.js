@@ -469,10 +469,28 @@ export const ARMAS = {
   },
   tribulus: {
     nombre: 'Tribulus',
-    // Abrojos: pinchos sueltos esparcidos por el suelo, no una mancha. Venía
-    // usando el charco de acero, que a la vista era un charco de mercurio —y un
-    // tribulus no es un líquido, son piezas de hierro tiradas por ahí.
-    sprite: 'pinchos',
+    // ABROJOS DE VERDAD, Y LANZADOS. `spritePieza` es UN abrojo —el dibujo que
+    // hizo Sergio, ver $DIBUJOS_SUELTOS en procesar-assets.ps1— y la zona pinta
+    // veinte copias repartidas por su círculo en vez de una calcomanía estirada.
+    // Es lo que de verdad es un tribulus: piezas de hierro sueltas por el suelo,
+    // con suelo limpio entre una y otra.
+    //
+    // Y SALEN DEL PERSONAJE. `vueloPieza` es lo que tardan en posarse, y hasta
+    // que no lo hacen la zona no hace su primer tic: lo que se ve es lo que
+    // mata. Dos décimas sobre una zona que dura de 3,5 a 6 segundos y una
+    // recarga de 3, así que la cadencia del arma no se entera.
+    spritePieza: 'abrojo',
+    // CINCO POR PARCELA, y la cuenta importa: el arma siembra `charcos` de
+    // radio 10 cada uno, no una zona grande. Un abrojo dibujado ocupa unas 26
+    // unidades cuadradas y la parcela son 314, así que cinco cubren un tercio y
+    // dejan ver el suelo entre ellos — que es lo que distingue un puñado de
+    // abrojos de una placa de hierro. Con veinte, la parcela quedaba tapada.
+    //
+    // Son 15 volando a la vez al nivel 1 y 40 al 10, porque las parcelas suben
+    // de 3 a 8. La densidad por parcela no cambia; lo que crece es cuánto suelo
+    // hay sembrado, que es como debe subir un arma de área.
+    piezas: 5,
+    vueloPieza: 0.22,
     // NO para los proyectiles enemigos. Cuatro puntas de hierro en el suelo
     // dejan pasar por encima cualquier cosa que vuele; es el mismo criterio que
     // los charcos (ver Disparos.barrer en entidades/disparo.js), y aquí canta

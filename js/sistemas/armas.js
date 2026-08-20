@@ -423,6 +423,14 @@ const COMPORTAMIENTOS = {
         sprite: arma.def.sprite, giro: arma.def.giro,
         opacidad: arma.def.opacidad,
         bloquea: arma.def.bloqueaDisparos,
+        // ZONA HECHA DE PIEZAS: los abrojos del Tribulus. Salen VOLANDO desde
+        // el jugador, así que la zona necesita saber de dónde partieron — y
+        // desde el CENTRO del cuerpo, no desde los pies, que es de donde se
+        // lanza algo a mano.
+        hojaPieza: arma.def.spritePieza,
+        piezas: arma.def.piezas,
+        vuelo: arma.def.vueloPieza,
+        origenX: j.x, origenY: j.y - medioAlto(j),
         // Que el charco prenda donde cae un enemigo. Sale de la DEFINICIÓN y no
         // de las stats porque no crece con el nivel: un incendio se extiende
         // igual de bien al nivel 1 que al 10, lo que sube es el radio de lo que

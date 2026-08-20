@@ -1,3 +1,4 @@
+import { ESCALA_ARTE } from '../core/constantes.js';
 import { Pool } from '../core/pool.js';
 import { Recursos } from '../core/recursos.js';
 import { enemigosEnRadio } from '../sistemas/colisiones.js';
@@ -82,6 +83,21 @@ function crearZona() {
     // arma a la que preguntárselo.
     radioGatillo: 0,
     hojaOnda: null,
+    // ZONA HECHA DE PIEZAS SUELTAS, en vez de una calcomanía estirada.
+    //
+    // Casi todas las zonas son una mancha: un charco de aceite es UNA cosa que
+    // cubre un círculo, y se dibuja con un PNG escalado al radio. El Tribulus no
+    // — son abrojos, piezas de hierro independientes tiradas por el suelo, y lo
+    // que hay entre una y otra es suelo limpio.
+    //
+    // Con `hojaPieza` puesto, la zona se dibuja como `piezas` copias de ese
+    // sprite repartidas por su círculo, cada una a tamaño fijo. Y LLEGAN
+    // VOLANDO desde quien las lanzó: `origenX/origenY` es dónde estaba el
+    // jugador al sembrarlas y `vuelo` lo que tardan en posarse.
+    hojaPieza: null,
+    piezas: 0,
+    origenX: 0, origenY: 0,
+    vuelo: 0,
     // ¿PARA LOS PROYECTILES ENEMIGOS? Casi todas sí: `Disparos.barrer` deshace
     // lo que toque cualquier arma del jugador, y esa es media idea de los
     // disparos enemigos —no estás obligado a esquivar, puedes limpiar el aire—.
@@ -152,7 +168,14 @@ export class Zonas {
     z.vida = z.vidaMax = def.duracion;
     z.danyo = def.danyo;
     z.intervalo = def.intervalo || 0.4;
-    z.reloj = 0;                       // el primer tic entra ya
+    // EL PRIMER TIC ESPERA A QUE LAS PIEZAS SE POSEN. Sin `vuelo` es 0 y entra
+    // ya, que es lo de siempre. Con vuelo, los abrojos harían daño mientras
+    // todavía van por el aire, y eso es exactamente la clase de mentira que
+    // este motor evita: lo que se ve tiene que ser lo que mata.
+    //
+    // No toca la cadencia del arma: el vuelo son dos décimas sobre una zona que
+    // dura entre tres y seis segundos y una recarga de tres.
+    z.reloj = def.vuelo || 0;
     z.empuje = def.empuje || 0;
     z.ralentiza = def.ralentiza || 0;
     z.modo = def.modo || 'zona';
@@ -174,6 +197,11 @@ export class Zonas {
     z.radioGatillo = def.radioGatillo || 0;
     z.hojaOnda = (def.spriteOnda && Recursos.meta(def.spriteOnda)) ? def.spriteOnda : null;
     z.desvioY = def.desvioY || 0;
+    z.hojaPieza = (def.hojaPieza && Recursos.meta(def.hojaPieza)) ? def.hojaPieza : null;
+    z.piezas = def.piezas || 0;
+    z.origenX = def.origenX === undefined ? def.x : def.origenX;
+    z.origenY = def.origenY === undefined ? def.y : def.origenY;
+    z.vuelo = def.vuelo || 0;
     z.bloquea = def.bloquea !== false;
     z.opacidad = def.opacidad || OPACIDAD_ZONA;
     z.propaga = def.propaga || 0;
@@ -287,6 +315,10 @@ export class Zonas {
     h.relleno = padre.relleno;
     h.opacidad = padre.opacidad;
     h.bloquea = padre.bloquea;
+    h.hojaPieza = padre.hojaPieza;
+    h.piezas = padre.piezas;
+    h.origenX = x; h.origenY = y;   // el hijo brota donde cae el cuerpo
+    h.vuelo = 0;                    // y sin vuelo: no lo ha lanzado nadie
     h.sprite = padre.sprite;
     h.hoja = padre.hoja;
     h.giro = padre.giro;
@@ -381,7 +413,7 @@ export class Zonas {
       ctx.save();
       for (let k = 0; k < n; k++) {
         const z = items[k];
-        if (z.modo !== 'zona' || z.sprite < 0 || z.hoja) continue;
+        if (z.modo !== 'zona' || z.sprite < 0 || z.hoja || z.hojaPieza) continue;
         const t = z.vida / z.vidaMax;
         ctx.globalAlpha = (t > 0.25 ? 1 : t / 0.25) * 0.20;
         ctx.fillStyle = z.color;
@@ -391,7 +423,8 @@ export class Zonas {
       }
       for (let k = 0; k < n; k++) {
         const z = items[k];
-        if (z.modo !== 'zona' || z.sprite < 0) continue;
+        // Las de piezas se han dibujado aparte, más abajo: no tienen calcomanía.
+        if (z.modo !== 'zona' || z.sprite < 0 || z.hojaPieza) continue;
         // La hoja se resuelve por zona: puede ser la compartida —una celda de
         // un catálogo— o el PNG propio del efecto. Ver `crear`.
         const idHoja = z.hoja || HOJA_ZONAS;
@@ -453,6 +486,78 @@ export class Zonas {
       ctx.restore();
     }
 
+    // 1.ter LAS ZONAS HECHAS DE PIEZAS.
+    //
+    // Un puñado de abrojos repartidos por el círculo, cada uno a tamaño fijo —
+    // una pieza de hierro no crece porque el arma suba de nivel, lo que crece es
+    // cuánto suelo cubren entre todas.
+    //
+    // EL REPARTO ES EN ESPIRAL ÁUREA, no al azar. Con azar puro salían corros y
+    // un cuadrante vacío, y en una zona que se ve entera de un vistazo un hueco
+    // así no se lee como reparto irregular sino como que ahí no hay nada — y en
+    // una zona que hace daño, eso es información falsa. El ángulo áureo reparte
+    // por el disco sin que ninguno se alinee con otro; es como se colocan las
+    // pipas de un girasol.
+    //
+    // Y sale de la posición en la lista, no de un sorteo guardado: la zona no
+    // necesita recordar dónde va cada pieza, se recalcula igual cada frame.
+    {
+      ctx.save();
+      ctx.globalAlpha = 1;
+      for (let k = 0; k < n; k++) {
+        const z = items[k];
+        if (z.modo !== 'zona' || !z.hojaPieza || z.piezas <= 0) continue;
+        const img = Recursos.imagen(z.hojaPieza);
+        const meta = Recursos.meta(z.hojaPieza);
+        if (!img || !meta) continue;
+
+        const aw = meta.w / ESCALA_ARTE, ah = meta.h / ESCALA_ARTE;
+        const vivido = z.vidaMax - z.vida;
+        const t = z.vida / z.vidaMax;
+        // Se apaga en el último cuarto, como las calcomanías: los abrojos no se
+        // desvanecen mientras pinchan, desaparecen cuando se acaban.
+        const alfaZona = t > 0.25 ? 1 : t / 0.25;
+
+        for (let i = 0; i < z.piezas; i++) {
+          const ang = i * 2.39996;                       // ángulo áureo
+          const dist = Math.sqrt((i + 0.5) / z.piezas) * z.radioActual * 0.92;
+          const dx = z.x + Math.cos(ang) * dist;
+          const dy = z.y + Math.sin(ang) * dist;
+
+          let px = dx, py = dy, giro = 0, alfa = alfaZona;
+          if (z.vuelo > 0) {
+            // Van saliendo escalonadas, no todas de golpe: un puñado lanzado a
+            // mano sale en abanico, y con todas a la vez se lee como un bloque.
+            const retardo = i * (z.vuelo * 0.35 / z.piezas);
+            let v = (vivido - retardo) / z.vuelo;
+            if (v < 0) { alfa = 0; v = 0; } else if (v > 1) v = 1;
+            if (v < 1) {
+              px = z.origenX + (dx - z.origenX) * v;
+              py = z.origenY + (dy - z.origenY) * v;
+              // Sube y baja: lo que lanzas a mano hace una parábola, y sin ella
+              // los abrojos se deslizarían por el suelo en vez de volar.
+              py -= Math.sin(v * Math.PI) * 22;
+              // Y voltean mientras vuelan, hasta quedarse quietos al posarse.
+              giro = (1 - v) * 9 + i;
+            }
+          }
+
+          if (alfa <= 0) continue;
+          ctx.globalAlpha = alfa;
+          if (giro !== 0) {
+            ctx.save();
+            ctx.translate(px, py);
+            ctx.rotate(giro);
+            ctx.drawImage(img, 0, 0, meta.w, meta.h, -aw / 2, -ah / 2, aw, ah);
+            ctx.restore();
+          } else {
+            ctx.drawImage(img, 0, 0, meta.w, meta.h, px - aw / 2, py - ah / 2, aw, ah);
+          }
+        }
+      }
+      ctx.restore();
+    }
+
     // 1.bis LAS MINAS ARMADAS.
     //
     // Van aparte de las calcomanías por una razón concreta: se dibujan a TAMAÑO
@@ -494,7 +599,7 @@ export class Zonas {
     ctx.globalCompositeOperation = 'lighter';
     for (let k = 0; k < n; k++) {
       const z = items[k];
-      if (z.modo !== 'zona' || z.sprite >= 0 || z.relleno <= 0) continue;
+      if (z.modo !== 'zona' || z.sprite >= 0 || z.hojaPieza || z.relleno <= 0) continue;
       const t = z.vida / z.vidaMax;          // 1 al nacer, 0 al morir
       ctx.globalAlpha = (0.35 + t * 0.35) * z.relleno;
       ctx.fillStyle = z.color;

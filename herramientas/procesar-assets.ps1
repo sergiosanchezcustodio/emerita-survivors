@@ -3483,6 +3483,17 @@ $DIBUJOS_SUELTOS = @(
     @{ src='armas\efectos\sprite_pistola.png'; dst='efectos\bala-pistola.png'
        id='balaPistola'; ancho=43; alto=19 }
 
+    # UN ABROJO SUELTO, para el Tribulus. No es una calcomania de zona como el
+    # aceite: es UNA pieza, y el motor dibuja veinte copias repartidas por el
+    # area (ver `hojaPieza` en entidades/zonaDanyo.js). Por eso se hornea al
+    # tamano de una sola y pequena, no al de la zona entera.
+    #
+    # 24x22 conserva la proporcion del original (146x132) y son 6 unidades
+    # logicas de lado: lo justo para que se distinga la forma de cuatro puntas
+    # sin que veinte de ellas tapen el suelo.
+    @{ src='armas\efectos\sprite_abrojos.png'; dst='efectos\abrojo.png'
+       id='abrojo'; ancho=24; alto=22 }
+
     # Aceite hirviendo. Va por aqui y no por $HOJAS_ALFA porque su dibujo es
     # ANCHO (588x401): un recorte cuadrado centrado le cortaria 94 px por cada
     # lado. Aqui se recorta su silueta y se estira al cuadro que el motor pinta,
