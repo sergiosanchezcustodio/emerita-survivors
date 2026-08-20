@@ -1663,38 +1663,48 @@ public class Pirotecnia {
                ocupa.ToString("0.000", CultureInfo.InvariantCulture);
     }
 
-    // LUNA LLENA CON AURA. Para los Satelites.
+    // LUNA CON SUS FASES. Para los Satelites.
     //
-    // Empezo siendo un cuarto menguante -disco menos disco- y Sergio la quiso
-    // llena y con un halo azul difuminado. Cambia poco: el mordisco desaparece y
-    // entra el aura, que es lo unico nuevo de verdad.
+    // Una tira de nFases fotogramas que recorre el ciclo lunar entero: luna
+    // nueva, creciente, cuarto creciente, gibosa, llena, y de vuelta por el otro
+    // lado hasta la menguante. El motor elige el fotograma por la posicion de
+    // cada luna en su orbita (ver dibujarOrbitales en sistemas/armas.js), asi
+    // que una vuelta al jugador es un ciclo lunar completo.
     //
-    // EL AURA SE HACE CON ALFA, NO CON COLOR. Un halo pintado en tonos cada vez
-    // mas oscuros seria un disco azul; lo que lo hace halo es que se vuelve
-    // TRANSPARENTE hacia afuera, y Poner ya acepta el alfa por pixel. La caida
-    // va al cuadrado porque lineal deja un borde visible donde se acaba.
+    // LA GEOMETRIA DE UNA FASE es una circunferencia y una ELIPSE, no dos
+    // circunferencias. El terminador —la linea que separa el dia de la noche—
+    // es un circulo visto en escorzo, y en escorzo un circulo es una elipse: por
+    // eso el borde interior de una luna creciente es curvo y no recto, y por eso
+    // el cuarto creciente si tiene el borde recto (la elipse vista de canto).
     //
-    // Y el aura llega justo al canto de la celda, que es lo que el motor dibuja
-    // al radio del escudo: asi el halo se apaga exactamente donde acaba el dano.
+    // Con el radio R, la fase p de 0 a 1 y a = cos(2*pi*p):
     //
-    // UN SOLO FOTOGRAMA. Los orbitales del motor no se animan -dibujarOrbitales
-    // pinta siempre el primero- y una luna no parpadea. Tampoco gira, y por eso
-    // el arma no lleva giroOrbital: girar una luna llena no se notaria salvo
-    // por los crateres bailando, que es peor que dejarla quieta.
+    //   p <= 0,5 (creciendo)  iluminado donde  x >  a * raiz(R2 - y2)
+    //   p >  0,5 (menguando)  iluminado donde  x < -a * raiz(R2 - y2)
+    //
+    // Se comprueba solo: p=0 da a=1 y no ilumina nada (luna nueva), p=0,5 da
+    // a=-1 e ilumina el disco entero (llena), y p=0,25 da a=0, o sea la mitad
+    // derecha (cuarto creciente).
+    //
+    // LA CARA OSCURA NO SE BORRA, SE OSCURECE. Una luna nueva de verdad es
+    // invisible, y aqui la luna es un ESCUDO QUE HACE DANO: si desaparece un
+    // cuarto de cada vuelta, el jugador pierde de vista donde esta protegido.
+    // Se pinta con la parte baja de la paleta —la sombra que ya tenia el
+    // canto— asi que se ve el disco entero y la fase se lee por contraste, que
+    // es como se ve una luna real con luz cenicienta.
     public static string Luna(string salida, int radio, int escala, uint semilla,
                               string paletaTxt, double fraccion, int aura,
-                              double fuerzaAura, int crateres) {
+                              double fuerzaAura, int crateres, int nFases) {
 
-        int[] pal = LeerPaleta(paletaTxt);       // de la cara iluminada a la sombra
+        int[] pal = LeerPaleta(paletaTxt);
         int lado = radio * 2;
         Az az = new Az(semilla);
 
-        // La luna ocupa fraccion de la celda; el resto es aura.
         double rLuna = radio * fraccion;
 
-        // Mares y crateres: manchas oscuras repartidas por el disco. Sorteados
-        // una vez, no por fotograma -no hay fotogramas- y con la semilla, asi
-        // que el PNG sale igual byte a byte cada vez que se regenera.
+        // Mares y crateres: sorteados UNA vez y compartidos por todas las fases.
+        // Es la misma luna en momentos distintos, asi que sus manchas no pueden
+        // moverse de un fotograma a otro.
         double[] cx = new double[crateres], cy = new double[crateres], cr = new double[crateres];
         for (int i = 0; i < crateres; i++) {
             double ang = az.R(0, Math.PI * 2);
@@ -1706,69 +1716,82 @@ public class Pirotecnia {
 
         byte[] alfa = new byte[lado * lado];
         int[] rgb = new int[lado * lado];
-        int anchoTira = lado * escala, altoTira = lado * escala;
+        int anchoTira = lado * escala * nFases, altoTira = lado * escala;
         int stride = anchoTira * 4;
         byte[] buf = new byte[stride * altoTira];
+        string medidas = "";
 
-        int pixLuna = 0, pixAura = 0;
-        for (int y = 0; y < lado; y++) {
-            for (int x = 0; x < lado; x++) {
-                double dx = x + 0.5 - radio, dy = y + 0.5 - radio;
-                double d = Math.Sqrt(dx * dx + dy * dy);
+        for (int f = 0; f < nFases; f++) {
+            double p = (double)f / nFases;
+            double a = Math.Cos(2 * Math.PI * p);
+            bool creciendo = p <= 0.5;
 
-                // 1. EL AURA, primero y por debajo: de la superficie de la luna
-                // hacia afuera, apagandose. Empieza DENTRO del disco a
-                // proposito -desde 0,80 de rLuna- porque un halo que arranca
-                // justo en el canto deja una linea de separacion; solapandolo,
-                // la luna parece emitirlo.
-                if (d <= radio - 0.5 && d > rLuna * 0.80) {
-                    double u = (d - rLuna * 0.80) / (radio - rLuna * 0.80);
-                    if (u < 0) u = 0;
-                    if (u > 1) u = 1;
-                    double a = (1 - u) * (1 - u) * fuerzaAura;
-                    if (a > 0.02) { Poner(alfa, rgb, lado, x, y, aura, a); if (d > rLuna) pixAura++; }
+            Array.Clear(alfa, 0, alfa.Length);
+            Array.Clear(rgb, 0, rgb.Length);
+
+            int iluminados = 0, disco = 0;
+            for (int y = 0; y < lado; y++) {
+                for (int x = 0; x < lado; x++) {
+                    double dx = x + 0.5 - radio, dy = y + 0.5 - radio;
+                    double d = Math.Sqrt(dx * dx + dy * dy);
+
+                    // 1. EL AURA, por debajo y en todas las fases: es lo que
+                    // mantiene visible el satelite cuando la luna esta nueva.
+                    if (d <= radio - 0.5 && d > rLuna * 0.80) {
+                        double u = (d - rLuna * 0.80) / (radio - rLuna * 0.80);
+                        if (u < 0) u = 0;
+                        if (u > 1) u = 1;
+                        double av = (1 - u) * (1 - u) * fuerzaAura;
+                        if (av > 0.02) Poner(alfa, rgb, lado, x, y, aura, av);
+                    }
+
+                    // 2. EL DISCO.
+                    if (d > rLuna - 0.5) continue;
+                    disco++;
+                    double u2 = d / rLuna;
+
+                    // ¿De dia o de noche en este punto? El terminador es la
+                    // elipse de arriba.
+                    double borde = a * Math.Sqrt(Math.Max(0, rLuna * rLuna - dy * dy));
+                    bool iluminado = creciendo ? (dx > borde) : (dx < -borde);
+
+                    int idx;
+                    if (iluminado) {
+                        // Luz cenital MUY suave: la cara iluminada de una luna
+                        // se ve de frente al sol y casi no tiene sombra propia.
+                        double lz = 0.5 - 0.5 * (dx * 0.7071 + dy * 0.7071) / rLuna;
+                        idx = (int)(lz * (pal.Length - 2) * 0.75);
+                        iluminados++;
+                    } else {
+                        // Cara en sombra: los dos tonos mas bajos de la paleta.
+                        idx = pal.Length - 2;
+                    }
+
+                    if (u2 > 0.88) idx = pal.Length - 1;   // canto
+
+                    // Los crateres solo se ven donde da la luz, como en la luna
+                    // de verdad: en la parte oscura no hay relieve que mirar.
+                    if (iluminado) {
+                        for (int i = 0; i < crateres; i++) {
+                            double dc = Math.Sqrt((x + 0.5 - cx[i]) * (x + 0.5 - cx[i]) +
+                                                  (y + 0.5 - cy[i]) * (y + 0.5 - cy[i]));
+                            if (dc < cr[i] && u2 < 0.86) { idx = Math.Min(pal.Length - 1, idx + 2); break; }
+                        }
+                    }
+
+                    if (idx < 0) idx = 0;
+                    if (idx >= pal.Length) idx = pal.Length - 1;
+                    Poner(alfa, rgb, lado, x, y, pal[idx], 1.0);
                 }
-
-                // 2. LA LUNA, encima y opaca.
-                if (d > rLuna - 0.5) continue;
-                double u2 = d / rLuna;
-
-                // Luz cenital desde arriba-izquierda, MUY suave: una luna llena
-                // se ve de frente al sol, asi que casi no tiene sombra propia.
-                // Lo que la lee como esfera es el canto, no el degradado.
-                double lz = 0.5 - 0.5 * (dx * 0.7071 + dy * 0.7071) / rLuna;
-                int idx = (int)(lz * (pal.Length - 2) * 0.75);
-
-                // Canto exterior mas oscuro: contra una pantalla llena de
-                // destellos, lo que tiene borde se lee como un objeto.
-                if (u2 > 0.88) idx = pal.Length - 1;
-
-                for (int i = 0; i < crateres; i++) {
-                    double dc = Math.Sqrt((x + 0.5 - cx[i]) * (x + 0.5 - cx[i]) +
-                                          (y + 0.5 - cy[i]) * (y + 0.5 - cy[i]));
-                    if (dc < cr[i] && u2 < 0.86) { idx = Math.Min(pal.Length - 1, idx + 2); break; }
-                }
-
-                if (idx < 0) idx = 0;
-                if (idx >= pal.Length) idx = pal.Length - 1;
-                Poner(alfa, rgb, lado, x, y, pal[idx], 1.0);
-                pixLuna++;
             }
+
+            Ampliar(buf, stride, alfa, rgb, lado, escala, f);
+            double frac = disco > 0 ? (double)iluminados / disco : 0;
+            medidas += (f > 0 ? ";" : "") + frac.ToString("0.000", CultureInfo.InvariantCulture);
         }
 
-        Ampliar(buf, stride, alfa, rgb, lado, escala, 0);
         Volcar(salida, buf, anchoTira, altoTira, stride);
-        // Lo comprobable sin abrir el PNG: que la luna sea un disco lleno (su
-        // area tiene que dar el circulo entero) y que el aura exista alrededor.
-        // Contra el circulo que de verdad cabe en pixeles, no contra el ideal:
-        // el disco se rellena con los centros que caen dentro de rLuna - 0.5,
-        // asi que a este tamano -unos 11 px de radio- media fila de canto son
-        // seis puntos porcentuales. Midiendolo contra el ideal, una luna llena
-        // perfecta daba 89% y saltaba la alarma sin motivo.
-        double rReal = rLuna - 0.5;
-        double llenado = pixLuna / (Math.PI * rReal * rReal);
-        return pixLuna + "|" + pixAura + "|" +
-               llenado.ToString("0.000", CultureInfo.InvariantCulture);
+        return medidas;
     }
 
     static void Ampliar(byte[] buf, int stride, byte[] alfa, int[] rgb,
@@ -2452,7 +2475,11 @@ $LUNAS = @(
        fraccion = 0.68
        # El azul del aura y su fuerza en el arranque. 0,55 es visible sin
        # convertirse en un disco: por encima de 0,7 deja de leerse como halo.
-       aura = '6fb4ff'; fuerzaAura = 0.55; crateres = 5 }
+       aura = '6fb4ff'; fuerzaAura = 0.55; crateres = 5
+       # FOTOGRAMAS DEL CICLO LUNAR. 16 como los sprites de los bichos: con 8 el
+       # salto entre fases se nota, y por encima de 16 no se distingue una de la
+       # siguiente a 30 px de pantalla.
+       nFases = 16 }
 )
 
 $radioLunaFuente = [int][math]::Round($RADIO_LUNA * $FUENTE_POR_LOGICO * $FINURA_LUNA)
@@ -2671,7 +2698,7 @@ foreach ($rd in $REDES) {
     Write-Host ""
 }
 
-Write-Host "Lunas: celda $ladoLuna x $ladoLuna, 1 fotograma (un orbital no se anima)"
+Write-Host "Lunas: celda $ladoLuna x $ladoLuna, una tira con el ciclo lunar entero"
 Write-Host ""
 
 foreach ($ln in $LUNAS) {
@@ -2680,15 +2707,24 @@ foreach ($ln in $LUNAS) {
     $colorAura = [int]([uint32]::Parse($ln.aura, [Globalization.NumberStyles]::HexNumber))
     $m = [Pirotecnia]::Luna($ruta, $radioLunaFuente, $DETALLE, [uint32]$ln.semilla,
                             $ln.paleta, [double]$ln.fraccion, $colorAura,
-                            [double]$ln.fuerzaAura, [int]$ln.crateres)
-    $q = $m -split '\|'
-    $pixLuna = [int]$q[0]; $pixAura = [int]$q[1]; $llenado = [double]$q[2]
-    # Que la luna sea LLENA -su area tiene que dar el circulo entero- y que
-    # haya aura de verdad alrededor, no cuatro pixeles sueltos.
-    $ok = ($llenado -gt 0.95) -and ($pixAura -gt $pixLuna * 0.4)
-    Write-Host ("  {0,-10} {1}" -f $ln.id, $ln.archivo)
-    Write-Host ("             disco {0} px ({1:P0} del circulo), aura {2} px alrededor -> {3}" -f `
-                $pixLuna, $llenado, $pixAura, $(if ($ok) { 'OK' } else { 'REVISAR' }))
+                            [double]$ln.fuerzaAura, [int]$ln.crateres, [int]$ln.nFases)
+    # LO QUE HAY QUE COMPROBAR DE UN CICLO LUNAR es la curva de iluminacion: la
+    # fraccion de disco iluminado tiene que salir de 0 (nueva), subir hasta 1
+    # (llena) a mitad de la tira y volver a 0. Si sale plana, las fases no se
+    # estan dibujando; si no vuelve a bajar, solo se ha hecho media vuelta.
+    $luz = @($m -split ';' | ForEach-Object { [double]$_ })
+    $mitad = [int]($luz.Count / 2)
+    $nueva = $luz[0]
+    $llena = $luz[$mitad]
+    $sube = $true
+    for ($i = 1; $i -le $mitad; $i++) { if ($luz[$i] -lt $luz[$i-1] - 0.01) { $sube = $false } }
+    $baja = $true
+    for ($i = $mitad + 1; $i -lt $luz.Count; $i++) { if ($luz[$i] -gt $luz[$i-1] + 0.01) { $baja = $false } }
+    $ok = ($nueva -lt 0.05) -and ($llena -gt 0.95) -and $sube -and $baja
+    Write-Host ("  {0,-10} {1}   {2} fases" -f $ln.id, $ln.archivo, $ln.nFases)
+    Write-Host ("             iluminacion  {0}" -f (($luz | ForEach-Object { $_.ToString('0.00') }) -join ' '))
+    Write-Host ("             nueva {0:N2}  llena {1:N2}  sube: {2}  baja: {3}  -> {4}" -f `
+                $nueva, $llena, $sube, $baja, $(if ($ok) { 'OK' } else { 'REVISAR' }))
     Write-Host ""
 }
 
@@ -2869,7 +2905,10 @@ foreach ($ln in $LUNAS) {
         archivo = 'efectos/' + $ln.archivo
         w = $ladoLuna; h = $ladoLuna
         anclaX = [int]($ladoLuna / 2); anclaY = [int]($ladoLuna / 2)
-        frames = 1
+        # Los fotogramas son FASES, no una animacion por reloj: no lleva `bucle`
+        # ni `fps` porque no se recorren solos. Lo elige el motor por donde este
+        # cada luna en su orbita (ver dibujarOrbitales en sistemas/armas.js).
+        frames = [int]$ln.nFases
         plano  = $true
     }
 }

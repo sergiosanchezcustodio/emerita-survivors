@@ -1084,11 +1084,23 @@ export const ARMAS = {
     // satélite, y son hasta seis—. El 2,5 se puso cuando el radio era 7 fijo y
     // la luna se veía diminuta; ahora el radio hace ese trabajo él solo.
     //
-    // Sigue habiendo algo de exceso, y es a propósito: lo que sobresale es
-    // sobre todo el aura, que se lee como resplandor y no como filo. La salida
-    // honrada, si molesta, es bajar esto a 1 — nunca subir el radio para
-    // justificar el dibujo.
-    escalaOrbital: 1.5,
+    // Y BAJA OTRO 25%, de 1,5 a 1,125: con el radio ya triplicado, las lunas se
+    // veían más grandes de lo que hacía falta para saber dónde estaban.
+    //
+    // Sigue habiendo algo de exceso sobre el radio de daño, y es a propósito: lo
+    // que sobresale es sobre todo el aura, que se lee como resplandor y no como
+    // filo. La salida honrada, si molesta, es bajar esto a 1 — nunca subir el
+    // radio para justificar el dibujo.
+    escalaOrbital: 1.125,
+    // CADA LUNA, SU FASE. La hoja trae el ciclo lunar entero en 16 fotogramas y
+    // el motor elige el suyo por la posición de cada una en la órbita, así que
+    // las seis enseñan fases distintas y una vuelta al jugador es un ciclo
+    // completo. No hace falta declarar nada más: sale de `frames` en el atlas
+    // (ver dibujarOrbitales en sistemas/armas.js).
+    //
+    // Y sin `giroOrbital`, ahora con más motivo que antes: una luna que además
+    // rotara sobre sí misma haría bailar los cráteres y se perdería la fase,
+    // que es lo único que hay que leer.
     niveles: [{}, { escudos: 1, danyo: 5, radioEscudo: 1 },
               { radioOrbita: 8, danyo: 6, radioEscudo: 2 },
               { danyo: 8, radioEscudo: 1 },

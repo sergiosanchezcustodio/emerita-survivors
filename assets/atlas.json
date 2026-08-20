@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260820163246",
+    "version":  "20260820195037",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -1814,7 +1814,7 @@
                                       "h":  128,
                                       "anclaX":  64,
                                       "anclaY":  64,
-                                      "frames":  1,
+                                      "frames":  16,
                                       "plano":  true
                                   },
                       "tajoKatana":  {

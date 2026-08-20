@@ -938,15 +938,41 @@ export class Armas {
           ctx.restore();
         }
 
+        // LA FASE ES LA POSICIÓN EN LA ÓRBITA, y esa es toda la idea.
+        //
+        // Las lunas de los Satélites traen una tira con el ciclo lunar entero
+        // (ver Pirotecnia.Luna). En vez de darle a cada una un reloj propio, el
+        // fotograma sale de DÓNDE ESTÁ: el ángulo orbital, normalizado a una
+        // vuelta, indexa la tira.
+        //
+        // De ahí salen las tres cosas a la vez y sin guardar un solo dato nuevo:
+        // cada luna enseña una fase distinta —porque están repartidas por la
+        // circunferencia—, cada una va cambiando según gira, y una vuelta
+        // completa al jugador es un ciclo lunar completo. Y es reproducible por
+        // construcción: no depende del reloj, depende de la geometría.
+        //
+        // Con hojas de un solo fotograma —el escudo, los discos, las sierras—
+        // esto da 0 y no se entera nadie.
+        const fases = metaOrb.frames || 1;
+        const vuelta = Math.PI * 2;
+
         for (let k = 0; k < s.escudos; k++) {
           const a = arma.anguloOrbital + k * paso;
+          let f = 0;
+          if (fases > 1) {
+            // El doble módulo es para los ángulos negativos: en JavaScript
+            // (-0.3 % 1) es -0.3, no 0.7, y eso indexaría fuera de la tira.
+            const t = (((a / vuelta) % 1) + 1) % 1;
+            f = (t * fases) | 0;
+            if (f >= fases) f = fases - 1;
+          }
           // save/restore por escudo, como en los tajos: la matriz del mundo la
           // fija main.js con el desvío de cámara ya redondeado, y reconstruirla
           // aquí sería copiar ese cálculo en un segundo sitio.
           ctx.save();
           ctx.translate(cx + Math.cos(a) * radio, cy + Math.sin(a) * radio);
           if (arma.def.giroOrbital) ctx.rotate(arma.faseGiro);
-          ctx.drawImage(imgOrb, 0, 0, metaOrb.w, metaOrb.h,
+          ctx.drawImage(imgOrb, f * metaOrb.w, 0, metaOrb.w, metaOrb.h,
                         -rDibujo, -rDibujo, rDibujo * 2, rDibujo * 2);
           ctx.restore();
         }

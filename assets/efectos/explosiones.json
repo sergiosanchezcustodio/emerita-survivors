@@ -579,7 +579,7 @@
                     "h":  128,
                     "anclaX":  64,
                     "anclaY":  64,
-                    "frames":  1,
+                    "frames":  16,
                     "plano":  true
                 }
 }
