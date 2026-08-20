@@ -77,7 +77,12 @@ const CAPACIDAD_COFRES = 16;
 // objetos diminutos.
 const CAPACIDAD_DISPAROS = 120;
 // Zonas: charcos, trampas, auras, ondas y explosiones comparten pool.
-const CAPACIDAD_ZONAS = 220;
+// 220 se quedó corto al subir las Minas a 24 por siembra: con `duracion` 10 y
+// una recarga de 3,45 s eso son ~70 minas vivas de UN solo jugador, y en
+// cooperativo a cuatro son 280 — más que el pool entero, así que las zonas de
+// las otras ocho armas de área se quedarían sin sitio y dejarían de dañar. Un
+// arma no puede vaciarle el pool a las demás.
+const CAPACIDAD_ZONAS = 420;
 
 const SEMILLA = 0xE3E21A;
 
@@ -372,6 +377,10 @@ function estallar(p) {
     duracion: 0.32, danyo: p.danyoExplosion, empuje: p.empuje * 1.6,
     modo: 'onda', color: p.color, relleno: 0.3, sprite: p.spriteOnda
   });
+  // Y la columna que cae del cielo sobre el punto, para el que la declare (el
+  // Pilum de Júpiter). Es SOLO dibujo: el daño entero está en la onda de
+  // arriba, y meterle daño propio al haz sería cobrar dos veces el mismo golpe.
+  if (p.rayoCaida > 0) VFX.haz(p.x, p.y, p.rayoCaida, p.rayoGrosor, p.color);
 }
 
 // --- Escalado al viewport ----------------------------------------------------
@@ -589,7 +598,11 @@ function actualizarLlamarada(dt) {
         radio: 20 + k * 6, radioIni: 6,
         duracion: 0.3,
         danyo: DANYO_LLAMARADA, empuje: 120,
-        modo: 'onda', color: '#ff7a2a', relleno: 0.4
+        modo: 'onda', color: '#ff7a2a', relleno: 0.4,
+        // La misma llamarada que sueltan la mantícora y el Cerbero. Es fuego
+        // que brota del suelo, que es exactamente lo que hace este consumible:
+        // no hacía falta hoja nueva, hacía falta usar la que ya estaba.
+        sprite: 'reventonLlama'
       });
     }
   }
@@ -1772,6 +1785,9 @@ function dibujar(alpha) {
       arsenales[i].dibujarTajos(ctx);
       arsenales[i].dibujarRayos(ctx);
     }
+    // Los haces de rayo, en la misma capa que los del arsenal: son la misma
+    // cosa dibujada por otro camino (ver VFX.haz).
+    VFX.dibujarHaces(ctx);
   }
   // LAS MASCOTAS, EN DOS MITADES, CON LOS ORBITALES EN MEDIO.
   //

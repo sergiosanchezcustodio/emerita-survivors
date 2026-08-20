@@ -30,6 +30,10 @@ export const ARMAS = {
     dispersion: 7,           // grados entre proyectiles del mismo disparo
     empuje: 90,
     color: '#f0e2b6',
+    // El pilum, con su caña de hierro entre la punta y el asta. Es lo que lo
+    // distingue de una lanza cualquiera y por lo que es famoso: se doblaba al
+    // clavarse y dejaba inservible el escudo enemigo.
+    spriteProyectil: 'proyPilum',
     estela: '#c89a4a',
     // Sección 9: nivel 8 + este pasivo a 1 o más, y un COFRE de élite.
     evolucion: { pasivo: 'anilloAugusto', arma: 'pilumJupiter' },
@@ -140,6 +144,10 @@ export const ARMAS = {
     danyo: 14, recarga: 1.0, proyectiles: 1, velocidad: 250, alcance: 260,
     radio: 4, perforacion: 1, dispersion: 0, empuje: 90,
     color: '#e6dcc0', estela: '#8a7d5f', largoTrazo: 10,
+    // Una lanza de mano, hoja de laurel sobre fresno. La comparte con el Muro
+    // de lanzas: son la misma arma disparada en otra dirección, y compartir hoja
+    // es lo que ya hacen las seis armas de fuego con la bala de la pistola.
+    spriteProyectil: 'proyLanza',
     niveles: [{}, { danyo: 5 }, { perforacion: 1 }, { proyectiles: 1, dispersion: 9 },
               { recarga: -0.15 }, { danyo: 8 }, { perforacion: 2 }, { proyectiles: 1, danyo: 10 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -151,7 +159,18 @@ export const ARMAS = {
     danyo: 15, recarga: 1.1, proyectiles: 1, velocidad: 240, alcance: 230,
     radio: 4, perforacion: 1, dispersion: 0, empuje: 90,
     color: '#cfe3f0', estela: '#5f7d8a', largoTrazo: 10,
-    niveles: [{}, { danyo: 5 }, { perforacion: 1 }, { proyectiles: 1, dispersion: 9 },
+    // Fustes de mármol subiendo desde el personaje, arriba y abajo. El dibujo
+    // se orienta al rumbo, así que el capitel va siempre por delante.
+    spriteProyectil: 'proyColumna',
+    // Y EN PARALELO, NO EN ABANICO. Al ganar la segunda columna, la dispersión
+    // de 9 grados las habría abierto en uve: dos columnas torcidas. Con
+    // `separacion` salen con el mismo rumbo, corridas 14 unidades a cada lado
+    // del eje — que es una columnata, que es lo que el arma dice ser.
+    //
+    // 14 son algo más de dos anchos de fuste: se ven las dos enteras y siguen
+    // leyéndose como una pareja, no como dos disparos sueltos.
+    separacion: 14,
+    niveles: [{}, { danyo: 5 }, { perforacion: 1 }, { proyectiles: 1 },
               { recarga: -0.15 }, { danyo: 8 }, { perforacion: 2 }, { proyectiles: 1, danyo: 10 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
   },
@@ -162,6 +181,12 @@ export const ARMAS = {
     danyo: 8, recarga: 1.3, proyectiles: 1, velocidad: 210, alcance: 200,
     radio: 3, perforacion: 0, dispersion: 0, empuje: 60,
     color: '#d8c8f0', estela: '#6a5a8a', largoTrazo: 7,
+    // Una aguja de brújula en bronce: cuatro puntas finas, que es exactamente
+    // lo que dispara el arma y lo que dice su nombre. Gira despacio sobre sí
+    // misma porque es simétrica — sin giro, orientarla al vuelo no se notaría y
+    // parecería una pegatina.
+    spriteProyectil: 'proyRosa',
+    giroProyectil: 6,
     niveles: [{}, { danyo: 3 }, { perforacion: 1 }, { recarga: -0.2 },
               { danyo: 4 }, { proyectiles: 1, dispersion: 11 }, { perforacion: 1 }, { danyo: 6 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -174,9 +199,16 @@ export const ARMAS = {
     danyo: 6, recarga: 0.45, proyectiles: 2, velocidad: 200, alcance: 150,
     radio: 3, perforacion: 0, empuje: 40,
     color: '#ffcf8a', estela: '#8a5a2a', largoTrazo: 6,
-    niveles: [{}, { proyectiles: 1 }, { danyo: 2, proyectiles: 1 }, { recarga: -0.08, proyectiles: 1 },
-              { proyectiles: 1 }, { danyo: 3, proyectiles: 1 }, { alcance: 50, proyectiles: 1 },
-              { proyectiles: 2 }, { danyo: 6, proyectiles: 1 }, { danyo: 9, recarga: -0.15, proyectiles: 1 }]
+    // Un casco de hierro roto, con aristas. No hay dos iguales en pantalla
+    // porque salen girados en direcciones al azar, que es lo que hace el arma.
+    spriteProyectil: 'proyMetralla',
+    // EL DOBLE DE PIEDRAS AL 10: de 12 a 24, subiendo por el mismo camino de
+    // antes (cada nivel suma, y el 8 suma el doble). El daño por impacto no se
+    // toca: esta arma no va de pegar fuerte, va de llenar el aire — duplicar la
+    // cantidad es subirla por donde es ella.
+    niveles: [{}, { proyectiles: 2 }, { danyo: 2, proyectiles: 2 }, { recarga: -0.08, proyectiles: 2 },
+              { proyectiles: 2 }, { danyo: 3, proyectiles: 2 }, { alcance: 50, proyectiles: 2 },
+              { proyectiles: 4 }, { danyo: 6, proyectiles: 3 }, { danyo: 9, recarga: -0.15, proyectiles: 3 }]
   },
 
   // --- Explosivos: mucha área, poco daño directo ------------------------
@@ -230,6 +262,12 @@ export const ARMAS = {
     // subirla. Ahora el crecimiento ES la mejora: cada nivel se ve.
     danyo: 3, intervalo: 0.4, recarga: 0.5, radio: 24, empuje: 50,
     sprite: 'auraAquila',
+    // MENOS TRANSPARENTE QUE EL RESTO DE ZONAS. La transparencia baja un 40%
+    // (de 0,60 a 0,36), o sea que tapa 0,64 en vez de 0,40. El 40% general está
+    // puesto para que nueve armas de área a la vez no conviertan la pantalla en
+    // una mancha; estas tres no son ese caso —son una sola, y las dos auras van
+    // pegadas al jugador— así que pueden verse de verdad sin ensuciar nada.
+    opacidad: 0.64,
     // Gira, y despacio. Se dejó quieta al principio razonando que un emblema
     // tiene un arriba claro y rotarlo lo deja boca abajo media vuelta de cada
     // dos; visto en el juego, no molesta y en cambio la quietud sí — un aura
@@ -260,6 +298,9 @@ export const ARMAS = {
     sprite: 'charcoLava',
     descripcion: 'Charco incendiario que quema a quien lo pisa.',
     comportamiento: 'zonaPersistente',
+    // NO para los proyectiles enemigos: es una mancha en el suelo, y lo que
+    // vuela por encima no la toca. Ver Disparos.barrer (entidades/disparo.js).
+    bloqueaDisparos: false,
     danyo: 4, intervalo: 0.35, recarga: 3.4, charcos: 1, duracion: 4.5, radio: 19,
     ralentiza: 0, empuje: 0, color: '#ff7a2a',
     // Sin `sprite` a propósito: la calcomanía de lava que se probó llevaba un
@@ -272,7 +313,10 @@ export const ARMAS = {
   },
   rete: {
     nombre: 'Rete',
-    sprite: 'charcoZarza',
+    // La red del retiarius, y por fin una red: venía usando el charco de zarzas
+    // por no tener hoja propia. Ver Pirotecnia.Red en generar-efectos.ps1 —una
+    // malla de rombos es geometría, así que no hacía falta dibujarla a mano.
+    sprite: 'redPesca',
     descripcion: 'Red que frena a la mitad. Control, no matanza.',
     comportamiento: 'zonaPersistente',
     danyo: 3, intervalo: 0.5, recarga: 3.0, charcos: 1, duracion: 3.5, radio: 25,
@@ -290,19 +334,40 @@ export const ARMAS = {
     danyo: 14, recarga: 2.2,
     // Cuántos rayos por tormenta y cada cuánto cae el siguiente. `demoraGolpe`
     // reutiliza el encadenado de golpes de las armas de arco (sistemas/armas.js).
-    rayos: 2, demoraGolpe: 0.12,
+    // `demoraGolpe` BAJA de 0,12 a 0,07 al doblar los rayos, y no es un ajuste
+    // de gusto: es la cuenta de más abajo. Con 22 rayos a 0,12 la volea duraría
+    // 2,52 s contra una recarga de 1,65 y la tormenta se pisaría a sí misma,
+    // perdiendo rayos sin avisar. A 0,07 dura 1,47 y cabe.
+    rayos: 2, demoraGolpe: 0.07,
     // `alcance` aquí NO es distancia de tiro: es el radio del ÁREA dentro de la
     // cual caen, centrada en el jugador. `radio` es lo que revienta cada uno.
     alcance: 120, radio: 22,
     // Largo del haz que se ve caer a plomo. Solo dibujo.
     caida: 150, grosor: 4, empuje: 60,
     color: '#bfe4ff',
+    // Con qué revienta cada rayo al tocar tierra. Hoja propia y no la del Pilum
+    // de Júpiter: una detonación se abre y un chispazo se descarga (el porqué,
+    // con sus números, está en herramientas/generar-efectos.ps1).
+    spriteOnda: 'reventonChispa',
     // Sube por los tres lados a la vez: más rayos, más daño y más área. Al
-    // nivel 10 son 7 rayos de 52 de daño en radio 29, cada 1,65 s.
-    niveles: [{}, { danyo: 5 }, { rayos: 1 }, { recarga: -0.25 },
-              { danyo: 7, radio: 3 }, { rayos: 1 }, { alcance: 30 },
-              { danyo: 10, rayos: 1 }, { radio: 4, danyo: 6 },
-              { rayos: 2, danyo: 10, recarga: -0.3 }]
+    // nivel 10 son 22 rayos de 52 de daño en radio 29, cada 1,65 s.
+    //
+    // DOS RAYOS POR NIVEL. Es lo que convierte a la tormenta en una tormenta de
+    // verdad: no cae un rayo cada tanto, cae una cortina.
+    //
+    // LOS DOS NÚMEROS QUE HAY QUE MIRAR JUNTOS son `rayos` y `demoraGolpe`. Los
+    // rayos no salen a la vez: se encadenan uno cada `demoraGolpe` segundos
+    // (mismo mecanismo que los tajos de un arma melé, ver `actualizar` en
+    // sistemas/armas.js), así que la volea entera dura (rayos-1) * demoraGolpe y
+    // ESO tiene que caber en la recarga. Si no cabe, la siguiente activación
+    // reinicia `golpesPendientes` y los rayos que faltaban no llegan a caer
+    // nunca — el arma se comería su propia subida en silencio.
+    //
+    //   22 rayos * 0,07 = 1,47 s de volea, y la recarga al 10 es 1,65. Cabe.
+    niveles: [{}, { danyo: 5, rayos: 2 }, { rayos: 2 }, { recarga: -0.25, rayos: 2 },
+              { danyo: 7, radio: 3, rayos: 2 }, { rayos: 2 }, { alcance: 30, rayos: 2 },
+              { danyo: 10, rayos: 2 }, { radio: 4, danyo: 6, rayos: 3 },
+              { rayos: 3, danyo: 10, recarga: -0.3 }]
   },
   rayoCruzado: {
     nombre: 'Rayo cruzado',
@@ -339,6 +404,10 @@ export const ARMAS = {
     danyo: 24, recarga: 2.3, proyectiles: 1, velocidad: 380, alcance: 460,
     radio: 5, perforacion: 4, dispersion: 0, empuje: 210,
     color: '#f0eada', estela: '#9aa7b5', largoTrazo: 14,
+    // Virote pesado: cabeza gorda, asta gruesa y plumas cortas. Lo comparten la
+    // Ballista, la Enfilada y el Escorpión, que son las tres máquinas de tiro
+    // romanas del catálogo y disparan la misma munición.
+    spriteProyectil: 'proyVirote',
     evolucion: { pasivo: 'clepsidra', arma: 'escorpion' },
     niveles: [{}, { perforacion: 2 }, { danyo: 8 }, { velocidad: 60 },
               { perforacion: 3 }, { danyo: 10 }, { recarga: -0.4 }, { danyo: 14, perforacion: 4 },
@@ -346,7 +415,15 @@ export const ARMAS = {
   },
   tribulus: {
     nombre: 'Tribulus',
-    sprite: 'charcoAcero',
+    // Abrojos: pinchos sueltos esparcidos por el suelo, no una mancha. Venía
+    // usando el charco de acero, que a la vista era un charco de mercurio —y un
+    // tribulus no es un líquido, son piezas de hierro tiradas por ahí.
+    sprite: 'pinchos',
+    // NO para los proyectiles enemigos. Cuatro puntas de hierro en el suelo
+    // dejan pasar por encima cualquier cosa que vuele; es el mismo criterio que
+    // los charcos (ver Disparos.barrer en entidades/disparo.js), y aquí canta
+    // todavía más porque entre pincho y pincho se ve el suelo.
+    bloqueaDisparos: false,
     descripcion: 'Abrojos que quedan clavados donde pisas.',
     comportamiento: 'zonaPersistente',
     danyo: 6, intervalo: 0.45, recarga: 2.8, charcos: 3, duracion: 5, radio: 10,
@@ -387,6 +464,10 @@ export const ARMAS = {
     danyo: 9, recarga: 0.85, proyectiles: 1, velocidad: 320, alcance: 330,
     radio: 3, perforacion: 0, dispersion: 5, empuje: 50,
     color: '#dcc9a0', estela: '#7a6440', largoTrazo: 9,
+    // Una flecha de verdad: punta, astil y plumas. Se orienta al vuelo y sin
+    // giro propio — una flecha va derecha a donde apunta, que es justamente
+    // toda su gracia.
+    spriteProyectil: 'proyFlecha',
     niveles: [{}, { danyo: 3 }, { recarga: -0.1 }, { proyectiles: 1 },
               { danyo: 4, perforacion: 1 }, { recarga: -0.1 }, { proyectiles: 1 },
               { danyo: 7 }, { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -400,20 +481,44 @@ export const ARMAS = {
     // así que premia el bulto y no el alineamiento.
     rebotesEnemigo: 0,
     forma: 'bala',
-    danyo: 26, recarga: 1.0, proyectiles: 1, velocidad: 190, alcance: 250,
+    // SUBIDA. Se jugó y sale mala, y el número de daño no lo explicaba: sobre
+    // el papel ya era de las mejores de su familia. Lo que la hunde es CÓMO
+    // reparte ese daño — una piedra sola, lenta (190 frente a los 320-560 del
+    // resto), sin perforación y con una recarga de un segundo entero. Falla
+    // mucho y, cuando acierta, no hay una segunda.
+    //
+    // Por eso la subida va a la CADENCIA y al NÚMERO DE PIEDRAS antes que al
+    // daño por impacto: más intentos, no golpes más gordos. Al 10 son cinco
+    // piedras a la vez, que con `dispersion: 8` es una andanada corta — la
+    // honda de un balear, no un francotirador.
+    danyo: 32, recarga: 0.72, proyectiles: 1, velocidad: 190, alcance: 250,
     radio: 5, perforacion: 0, dispersion: 8, empuje: 280,
     color: '#b9b2a4', estela: '#5d5850', largoTrazo: 6,
-    niveles: [{}, { danyo: 9 }, { empuje: 60, rebotesEnemigo: 1 }, { proyectiles: 1, danyo: 8 },
-              { danyo: 11 }, { recarga: -0.2, rebotesEnemigo: 1 }, { empuje: 80, proyectiles: 1 },
-              { danyo: 16 }, { danyo: 10, proyectiles: 1 },
-              { danyo: 14, recarga: -0.15, rebotesEnemigo: 1 }]
+    // El canto de la honda: casi redondo, porque un hondero elegía las piedras.
+    // Gira despacio, que es lo que hace una piedra lanzada con correa.
+    spriteProyectil: 'proyPiedra',
+    giroProyectil: 5,
+    // Los rebotes van a los niveles 3, 6 y 10, o sea uno más cada vez, y son lo
+    // que la separa del resto: rebotar no es perforar, la piedra cambia de
+    // rumbo hacia otro blanco y premia el bulto en vez del alineamiento.
+    niveles: [{}, { danyo: 8 }, { empuje: 60, rebotesEnemigo: 1 }, { proyectiles: 1, danyo: 7 },
+              { danyo: 10 }, { recarga: -0.06, rebotesEnemigo: 1, proyectiles: 1 },
+              { empuje: 80, danyo: 12 }, { danyo: 9, proyectiles: 1 },
+              { danyo: 12 },
+              { danyo: 12, recarga: -0.06, proyectiles: 1, rebotesEnemigo: 1 }]
   },
   fusil: {
     nombre: 'Fusil',
     descripcion: 'Disparo largo y perforante. Pega donde mira.',
     comportamiento: 'proyectilDirigido',
-    // Rebota en los márgenes de la pantalla: gana un rebote al nivel 3 y otro
-    // al 10. Ver `rebotesPared` en entidades/proyectil.js.
+    // Rebota en los márgenes de la pantalla VISIBLE: gana uno en los niveles 3,
+    // 5, 7, 9 y 10, o sea cinco al máximo. Ver `rebotesPared` en
+    // entidades/proyectil.js.
+    //
+    // Y cada rebote le devuelve el alcance entero, así que una bala al máximo
+    // puede recorrer seis veces los 440 de su alcance sin salir de cuadro: la
+    // pantalla se convierte en una mesa de billar. Es lo que separa al Fusil del
+    // Revólver, que pega igual de fuerte y solo hacia delante.
     rebotesPared: 0,
     forma: 'bala',
     danyo: 38, recarga: 1.35, proyectiles: 1, velocidad: 560, alcance: 440,
@@ -421,8 +526,10 @@ export const ARMAS = {
     color: '#cfd6dd', estela: '#6d7480', largoTrazo: 14,
     spriteProyectil: 'balaPistola',
     niveles: [{}, { danyo: 18 }, { perforacion: 1, danyo: 14, rebotesPared: 1 }, { recarga: -0.2, danyo: 16 },
-              { danyo: 24 }, { perforacion: 1, danyo: 20 }, { velocidad: 80, danyo: 22 },
-              { danyo: 32, recarga: -0.2 }, { danyo: 24 }, { danyo: 32, recarga: -0.15, rebotesPared: 1 }]
+              { danyo: 24, rebotesPared: 1 }, { perforacion: 1, danyo: 20 },
+              { velocidad: 80, danyo: 22, rebotesPared: 1 },
+              { danyo: 32, recarga: -0.2 }, { danyo: 24, rebotesPared: 1 },
+              { danyo: 32, recarga: -0.15, rebotesPared: 1 }]
   },
   subfusil: {
     nombre: 'Subfusil',
@@ -433,9 +540,14 @@ export const ARMAS = {
     radio: 2, perforacion: 0, dispersion: 9, empuje: 25,
     color: '#ffe08a', estela: '#8a6a2a', largoTrazo: 7,
     spriteProyectil: 'balaPistola',
-    niveles: [{}, { danyo: 1 }, { recarga: -0.03 }, { proyectiles: 1 },
-              { danyo: 2 }, { recarga: -0.03 }, { proyectiles: 1 }, { danyo: 3 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    // EL DOBLE DE BALAS AL 10: de 3 a 6, una más en los niveles 3, 5, 7, 9 y 10.
+    // Sube por donde es ella: el Subfusil no va de pegar fuerte —cada bala pica
+    // poco y así tiene que seguir— va de no parar de escupir. Con `dispersion: 9`
+    // las seis salen en abanico corto, así que a bocajarro llegan todas y de
+    // lejos se reparten.
+    niveles: [{}, { danyo: 1 }, { recarga: -0.03, proyectiles: 1 }, { danyo: 2 },
+              { proyectiles: 1 }, { recarga: -0.03 }, { proyectiles: 1 }, { danyo: 3 },
+              { danyo: 6, proyectiles: 1 }, { danyo: 9, recarga: -0.15, proyectiles: 1 }]
   },
   revolver: {
     nombre: 'Revólver',
@@ -525,6 +637,9 @@ export const ARMAS = {
     danyo: 2, recarga: 0.26, proyectiles: 5, velocidad: 150, alcance: 78, angulo: 42,
     radio: 5, perforacion: 2, empuje: 15,
     color: '#ff9a3a', estela: '#a03a10',
+    // Lenguas de fuego en vez de balas trazadas: el chorro eran puntitos
+    // redondos y ahora son llamas que apuntan hacia donde van.
+    spriteProyectil: 'proyLengua',
     niveles: [{}, { proyectiles: 2 }, { danyo: 1 }, { alcance: 14 },
               { proyectiles: 2 }, { danyo: 1 }, { angulo: 10 }, { proyectiles: 3, danyo: 1 },
               { danyo: 3 }, { danyo: 5, recarga: -0.15 }]
@@ -546,14 +661,31 @@ export const ARMAS = {
   // --- Patrones fijos: no apuntan, te piden colocarte ---------------------
   aspa: {
     nombre: 'Aspa',
-    descripcion: 'Cuatro disparos en diagonal. Cubre las esquinas.',
+    descripcion: 'Disparos en aspa. Cubre las esquinas y se abre.',
     comportamiento: 'direccionFija', patron: 'diagonal',
+    // BRAZOS. Arranca con los cuatro de su patrón y llega a ocho, uno más en los
+    // niveles 4, 6, 8 y 10. `direcciones` reparte los rumbos regularmente por la
+    // circunferencia anclados al primero del patrón (ver `direccionesDe` en
+    // sistemas/armas.js), así que el arma sigue saliendo en diagonal y los pasos
+    // intermedios —cinco brazos, seis, siete— quedan repartidos por igual.
+    //
+    // Es la subida más gorda que puede tener un arma de patrón: cada brazo es
+    // una andanada entera, así que al 10 dispara el doble que al 1 sin tocarle
+    // ni el daño ni la recarga.
+    direcciones: 4,
     danyo: 9, recarga: 1.15, proyectiles: 1, velocidad: 230, alcance: 220,
     radio: 3, perforacion: 0, dispersion: 0, empuje: 60,
     color: '#b9e8d0', estela: '#4a8a6a', largoTrazo: 8,
-    niveles: [{}, { danyo: 3 }, { perforacion: 1 }, { recarga: -0.15 },
-              { danyo: 4 }, { proyectiles: 1, dispersion: 10 }, { perforacion: 1 }, { danyo: 7 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    // SHURIKEN, y volteando. `giroProyectil` va en radianes por segundo: 18 son
+    // casi tres vueltas por segundo, que a 230 de velocidad se lee como una
+    // estrella girando y no como un molinillo. Un shuriken que viaja quieto
+    // parece una pegatina.
+    spriteProyectil: 'proyShuriken',
+    giroProyectil: 18,
+    niveles: [{}, { danyo: 3 }, { perforacion: 1 }, { recarga: -0.15, direcciones: 1 },
+              { danyo: 4 }, { proyectiles: 1, dispersion: 10, direcciones: 1 },
+              { perforacion: 1 }, { danyo: 7, direcciones: 1 },
+              { danyo: 6 }, { danyo: 9, recarga: -0.15, direcciones: 1 }]
   },
   enfilada: {
     nombre: 'Enfilada',
@@ -562,6 +694,8 @@ export const ARMAS = {
     danyo: 20, recarga: 2.1, proyectiles: 1, velocidad: 340, alcance: 380,
     radio: 5, perforacion: 3, dispersion: 0, empuje: 170,
     color: '#e8d8b0', estela: '#8a7a4a', largoTrazo: 13,
+    // El mismo virote de la Ballista, aquí en cruz.
+    spriteProyectil: 'proyVirote',
     niveles: [{}, { danyo: 7 }, { perforacion: 2 }, { recarga: -0.3 },
               { danyo: 9 }, { perforacion: 2 }, { velocidad: 70 }, { danyo: 13, perforacion: 3 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -573,6 +707,9 @@ export const ARMAS = {
     danyo: 4, recarga: 0.75, proyectiles: 3, velocidad: 260, alcance: 170,
     radio: 2, perforacion: 0, dispersion: 14, empuje: 20,
     color: '#d0d8e8', estela: '#5a6a8a', largoTrazo: 5,
+    // Kunai, con su anilla. Se orienta al vuelo y no gira: un cuchillo
+    // arrojadizo bien lanzado va de punta, y es lo que dice que se va a clavar.
+    spriteProyectil: 'proyKunai',
     niveles: [{}, { proyectiles: 1 }, { danyo: 1 }, { recarga: -0.1 },
               { proyectiles: 2 }, { danyo: 2 }, { alcance: 50 }, { proyectiles: 2, danyo: 2 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -584,6 +721,8 @@ export const ARMAS = {
     danyo: 11, recarga: 1.4, proyectiles: 3, velocidad: 220, alcance: 210,
     radio: 4, perforacion: 1, dispersion: 16, empuje: 80,
     color: '#e0c8a0', estela: '#7a5a3a', largoTrazo: 10,
+    // La misma lanza que las Lanzas gemelas, aquí en vertical.
+    spriteProyectil: 'proyLanza',
     niveles: [{}, { proyectiles: 1 }, { danyo: 4 }, { perforacion: 1 },
               { proyectiles: 1 }, { danyo: 5 }, { recarga: -0.25 }, { proyectiles: 2, danyo: 7 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -595,6 +734,9 @@ export const ARMAS = {
     danyo: 3, recarga: 0.3, proyectiles: 4, velocidad: 170, alcance: 130,
     radio: 3, perforacion: 0, empuje: 15,
     color: '#e8e07a', estela: '#8a8a2a', largoTrazo: 4,
+    // Cada avispa, una abeja dibujada. Se orienta al vuelo, sin giro propio:
+    // un bicho vuela mirando hacia donde va.
+    spriteProyectil: 'proyAbeja',
     niveles: [{}, { proyectiles: 2 }, { danyo: 1 }, { recarga: -0.05 },
               { proyectiles: 2 }, { danyo: 2 }, { alcance: 40 }, { proyectiles: 3, danyo: 2 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -610,6 +752,12 @@ export const ARMAS = {
     recarga: 1.8, proyectiles: 1, velocidad: 150, alcance: 150,
     radio: 4, perforacion: 0, dispersion: 16, empuje: 110,
     color: '#ffb04a', estela: '#8a4a10', largoTrazo: 6,
+    // La botella con el trapo ardiendo, dando vueltas LENTAS: 3,4 rad/s es algo
+    // más de media vuelta por segundo. Es la diferencia entre una botella que
+    // alguien ha lanzado por el aire y un proyectil teledirigido — y con el
+    // vuelo de 150 de velocidad y 150 de alcance, da un giro por trayecto.
+    spriteProyectil: 'proyMolotov',
+    giroProyectil: 3.4,
     niveles: [{}, { danyoExplosion: 6 }, { radioExplosion: 8 }, { proyectiles: 1 },
               { danyoExplosion: 8 }, { radioExplosion: 9 }, { recarga: -0.35 },
               { proyectiles: 1, danyoExplosion: 10 },
@@ -625,14 +773,23 @@ export const ARMAS = {
     // había ningún motivo para llevar otra cosa. Ahora es lo que dice su nombre:
     // un cohete cada mucho, y hay que elegir el momento. El área también baja,
     // como en el resto de la familia.
+    //
+    // Y ESA CADENCIA SE TRIPLICA CON EL NIVEL: 3,4 s de recarga al 1 y 1,13 al
+    // 10, bajando un cuarto de segundo por nivel. No contradice lo de arriba,
+    // que iba del nivel 1 y ahí no se toca ni una décima: el arma sigue
+    // entrando como "un cohete cada mucho" y lo que se gana subiéndola es
+    // justamente dejar de esperar. Antes llegaba al 10 con 2,6 s, o sea que
+    // subirla apenas se notaba en lo único que de verdad molestaba de ella.
     danyo: 6, danyoExplosion: 46, radioExplosion: 44,
     recarga: 3.4, proyectiles: 1, velocidad: 210, alcance: 300,
     radio: 5, perforacion: 0, dispersion: 0, empuje: 260,
     color: '#ff7a5a', estela: '#8a2a10', largoTrazo: 12,
-    niveles: [{}, { danyoExplosion: 14 }, { radioExplosion: 8 }, { recarga: -0.3 },
-              { danyoExplosion: 16 }, { radioExplosion: 9 }, { proyectiles: 1 },
-              { danyoExplosion: 22, recarga: -0.3 },
-              { danyoExplosion: 6 }, { danyoExplosion: 9, recarga: -0.2 }]
+    niveles: [{}, { danyoExplosion: 14, recarga: -0.25 }, { radioExplosion: 8, recarga: -0.25 },
+              { recarga: -0.25 }, { danyoExplosion: 16, recarga: -0.25 },
+              { radioExplosion: 9, recarga: -0.25 }, { proyectiles: 1, recarga: -0.25 },
+              { danyoExplosion: 22, recarga: -0.25 },
+              { danyoExplosion: 6, recarga: -0.25 },
+              { danyoExplosion: 9, recarga: -0.27 }]
   },
   artilleria: {
     nombre: 'Artillería',
@@ -654,6 +811,16 @@ export const ARMAS = {
     danyo: 0, danyoExplosion: 11, radioExplosion: 22, duracion: 0.28,
     recarga: 1.5, proyectiles: 4, empuje: 40,
     color: '#d8c89a',
+    // El polvo que levanta la andanada al clavarse. efectos-mapa.md la había
+    // dejado sin hoja razonando que "es una lluvia, no una detonación", y es
+    // cierto — por eso lleva el reventón de TIERRA y no una explosión: astillas
+    // y polvo, en composición normal, no una bola de fuego.
+    //
+    // Hacía falta además por otro motivo: era la última onda del arsenal sin
+    // dibujo, o sea la única que seguía saliendo como el disco y el aro
+    // trazados. Quitados esos aros (ver zonaDanyo.dibujarAire), sin hoja se
+    // habría quedado en una mancha pálida.
+    spriteOnda: 'reventonTierra',
     niveles: [{}, { proyectiles: 2 }, { danyoExplosion: 3 }, { recarga: -0.2 },
               { proyectiles: 2 }, { danyoExplosion: 4 }, { radioExplosion: 6 },
               { proyectiles: 3, danyoExplosion: 5 },
@@ -689,9 +856,18 @@ export const ARMAS = {
     nombre: 'Aceite hirviendo',
     descripcion: 'Charco ancho que abrasa despacio.',
     comportamiento: 'zonaPersistente',
+    // NO para los proyectiles enemigos: es una mancha en el suelo, y lo que
+    // vuela por encima no la toca. Ver Disparos.barrer (entidades/disparo.js).
+    bloqueaDisparos: false,
     danyo: 5, intervalo: 0.4, recarga: 3.0, charcos: 1, duracion: 5.5, radio: 38,
     // Calcomania de suelo con hoja propia (el valor es el id del atlas).
     sprite: 'zonaAceite',
+    // MENOS TRANSPARENTE QUE EL RESTO DE ZONAS. La transparencia baja un 40%
+    // (de 0,60 a 0,36), o sea que tapa 0,64 en vez de 0,40. El 40% general está
+    // puesto para que nueve armas de área a la vez no conviertan la pantalla en
+    // una mancha; estas tres no son ese caso —son una sola, y las dos auras van
+    // pegadas al jugador— así que pueden verse de verdad sin ensuciar nada.
+    opacidad: 0.64,
     ralentiza: 0.2, empuje: 0, color: '#e8b04a',
     niveles: [{}, { radio: 7 }, { duracion: 1.5 }, { danyo: 2 },
               { charcos: 1 }, { radio: 8 }, { duracion: 2 }, { charcos: 1, danyo: 3 },
@@ -704,18 +880,30 @@ export const ARMAS = {
     spriteOnda: 'explosionFuego',
     descripcion: 'Siembra minas. Explotan cuando algo las pisa.',
     comportamiento: 'minaProximidad',
-    danyo: 70, intervalo: 0.9, recarga: 3.6, charcos: 2, duracion: 8, radio: 16,
+    // EL DOBLE DE DAÑO Y CUATRO VECES LAS MINAS. La curva entera de daño va
+    // multiplicada por dos (70->140 de salida, 260->520 al nivel 10) y
+    // `charcos` —que son las minas por siembra— pasa de llegar a 6 a llegar a
+    // 24, repartido nivel a nivel en vez de en tres saltos.
+    //
+    // Es mucho de golpe y es a propósito: una mina solo cobra si la pisan, así
+    // que el arma no vale por lo que hace sino por cuánto suelo cubre. Con seis
+    // no cubría nada; con veinticuatro es un campo minado, que es lo que
+    // promete el nombre.
+    danyo: 140, intervalo: 0.9, recarga: 3.6, charcos: 2, duracion: 8, radio: 16,
     ralentiza: 0, empuje: 180, color: '#ff8a6b',
-    niveles: [{}, { charcos: 1 }, { danyo: 25 }, { duracion: 2 },
-              { charcos: 1, danyo: 20 }, { danyo: 30 }, { radio: 5 },
-              { charcos: 2, danyo: 40 }, { danyo: 30 },
-              { danyo: 45, recarga: -0.15 }]
+    niveles: [{}, { charcos: 2 }, { danyo: 50, charcos: 2 }, { duracion: 2, charcos: 2 },
+              { charcos: 3, danyo: 40 }, { danyo: 60, charcos: 2 }, { radio: 5, charcos: 3 },
+              { charcos: 3, danyo: 80 }, { danyo: 60, charcos: 2 },
+              { danyo: 90, recarga: -0.15, charcos: 3 }]
   },
   alquitran: {
     nombre: 'Alquitrán',
     sprite: 'charcoAlquitran',
     descripcion: 'Casi no duele, pero de ahí no salen.',
     comportamiento: 'zonaPersistente',
+    // NO para los proyectiles enemigos: es una mancha en el suelo, y lo que
+    // vuela por encima no la toca. Ver Disparos.barrer (entidades/disparo.js).
+    bloqueaDisparos: false,
     danyo: 2, intervalo: 0.6, recarga: 3.2, charcos: 1, duracion: 6, radio: 46,
     ralentiza: 0.7, empuje: 0, color: '#6a5a5a',
     niveles: [{}, { radio: 9 }, { duracion: 1.5 }, { charcos: 1 },
@@ -730,6 +918,12 @@ export const ARMAS = {
     color: '#9adfff',
     // Hoja propia (id del atlas), no una celda de un catálogo compartido.
     sprite: 'auraCampoElectrico',
+    // MENOS TRANSPARENTE QUE EL RESTO DE ZONAS. La transparencia baja un 40%
+    // (de 0,60 a 0,36), o sea que tapa 0,64 en vez de 0,40. El 40% general está
+    // puesto para que nueve armas de área a la vez no conviertan la pantalla en
+    // una mancha; estas tres no son ese caso —son una sola, y las dos auras van
+    // pegadas al jugador— así que pueden verse de verdad sin ensuciar nada.
+    opacidad: 0.64,
     // Radianes por segundo. Es UNA sola imagen: el giro es lo que la hace
     // parecer viva sin pedirle fotogramas al artista. 1.8 son unos 3,5 s por
     // vuelta — se ve que se mueve sin marear, y es el número a tocar.
@@ -744,12 +938,17 @@ export const ARMAS = {
     nombre: 'Láser',
     descripcion: 'Haz fino que cruza la pantalla de lado a lado.',
     comportamiento: 'rayoPerforante', patron: 'horizontal',
-    danyo: 16, recarga: 1.4, alcance: 420, grosor: 3, empuje: 40,
+    // `grosor` es el MEDIO ancho del haz: la altura de lo que barre a cada lado
+    // de la línea (ver rayoPerforante en sistemas/armas.js, donde se compara
+    // contra la distancia perpendicular). Sube de 4 a 24, o sea el doble de lo
+    // que llegaba a ser antes, y ya arranca algo más ancho: un haz que cruza la
+    // pantalla entera tiene que verse como un haz y no como una raya.
+    danyo: 16, recarga: 1.4, alcance: 420, grosor: 4, empuje: 40,
     color: '#ff6b8a',
-    niveles: [{}, { danyo: 6, grosor: 1 }, { grosor: 1 }, { recarga: -0.2, grosor: 1 },
-              { danyo: 8, grosor: 1 }, { alcance: 70, grosor: 1 }, { grosor: 1 },
-              { danyo: 12, recarga: -0.2, grosor: 1 }, { danyo: 6, grosor: 1 },
-              { danyo: 9, recarga: -0.15, grosor: 1 }]
+    niveles: [{}, { danyo: 6, grosor: 2 }, { grosor: 2 }, { recarga: -0.2, grosor: 2 },
+              { danyo: 8, grosor: 2 }, { alcance: 70, grosor: 2 }, { grosor: 3 },
+              { danyo: 12, recarga: -0.2, grosor: 2 }, { danyo: 6, grosor: 2 },
+              { danyo: 9, recarga: -0.15, grosor: 3 }]
   },
   aspaDeLuz: {
     nombre: 'Aspa de luz',
@@ -757,9 +956,27 @@ export const ARMAS = {
     comportamiento: 'rayoPerforante', patron: 'diagonal',
     danyo: 8, recarga: 2.0, alcance: 280, grosor: 4, empuje: 40,
     color: '#ffe8a0',
+    // AL MÁXIMO, EL ASPA GIRA. `giroRayo` son los grados que barre cada haz
+    // mientras se apaga, hacia la derecha, y solo lo gana al nivel 10: es el
+    // remate del arma, no una subida más.
+    //
+    // Y barre de verdad, no de mentira: el daño se resuelve sobre el ABANICO
+    // entero y no sobre la recta de partida (ver rayoPerforante en
+    // sistemas/armas.js). Girar solo el dibujo se habría visto enseguida — el
+    // haz pasándole por encima a un enemigo sin hacerle nada es peor que no
+    // girar. A 280 de alcance, 20 grados son 98 unidades de barrido en la punta.
+    giroRayo: 0,
+    // Y EL DESTELLO DURA EL DOBLE: 0,24 s en vez de los 0,12 de los demás rayos.
+    //
+    // Con el barrido puesto, la duración ES la velocidad de giro —el haz recorre
+    // sus veinte grados mientras se apaga— así que este número hace las dos
+    // cosas a la vez: se ve más rato y gira más despacio. Es lo que convierte el
+    // barrido en un movimiento que se sigue con la vista en vez de un
+    // parpadeo torcido.
+    duracionRayo: 0.24,
     niveles: [{}, { danyo: 3 }, { grosor: 2 }, { recarga: -0.25 },
               { danyo: 4 }, { alcance: 60 }, { grosor: 2 }, { danyo: 7, recarga: -0.25 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+              { danyo: 6 }, { danyo: 9, recarga: -0.15, giroRayo: 20 }]
   },
 
   // --- Orbitales: cobertura pegada, sin pedirte nada ----------------------
@@ -769,6 +986,26 @@ export const ARMAS = {
     comportamiento: 'orbital',
     danyo: 10, recarga: 1.0, escudos: 2, radioOrbita: 68, radioEscudo: 7,
     velocidadAngular: 1.4, empuje: 80, color: '#a0c8ff',
+    // LUNAS EN CUARTO MENGUANTE. Era el último orbital sin dibujo, y el único
+    // que no se podía sacar del generador... hasta que se vio que una luna son
+    // dos circunferencias y una resta (ver Pirotecnia.Luna en
+    // herramientas/generar-efectos.ps1).
+    //
+    // Sin `giroOrbital`, y a propósito: la fase es lo que hace reconocible a una
+    // luna, y rotándola queda del revés media vuelta de cada dos. Mismo motivo
+    // que el escudo del Scutum, que lleva emblema.
+    spriteOrbital: 'orbLuna',
+    // LA LUNA SE DIBUJA x2,5. `escalaOrbital` afecta SOLO al dibujo: el radio
+    // que hace daño sigue siendo `radioEscudo`, o sea 7.
+    //
+    // Es una mentira consciente y conviene tenerla escrita. Casi todo en este
+    // proyecto está horneado para que el filo del dibujo caiga donde acaba el
+    // daño, y aquí no: la luna asoma bastante por fuera de lo que golpea. Se
+    // sostiene porque lo que sobresale es sobre todo el aura —que se lee como
+    // resplandor y no como filo— y porque un satélite es un objeto lejano, no
+    // un arma de contacto. Si algún día molesta, la salida honrada es subir
+    // `radioEscudo` y bajar esto, no al revés.
+    escalaOrbital: 2.5,
     niveles: [{}, { escudos: 1 }, { radioOrbita: 8 }, { danyo: 4 },
               { escudos: 1 }, { velocidadAngular: 0.5 }, { escudos: 1 }, { danyo: 7 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -879,9 +1116,16 @@ export const ARMAS = {
     danyo: 26, danyoExplosion: 40, radioExplosion: 46,
     recarga: 0.85, proyectiles: 3, velocidad: 300, alcance: 340,
     radio: 5, perforacion: 2, dispersion: 9, empuje: 190,
-    color: '#dff0ff', estela: '#7fa8ff', largoTrazo: 9
-    // Pendiente: el rayo de verdad (columna vertical que cae en el impacto) pide
-    // un efecto vertical que no existe; de momento el estallido hace su papel.
+    color: '#dff0ff', estela: '#7fa8ff', largoTrazo: 9,
+    // EL RAYO DE VERDAD: una columna que cae a plomo sobre el punto donde se
+    // clava la jabalina. `rayoCaida` es desde cuánto más arriba entra —190 son
+    // dos tercios de la altura de la pantalla, así que viene de fuera de cuadro
+    // y no de un punto flotante— y `rayoGrosor` su trazo.
+    //
+    // Es SOLO dibujo. El daño ya lo pone la explosión y el arma está equilibrada
+    // con esos números; darle daño propio al haz sería subirle el dps por la
+    // puerta de atrás con la excusa de un efecto. Ver VFX.haz.
+    rayoCaida: 190, rayoGrosor: 5
   },
   gladiusHispaniensis: {
     nombre: 'Gladius Hispaniensis',
@@ -898,20 +1142,43 @@ export const ARMAS = {
     comportamiento: 'orbital',
     esEvolucion: true,
     danyo: 44, recarga: 1.0, escudos: 6, radioOrbita: 46, radioEscudo: 10,
-    velocidadAngular: 3.0, empuje: 200, color: '#f0dca8'
-    // Pendiente: destruir proyectiles enemigos. No hay proyectiles enemigos hasta
-    // la Fase 6, así que hoy no habría nada que destruir.
+    velocidadAngular: 3.0, empuje: 200, color: '#f0dca8',
+    // El escudo del Scutum, que es de donde evoluciona: son los mismos seis
+    // escudos de la misma legión, no un objeto nuevo. Sin esto, evolucionar
+    // cambiaba el dibujo por el círculo trazado y parecía una rebaja.
+    spriteOrbital: 'orbScutum',
+    // Y EL AURA ROJA, que es lo que separa la evolución del arma base. El mismo
+    // escudo con el mismo dibujo, pero encendido: se dibuja por detrás, en
+    // aditivo, así que se suma a lo que haya debajo en vez de taparlo.
+    //
+    // Va aquí y no en la hoja porque la hoja es la del Scutum y se comparte: si
+    // el aura viniera horneada en el PNG, la llevarían los dos.
+    auraOrbital: 'auraRoja',
+    escalaAura: 2.2
+    // Destruye proyectiles enemigos, y sin necesitar nada suyo: lo hace CUALQUIER
+    // orbital, porque el barrido está en el sistema y no en el arma (ver
+    // Disparos.barrer, entidades/disparo.js). Con seis escudos en formación
+    // cerrada el Testudo es sencillamente el que menos huecos deja.
   },
   incendioEmerita: {
     nombre: 'Incendio de Emerita',
     sprite: 'charcoLava',
     descripcion: 'El fuego cubre el suelo y no se apaga.',
     comportamiento: 'zonaPersistente',
+    // NO para los proyectiles enemigos: es una mancha en el suelo, y lo que
+    // vuela por encima no la toca. Ver Disparos.barrer (entidades/disparo.js).
+    bloqueaDisparos: false,
     esEvolucion: true,
     danyo: 16, intervalo: 0.25, recarga: 1.6, charcos: 4, duracion: 7, radio: 52,
-    ralentiza: 0.2, empuje: 0, color: '#ff5a1a'
-    // Pendiente: la propagación al morir un enemigo dentro del charco. Necesita
-    // un aviso de muerte con posición desde el sistema de zonas.
+    ralentiza: 0.2, empuje: 0, color: '#ff5a1a',
+    // EL FUEGO SALTA AL QUE CAE DENTRO: quien muere en el charco deja otro más
+    // pequeño donde ha caído, del 55% del radio y de vida más corta. Es lo que
+    // separa a un incendio de un charco grande — se extiende por donde hay
+    // cuerpos, así que castiga a la horda apretada y no a un enemigo suelto.
+    //
+    // Los hijos NO se propagan a su vez; el porqué está en `crearZona`
+    // (entidades/zonaDanyo.js), y es que si lo hicieran no pararía nunca.
+    propaga: 0.55
   },
   escorpion: {
     nombre: 'Escorpión',
@@ -927,7 +1194,9 @@ export const ARMAS = {
     // blanco (266 de dps contra 54 del Gladius Hispaniensis).
     danyo: 13, recarga: 0.3, proyectiles: 2, velocidad: 460, alcance: 620,
     radio: 6, perforacion: 999, dispersion: 4, empuje: 240,
-    color: '#fff4d8', estela: '#c08a3a', largoTrazo: 18
+    color: '#fff4d8', estela: '#c08a3a', largoTrazo: 18,
+    // El mismo virote: el scorpio era precisamente una ballesta de campaña.
+    spriteProyectil: 'proyVirote',
   }
 };
 

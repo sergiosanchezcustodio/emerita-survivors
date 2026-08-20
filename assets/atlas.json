@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260818212237",
+    "version":  "20260820142407",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -1234,73 +1234,6 @@
                                          "frames":  1,
                                          "plano":  true
                                      },
-                      "tajoKatana":  {
-                                         "archivo":  "efectos/tajo-katana.png",
-                                         "w":  304,
-                                         "h":  304,
-                                         "anclaX":  152,
-                                         "anclaY":  152,
-                                         "frames":  6,
-                                         "plano":  true
-                                     },
-                      "auraCampoElectrico":  {
-                                                 "archivo":  "efectos/aura-campoElectrico.png",
-                                                 "w":  272,
-                                                 "h":  272,
-                                                 "anclaX":  136,
-                                                 "anclaY":  136,
-                                                 "frames":  1,
-                                                 "plano":  true
-                                             },
-                      "orbScutum":  {
-                                        "archivo":  "efectos/orb-scutum.png",
-                                        "w":  64,
-                                        "h":  64,
-                                        "anclaX":  32,
-                                        "anclaY":  32,
-                                        "frames":  1,
-                                        "plano":  true
-                                    },
-                      "orbDiscos":  {
-                                        "archivo":  "efectos/orb-discos.png",
-                                        "w":  72,
-                                        "h":  72,
-                                        "anclaX":  36,
-                                        "anclaY":  36,
-                                        "frames":  1,
-                                        "plano":  true
-                                    },
-                      "orbSierras":  {
-                                         "archivo":  "efectos/orb-sierras.png",
-                                         "w":  80,
-                                         "h":  80,
-                                         "anclaX":  40,
-                                         "anclaY":  40,
-                                         "frames":  1,
-                                         "plano":  true
-                                     },
-                      "auraAquila":  {
-                                         "archivo":  "efectos/aura-aquila.png",
-                                         "w":  192,
-                                         "h":  192,
-                                         "anclaX":  96,
-                                         "anclaY":  96,
-                                         "frames":  1,
-                                         "plano":  true
-                                     },
-                      "ruletaMarco":  {
-                                          "archivo":  "menus/ruleta-marco.png",
-                                          "w":  640,
-                                          "h":  693,
-                                          "anclaX":  319,
-                                          "anclaY":  327,
-                                          "frames":  1,
-                                          "plano":  true,
-                                          "centroX":  319,
-                                          "centroY":  327,
-                                          "radio":  281,
-                                          "radioCara":  251
-                                      },
                       "explosionFuego":  {
                                              "archivo":  "efectos/explosion-fuego.png",
                                              "w":  540,
@@ -1526,6 +1459,31 @@
                                                            1
                                                        ]
                                         },
+                      "reventonChispa":  {
+                                             "archivo":  "efectos/reventon-chispa.png",
+                                             "w":  304,
+                                             "h":  304,
+                                             "anclaX":  152,
+                                             "anclaY":  152,
+                                             "frames":  12,
+                                             "plano":  true,
+                                             "margen":  1.35,
+                                             "aditivo":  true,
+                                             "radios":  [
+                                                            0.15,
+                                                            0.20275,
+                                                            0.25816,
+                                                            0.31673,
+                                                            0.37905,
+                                                            0.44583,
+                                                            0.51791,
+                                                            0.59628,
+                                                            0.68213,
+                                                            0.77686,
+                                                            0.88216,
+                                                            1
+                                                        ]
+                                         },
                       "charcoLava":  {
                                          "archivo":  "efectos/charco-lava.png",
                                          "w":  376,
@@ -1676,6 +1634,230 @@
                                             "bucle":  true,
                                             "fps":  9,
                                             "radioDibujo":  9
-                                        }
+                                        },
+                      "pinchos":  {
+                                      "archivo":  "efectos/pinchos.png",
+                                      "w":  376,
+                                      "h":  376,
+                                      "anclaX":  188,
+                                      "anclaY":  188,
+                                      "frames":  1,
+                                      "plano":  true,
+                                      "margen":  1.18,
+                                      "aditivo":  false
+                                  },
+                      "auraRoja":  {
+                                       "archivo":  "efectos/aura-roja.png",
+                                       "w":  64,
+                                       "h":  64,
+                                       "anclaX":  32,
+                                       "anclaY":  32,
+                                       "frames":  1,
+                                       "plano":  true
+                                   },
+                      "proyAbeja":  {
+                                        "archivo":  "efectos/proy-abeja.png",
+                                        "w":  40,
+                                        "h":  22,
+                                        "anclaX":  20,
+                                        "anclaY":  11,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "proyShuriken":  {
+                                           "archivo":  "efectos/proy-shuriken.png",
+                                           "w":  32,
+                                           "h":  32,
+                                           "anclaX":  16,
+                                           "anclaY":  16,
+                                           "frames":  1,
+                                           "plano":  true
+                                       },
+                      "proyMolotov":  {
+                                          "archivo":  "efectos/proy-molotov.png",
+                                          "w":  36,
+                                          "h":  36,
+                                          "anclaX":  18,
+                                          "anclaY":  18,
+                                          "frames":  1,
+                                          "plano":  true
+                                      },
+                      "proyPilum":  {
+                                        "archivo":  "efectos/proy-pilum.png",
+                                        "w":  52,
+                                        "h":  14,
+                                        "anclaX":  26,
+                                        "anclaY":  7,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "proyLanza":  {
+                                        "archivo":  "efectos/proy-lanza.png",
+                                        "w":  52,
+                                        "h":  16,
+                                        "anclaX":  26,
+                                        "anclaY":  8,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "proyVirote":  {
+                                         "archivo":  "efectos/proy-virote.png",
+                                         "w":  44,
+                                         "h":  20,
+                                         "anclaX":  22,
+                                         "anclaY":  10,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
+                      "proyMetralla":  {
+                                           "archivo":  "efectos/proy-metralla.png",
+                                           "w":  16,
+                                           "h":  16,
+                                           "anclaX":  8,
+                                           "anclaY":  8,
+                                           "frames":  1,
+                                           "plano":  true
+                                       },
+                      "proyPiedra":  {
+                                         "archivo":  "efectos/proy-piedra.png",
+                                         "w":  20,
+                                         "h":  18,
+                                         "anclaX":  10,
+                                         "anclaY":  9,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
+                      "proyLengua":  {
+                                         "archivo":  "efectos/proy-lengua.png",
+                                         "w":  32,
+                                         "h":  18,
+                                         "anclaX":  16,
+                                         "anclaY":  9,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
+                      "proyRosa":  {
+                                       "archivo":  "efectos/proy-rosa.png",
+                                       "w":  24,
+                                       "h":  24,
+                                       "anclaX":  12,
+                                       "anclaY":  12,
+                                       "frames":  1,
+                                       "plano":  true
+                                   },
+                      "proyKunai":  {
+                                        "archivo":  "efectos/proy-kunai.png",
+                                        "w":  40,
+                                        "h":  16,
+                                        "anclaX":  20,
+                                        "anclaY":  8,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "proyColumna":  {
+                                          "archivo":  "efectos/proy-columna.png",
+                                          "w":  68,
+                                          "h":  24,
+                                          "anclaX":  34,
+                                          "anclaY":  12,
+                                          "frames":  1,
+                                          "plano":  true
+                                      },
+                      "proyFlecha":  {
+                                         "archivo":  "efectos/proy-flecha.png",
+                                         "w":  44,
+                                         "h":  16,
+                                         "anclaX":  22,
+                                         "anclaY":  8,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
+                      "redPesca":  {
+                                       "archivo":  "efectos/red-pesca.png",
+                                       "w":  376,
+                                       "h":  376,
+                                       "anclaX":  188,
+                                       "anclaY":  188,
+                                       "frames":  1,
+                                       "plano":  true,
+                                       "margen":  1.18,
+                                       "aditivo":  false
+                                   },
+                      "orbLuna":  {
+                                      "archivo":  "efectos/orb-luna.png",
+                                      "w":  128,
+                                      "h":  128,
+                                      "anclaX":  64,
+                                      "anclaY":  64,
+                                      "frames":  1,
+                                      "plano":  true
+                                  },
+                      "tajoKatana":  {
+                                         "archivo":  "efectos/tajo-katana.png",
+                                         "w":  304,
+                                         "h":  304,
+                                         "anclaX":  152,
+                                         "anclaY":  152,
+                                         "frames":  6,
+                                         "plano":  true
+                                     },
+                      "auraCampoElectrico":  {
+                                                 "archivo":  "efectos/aura-campoElectrico.png",
+                                                 "w":  272,
+                                                 "h":  272,
+                                                 "anclaX":  136,
+                                                 "anclaY":  136,
+                                                 "frames":  1,
+                                                 "plano":  true
+                                             },
+                      "orbScutum":  {
+                                        "archivo":  "efectos/orb-scutum.png",
+                                        "w":  64,
+                                        "h":  64,
+                                        "anclaX":  32,
+                                        "anclaY":  32,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "orbDiscos":  {
+                                        "archivo":  "efectos/orb-discos.png",
+                                        "w":  72,
+                                        "h":  72,
+                                        "anclaX":  36,
+                                        "anclaY":  36,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
+                      "orbSierras":  {
+                                         "archivo":  "efectos/orb-sierras.png",
+                                         "w":  80,
+                                         "h":  80,
+                                         "anclaX":  40,
+                                         "anclaY":  40,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
+                      "auraAquila":  {
+                                         "archivo":  "efectos/aura-aquila.png",
+                                         "w":  192,
+                                         "h":  192,
+                                         "anclaX":  96,
+                                         "anclaY":  96,
+                                         "frames":  1,
+                                         "plano":  true
+                                     },
+                      "ruletaMarco":  {
+                                          "archivo":  "menus/ruleta-marco.png",
+                                          "w":  640,
+                                          "h":  693,
+                                          "anclaX":  319,
+                                          "anclaY":  327,
+                                          "frames":  1,
+                                          "plano":  true,
+                                          "centroX":  319,
+                                          "centroY":  327,
+                                          "radio":  281,
+                                          "radioCara":  251
+                                      }
                   }
 }

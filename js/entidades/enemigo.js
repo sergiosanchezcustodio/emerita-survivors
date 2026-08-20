@@ -589,7 +589,10 @@ export class Enemigos {
                 tx = camara.izquierda + this._rng() * ANCHO_LOGICO;
                 ty = camara.arriba + this._rng() * ALTO_LOGICO;
               }
-              this.disparos.sismo(tx, ty, at);
+              // Se le pasa de dónde sale la piedra: del pecho del cíclope, no
+              // de sus pies. Con eso el disparo puede dibujarla volando durante
+              // el aviso (ver el sismo en entidades/disparo.js).
+              this.disparos.sismo(tx, ty, at, e.x, e.y - 10);
             } else {
 
             const inv = 1 / Math.sqrt(d2a);

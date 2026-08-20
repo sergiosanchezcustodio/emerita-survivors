@@ -785,6 +785,12 @@ export function impactosProyectiles(proyectiles, enemigos, alEstallar) {
     const p = pItems[k];
     let agotado = false;
 
+    // EN SECO: perforación gastada pero rebotes de pared por usar. Sigue
+    // volando y no hace daño a nadie hasta tocar el margen, donde se recarga
+    // (ver Proyectiles.mover). Se sale antes de mirar la rejilla siquiera: no
+    // hay nada que pueda pasarle a un proyectil que no golpea.
+    if (p.perforacion < 0) { k++; continue; }
+
     const c0 = rejilla.columnaDe(p.x - p.radio);
     const c1 = rejilla.columnaDe(p.x + p.radio);
     const f0 = rejilla.filaDe(p.y - p.radio);
@@ -816,6 +822,17 @@ export function impactosProyectiles(proyectiles, enemigos, alEstallar) {
           // Se distingue de la perforación a propósito: perforar es seguir
           // recto atravesando cuerpos, rebotar es CAMBIAR DE RUMBO hacia otro
           // blanco. La primera premia alinearse, la segunda premia el bulto.
+          // REBOTE CONTRA LA PARED. Antes de darlo por gastado: si le quedan
+          // rebotes de margen NO muere aquí, sigue volando EN SECO hasta el
+          // borde y allí recupera la perforación.
+          //
+          // Sin esto, los rebotes del Fusil no se veían nunca, y no era un
+          // fallo del rebote sino de que la bala no llegaba a la pared: moría
+          // contra el primer o segundo cuerpo —perforación 1 al nivel 1, 3 al
+          // 10— y en este juego siempre hay un cuerpo entre tú y el margen. La
+          // función estaba bien y no se ejecutaba jamás en partida.
+          if (p.rebotesPared > 0) { p.perforacion = -1; agotado = false; break; }
+
           if (p.rebotesEnemigo > 0) {
             const otro = enemigoMasCercano(enemigos, p.x, p.y, ALCANCE_REBOTE, e);
             if (otro) {

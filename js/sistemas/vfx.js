@@ -111,6 +111,27 @@ function crearAnillo() {
   return { x: 0, y: 0, radio: 20, vida: 0, vidaMax: 1, color: '#ffffff', grosor: 1.5 };
 }
 
+// HACES: una columna de rayo que cae a plomo sobre un punto del suelo.
+//
+// La tormenta ya tenía la suya, pero vivía DENTRO del arsenal (`_anotarRayo` en
+// sistemas/armas.js) y allí no la alcanza quien la necesita ahora: el Pilum de
+// Júpiter revienta cuando ya no hay arma a la que preguntar, solo el proyectil
+// y `estallar` de main.js. Aquí es sitio de todos.
+//
+// Y se dibuja QUEBRADO, no recto como el de la tormenta. Un rayo trazado con
+// una línea recta se lee como un haz de luz; el que baja dando bandazos se lee
+// como una descarga, y esta es la que el arma promete por nombre. Los bandazos
+// salen de la fase y de un contador propio —nunca del azar ni del reloj— así
+// que dos partidas con la misma semilla dibujan el mismo rayo.
+const HACES = 8;
+const NUDOS = 5;            // tramos del zigzag; 5 basta para leerse como rayo
+
+function crearHaz() {
+  return { x: 0, y: 0, largo: 0, grosor: 2, color: '#ffffff', vida: 0, vidaMax: 1, fase: 0 };
+}
+
+let contadorHaz = 0;
+
 export const VFX = {
   pool: null,
 
@@ -135,11 +156,15 @@ export const VFX = {
   // --- Reventones dibujados -------------------------------------------------
   reventones: null,
 
+  // --- Haces de rayo --------------------------------------------------------
+  haces: null,
+
   iniciar(capacidad) {
     this.pool = new Pool(crearNumero, capacidad);
     this.marcas = new Pool(crearMarca, MARCAS);
     this.anillos = new Pool(crearAnillo, ANILLOS);
     this.reventones = new Pool(crearReventon, REVENTONES);
+    this.haces = new Pool(crearHaz, HACES);
     this.sacudida = 0;
     this.congelado = 0;
     this._esperaHitstop = 0;
@@ -291,6 +316,14 @@ export const VFX = {
       else a++;
     }
 
+    const haces = this.haces.items;
+    let h = 0;
+    while (h < this.haces.activos) {
+      haces[h].vida -= dt;
+      if (haces[h].vida <= 0) this.haces.liberarEn(h);
+      else h++;
+    }
+
     // La sacudida decae exponencialmente y oscila rápido. Determinista: sale de
     // un contador propio, no del reloj ni del azar, para no romper el criterio
     // de reproducibilidad.
@@ -332,6 +365,74 @@ export const VFX = {
     a.color = color;
     a.grosor = grosor;
     a.vida = a.vidaMax = vida;
+  },
+
+  // UN HAZ DE RAYO cayendo sobre (x, y): se traza desde `largo` unidades más
+  // arriba, así que entra en cuadro desde fuera de pantalla y el suelo es donde
+  // termina, no donde empieza.
+  //
+  // No hace daño: el daño ya lo puso quien lo llama —la onda de la explosión—
+  // y duplicarlo aquí sería cobrar dos veces por el mismo golpe. Esto es el
+  // dibujo que le faltaba a ese golpe.
+  haz(x, y, largo, grosor = 3, color = '#dff0ff', vida = 0.16) {
+    if (!this.haces || largo <= 0) return;
+    const h = this.haces.obtener();
+    if (!h) return;
+    h.x = x; h.y = y;
+    h.largo = largo;
+    h.grosor = grosor;
+    h.color = color;
+    h.vida = h.vidaMax = vida;
+    h.fase = (contadorHaz++) * 1.7;
+  },
+
+  // Los haces, en el lienzo del MUNDO. Dos pasadas sobre el mismo zigzag: un
+  // halo aditivo ancho y flojo, y encima el núcleo del color del arma en
+  // composición normal. Es lo mismo que hace `dibujarRayos` del arsenal, y por
+  // el mismo motivo: en 'lighter' a secas, sobre la arena clara, todos los
+  // rayos se saturan a blanco y dejan de tener color.
+  dibujarHaces(ctx) {
+    if (!this.haces) return;
+    const items = this.haces.items;
+    const n = this.haces.activos;
+    if (n === 0) return;
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (let k = 0; k < n; k++) {
+      const h = items[k];
+      const t = h.vida / h.vidaMax;              // 1 al caer, 0 al apagarse
+      // La amplitud del bandazo se mide sobre el LARGO y se acota: un rayo de
+      // doscientas unidades con codos proporcionales saldría del cuadro por los
+      // lados y parecería una grieta, no una descarga.
+      const ancho = Math.min(h.largo * 0.06, 9);
+
+      for (let pasada = 0; pasada < 2; pasada++) {
+        if (pasada === 0) {
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = t * 0.4;
+          ctx.lineWidth = h.grosor * (0.8 + t * 2.2);
+        } else {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = t;
+          ctx.lineWidth = h.grosor * (0.35 + t * 0.5);
+        }
+        ctx.strokeStyle = h.color;
+        ctx.beginPath();
+        ctx.moveTo(h.x, h.y - h.largo);
+        for (let i = 1; i <= NUDOS; i++) {
+          const f = i / NUDOS;
+          // El último nudo va clavado en el punto de impacto: el rayo tiene que
+          // acabar EXACTAMENTE donde revienta la onda, o se lee como si hubiera
+          // caído al lado.
+          const desvio = i === NUDOS ? 0 : Math.sin(h.fase + i * 2.3) * ancho;
+          ctx.lineTo(h.x + desvio, h.y - h.largo * (1 - f));
+        }
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
   },
 
   // UN REVENTÓN. `hoja` es el id de atlas de una tira generada por
@@ -464,6 +565,7 @@ export const VFX = {
   },
 
   vaciar() {
+    if (this.haces) this.haces.vaciar();
     if (this.anillos) this.anillos.vaciar();
     if (this.reventones) this.reventones.vaciar();
     if (this.marcas) this.marcas.vaciar();

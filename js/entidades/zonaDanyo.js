@@ -81,9 +81,56 @@ function crearZona() {
     // dibuja ese reventón: se guarda al sembrarla porque al detonar ya no hay
     // arma a la que preguntárselo.
     radioGatillo: 0,
-    hojaOnda: null
+    hojaOnda: null,
+    // ¿PARA LOS PROYECTILES ENEMIGOS? Casi todas sí: `Disparos.barrer` deshace
+    // lo que toque cualquier arma del jugador, y esa es media idea de los
+    // disparos enemigos —no estás obligado a esquivar, puedes limpiar el aire—.
+    // Pero un charco es SUELO, y algo que vuela por encima de un charco no lo
+    // toca. Ver entidades/disparo.js.
+    bloquea: true,
+    // CUÁNTO TAPA su calcomanía, de 0 a 1. Sale de los datos del arma porque no
+    // todas piden lo mismo: un charco de aceite y un aura pegada al cuerpo se
+    // ven sobre fondos distintos y compiten con cosas distintas. Ver
+    // OPACIDAD_ZONA, aquí abajo, para el porqué del valor por defecto.
+    opacidad: 0,
+    // PROPAGACIÓN. Fracción del radio con la que brota un charco hijo donde cae
+    // un enemigo que estaba dentro. 0 = no se propaga, que es lo normal.
+    //
+    // El hijo nace SIEMPRE con `propaga` a cero, y eso no es un detalle de
+    // ajuste sino lo que acota la cosa: con propagación heredada, un charco en
+    // mitad de la horda se reproduciría mientras siga matando, y en dos segundos
+    // el pool entero sería fuego. Una generación, y se acabó.
+    propaga: 0,
+    // Y cuántas veces le queda por prender. Una generación acota la CADENA,
+    // esto acota la ANCHURA: sin ello, un charco plantado en mitad de la horda
+    // deja un hijo por cada baja —medido en el banco: doce muertes, doce
+    // charcos— y con cuatro charcos cada 1,6 s eso llena el pool y tapa la
+    // pantalla de fuego. Tres brotes es que el incendio se note extenderse sin
+    // que sustituya al suelo.
+    brotes: 0
   };
 }
+
+// CUÁNTO TAPA UNA CALCOMANÍA DE ZONA, por defecto.
+//
+// Estaban al 92% y con nueve armas de área a la vez la pantalla acababa siendo
+// una mancha: el charco tapaba el terreno, los cuerpos y los otros charcos. Una
+// zona tiene que decir DÓNDE quema, no sustituir al suelo.
+//
+// Es EL número a tocar si se ven poco: subirlo devuelve la pantalla manchada,
+// bajarlo hace que un charco de alquitrán sobre losa oscura desaparezca. Y se
+// puede tocar arma por arma con `opacidad` en datos/armas.js, que es lo que
+// usan las tres que se ven sobre fondo claro.
+const OPACIDAD_ZONA = 0.40;
+
+// Cuántas veces puede prender un mismo charco.
+const BROTES_MAX = 3;
+
+// Y por encima de esta ocupación del pool no se propaga nada. Las zonas son un
+// recurso compartido: nueve armas de área tiran del mismo pool, y un incendio
+// que se lo coma entero deja al resto del arsenal sin dibujar y sin dañar. El
+// fuego cede antes que el arma de al lado.
+const OCUPACION_MAXIMA = 0.75;
 
 let contadorSello = 1;
 
@@ -127,6 +174,10 @@ export class Zonas {
     z.radioGatillo = def.radioGatillo || 0;
     z.hojaOnda = (def.spriteOnda && Recursos.meta(def.spriteOnda)) ? def.spriteOnda : null;
     z.desvioY = def.desvioY || 0;
+    z.bloquea = def.bloquea !== false;
+    z.opacidad = def.opacidad || OPACIDAD_ZONA;
+    z.propaga = def.propaga || 0;
+    z.brotes = z.propaga > 0 ? BROTES_MAX : 0;
     z.sello = contadorSello++;
     return z;
   }
@@ -192,6 +243,61 @@ export class Zonas {
     z.sello = contadorSello++;
   }
 
+  // EL FUEGO SALTA AL QUE CAE DENTRO. Un charco hijo en el sitio exacto donde
+  // ha muerto un enemigo, más pequeño y más corto que su padre.
+  //
+  // Se copia del padre en vez de pedirle los datos al arma, porque aquí ya no
+  // hay arma: la zona lleva puesto todo lo que la define —daño, tics, color,
+  // hoja, giro— y lo que cambia son tres números. Y se toma el objeto del pool
+  // a mano, sin pasar por `crear`, para no volver a resolver el hueco del atlas
+  // ni el resto de la ficha: es un clon, no una zona nueva.
+  //
+  // Nace después del índice que recorre `actualizar`, así que este mismo paso ya
+  // hace su primer tic. Es lo correcto: el fuego prende en el instante en que
+  // el cuerpo cae, no un frame más tarde.
+  //
+  // HAY QUE ESCRIBIR TODOS LOS CAMPOS, uno por uno, y no solo los que cambian.
+  // El objeto sale del pool y trae puesto lo de la zona anterior que ocupó ese
+  // hueco, así que un campo que no se escriba aquí se hereda de un charco que
+  // no tiene nada que ver. Ya pasó con `opacidad` y `bloquea`: se añadieron a
+  // `crear` y este clon se quedó atrás, y el hijo de un incendio podía salir
+  // con la opacidad de un aura. Añadir un campo a `crearZona` obliga a añadirlo
+  // aquí.
+  _propagar(padre, x, y) {
+    if (this.pool.activos >= this.pool.capacidad * OCUPACION_MAXIMA) return;
+    const h = this.pool.obtener();
+    if (!h) return;                    // pool lleno: se pierde y no pasa nada
+    padre.brotes--;
+    h.x = x; h.y = y;
+    h.radio = h.radioActual = padre.radio * padre.propaga;
+    h.radioIni = 0;
+    // Más corto que el padre, y contado sobre lo que al padre le quedaba de
+    // vida MÁXIMA, no de la que le resta: un charco moribundo tiene que poder
+    // dejar un hijo que se vea.
+    h.vida = h.vidaMax = padre.vidaMax * 0.55;
+    h.danyo = padre.danyo;
+    h.intervalo = padre.intervalo;
+    h.reloj = 0;
+    h.empuje = padre.empuje;
+    h.ralentiza = padre.ralentiza;
+    h.modo = 'zona';
+    h.seguir = null;
+    h.desvioY = 0;
+    h.color = padre.color;
+    h.relleno = padre.relleno;
+    h.opacidad = padre.opacidad;
+    h.bloquea = padre.bloquea;
+    h.sprite = padre.sprite;
+    h.hoja = padre.hoja;
+    h.giro = padre.giro;
+    h.fase = 0;
+    h.radioGatillo = 0;
+    h.hojaOnda = null;
+    h.propaga = 0;                     // una generación: ver `crearZona`
+    h.brotes = 0;
+    h.sello = contadorSello++;
+  }
+
   _danyar(z, enemigos, unaVez) {
     const n = enemigosEnRadio(enemigos, z.x, z.y, z.radioActual, this._alcanzados);
     const items = enemigos.pool.items;
@@ -204,7 +310,11 @@ export class Zonas {
       let dx = e.x - z.x;
       let dy = e.y - z.y;
       const d = Math.hypot(dx, dy) || 1;
-      enemigos.danyar(e, z.danyo, dx / d, dy / d, z.empuje);
+      // `danyar` devuelve true SOLO en el golpe que lo mata, así que sirve de
+      // aviso de muerte con posición sin tener que inventar ninguno: el sistema
+      // de zonas ya está mirando al enemigo justo cuando cae.
+      const muerto = enemigos.danyar(e, z.danyo, dx / d, dy / d, z.empuje);
+      if (muerto && z.propaga > 0 && z.brotes > 0) this._propagar(z, e.x, e.y);
       if (z.ralentiza > 0) e.frenado = Math.max(e.frenado, z.ralentiza);
     }
   }
@@ -221,11 +331,14 @@ export class Zonas {
   //
   // Se resuelve partiendo la zona, no moviéndola entera:
   //
-  //   dibujarSuelo — el RELLENO, entre el terreno y las entidades. Es la
-  //     calcomanía: el aceite, el fuego, el campo. Se pisa.
-  //   dibujarAire  — el CANTO, por encima de todo. Es la frontera del daño, o
-  //     sea la única información que una zona da, y esa no puede quedar
-  //     enterrada bajo la horda.
+  //   dibujarSuelo — las zonas persistentes, entre el terreno y las entidades.
+  //     Es la calcomanía: el aceite, el fuego, el campo. Se pisa.
+  //   dibujarAire  — las ondas, por encima de todo: una explosión no está en el
+  //     suelo y tiene que tapar lo que pilla debajo.
+  //
+  // El reparto era antes por RELLENO y CANTO, con el canto siempre arriba para
+  // que la frontera del daño no quedara enterrada bajo la horda. Ya no hay
+  // canto: ver el punto 3 de cada método.
   //
   // Y hay una segunda división, por `modo`, que sale sola: una explosión no
   // está en el suelo, está en el aire. Las ondas se quedan arriba enteras.
@@ -290,16 +403,9 @@ export class Zonas {
         // Entra a plena opacidad y solo se apaga en el último cuarto de vida:
         // un charco no se desvanece mientras quema, desaparece cuando se
         // consume. Aparecer ya translúcido lo haría parecer un fantasma.
-        // TRANSLÚCIDAS AL 40%. Estaban al 92% y con nueve armas de zona a la vez
-        // la pantalla acababa siendo una mancha: el charco tapaba el terreno,
-        // los cuerpos y los otros charcos. Una zona tiene que decir DÓNDE
-        // quema, no sustituir al suelo.
-        //
-        // El número es EL que hay que tocar si se ven poco: subirlo devuelve la
-        // pantalla manchada, bajarlo hace que un charco de alquitrán sobre
-        // losa oscura desaparezca.
-        const OPACIDAD_ZONA = 0.40;
-        ctx.globalAlpha = (t > 0.25 ? 1 : t / 0.25) * OPACIDAD_ZONA;
+        // Cuánto tapa, por zona y no por igual: ver OPACIDAD_ZONA arriba y
+        // `opacidad` en datos/armas.js.
+        ctx.globalAlpha = (t > 0.25 ? 1 : t / 0.25) * z.opacidad;
 
         // CHARCO ANIMADO EN BUCLE. Una hoja con `bucle` trae un hervor cíclico
         // —el fotograma último enlaza con el primero por construcción, ver
@@ -398,48 +504,23 @@ export class Zonas {
     }
     ctx.restore();
 
-    // 3. Y EL CANTO, TAMBIÉN AQUÍ ABAJO.
+    // 3. Y EL CANTO YA NO SE DIBUJA.
     //
-    // Al principio se quedó arriba con las ondas, razonando que marca la
-    // frontera del daño y que eso no puede quedar enterrado bajo la horda. El
-    // razonamiento es bueno pero se aplicó donde no toca: vale para lo que te
-    // hace daño A TI —el fuego de Cerbero, el veneno de la Hidra, que siguen
-    // teniendo su canto arriba en entidades/disparo.js— y no vale para TU
-    // propia arma. El aro del Campo eléctrico o del Aquila no es una amenaza
-    // que esquivar, es el alcance de lo que llevas puesto, y dibujarlo sobre
-    // los cuerpos hacía que el aura pareciera ir por delante de los enemigos.
+    // Aquí hubo un aro por zona, con dos argumentos buenos detrás: que marca la
+    // frontera del daño, y que esa frontera es la única información que una
+    // zona da. Los dos siguen siendo ciertos y aun así el aro sobra, porque la
+    // premisa cambió: cuando se escribieron, la mayoría de las armas de área no
+    // tenían dibujo y el círculo ERA el efecto. Hoy las nueve lo tienen, y cada
+    // hoja está horneada para llenar su cuadro justo hasta el radio que mata —
+    // o sea que el dibujo YA es la frontera. El aro encima era pintar dos veces
+    // el mismo borde, y de las dos ganaba la trazada.
     //
-    // Con el canto abajo, la zona del jugador es una pieza entera pegada al
-    // suelo: relleno y borde por debajo de todo lo que camina.
+    // Lo que se lee en pantalla con el aro puesto no es "hasta aquí quema": es
+    // una circunferencia de editor de niveles encima del juego. Petición de
+    // Sergio, y de las que se ven en cuanto se quitan.
     //
-    // NO SE DIBUJA SOBRE LAS HOJAS PROPIAS, y es el mismo criterio que el velo.
-    // El canto existe para decir dónde acaba el daño cuando lo que hay dentro
-    // no lo dice: un círculo translúcido no tiene borde, y una celda recortada
-    // de un catálogo tiene silueta irregular que no llega al radio. Pero un
-    // efecto con su PNG propio está horneado para llenar su cuadro justo hasta
-    // el radio de daño, así que EL DIBUJO YA ES LA FRONTERA. Añadirle el aro
-    // encima es dibujar dos veces el mismo borde, y se ve como lo que es: el
-    // círculo de siempre pintado sobre la animación nueva.
-    ctx.save();
-    for (let k = 0; k < n; k++) {
-      const z = items[k];
-      if (z.modo !== 'zona' || z.hoja) continue;
-      const t = z.vida / z.vidaMax;
-      ctx.globalAlpha = 0.55 + t * 0.45;
-
-      ctx.strokeStyle = 'rgba(16,11,20,.55)';
-      ctx.lineWidth = 3.6;
-      ctx.beginPath();
-      ctx.arc(z.x, z.y, z.radioActual, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.strokeStyle = z.color;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(z.x, z.y, z.radioActual, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    ctx.restore();
+    // Queda el relleno aditivo de más arriba para las zonas sin hoja, que es su
+    // única marca: eso no es un aro orientativo, es el efecto entero.
   }
 
   // Capa de AIRE: solo las ONDAS, relleno y canto. Una explosión no está en el
@@ -545,37 +626,12 @@ export class Zonas {
     }
     ctx.restore();
 
-    // 3. El canto de la onda, en composición normal y con una línea oscura por
-    // fuera. Un canto oscuro contra uno claro se lee sobre cualquier fondo, que
-    // es lo que un contorno tiene que garantizar.
+    // 3. Y LA ONDA TAMPOCO LLEVA CANTO.
     //
-    // NO SE DIBUJA SOBRE LAS HOJAS PROPIAS, mismo criterio que en dibujarSuelo:
-    // el aro existe para decir dónde acaba el daño cuando lo de dentro no lo
-    // dice, y una explosión horneada al radio de daño YA ES la frontera.
-    // Añadírselo encima es pintar dos veces el mismo borde, y se ve como lo que
-    // es: el círculo de siempre encima de la animación nueva.
-    ctx.save();
-    for (let k = 0; k < n; k++) {
-      const z = items[k];
-      if (z.modo !== 'onda' || z.hoja) continue;
-      const t = z.vida / z.vidaMax;
-      // Adelgaza según se abre: es lo que la lee como onda que se disipa y no
-      // como un círculo que crece.
-      const grosor = 1 + t * 2.5;
-      ctx.globalAlpha = t;
+    // Mismo caso y mismo motivo que en `dibujarSuelo`: el aro de la onda existía
+    // para decir dónde acaba el daño cuando lo de dentro no lo decía, y una
+    // explosión horneada al radio de daño ya lo dice. Ver allí el razonamiento
+    // entero.
 
-      ctx.strokeStyle = 'rgba(16,11,20,.55)';
-      ctx.lineWidth = grosor + 1.6;
-      ctx.beginPath();
-      ctx.arc(z.x, z.y, z.radioActual, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.strokeStyle = z.color;
-      ctx.lineWidth = grosor;
-      ctx.beginPath();
-      ctx.arc(z.x, z.y, z.radioActual, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    ctx.restore();
   }
 }

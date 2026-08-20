@@ -454,7 +454,7 @@ public class Pirotecnia {
     // direccion del golpe, asi que el filo del dibujo cae exactamente donde
     // acaba el dano. Es el mismo convenio con el que se horneo la Katana.
     //
-    // `semi` es la MITAD de la apertura del arma en radianes: el Gladius abre
+    // semi es la MITAD de la apertura del arma en radianes: el Gladius abre
     // 90 grados, o sea semi = 45. Cada arma tiene la suya, asi que aqui hay una
     // hoja por arma y no una compartida.
     public static string Tajo(string salida, int alcance, double semi,
@@ -645,6 +645,1034 @@ public class Pirotecnia {
     }
 
     // Cada pixel logico como un cuadrado de escala x escala en la tira.
+    // PINCHOS SUELTOS. Para el Tribulus, que son abrojos: piezas de hierro de
+    // cuatro puntas tiradas por el suelo para que quien pise se clave una.
+    //
+    // Y por eso NO es una mancha. El arma venia usando el charco de acero, que
+    // a la vista era mercurio derramado; lo que hay de verdad en el suelo son
+    // objetos separados, con suelo limpio entre medias. Es la primera zona del
+    // juego cuya calcomania no cubre: cubre a trozos, a proposito.
+    //
+    // Cada pincho es un TRIANGULO con orientacion propia, y se dibuja recorriendo
+    // solo su caja y no la celda entera: treinta triangulos sobre una celda de
+    // 376 serian cuatro millones de pruebas por nada.
+    public static string Pinchos(string salida, int radioDanyo, double margen, int escala,
+                                 uint semilla, string paletaTxt, int cuantos,
+                                 double tam, double variacion) {
+
+        int[] pal = LeerPaleta(paletaTxt);
+        int radioLog = (int)Math.Round(radioDanyo * margen);
+        int lado = radioLog * 2;
+        Az az = new Az(semilla);
+
+        byte[] alfa = new byte[lado * lado];
+        int[] rgb = new int[lado * lado];
+        int anchoTira = lado * escala, altoTira = lado * escala;
+        int stride = anchoTira * 4;
+        byte[] buf = new byte[stride * altoTira];
+
+        int pintados = 0;
+        for (int k = 0; k < cuantos; k++) {
+            // REPARTO EN ESPIRAL AUREA, no al azar puro.
+            //
+            // Al azar salia apelotonado: con treinta y cuatro piezas, media
+            // docena caian una encima de otra y quedaba un cuadrante entero
+            // vacio. En una zona que se ve entera de un vistazo, un hueco asi no
+            // se lee como reparto irregular sino como que ahi no hay nada, y en
+            // una zona que hace dano eso es informacion falsa.
+            //
+            // El angulo aureo -2,39996 radianes- es el que reparte puntos por un
+            // disco sin que ninguno se alinee con otro; es como se colocan las
+            // pipas de un girasol. La raiz sobre el indice mantiene la densidad
+            // constante por AREA. Y encima va un temblor sorteado, para que se
+            // vea tirado por el suelo y no plantado en un patron.
+            double ang = k * 2.39996 + az.R(-0.35, 0.35);
+            double dist = Math.Sqrt((k + 0.5) / cuantos) * radioDanyo * 0.92
+                        + az.R(-0.05, 0.05) * radioDanyo;
+            if (dist < 0) dist = 0;
+            double px = radioLog + Math.Cos(ang) * dist;
+            double py = radioLog + Math.Sin(ang) * dist;
+
+            double r = radioDanyo * tam * az.R(1 - variacion, 1 + variacion);
+            double giro = az.R(0, Math.PI * 2);
+
+            // Triangulo isosceles: punta larga y base corta, que es lo que se
+            // lee como pincho y no como pedrusco.
+            double[] vx = new double[3], vy = new double[3];
+            for (int v = 0; v < 3; v++) {
+                double a = giro + v * (Math.PI * 2 / 3);
+                double largo = (v == 0) ? r * 1.45 : r * 0.72;
+                vx[v] = px + Math.Cos(a) * largo;
+                vy[v] = py + Math.Sin(a) * largo;
+            }
+
+            int x0 = (int)Math.Floor(Math.Min(vx[0], Math.Min(vx[1], vx[2])));
+            int x1 = (int)Math.Ceiling(Math.Max(vx[0], Math.Max(vx[1], vx[2])));
+            int y0 = (int)Math.Floor(Math.Min(vy[0], Math.Min(vy[1], vy[2])));
+            int y1 = (int)Math.Ceiling(Math.Max(vy[0], Math.Max(vy[1], vy[2])));
+            if (x0 < 0) x0 = 0;
+            if (y0 < 0) y0 = 0;
+            if (x1 > lado - 1) x1 = lado - 1;
+            if (y1 > lado - 1) y1 = lado - 1;
+
+            for (int y = y0; y <= y1; y++) {
+                for (int x = x0; x <= x1; x++) {
+                    double qx = x + 0.5, qy = y + 0.5;
+                    // Dentro del triangulo: los tres productos cruzados con el
+                    // mismo signo. Y de paso, el minimo de los tres dice lo
+                    // cerca que esta del borde, que sirve para sombrear.
+                    double d0 = (vx[1] - vx[0]) * (qy - vy[0]) - (vy[1] - vy[0]) * (qx - vx[0]);
+                    double d1 = (vx[2] - vx[1]) * (qy - vy[1]) - (vy[2] - vy[1]) * (qx - vx[1]);
+                    double d2 = (vx[0] - vx[2]) * (qy - vy[2]) - (vy[0] - vy[2]) * (qx - vx[2]);
+                    bool neg = (d0 < 0) || (d1 < 0) || (d2 < 0);
+                    bool pos = (d0 > 0) || (d1 > 0) || (d2 > 0);
+                    if (neg && pos) continue;
+
+                    // Hierro: claro hacia el centro de la pieza y oscuro en el
+                    // filo. Un contorno oscuro es lo unico que separa un pincho
+                    // del de al lado cuando dos caen juntos.
+                    double borde = Math.Min(Math.Abs(d0), Math.Min(Math.Abs(d1), Math.Abs(d2))) / (r * r);
+                    int idx = borde < 0.25 ? pal.Length - 1 : (int)((1 - Math.Min(1, borde * 1.6)) * (pal.Length - 2));
+                    if (idx < 0) idx = 0;
+                    if (idx >= pal.Length) idx = pal.Length - 1;
+                    Poner(alfa, rgb, lado, x, y, pal[idx], 1.0);
+                    pintados++;
+                }
+            }
+        }
+
+        Ampliar(buf, stride, alfa, rgb, lado, escala, 0);
+        Volcar(salida, buf, anchoTira, altoTira, stride);
+        double area = Math.PI * radioDanyo * radioDanyo;
+        double ocupa = pintados / area;
+        return pintados + "|" + cuantos + "|" +
+               ocupa.ToString("0.000", CultureInfo.InvariantCulture);
+    }
+
+    // AURA SUELTA: un resplandor radial que se apaga hacia afuera, sin nada
+    // dentro. Se dibuja DETRAS de otra cosa —hoy, los escudos del Testudo— para
+    // encenderla sin tener que rehornear su hoja.
+    //
+    // Existe como pieza aparte justo por eso: el Testudo comparte el escudo con
+    // el Scutum, asi que un aura horneada en el PNG la llevarian los dos y la
+    // evolucion dejaria de distinguirse de su arma base.
+    //
+    // Igual que el halo de la luna, se hace con ALFA y no con color: lo que lo
+    // convierte en resplandor es volverse transparente, no oscurecerse. La caida
+    // va al cuadrado porque lineal deja un canto visible donde termina.
+    public static string Aura(string salida, int radio, int escala,
+                              int color, double fuerza, double nucleo) {
+        int lado = radio * 2;
+        byte[] alfa = new byte[lado * lado];
+        int[] rgb = new int[lado * lado];
+        int anchoTira = lado * escala, altoTira = lado * escala;
+        int stride = anchoTira * 4;
+        byte[] buf = new byte[stride * altoTira];
+
+        int pixeles = 0;
+        double suma = 0;
+        for (int y = 0; y < lado; y++) {
+            for (int x = 0; x < lado; x++) {
+                double dx = x + 0.5 - radio, dy = y + 0.5 - radio;
+                double d = Math.Sqrt(dx * dx + dy * dy) / radio;
+                if (d > 1) continue;
+                // Meseta plana en el centro y caida al cuadrado a partir de ahi:
+                // sin meseta, el aura tiene un pico en un solo pixel y lo que se
+                // ve es un punto, no un resplandor.
+                double u = d < nucleo ? 0 : (d - nucleo) / (1 - nucleo);
+                double a = (1 - u) * (1 - u) * fuerza;
+                if (a < 0.02) continue;
+                Poner(alfa, rgb, lado, x, y, color, a);
+                pixeles++;
+                suma += a;
+            }
+        }
+
+        Ampliar(buf, stride, alfa, rgb, lado, escala, 0);
+        Volcar(salida, buf, anchoTira, altoTira, stride);
+        double medio = pixeles > 0 ? suma / pixeles : 0;
+        return pixeles + "|" + medio.ToString("0.000", CultureInfo.InvariantCulture);
+    }
+
+    // --- Proyectiles con dibujo propio -----------------------------------
+    //
+    // Celdas RECTANGULARES, al contrario que todo lo demas del generador: una
+    // abeja es mas larga que alta, y cuadrarla obligaria a dejar media celda
+    // vacia. No es solo desperdicio: el motor ancla estos dibujos por su borde
+    // izquierdo, asi que el aire de sobra descoloca ese anclaje.
+    //
+    // De ahi PonerR y AmpliarR, los mismos de siempre pero con ancho y alto por
+    // separado. No se tocan los cuadrados, para no mover lo que ya funciona.
+    static void PonerR(byte[] al, int[] rgb, int ancho, int alto, int x, int y, int color, double a) {
+        if (x < 0 || y < 0 || x >= ancho || y >= alto) return;
+        if (a <= 0) return;
+        if (a > 1) a = 1;
+        int i = y * ancho + x;
+        byte b = (byte)(a * 255.0 + 0.5);
+        if (b <= al[i]) return;
+        al[i] = b;
+        rgb[i] = color;
+    }
+
+    static void AmpliarR(byte[] buf, int stride, byte[] alfa, int[] rgb,
+                         int ancho, int alto, int escala) {
+        for (int y = 0; y < alto; y++) {
+            for (int x = 0; x < ancho; x++) {
+                byte a = alfa[y * ancho + x];
+                if (a == 0) continue;
+                int c = rgb[y * ancho + x];
+                byte r = (byte)((c >> 16) & 0xFF), g = (byte)((c >> 8) & 0xFF), b = (byte)(c & 0xFF);
+                for (int sy = 0; sy < escala; sy++) {
+                    int fy = y * escala + sy;
+                    for (int sx = 0; sx < escala; sx++) {
+                        int fx = x * escala + sx;
+                        int o = fy * stride + fx * 4;
+                        buf[o] = (byte)(b * a / 255);
+                        buf[o + 1] = (byte)(g * a / 255);
+                        buf[o + 2] = (byte)(r * a / 255);
+                        buf[o + 3] = a;
+                    }
+                }
+            }
+        }
+    }
+
+    // ABEJA. Para el Enjambre, que son avispas y salian dibujadas como un dardo.
+    //
+    // MIRA A LA IZQUIERDA, y no es capricho: el motor espeja el dibujo y lo
+    // ancla por su borde izquierdo (ver entidades/proyectil.js), asi que la
+    // cabeza dibujada a la izquierda acaba siendo la punta que va por delante y
+    // el abdomen lo que arrastra. Mismo convenio que la bala de la pistola.
+    public static string Abeja(string salida, int ancho, int alto, int escala,
+                               string paletaTxt, int colorAla) {
+        int[] pal = LeerPaleta(paletaTxt);
+        byte[] alfa = new byte[ancho * alto];
+        int[] rgb = new int[ancho * alto];
+        int stride = ancho * escala * 4;
+        byte[] buf = new byte[stride * alto * escala];
+
+        // El cuerpo se aplana un poco y baja: las alas se dibujan antes que el
+        // cuerpo, asi que todo lo que solape el ovalo queda tapado. Con el
+        // cuerpo a 0,32 de medio alto no asomaba ni un pixel de ala y la abeja
+        // salia siendo un abejorro rayado.
+        double cyCuerpo = alto * 0.62;
+        double cxCuerpo = ancho * 0.60, aCuerpo = ancho * 0.38, bCuerpo = alto * 0.26;
+        double cxCabeza = ancho * 0.20, rCabeza = alto * 0.23;
+
+        int pixeles = 0, pixAla = 0;
+        for (int y = 0; y < alto; y++) {
+            for (int x = 0; x < ancho; x++) {
+                double px = x + 0.5, py = y + 0.5;
+
+                // 1. ALAS, por detras del cuerpo y por arriba. Dos ovalos
+                // palidos y translucidos: a este tamano no hay nervadura que
+                // dibujar, lo que dice ala es que se transparente.
+                for (int w = 0; w < 2; w++) {
+                    double wx = ancho * (w == 0 ? 0.46 : 0.72);
+                    double wy = alto * 0.24;
+                    double ax = (px - wx) / (ancho * 0.17), ay = (py - wy) / (alto * 0.24);
+                    if (ax * ax + ay * ay < 1) {
+                        PonerR(alfa, rgb, ancho, alto, x, y, colorAla, 0.62);
+                        pixAla++;
+                    }
+                }
+
+                // 2. CUERPO: ovalo con bandas alternas por el eje largo. Es lo
+                // unico que hace falta para que se lea abeja y no mosca.
+                double ex = (px - cxCuerpo) / aCuerpo, ey = (py - cyCuerpo) / bCuerpo;
+                if (ex * ex + ey * ey < 1) {
+                    double u = (px - (cxCuerpo - aCuerpo)) / (2 * aCuerpo);
+                    int banda = (int)(u * 5.0);
+                    int idx = (banda % 2 == 0) ? 0 : pal.Length - 1;
+                    if (ey > 0.5) idx = pal.Length - 1;   // filo de abajo en sombra
+                    PonerR(alfa, rgb, ancho, alto, x, y, pal[idx], 1.0);
+                    pixeles++;
+                }
+
+                // 3. CABEZA, oscura y redonda, en la punta.
+                double hx = px - cxCabeza, hy = py - cyCuerpo;
+                if (hx * hx + hy * hy < rCabeza * rCabeza) {
+                    PonerR(alfa, rgb, ancho, alto, x, y, pal[pal.Length - 1], 1.0);
+                    pixeles++;
+                }
+
+                // 4. AGUIJON: un pico oscuro por detras.
+                if (px > ancho * 0.93 && Math.Abs(py - cyCuerpo) < 0.9) {
+                    PonerR(alfa, rgb, ancho, alto, x, y, pal[pal.Length - 1], 1.0);
+                    pixeles++;
+                }
+            }
+        }
+
+        AmpliarR(buf, stride, alfa, rgb, ancho, alto, escala);
+        Volcar(salida, buf, ancho * escala, alto * escala, stride);
+        return pixeles + "|" + pixAla;
+    }
+
+    // FLECHA. Para el Arco corto, que se dibujaba con el dardo trazado.
+    //
+    // Las tres piezas de siempre y ni una mas: punta, astil y plumas. A once
+    // unidades de largo no cabe nada mas, y lo que hace que se lea flecha no es
+    // el detalle sino la SILUETA — un triangulo delante, una linea, y algo que
+    // se abre detras.
+    //
+    // Mira a la izquierda, como la abeja y la bala: el motor la espeja y la
+    // ancla por ese borde, asi que la punta va por delante (ver
+    // entidades/proyectil.js).
+    public static string Flecha(string salida, int ancho, int alto, int escala,
+                                string maderaTxt, string aceroTxt, int pluma) {
+        int[] mad = LeerPaleta(maderaTxt);
+        int[] ace = LeerPaleta(aceroTxt);
+        byte[] alfa = new byte[ancho * alto];
+        int[] rgb = new int[ancho * alto];
+        int stride = ancho * escala * 4;
+        byte[] buf = new byte[stride * alto * escala];
+
+        double cy = alto / 2.0;
+        double xPunta = 0, xCuello = ancho * 0.26;      // la cabeza
+        double xAstil = ancho * 0.94;                   // hasta donde llega la cana
+        double xPluma = ancho * 0.66;                   // donde empiezan las plumas
+
+        int pixPunta = 0, pixAstil = 0, pixPluma = 0;
+        for (int y = 0; y < alto; y++) {
+            for (int x = 0; x < ancho; x++) {
+                double px = x + 0.5, py = y + 0.5;
+                double dy = Math.Abs(py - cy);
+
+                // 1. PLUMAS: dos triangulos que se abren hacia atras desde el
+                // astil. Van primero porque el astil las cruza por el medio y
+                // tiene que verse por encima.
+                if (px >= xPluma && px <= ancho) {
+                    double t = (px - xPluma) / (ancho - xPluma);
+                    double abre = alto * 0.46 * t;
+                    if (dy < abre && dy > 0.4) {
+                        PonerR(alfa, rgb, ancho, alto, x, y, pluma, 1.0);
+                        pixPluma++;
+                    }
+                }
+
+                // 2. ASTIL: la cana, de la punta a la culata. Dos pixeles de
+                // grueso con el de abajo mas oscuro, que es lo que le da
+                // volumen de vara redonda.
+                if (px >= xCuello * 0.6 && px <= xAstil && dy < 1.0) {
+                    int idx = (py > cy) ? mad.Length - 1 : 0;
+                    PonerR(alfa, rgb, ancho, alto, x, y, mad[idx], 1.0);
+                    pixAstil++;
+                }
+
+                // 3. PUNTA: triangulo de acero que se abre del morro al cuello.
+                if (px >= xPunta && px < xCuello) {
+                    double t = (px - xPunta) / (xCuello - xPunta);
+                    double abre = alto * 0.34 * t;
+                    if (dy < abre + 0.5) {
+                        // Filo claro arriba y sombra abajo: a esta escala es lo
+                        // unico que separa el acero de la madera.
+                        int idx = (py < cy) ? 0 : ace.Length - 1;
+                        PonerR(alfa, rgb, ancho, alto, x, y, ace[idx], 1.0);
+                        pixPunta++;
+                    }
+                }
+            }
+        }
+
+        AmpliarR(buf, stride, alfa, rgb, ancho, alto, escala);
+        Volcar(salida, buf, ancho * escala, alto * escala, stride);
+        return pixPunta + "|" + pixAstil + "|" + pixPluma;
+    }
+
+    // ASTA: todo lo que es punta sobre palo. Cubre el pilum, la lanza y el
+    // virote de ballista con los mismos cuatro tramos y otros numeros.
+    //
+    // Son tres armas distintas y una sola funcion porque lo que las separa NO
+    // es el dibujo, son las PROPORCIONES: un pilum es una punta pequena sobre un
+    // vastago de hierro largo y fino -esa cana blanda que se doblaba al clavarse
+    // y dejaba el escudo enemigo inservible, que es la mitad de por que el pilum
+    // es famoso-, una lanza es una hoja de laurel ancha sobre madera, y un
+    // virote es un tocho corto con plumas. Con la silueta bien puesta se
+    // distinguen a diez pixeles.
+    //
+    // Miran a la izquierda, como todos: el motor espeja y ancla por ese borde.
+    public static string Asta(string salida, int ancho, int alto, int escala,
+                              string maderaTxt, string aceroTxt, int pluma,
+                              double fracPunta, double anchoPunta,
+                              double fracVastago, double anchoAsta, double fracPluma) {
+        int[] mad = LeerPaleta(maderaTxt);
+        int[] ace = LeerPaleta(aceroTxt);
+        byte[] alfa = new byte[ancho * alto];
+        int[] rgb = new int[ancho * alto];
+        int stride = ancho * escala * 4;
+        byte[] buf = new byte[stride * alto * escala];
+
+        double cy = alto / 2.0;
+        double xPunta = ancho * fracPunta;
+        double xVastago = ancho * fracVastago;      // 0 = no lleva
+        double xPluma = ancho * (1 - fracPluma);
+        double xCola = ancho * 0.97;
+
+        int pixAcero = 0, pixMadera = 0, pixPluma = 0;
+        for (int y = 0; y < alto; y++) {
+            for (int x = 0; x < ancho; x++) {
+                double px = x + 0.5, py = y + 0.5;
+                double dy = Math.Abs(py - cy);
+
+                // 1. PLUMAS, si las lleva. Primero, para que el asta las cruce.
+                if (fracPluma > 0 && px >= xPluma) {
+                    double t = (px - xPluma) / (ancho - xPluma);
+                    double abre = alto * 0.44 * t;
+                    if (dy < abre && dy > 0.4) {
+                        PonerR(alfa, rgb, ancho, alto, x, y, pluma, 1.0);
+                        pixPluma++;
+                    }
+                }
+
+                // 2. ASTA de madera, del vastago (o de la punta) a la cola.
+                double xIni = xVastago > 0 ? xVastago : xPunta;
+                if (px >= xIni && px <= xCola && dy < alto * anchoAsta) {
+                    int idx = (py > cy) ? mad.Length - 1 : 0;
+                    PonerR(alfa, rgb, ancho, alto, x, y, mad[idx], 1.0);
+                    pixMadera++;
+                }
+
+                // 3. VASTAGO: la cana de hierro del pilum, entre la punta y la
+                // madera. Fina a proposito: es lo que lo distingue de una lanza.
+                if (xVastago > 0 && px >= xPunta && px < xVastago && dy < 0.9) {
+                    PonerR(alfa, rgb, ancho, alto, x, y, ace[0], 1.0);
+                    pixAcero++;
+                }
+
+                // 4. PUNTA: triangulo de hierro que abre del morro al cuello.
+                if (px < xPunta) {
+                    double t = px / xPunta;
+                    double abre = alto * anchoPunta * t;
+                    if (dy < abre + 0.5) {
+                        int idx = (py < cy) ? 0 : ace.Length - 1;
+                        PonerR(alfa, rgb, ancho, alto, x, y, ace[idx], 1.0);
+                        pixAcero++;
+                    }
+                }
+            }
+        }
+
+        AmpliarR(buf, stride, alfa, rgb, ancho, alto, escala);
+        Volcar(salida, buf, ancho * escala, alto * escala, stride);
+        return pixAcero + "|" + pixMadera + "|" + pixPluma;
+    }
+
+    // TROZO: un pedazo irregular. Sirve para la metralla y para la piedra de la
+    // honda, que son la misma cosa con otra rugosidad — un casco de hierro tiene
+    // aristas y un canto de rio no.
+    //
+    // El contorno es una estrella: un radio por vertice y el borde interpolado
+    // entre ellos. Al ser todos los radios desde el centro, la figura siempre
+    // sale valida y el relleno se resuelve con una sola comparacion por pixel,
+    // sin tener que probar dentro-fuera de un poligono cualquiera.
+    public static string Trozo(string salida, int ancho, int alto, int escala,
+                               uint semilla, string paletaTxt, int vertices,
+                               double irregular) {
+        int[] pal = LeerPaleta(paletaTxt);
+        Az az = new Az(semilla);
+        byte[] alfa = new byte[ancho * alto];
+        int[] rgb = new int[ancho * alto];
+        int stride = ancho * escala * 4;
+        byte[] buf = new byte[stride * alto * escala];
+
+        double cx = ancho / 2.0, cy = alto / 2.0;
+        double rx = ancho * 0.46, ry = alto * 0.46;
+
+        double[] radios = new double[vertices];
+        for (int i = 0; i < vertices; i++) radios[i] = az.R(1 - irregular, 1 + irregular);
+
+        int pixeles = 0;
+        for (int y = 0; y < alto; y++) {
+            for (int x = 0; x < ancho; x++) {
+                double dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry;
+                double d = Math.Sqrt(dx * dx + dy * dy);
+                double ang = Math.Atan2(dy, dx);
+                if (ang < 0) ang += Math.PI * 2;
+
+                double paso = Math.PI * 2 / vertices;
+                int v0 = (int)(ang / paso) % vertices;
+                int v1 = (v0 + 1) % vertices;
+                double t = (ang - v0 * paso) / paso;
+                double rBorde = radios[v0] + (radios[v1] - radios[v0]) * t;
+                if (d > rBorde) continue;
+
+                // Luz cenital desde arriba-izquierda y canto oscuro. Es lo
+                // mismo que la mina y la luna: a este tamano, lo que da volumen
+                // es el degradado, y lo que separa la pieza del fondo es el filo.
+                double u = d / rBorde;
+                double lz = 0.5 - 0.5 * (dx * 0.7071 + dy * 0.7071) / Math.Max(rBorde, 0.001);
+                int idx = (int)(lz * (pal.Length - 1));
+                if (u > 0.80) idx = pal.Length - 1;
+                if (idx < 0) idx = 0;
+                if (idx >= pal.Length) idx = pal.Length - 1;
+                PonerR(alfa, rgb, ancho, alto, x, y, pal[idx], 1.0);
+                pixeles++;
+            }
+        }
+
+        AmpliarR(buf, stride, alfa, rgb, ancho, alto, escala);
+        Volcar(salida, buf, ancho * escala, alto * escala, stride);
+        return pixeles.ToString();
+    }
+
+    // LENGUA DE FUEGO. Para el Lanzallamas, cuyos proyectiles eran balas
+    // trazadas: un chorro de fuego hecho de puntitos redondos.
+    //
+    // Gota apuntando a la izquierda, con el nucleo claro en el eje. El color no
+    // sale de la distancia al centro sino de la distancia AL EJE, que es lo que
+    // hace que se lea como llama y no como bola: una llama es caliente por
+    // dentro a todo lo largo, no solo en un punto.
+    public static string Lengua(string salida, int ancho, int alto, int escala,
+                                string paletaTxt) {
+        int[] pal = LeerPaleta(paletaTxt);
+        byte[] alfa = new byte[ancho * alto];
+        int[] rgb = new int[ancho * alto];
+        int stride = ancho * escala * 4;
+        byte[] buf = new byte[stride * alto * escala];
+
+        double cy = alto / 2.0;
+        int pixeles = 0;
+        for (int y = 0; y < alto; y++) {
+            for (int x = 0; x < ancho; x++) {
+                double px = x + 0.5, py = y + 0.5;
+                double t = px / ancho;
+                // Se abre deprisa desde la punta y se cierra despacio hacia la
+                // cola: el exponente por debajo de uno es lo que adelanta el
+                // punto mas ancho, y una llama es mas gorda por delante.
+                double medio = alto * 0.48 * Math.Sin(Math.PI * Math.Pow(t, 0.62));
+                double dy = Math.Abs(py - cy);
+                if (medio < 0.4 || dy > medio) continue;
+
+                int idx = (int)((dy / medio) * (pal.Length - 1));
+                if (idx < 0) idx = 0;
+                if (idx >= pal.Length) idx = pal.Length - 1;
+                PonerR(alfa, rgb, ancho, alto, x, y, pal[idx], 1.0);
+                pixeles++;
+            }
+        }
+
+        AmpliarR(buf, stride, alfa, rgb, ancho, alto, escala);
+        Volcar(salida, buf, ancho * escala, alto * escala, stride);
+        return pixeles.ToString();
+    }
+
+    // KUNAI. Para la Lluvia de agujas, que eran puas trazadas.
+    //
+    // Tres piezas y la silueta lo dice todo: hoja de rombo alargado, mango
+    // envuelto y anilla al final. La anilla es lo que separa un kunai de un
+    // cuchillo cualquiera, asi que a este tamano se dibuja como un aro hueco
+    // aunque cueste dos pixeles.
+    //
+    // Mira a la izquierda, como la flecha, la abeja y la bala.
+    public static string Kunai(string salida, int ancho, int alto, int escala,
+                               string aceroTxt, int mango, int anilla) {
+        int[] ace = LeerPaleta(aceroTxt);
+        byte[] alfa = new byte[ancho * alto];
+        int[] rgb = new int[ancho * alto];
+        int stride = ancho * escala * 4;
+        byte[] buf = new byte[stride * alto * escala];
+
+        double cy = alto / 2.0;
+        double xHombro = ancho * 0.30;    // donde la hoja es mas ancha
+        double xGuarda = ancho * 0.56;    // fin de la hoja
+        double xMango = ancho * 0.86;     // fin del mango
+        double rAnilla = alto * 0.30;
+        double cxAnilla = ancho - rAnilla - 0.5;
+
+        int pixHoja = 0, pixMango = 0, pixAnilla = 0;
+        for (int y = 0; y < alto; y++) {
+            for (int x = 0; x < ancho; x++) {
+                double px = x + 0.5, py = y + 0.5;
+                double dy = Math.Abs(py - cy);
+
+                // 1. HOJA: rombo alargado. Se abre deprisa desde la punta y se
+                // cierra despacio hacia la guarda, que es el perfil de hoja de
+                // kunai y no el de un puñal recto.
+                if (px < xGuarda) {
+                    double ancho2;
+                    if (px < xHombro) ancho2 = (px / xHombro) * alto * 0.42;
+                    else ancho2 = (1 - (px - xHombro) / (xGuarda - xHombro)) * alto * 0.42 * 0.55
+                                  + alto * 0.10;
+                    if (dy < ancho2) {
+                        // Filo claro arriba, sombra abajo, y una linea central
+                        // mas clara que es el nervio de la hoja.
+                        int idx = (py < cy) ? 0 : ace.Length - 1;
+                        if (dy < 0.8) idx = 0;
+                        PonerR(alfa, rgb, ancho, alto, x, y, ace[idx], 1.0);
+                        pixHoja++;
+                    }
+                }
+
+                // 2. MANGO: envuelto, mas fino que la hoja.
+                if (px >= xGuarda && px < xMango && dy < alto * 0.17) {
+                    PonerR(alfa, rgb, ancho, alto, x, y, mango, 1.0);
+                    pixMango++;
+                }
+
+                // 3. ANILLA: aro hueco al final. Es la pieza que dice kunai.
+                double da = Math.Sqrt((px - cxAnilla) * (px - cxAnilla) + (py - cy) * (py - cy));
+                if (da < rAnilla && da > rAnilla * 0.42) {
+                    PonerR(alfa, rgb, ancho, alto, x, y, anilla, 1.0);
+                    pixAnilla++;
+                }
+            }
+        }
+
+        AmpliarR(buf, stride, alfa, rgb, ancho, alto, escala);
+        Volcar(salida, buf, ancho * escala, alto * escala, stride);
+        return pixHoja + "|" + pixMango + "|" + pixAnilla;
+    }
+
+    // COLUMNA ROMANA. Para la Columna doble, que dispara arriba y abajo.
+    //
+    // Se dibuja TUMBADA, con el capitel en el borde izquierdo, porque el motor
+    // orienta estos sprites al rumbo del disparo y ancla por ese borde: al
+    // salir hacia arriba la columna se pone de pie con el capitel por delante,
+    // y hacia abajo lo mismo del reves. Ver entidades/proyectil.js.
+    //
+    // Las ESTRIAS van en bandas a lo largo del eje del fuste -o sea variando
+    // con la y de la celda, ya que aqui la columna esta tumbada- y son lo unico
+    // que la separa de un rodillo: una columna dorica sin acanaladuras es un
+    // tubo.
+    public static string Columna(string salida, int ancho, int alto, int escala,
+                                 string marmolTxt, int estrias) {
+        int[] mar = LeerPaleta(marmolTxt);
+        byte[] alfa = new byte[ancho * alto];
+        int[] rgb = new int[ancho * alto];
+        int stride = ancho * escala * 4;
+        byte[] buf = new byte[stride * alto * escala];
+
+        double cy = alto / 2.0;
+        double xAbaco = ancho * 0.09;      // la losa plana del capitel
+        double xCapitel = ancho * 0.20;    // el resto del capitel
+        double xFuste = ancho * 0.82;      // hasta donde llega el fuste
+        double xBasa = ancho;              // y la basa cierra por atras
+
+        int pixeles = 0;
+        for (int y = 0; y < alto; y++) {
+            for (int x = 0; x < ancho; x++) {
+                double px = x + 0.5, py = y + 0.5;
+                double dy = Math.Abs(py - cy);
+
+                double medio;              // medio ancho de la pieza en este x
+                bool esFuste = false;
+                if (px < xAbaco) {
+                    medio = alto * 0.50;                       // abaco, lo mas ancho
+                } else if (px < xCapitel) {
+                    // El equino: del abaco al fuste, cerrandose.
+                    double t = (px - xAbaco) / (xCapitel - xAbaco);
+                    medio = alto * (0.50 - 0.13 * t);
+                } else if (px < xFuste) {
+                    // FUSTE con entasis: se estrecha hacia el capitel, que es la
+                    // curva que tienen las de verdad y lo que impide que parezca
+                    // un tubo cortado.
+                    double t = (px - xCapitel) / (xFuste - xCapitel);
+                    medio = alto * (0.34 + 0.03 * t);
+                    esFuste = true;
+                } else {
+                    double t = (px - xFuste) / (xBasa - xFuste);
+                    medio = alto * (0.37 + 0.13 * t);          // basa
+                }
+                if (dy > medio - 0.5) continue;
+
+                // Volumen cilindrico: claro arriba y oscuro abajo, con el borde
+                // al tono mas oscuro para que se recorte.
+                double u = (py - (cy - medio)) / (2 * medio);   // 0 arriba, 1 abajo
+                int idx = (int)(Math.Abs(u - 0.34) * 2.1 * (mar.Length - 1));
+
+                // ESTRIAS, solo en el fuste: bandas a lo largo del eje.
+                if (esFuste && estrias > 0) {
+                    double banda = u * estrias;
+                    double resto = banda - Math.Floor(banda);
+                    if (resto < 0.22) idx = Math.Min(mar.Length - 1, idx + 2);
+                }
+
+                if (dy > medio - 1.0) idx = mar.Length - 1;
+                if (idx < 0) idx = 0;
+                if (idx >= mar.Length) idx = mar.Length - 1;
+                PonerR(alfa, rgb, ancho, alto, x, y, mar[idx], 1.0);
+                pixeles++;
+            }
+        }
+
+        AmpliarR(buf, stride, alfa, rgb, ancho, alto, escala);
+        Volcar(salida, buf, ancho * escala, alto * escala, stride);
+        return pixeles.ToString();
+    }
+
+    // SHURIKEN. Estrella de cuatro puntas con el ojo en medio.
+    //
+    // La silueta sale de una sola formula: el radio del borde en cada angulo es
+    // el maximo por el coseno del doble del angulo, en valor absoluto y elevado
+    // a un exponente. En las puntas -0, 90, 180 y 270 grados- vale uno y en los
+    // valles cero, y el exponente decide si los flancos son rectos o comidos
+    // hacia dentro, que es lo que da la silueta afilada.
+    public static string Shuriken(string salida, int radio, int escala,
+                                  string paletaTxt, double afilado, double hueco,
+                                  double cuerpo) {
+        int[] pal = LeerPaleta(paletaTxt);
+        int lado = radio * 2;
+        byte[] alfa = new byte[lado * lado];
+        int[] rgb = new int[lado * lado];
+        int anchoTira = lado * escala, altoTira = lado * escala;
+        int stride = anchoTira * 4;
+        byte[] buf = new byte[stride * altoTira];
+
+        int pixeles = 0;
+        for (int y = 0; y < lado; y++) {
+            for (int x = 0; x < lado; x++) {
+                double dx = x + 0.5 - radio, dy = y + 0.5 - radio;
+                double d = Math.Sqrt(dx * dx + dy * dy);
+                if (d < 0.0001) continue;
+                double ang = Math.Atan2(dy, dx);
+
+                double perfil = Math.Pow(Math.Abs(Math.Cos(2 * ang)), afilado);
+                double rBorde = radio * (cuerpo + (1 - cuerpo) * perfil);
+                if (d > rBorde - 0.5) continue;          // fuera de la estrella
+                if (d < radio * hueco) continue;         // el ojo del centro
+
+                // Acero: claro por el filo de las hojas y oscuro hacia el eje.
+                // Y el canto exterior al tono mas oscuro, como la luna y la mina.
+                double u = d / rBorde;
+                int idx = (int)((1 - u) * (pal.Length - 1));
+                if (u > 0.86 || d < radio * hueco * 1.4) idx = pal.Length - 1;
+                if (idx < 0) idx = 0;
+                if (idx >= pal.Length) idx = pal.Length - 1;
+                Poner(alfa, rgb, lado, x, y, pal[idx], 1.0);
+                pixeles++;
+            }
+        }
+
+        Ampliar(buf, stride, alfa, rgb, lado, escala, 0);
+        Volcar(salida, buf, anchoTira, altoTira, stride);
+        double llenado = pixeles / (Math.PI * radio * radio);
+        return pixeles + "|" + llenado.ToString("0.000", CultureInfo.InvariantCulture);
+    }
+
+    // COCTEL MOLOTOV: botellin de cerveza con el trapo ardiendo en la boca.
+    //
+    // La primera version salio leyendose como una vela: cuerpo estrecho, cuello
+    // corto y una llama encima. Un botellin tiene proporciones muy concretas y
+    // son ellas las que lo hacen reconocible de un vistazo — cuello LARGO y
+    // fino, hombro que se abre de golpe, cuerpo recto y ancho, y una etiqueta
+    // cruzada por el medio. Sin la etiqueta sigue pareciendo un frasco.
+    //
+    // Celda CUADRADA aunque la botella no lo sea, y aqui si hace falta: este
+    // proyectil gira sobre si mismo, y en una celda rectangular las esquinas se
+    // saldrian del cuadro al rotar. La botella se dibuja de pie en el centro.
+    public static string Molotov(string salida, int lado, int escala,
+                                 string vidrioTxt, string fuegoTxt, int trapo,
+                                 int etiqueta) {
+        int[] vid = LeerPaleta(vidrioTxt);
+        int[] fue = LeerPaleta(fuegoTxt);
+        byte[] alfa = new byte[lado * lado];
+        int[] rgb = new int[lado * lado];
+        int stride = lado * escala * 4;
+        byte[] buf = new byte[stride * lado * escala];
+
+        double cx = lado / 2.0;
+        // Reparto vertical de un botellin. Los numeros son fracciones de la
+        // celda y estan puestos a ojo de botella real, no repartidos por igual.
+        // El trapo empieza mas abajo de lo que parece razonable, y es para dejar
+        // sitio a la LLAMA: con el reparto anterior salian ocho pixeles de fuego
+        // y desde lejos el proyectil era una botella a secas. Lo que tiene que
+        // leerse de un molotov en vuelo es que va ardiendo.
+        double yTrapo = lado * 0.26, yCuello = lado * 0.34;
+        double yHombro = lado * 0.54, yCuerpo = lado * 0.66;
+        double yFondo = lado * 0.94;
+        double anchoCuerpo = lado * 0.34, anchoCuello = lado * 0.10;
+        double yEtiqueta0 = lado * 0.73, yEtiqueta1 = lado * 0.86;
+
+        int pixVidrio = 0, pixFuego = 0, pixEtiqueta = 0;
+        for (int y = 0; y < lado; y++) {
+            for (int x = 0; x < lado; x++) {
+                double px = x + 0.5, py = y + 0.5;
+                double dxc = Math.Abs(px - cx);
+
+                // LLAMA: una gota que se estrecha hacia arriba. Va primero y por
+                // debajo, para que el trapo la tape donde se tocan.
+                if (py < yTrapo) {
+                    double t = py / yTrapo;
+                    double anchoLlama = lado * 0.135 * Math.Sin(t * Math.PI * 0.95);
+                    if (anchoLlama > 0.4 && dxc < anchoLlama) {
+                        int idx = (int)((dxc / anchoLlama) * (fue.Length - 1));
+                        if (idx < 0) idx = 0;
+                        if (idx >= fue.Length) idx = fue.Length - 1;
+                        PonerR(alfa, rgb, lado, lado, x, y, fue[idx], 1.0);
+                        pixFuego++;
+                    }
+                }
+
+                // TRAPO: el tapon de tela metido en el gollete, asomando por
+                // fuera. Mas ancho que el cuello, que es lo que dice que esta
+                // metido a presion.
+                if (py >= yTrapo && py < yCuello && dxc < anchoCuello * 1.9) {
+                    PonerR(alfa, rgb, lado, lado, x, y, trapo, 1.0);
+                    pixVidrio++;
+                }
+
+                // CUELLO, largo y fino. Es la pieza que hace que se lea botellin
+                // y no frasco, asi que se lleva casi un cuarto de la altura.
+                if (py >= yCuello && py < yHombro && dxc < anchoCuello) {
+                    int idx = (int)((dxc / anchoCuello) * (vid.Length - 1));
+                    if (idx >= vid.Length) idx = vid.Length - 1;
+                    PonerR(alfa, rgb, lado, lado, x, y, vid[idx], 1.0);
+                    pixVidrio++;
+                }
+
+                // HOMBRO: del cuello al cuerpo, abriendo con una raiz para que
+                // sea curva y no chaflan.
+                // CUERPO: recto hasta el fondo.
+                if (py >= yHombro && py <= yFondo) {
+                    double w;
+                    if (py < yCuerpo) {
+                        double t = (py - yHombro) / (yCuerpo - yHombro);
+                        w = anchoCuello + (anchoCuerpo - anchoCuello) * Math.Sqrt(t);
+                    } else {
+                        w = anchoCuerpo;
+                    }
+                    if (dxc < w) {
+                        // Vidrio verde: brillo vertical a la izquierda y sombra
+                        // a la derecha. Es lo que lo lee como cristal.
+                        double u = (px - (cx - w)) / (2 * w);
+                        int idx = (int)(Math.Abs(u - 0.30) * 2.4 * (vid.Length - 1));
+                        if (idx < 0) idx = 0;
+                        if (idx >= vid.Length) idx = vid.Length - 1;
+                        // Contorno oscuro, para recortarse contra el suelo.
+                        if (dxc > w - 1.0 || py > yFondo - 1.0) idx = vid.Length - 1;
+                        int color = vid[idx];
+
+                        // ETIQUETA: banda clara cruzada por el medio del cuerpo,
+                        // con el mismo brillo a la izquierda. Es el detalle que
+                        // convierte un frasco verde en una cerveza.
+                        if (py >= yEtiqueta0 && py <= yEtiqueta1 && dxc < w - 0.8) {
+                            color = etiqueta;
+                            pixEtiqueta++;
+                        }
+                        PonerR(alfa, rgb, lado, lado, x, y, color, 1.0);
+                        pixVidrio++;
+                    }
+                }
+            }
+        }
+
+        AmpliarR(buf, stride, alfa, rgb, lado, lado, escala);
+        Volcar(salida, buf, lado * escala, lado * escala, stride);
+        return pixVidrio + "|" + pixFuego + "|" + pixEtiqueta;
+    }
+
+    // OJO AL BACKTICK: en este bloque no puede haber ni uno. El C# viaja dentro
+    // de una cadena de PowerShell, que trata el backtick como escape (el de la
+    // letra r es un retorno de carro), asi que un comentario que cite un
+    // identificador entre backticks se parte en dos y el fichero deja de
+    // compilar. Ya paso una vez.
+    //
+    // RED DE PESCA. Para el Rete, que es literalmente eso -una red de gladiador
+    // retiarius- y venia usando el charco de zarzas por no tener la suya.
+    //
+    // Es una malla de rombos: dos familias de rectas paralelas cruzadas a 45
+    // grados, con un nudo en cada cruce, recortada en circulo. Se dibuja
+    // MIDIENDO DISTANCIA A LA RECTA en vez de trazando lineas, que es lo que la
+    // deja con el grosor exacto que se pida y sin escalones: para cada pixel se
+    // mira lo cerca que esta del cordel mas proximo de cada familia.
+    //
+    // No hierve ni se anima: una red esta quieta. Un solo fotograma.
+    public static string Red(string salida, int radioDanyo, double margen, int escala,
+                             uint semilla, string paletaTxt, double paso,
+                             double grosor, double nudo) {
+
+        int[] pal = LeerPaleta(paletaTxt);
+        int radioLog = (int)Math.Round(radioDanyo * margen);
+        int lado = radioLog * 2;
+        // El radio de DANO, que es hasta donde llega la malla. Lo de fuera es
+        // el margen que se reserva para que los flecos no se corten rectos.
+        double rDanyo = radioDanyo;
+        Az az = new Az(semilla);
+
+        // Giro global de la malla, sorteado: dos redes seguidas en el suelo no
+        // pueden salir alineadas al pixel.
+        double giro = az.R(0, Math.PI / 2);
+        double cg = Math.Cos(giro), sg = Math.Sin(giro);
+
+        byte[] alfa = new byte[lado * lado];
+        int[] rgb = new int[lado * lado];
+        int anchoTira = lado * escala, altoTira = lado * escala;
+        int stride = anchoTira * 4;
+        byte[] buf = new byte[stride * altoTira];
+
+        double pasoPx = paso * radioDanyo;      // separacion entre cordeles
+        int cubiertos = 0, dentro = 0;
+
+        for (int y = 0; y < lado; y++) {
+            for (int x = 0; x < lado; x++) {
+                double dx = x + 0.5 - radioLog, dy = y + 0.5 - radioLog;
+                double d = Math.Sqrt(dx * dx + dy * dy);
+                if (d > rDanyo) continue;               // fuera de la zona
+                dentro++;
+
+                // Coordenadas en el sistema de la malla, ya girada.
+                double u = dx * cg - dy * sg;
+                double v = dx * sg + dy * cg;
+
+                // Distancia al cordel mas cercano de cada familia. El resto de
+                // la division dice cuanto se ha pasado del ultimo cordel; el
+                // minimo con paso - resto da la distancia al de al lado.
+                double ru = ((u % pasoPx) + pasoPx) % pasoPx;
+                double rv = ((v % pasoPx) + pasoPx) % pasoPx;
+                double du = Math.Min(ru, pasoPx - ru);
+                double dv = Math.Min(rv, pasoPx - rv);
+                double dCordel = Math.Min(du, dv);
+
+                // Grosor del cordel, en fraccion del PASO de la malla y no del
+                // radio. Atado al radio, la primera version salio con cordeles
+                // de 9,6 px sobre huecos de 20,8 y la medicion canto: 69% de
+                // ocupacion, o sea un disco con agujeritos en vez de una red.
+                // Atado al paso, la proporcion cordel/hueco es la misma se
+                // hornee al tamano que se hornee.
+                double g = grosor * pasoPx;
+                if (dCordel > g) continue;               // hueco de la malla
+
+                // NUDO: donde se cruzan los dos cordeles, un bulto mas claro y
+                // mas gordo. Es lo que lo lee como red anudada y no como una
+                // rejilla dibujada.
+                bool esNudo = du < g * nudo && dv < g * nudo;
+
+                // El cordel va mas claro por el centro y oscuro por el filo,
+                // que es lo que le da volumen de cuerda.
+                double t = dCordel / g;                  // 0 centro, 1 canto
+                int idx = (int)(t * (pal.Length - 1));
+                if (esNudo) idx = 0;
+                // Y la red se deshilacha por el borde de la zona: los cordeles
+                // de fuera se apagan en vez de cortarse en redondo.
+                double desvanece = 1.0;
+                if (d > rDanyo * 0.86) desvanece = 1.0 - (d - rDanyo * 0.86) / (rDanyo * 0.14);
+                if (desvanece <= 0.05) continue;
+                if (idx < 0) idx = 0;
+                if (idx >= pal.Length) idx = pal.Length - 1;
+
+                Poner(alfa, rgb, lado, x, y, pal[idx], desvanece);
+                cubiertos++;
+            }
+        }
+
+        Ampliar(buf, stride, alfa, rgb, lado, escala, 0);
+        Volcar(salida, buf, anchoTira, altoTira, stride);
+        // Lo medible de una red: que la malla ocupe una fraccion razonable del
+        // aro. Toda llena seria un disco; muy vacia no se veria.
+        double ocupa = dentro > 0 ? (double)cubiertos / dentro : 0;
+        return cubiertos + "|" + dentro + "|" +
+               ocupa.ToString("0.000", CultureInfo.InvariantCulture);
+    }
+
+    // LUNA LLENA CON AURA. Para los Satelites.
+    //
+    // Empezo siendo un cuarto menguante -disco menos disco- y Sergio la quiso
+    // llena y con un halo azul difuminado. Cambia poco: el mordisco desaparece y
+    // entra el aura, que es lo unico nuevo de verdad.
+    //
+    // EL AURA SE HACE CON ALFA, NO CON COLOR. Un halo pintado en tonos cada vez
+    // mas oscuros seria un disco azul; lo que lo hace halo es que se vuelve
+    // TRANSPARENTE hacia afuera, y Poner ya acepta el alfa por pixel. La caida
+    // va al cuadrado porque lineal deja un borde visible donde se acaba.
+    //
+    // Y el aura llega justo al canto de la celda, que es lo que el motor dibuja
+    // al radio del escudo: asi el halo se apaga exactamente donde acaba el dano.
+    //
+    // UN SOLO FOTOGRAMA. Los orbitales del motor no se animan -dibujarOrbitales
+    // pinta siempre el primero- y una luna no parpadea. Tampoco gira, y por eso
+    // el arma no lleva giroOrbital: girar una luna llena no se notaria salvo
+    // por los crateres bailando, que es peor que dejarla quieta.
+    public static string Luna(string salida, int radio, int escala, uint semilla,
+                              string paletaTxt, double fraccion, int aura,
+                              double fuerzaAura, int crateres) {
+
+        int[] pal = LeerPaleta(paletaTxt);       // de la cara iluminada a la sombra
+        int lado = radio * 2;
+        Az az = new Az(semilla);
+
+        // La luna ocupa fraccion de la celda; el resto es aura.
+        double rLuna = radio * fraccion;
+
+        // Mares y crateres: manchas oscuras repartidas por el disco. Sorteados
+        // una vez, no por fotograma -no hay fotogramas- y con la semilla, asi
+        // que el PNG sale igual byte a byte cada vez que se regenera.
+        double[] cx = new double[crateres], cy = new double[crateres], cr = new double[crateres];
+        for (int i = 0; i < crateres; i++) {
+            double ang = az.R(0, Math.PI * 2);
+            double dist = az.R(0.10, 0.62) * rLuna;
+            cx[i] = radio + Math.Cos(ang) * dist;
+            cy[i] = radio + Math.Sin(ang) * dist;
+            cr[i] = az.R(0.10, 0.22) * rLuna;
+        }
+
+        byte[] alfa = new byte[lado * lado];
+        int[] rgb = new int[lado * lado];
+        int anchoTira = lado * escala, altoTira = lado * escala;
+        int stride = anchoTira * 4;
+        byte[] buf = new byte[stride * altoTira];
+
+        int pixLuna = 0, pixAura = 0;
+        for (int y = 0; y < lado; y++) {
+            for (int x = 0; x < lado; x++) {
+                double dx = x + 0.5 - radio, dy = y + 0.5 - radio;
+                double d = Math.Sqrt(dx * dx + dy * dy);
+
+                // 1. EL AURA, primero y por debajo: de la superficie de la luna
+                // hacia afuera, apagandose. Empieza DENTRO del disco a
+                // proposito -desde 0,80 de rLuna- porque un halo que arranca
+                // justo en el canto deja una linea de separacion; solapandolo,
+                // la luna parece emitirlo.
+                if (d <= radio - 0.5 && d > rLuna * 0.80) {
+                    double u = (d - rLuna * 0.80) / (radio - rLuna * 0.80);
+                    if (u < 0) u = 0;
+                    if (u > 1) u = 1;
+                    double a = (1 - u) * (1 - u) * fuerzaAura;
+                    if (a > 0.02) { Poner(alfa, rgb, lado, x, y, aura, a); if (d > rLuna) pixAura++; }
+                }
+
+                // 2. LA LUNA, encima y opaca.
+                if (d > rLuna - 0.5) continue;
+                double u2 = d / rLuna;
+
+                // Luz cenital desde arriba-izquierda, MUY suave: una luna llena
+                // se ve de frente al sol, asi que casi no tiene sombra propia.
+                // Lo que la lee como esfera es el canto, no el degradado.
+                double lz = 0.5 - 0.5 * (dx * 0.7071 + dy * 0.7071) / rLuna;
+                int idx = (int)(lz * (pal.Length - 2) * 0.75);
+
+                // Canto exterior mas oscuro: contra una pantalla llena de
+                // destellos, lo que tiene borde se lee como un objeto.
+                if (u2 > 0.88) idx = pal.Length - 1;
+
+                for (int i = 0; i < crateres; i++) {
+                    double dc = Math.Sqrt((x + 0.5 - cx[i]) * (x + 0.5 - cx[i]) +
+                                          (y + 0.5 - cy[i]) * (y + 0.5 - cy[i]));
+                    if (dc < cr[i] && u2 < 0.86) { idx = Math.Min(pal.Length - 1, idx + 2); break; }
+                }
+
+                if (idx < 0) idx = 0;
+                if (idx >= pal.Length) idx = pal.Length - 1;
+                Poner(alfa, rgb, lado, x, y, pal[idx], 1.0);
+                pixLuna++;
+            }
+        }
+
+        Ampliar(buf, stride, alfa, rgb, lado, escala, 0);
+        Volcar(salida, buf, anchoTira, altoTira, stride);
+        // Lo comprobable sin abrir el PNG: que la luna sea un disco lleno (su
+        // area tiene que dar el circulo entero) y que el aura exista alrededor.
+        // Contra el circulo que de verdad cabe en pixeles, no contra el ideal:
+        // el disco se rellena con los centros que caen dentro de rLuna - 0.5,
+        // asi que a este tamano -unos 11 px de radio- media fila de canto son
+        // seis puntos porcentuales. Midiendolo contra el ideal, una luna llena
+        // perfecta daba 89% y saltaba la alarma sin motivo.
+        double rReal = rLuna - 0.5;
+        double llenado = pixLuna / (Math.PI * rReal * rReal);
+        return pixLuna + "|" + pixAura + "|" +
+               llenado.ToString("0.000", CultureInfo.InvariantCulture);
+    }
+
     static void Ampliar(byte[] buf, int stride, byte[] alfa, int[] rgb,
                         int lado, int escala, int f) {
         for (int y = 0; y < lado; y++) {
@@ -692,7 +1720,7 @@ public class Pirotecnia {
 # dibujarAire en zonaDanyo.js), y en aditivo un pixel oscuro es un pixel
 # invisible. Una explosion se apaga desvaneciendose, no volviendose humo negro.
 #
-# `atlas` es el ID con el que el motor la pide. Va explicito y no derivado del
+# atlas es el ID con el que el motor la pide. Va explicito y no derivado del
 # nombre del fichero: los datos de armas.js y jefes.js nombran esta cadena, y
 # que renombrar un PNG pudiera romper una referencia seria una trampa.
 $CATALOGO = @(
@@ -758,6 +1786,25 @@ $CATALOGO = @(
     @{ id = 'llama';   atlas = 'reventonLlama';   archivo = 'reventon-llama.png';   semilla = 161803
        paleta = 'fff0cc,ffbe66,ff8a2a,e85a14,ad3a0e,73230a'
        chispas = 40; huecoIni = 0.18; hueco = 0.68; rugosidad = 1.40; anillo = 0.40; nucleo = 0.62; chispaTam = 1.5 }
+
+    # --- Chispazo del rayo: donde toca tierra la tormenta -------------------
+    #
+    # El unico efecto de area del arsenal que seguia siendo un circulo trazado:
+    # `caerRayo` (sistemas/armas.js) creaba su onda SIN hoja mientras las otras
+    # seis explosivas ya tenian la suya. Se veia como lo que era, un aro de
+    # color al final de un haz muy trabajado.
+    #
+    # Y hoja propia en vez de reusar `explosionJupiter`, que es del Pilum: una
+    # detonacion se ABRE -bola llena, hueco que crece- y un chispazo se
+    # DESCARGA, o sea nucleo pequeno y todo lo demas repartido en brazos. Por
+    # eso lleva las chispas mas altas del catalogo y la rugosidad tambien.
+    #
+    # radioRef 28 y no el de 50 por defecto: el radio del arma va de 22 a 29, y
+    # hornear al tamano al que de verdad se dibuja es lo que evita ampliar en
+    # caliente (ver la seccion de Resolucion mas abajo).
+    @{ id = 'chispazo'; atlas = 'reventonChispa'; archivo = 'reventon-chispa.png'; semilla = 224466
+       paleta = 'ffffff,eaf6ff,b9e2ff,7ec2ff,4f8ce8,3352b4'
+       radioRef = 28; chispas = 52; huecoIni = 0.08; hueco = 0.62; rugosidad = 1.70; anillo = 0.70; nucleo = 0.80; chispaTam = 1.3 }
 )
 
 # --- Charcos ----------------------------------------------------------------
@@ -1035,6 +2082,242 @@ $MINAS = @(
        remaches = 8 }
 )
 
+# --- Pinchos y auras ---------------------------------------------------------
+#
+# Los PINCHOS son la calcomania del Tribulus. Comparten medidas con los charcos
+# porque son lo mismo -una zona de suelo que se escala a su radio- pero no
+# cubren: son piezas sueltas con suelo limpio entre ellas.
+$PINCHOS = @(
+    @{ id = 'pinchos'; atlas = 'pinchos'; archivo = 'pinchos.png'; semilla = 61224
+       # Hierro forjado: del brillo del filo al contorno.
+       paleta = 'dfe6ec,b3bec9,8a95a1,626c78,414a54,222932'
+       # `cuantos` piezas, de `tam` en fracciones del radio de dano y con
+       # `variacion` de tamano entre unas y otras. 34 a 0,085 llena el aro sin
+       # que se toquen: mas grandes se funden en una placa y mas pequenos
+       # desaparecen al reducir la calcomania a radios chicos.
+       cuantos = 44; tam = 0.085; variacion = 0.30 }
+)
+
+# Las AURAS son resplandores sueltos que se dibujan detras de otra cosa.
+$RADIO_AURA = 16          # fuente; 64x64 fisicos, como la luna
+$AURAS = @(
+    @{ id = 'auraRoja'; atlas = 'auraRoja'; archivo = 'aura-roja.png'
+       # Rojo encendido, no granate: en aditivo lo oscuro no aporta nada.
+       color = 'ff2a1a'; fuerza = 0.72; nucleo = 0.30 }
+)
+
+$radioAuraFuente = $RADIO_AURA
+$ladoAura = $RADIO_AURA * 2 * $DETALLE
+
+# --- Proyectiles con dibujo propio -------------------------------------------
+#
+# Tres armas que se dibujaban con el trazo generico y piden algo suyo. Las tres
+# son geometria: una abeja son dos ovalos y unas bandas, un shuriken es una
+# formula polar y una botella son cuatro tramos apilados.
+#
+# EL TAMANO DEL PNG ES EL TAMANO EN PANTALLA. El motor dibuja estos sprites a
+# `meta.w / ESCALA_ARTE` unidades logicas, o sea 1:1 en pixeles fisicos, que es
+# la regla de los blits del proyecto. La referencia es la bala de la pistola:
+# 43x19 fisicos. Con DETALLE 2, la fuente va a la mitad.
+$RADIO_SHURIKEN = 8      # fuente; el PNG sale de 32x32 fisicos
+$LADO_MOLOTOV  = 18      # fuente; 36x36 fisicos
+$ABEJA_ANCHO   = 20      # fuente; 40x22 fisicos
+$ABEJA_ALTO    = 11
+$FLECHA_ANCHO  = 22      # fuente; 44x16 fisicos, o sea 11x4 unidades logicas
+$FLECHA_ALTO   = 8
+$KUNAI_ANCHO   = 20      # fuente; 40x16 fisicos
+$KUNAI_ALTO    = 8
+# Las tres astas. El pilum es el mas largo y el mas fino: es un arma de
+# arrojar de dos metros con una cana de hierro. El virote, corto y gordo.
+$PILUM_ANCHO   = 26; $PILUM_ALTO   = 7      # 52x14 fisicos
+$LANZA_ANCHO   = 26; $LANZA_ALTO   = 8      # 52x16
+$VIROTE_ANCHO  = 22; $VIROTE_ALTO  = 10     # 44x20
+# Pedazos sueltos: casco de metralla y canto de honda.
+$METRALLA_LADO = 8                          # 16x16
+$PIEDRA_ANCHO  = 10; $PIEDRA_ALTO  = 9      # 20x18
+# Lengua de fuego del lanzallamas.
+$LENGUA_ANCHO  = 16; $LENGUA_ALTO  = 9      # 32x18
+# La rosa de los vientos: misma figura que el shuriken con otros numeros.
+$RADIO_ROSA    = 6                          # 24x24
+# La columna es la pieza mas grande del lote y tiene que serlo: es un fuste de
+# marmol, no un dardo. 68x24 fisicos son 17x6 unidades logicas.
+$COLUMNA_ANCHO = 34
+$COLUMNA_ALTO  = 12
+
+$PROYECTILES = @(
+    @{ id = 'abeja'; tipo = 'abeja'; atlas = 'proyAbeja'; archivo = 'proy-abeja.png'
+       # Banda clara primero: el indice 0 es la franja amarilla y el ultimo el
+       # negro del abdomen, la cabeza y el aguijon.
+       paleta = 'f2d24a,c9a52a,8a6a18,2a2418'
+       ala = 'dfeaf5' }
+
+    @{ id = 'shuriken'; tipo = 'shuriken'; atlas = 'proyShuriken'; archivo = 'proy-shuriken.png'
+       paleta = 'f0f4f8,ccd6e0,a3b0bd,76828f,4a545e,272d33'
+       # `afilado` por debajo de 1 come los flancos hacia dentro y afila la
+       # punta; `hueco` es el ojo central y `cuerpo` el radio minimo que
+       # garantiza que las cuatro hojas siguen unidas por el medio.
+       afilado = 0.55; hueco = 0.17; cuerpo = 0.30 }
+
+    @{ id = 'molotov'; tipo = 'molotov'; atlas = 'proyMolotov'; archivo = 'proy-molotov.png'
+       # VERDE DE BOTELLA DE CERVEZA, que es un verde concreto y no un verde
+       # cualquiera: oscuro, con el reflejo tirando a amarillo y la sombra casi
+       # negra. Del brillo al contorno.
+       paleta = 'e2f2c8,a8d489,6fa554,44712f,29491d,10200a'
+       # El fuego del trapo, del nucleo blanco al filo rojo.
+       fuego = 'fff6d8,ffd257,ff9a22,e85a14'
+       trapo = 'd8c9a8'
+       # La etiqueta. Papel viejo, no blanco: el blanco puro a este tamano se
+       # come el resto de la botella.
+       etiqueta = 'ded2b0' }
+
+    # --- Astas: punta sobre palo, tres proporciones -----------------------
+    @{ id = 'pilum'; tipo = 'asta'; atlas = 'proyPilum'; archivo = 'proy-pilum.png'
+       paleta = 'b99a63,5c4726'          # fresno
+       acero = 'dfe4ea,4e5762'
+       pluma = '000000'
+       # Punta pequena, VASTAGO largo y fino hasta la mitad del arma, y asta
+       # gruesa detras. Esa cana de hierro es la firma del pilum.
+       fracPunta = 0.13; anchoPunta = 0.30; fracVastago = 0.50
+       anchoAsta = 0.19; fracPluma = 0 }
+
+    @{ id = 'lanza'; tipo = 'asta'; atlas = 'proyLanza'; archivo = 'proy-lanza.png'
+       paleta = 'c2a468,634d2a'
+       acero = 'e8edf3,566070'
+       pluma = '000000'
+       # Hoja de laurel ancha y larga, sin vastago: es una lanza de mano.
+       fracPunta = 0.30; anchoPunta = 0.34; fracVastago = 0
+       anchoAsta = 0.15; fracPluma = 0 }
+
+    @{ id = 'virote'; tipo = 'asta'; atlas = 'proyVirote'; archivo = 'proy-virote.png'
+       paleta = 'a98a58,503d24'
+       acero = 'd8dee6,464e58'
+       pluma = 'cfc7b4'
+       # Cabeza gorda, asta gruesa y plumas cortas: un virote es un tocho que
+       # atraviesa, no un dardo que pincha.
+       fracPunta = 0.22; anchoPunta = 0.40; fracVastago = 0
+       anchoAsta = 0.22; fracPluma = 0.20 }
+
+    # --- Pedazos ----------------------------------------------------------
+    @{ id = 'metralla'; tipo = 'trozo'; atlas = 'proyMetralla'; archivo = 'proy-metralla.png'
+       semilla = 55123
+       paleta = 'd9dfe6,a8b0ba,7b838d,565d66,373d45,1e2228'
+       # Muchas aristas: es hierro roto, tiene que cortar solo de mirarlo.
+       vertices = 7; irregular = 0.42 }
+
+    @{ id = 'piedra'; tipo = 'trozo'; atlas = 'proyPiedra'; archivo = 'proy-piedra.png'
+       semilla = 90210
+       paleta = 'd6cfc0,b2a894,8d8371,675f50,474135,2b271f'
+       # Casi redonda: un canto de rio elegido para la honda, no un pedrusco.
+       vertices = 9; irregular = 0.16 }
+
+    # --- Otros ------------------------------------------------------------
+    @{ id = 'lengua'; tipo = 'lengua'; atlas = 'proyLengua'; archivo = 'proy-lengua.png'
+       # Del nucleo blanco al filo rojo, sin tonos oscuros: es fuego.
+       paleta = 'fffbe8,ffe9a0,ffb43c,ff7a18,e04510' }
+
+    @{ id = 'rosa'; tipo = 'rosa'; atlas = 'proyRosa'; archivo = 'proy-rosa.png'
+       # Bronce de instrumento, no acero: una rosa de los vientos es una pieza
+       # de latón grabada.
+       paleta = 'ffeab0,e0bf6a,b8933f,8a6b28,5c4718,332708'
+       # Sin ojo en el centro y con las puntas mucho mas afiladas que las de un
+       # shuriken: lo que se quiere es la aguja de una brujula.
+       afilado = 0.34; hueco = 0; cuerpo = 0.13 }
+
+    @{ id = 'kunai'; tipo = 'kunai'; atlas = 'proyKunai'; archivo = 'proy-kunai.png'
+       # Acero pavonado. La sombra es un gris MEDIO y no casi negro: a ocho
+       # pixeles de alto, media hoja en negro no se lee como una cara en sombra,
+       # se lee como un borron. El contraste tiene que caber en la silueta.
+       paleta = 'e6ecf2,7c8794'
+       # Mango envuelto en cuerda y anilla de hierro.
+       mango = '4a3f33'; anilla = '8e939a' }
+
+    @{ id = 'columna'; tipo = 'columna'; atlas = 'proyColumna'; archivo = 'proy-columna.png'
+       # Marmol de Emerita: blanco hueso con la sombra en gris calido, nunca
+       # azulada. Del brillo del canto iluminado al contorno.
+       paleta = 'f4efe2,ded6c3,c0b6a0,9b917d,706857,463f33'
+       # Acanaladuras del fuste. Cinco bandas: menos parece un tubo y mas se
+       # convierte en trama al reducir.
+       estrias = 5 }
+
+    @{ id = 'flecha'; tipo = 'flecha'; atlas = 'proyFlecha'; archivo = 'proy-flecha.png'
+       # Madera de la cana: iluminada arriba y en sombra abajo.
+       paleta = 'c9a870,6b5330'
+       # Acero de la punta.
+       acero = 'eef2f6,5a6570'
+       # Y la pluma, gris de ganso.
+       pluma = 'ded9cc' }
+)
+
+$ANCHO_ABEJA_FUENTE = $ABEJA_ANCHO
+$ALTO_ABEJA_FUENTE  = $ABEJA_ALTO
+
+# --- Redes -------------------------------------------------------------------
+#
+# Para el Rete, que es la red del retiarius y venia prestada del charco de
+# zarzas por no tener la suya. Una malla de rombos es geometria pura, asi que
+# entra en el generador por la puerta grande.
+#
+# Comparte medidas con los charcos -mismo radio de horneado y mismo margen-
+# porque es lo mismo: una calcomania de suelo que se escala al radio de la zona.
+$REDES = @(
+    @{ id = 'red'; atlas = 'redPesca'; archivo = 'red-pesca.png'; semilla = 71355
+       # Cordel de esparto: del reflejo del hilo a la sombra entre vueltas.
+       paleta = 'e8dcc0,cdbc99,ab9873,857358,5f5340,3d3529'
+       # `paso` es la separacion entre cordeles en fracciones del radio de dano:
+       # 0,26 da una malla de unos ocho rombos de lado a lado, que a 25-43 de
+       # radio se lee como red y no como trama. `grosor` es el del cordel y
+       # `nudo` cuanto engorda en los cruces.
+       paso = 0.26; grosor = 0.09; nudo = 1.6 }
+)
+
+$radioRedFuente = $radioCharcoFuente
+$ladoRed = $ladoCharco
+
+# --- Lunas -------------------------------------------------------------------
+#
+# Para los Satelites, que eran el ultimo orbital sin dibujo: los otros tres
+# -Scutum, Discos y Sierras- salen de laminas de resources/, y este no tenia.
+#
+# Se genera en vez de dibujarse porque una luna es dos circunferencias y una
+# resta. Ver el comentario de Pirotecnia.Luna.
+#
+# El RADIO va en unidades logicas y sale del arma: `radioEscudo` de los
+# Satelites es 7, y se hornea a 8 para que crezca con `bonusArea` sin tener que
+# ampliar. Con FUENTE_POR_LOGICO=2 y DETALLE=2 son 64 px de lado, exactamente
+# los mismos que el escudo del Scutum.
+$RADIO_LUNA = 8
+
+# FINURA: cuantos pixeles de origen se usan de mas, SIN cambiar el tamano en
+# pantalla. Es un multiplicador de resolucion y nada mas.
+#
+# Funciona porque el motor NO saca el tamano de un orbital de su hoja: lo saca
+# de radioEscudo del arma y de `escalaOrbital` (ver dibujarOrbitales en
+# sistemas/armas.js). La hoja solo aporta detalle. Y falta hacia: la luna se
+# dibuja a 17,5 unidades de radio, o sea 140 pixeles fisicos, y horneada a 64
+# cada pixel de origen cubria cuatro y pico de pantalla.
+#
+# A 2 son 128 px de hoja para 140 de pantalla: practicamente 1:1, que es la
+# regla de los blits del proyecto.
+$FINURA_LUNA = 2
+
+$LUNAS = @(
+    @{ id = 'luna'; atlas = 'orbLuna'; archivo = 'orb-luna.png'; semilla = 27091
+       # De la cara al sol a la sombra del canto. Gris de piedra tirando a hueso,
+       # no blanco puro: el blanco puro sobre arena clara desaparece.
+       paleta = 'fdfbf2,ece7d8,d2ccb8,ada693,807a69,504b41'
+       # `fraccion`: cuanto de la celda ocupa el disco. El resto es aura, y la
+       # celda entera es lo que el motor dibuja al radio del escudo, asi que el
+       # halo se apaga justo donde acaba el dano. 0,68 deja luna de sobra y un
+       # tercio de celda para que el degradado tenga sitio donde caer.
+       fraccion = 0.68
+       # El azul del aura y su fuerza en el arranque. 0,55 es visible sin
+       # convertirse en un disco: por encima de 0,7 deja de leerse como halo.
+       aura = '6fb4ff'; fuerzaAura = 0.55; crateres = 5 }
+)
+
+$radioLunaFuente = [int][math]::Round($RADIO_LUNA * $FUENTE_POR_LOGICO * $FINURA_LUNA)
+$ladoLuna = $radioLunaFuente * 2 * $DETALLE
+
 $radioMinaFuente = [int][math]::Round($RADIO_MINA * $FUENTE_POR_LOGICO)
 $ladoMina = $radioMinaFuente * 2 * $DETALLE
 Write-Host "Minas: celda $ladoMina x $ladoMina, $FOTOGRAMAS fotogramas en BUCLE"
@@ -1057,6 +2340,206 @@ foreach ($mn in $MINAS) {
     Write-Host ("             brillo de la luz  {0}" -f (($br | ForEach-Object { $_.ToString('0.00') }) -join ' '))
     Write-Host ("             cuerpo de tamano fijo: {0}   rango del parpadeo: {1:N2}  -> {2}" -f `
                 $cuerpoFijo, $rango, $(if ($cuerpoFijo -and $rango -gt 0.8) { 'OK' } else { 'REVISAR' }))
+    Write-Host ""
+}
+
+Write-Host "Pinchos y auras"
+Write-Host ""
+
+foreach ($pn in $PINCHOS) {
+    if ($Solo -and $pn.id -ne $Solo) { continue }
+    $ruta = Join-Path $Destino $pn.archivo
+    $m = [Pirotecnia]::Pinchos($ruta, $radioCharcoFuente, [double]$MARGEN_CHARCO, $DETALLE,
+                               [uint32]$pn.semilla, $pn.paleta, [int]$pn.cuantos,
+                               [double]$pn.tam, [double]$pn.variacion)
+    $q = $m -split '\|'
+    $ocupa = [double]$q[2]
+    # Al reves que un charco: aqui NO se busca cubrir el aro. Lo que hay que
+    # comprobar es que se vea suelo entre pieza y pieza -si pasa de la mitad, se
+    # han fundido en una placa- y que no sea tan poco que no se vea nada.
+    $ok = ($ocupa -gt 0.06) -and ($ocupa -lt 0.45)
+    Write-Host ("  {0,-10} {1}" -f $pn.id, $pn.archivo)
+    Write-Host ("             {0} piezas, {1} px de hierro, {2:P0} del aro -> {3}" -f `
+                $q[1], $q[0], $ocupa, $(if ($ok) { 'OK' } else { 'REVISAR' }))
+    Write-Host ""
+}
+
+foreach ($au in $AURAS) {
+    if ($Solo -and $au.id -ne $Solo) { continue }
+    $ruta = Join-Path $Destino $au.archivo
+    $col = [int]([uint32]::Parse($au.color, [Globalization.NumberStyles]::HexNumber))
+    $m = [Pirotecnia]::Aura($ruta, $radioAuraFuente, $DETALLE, $col,
+                            [double]$au.fuerza, [double]$au.nucleo)
+    $q = $m -split '\|'
+    $medio = [double]$q[1]
+    # Un aura tiene que ser un DEGRADADO: si el alfa medio se va arriba es un
+    # disco de color, y si se va abajo no se ve.
+    $ok = ($medio -gt 0.12) -and ($medio -lt 0.55)
+    Write-Host ("  {0,-10} {1}" -f $au.id, $au.archivo)
+    Write-Host ("             {0} px de resplandor, alfa medio {1:N2} -> {2}" -f `
+                $q[0], $medio, $(if ($ok) { 'OK' } else { 'REVISAR' }))
+    Write-Host ""
+}
+
+Write-Host "Proyectiles: dibujo propio, 1 fotograma, a tamano de pantalla"
+Write-Host ""
+
+foreach ($pr in $PROYECTILES) {
+    if ($Solo -and $pr.id -ne $Solo) { continue }
+    $ruta = Join-Path $Destino $pr.archivo
+
+    if ($pr.tipo -eq 'abeja') {
+        $colorAla = [int]([uint32]::Parse($pr.ala, [Globalization.NumberStyles]::HexNumber))
+        $m = [Pirotecnia]::Abeja($ruta, $ABEJA_ANCHO, $ABEJA_ALTO, $DETALLE, $pr.paleta, $colorAla)
+        $q = $m -split '\|'
+        $ok = ([int]$q[0] -gt 0) -and ([int]$q[1] -gt 0)
+        Write-Host ("  {0,-10} {1}   {2}x{3} px" -f $pr.id, $pr.archivo, ($ABEJA_ANCHO * $DETALLE), ($ABEJA_ALTO * $DETALLE))
+        Write-Host ("             cuerpo {0} px, alas {1} px -> {2}" -f $q[0], $q[1], $(if ($ok) { 'OK' } else { 'REVISAR' }))
+    }
+    elseif ($pr.tipo -eq 'shuriken') {
+        $m = [Pirotecnia]::Shuriken($ruta, $RADIO_SHURIKEN, $DETALLE, $pr.paleta,
+                                    [double]$pr.afilado, [double]$pr.hueco, [double]$pr.cuerpo)
+        $q = $m -split '\|'
+        $llenado = [double]$q[1]
+        # Una estrella de cuatro puntas ocupa bastante menos que su circulo: si
+        # se acerca al lleno es que las puntas se han fundido en un disco, y si
+        # baja mucho es que se ha quedado en cuatro pelos.
+        $ok = ($llenado -gt 0.25) -and ($llenado -lt 0.70)
+        Write-Host ("  {0,-10} {1}   {2}x{2} px" -f $pr.id, $pr.archivo, ($RADIO_SHURIKEN * 2 * $DETALLE))
+        Write-Host ("             acero {0} px, {1:P0} del circulo -> {2}" -f $q[0], $llenado, $(if ($ok) { 'OK' } else { 'REVISAR' }))
+    }
+    elseif ($pr.tipo -eq 'asta') {
+        if ($pr.id -eq 'pilum') { $w = $PILUM_ANCHO; $h = $PILUM_ALTO }
+        elseif ($pr.id -eq 'lanza') { $w = $LANZA_ANCHO; $h = $LANZA_ALTO }
+        else { $w = $VIROTE_ANCHO; $h = $VIROTE_ALTO }
+        $colorPluma = [int]([uint32]::Parse($pr.pluma, [Globalization.NumberStyles]::HexNumber))
+        $m = [Pirotecnia]::Asta($ruta, $w, $h, $DETALLE, $pr.paleta, $pr.acero, $colorPluma,
+                                [double]$pr.fracPunta, [double]$pr.anchoPunta,
+                                [double]$pr.fracVastago, [double]$pr.anchoAsta,
+                                [double]$pr.fracPluma)
+        $q = $m -split '\|'
+        # Hierro y madera tienen que estar los dos: sin punta es un palo y sin
+        # asta es un cuchillo volando.
+        $ok = ([int]$q[0] -gt 0) -and ([int]$q[1] -gt 0)
+        Write-Host ("  {0,-10} {1}   {2}x{3} px" -f $pr.id, $pr.archivo, ($w * $DETALLE), ($h * $DETALLE))
+        Write-Host ("             hierro {0} px, madera {1} px, plumas {2} px -> {3}" -f $q[0], $q[1], $q[2], $(if ($ok) { 'OK' } else { 'REVISAR' }))
+    }
+    elseif ($pr.tipo -eq 'trozo') {
+        if ($pr.id -eq 'metralla') { $w = $METRALLA_LADO; $h = $METRALLA_LADO }
+        else { $w = $PIEDRA_ANCHO; $h = $PIEDRA_ALTO }
+        $m = [Pirotecnia]::Trozo($ruta, $w, $h, $DETALLE, [uint32]$pr.semilla, $pr.paleta,
+                                 [int]$pr.vertices, [double]$pr.irregular)
+        $ocupa = [double]([int]$m) / ($w * $h)
+        # Un pedazo llena buena parte de su celda pero nunca toda: si se acerca
+        # a uno es que ha salido un rectangulo.
+        $ok = ($ocupa -gt 0.35) -and ($ocupa -lt 0.85)
+        Write-Host ("  {0,-10} {1}   {2}x{3} px" -f $pr.id, $pr.archivo, ($w * $DETALLE), ($h * $DETALLE))
+        Write-Host ("             {0} px, {1:P0} de la celda -> {2}" -f $m, $ocupa, $(if ($ok) { 'OK' } else { 'REVISAR' }))
+    }
+    elseif ($pr.tipo -eq 'lengua') {
+        $m = [Pirotecnia]::Lengua($ruta, $LENGUA_ANCHO, $LENGUA_ALTO, $DETALLE, $pr.paleta)
+        $ocupa = [double]([int]$m) / ($LENGUA_ANCHO * $LENGUA_ALTO)
+        $ok = ($ocupa -gt 0.25) -and ($ocupa -lt 0.75)
+        Write-Host ("  {0,-10} {1}   {2}x{3} px" -f $pr.id, $pr.archivo, ($LENGUA_ANCHO * $DETALLE), ($LENGUA_ALTO * $DETALLE))
+        Write-Host ("             {0} px de fuego, {1:P0} de la celda -> {2}" -f $m, $ocupa, $(if ($ok) { 'OK' } else { 'REVISAR' }))
+    }
+    elseif ($pr.tipo -eq 'rosa') {
+        $m = [Pirotecnia]::Shuriken($ruta, $RADIO_ROSA, $DETALLE, $pr.paleta,
+                                    [double]$pr.afilado, [double]$pr.hueco, [double]$pr.cuerpo)
+        $q = $m -split '\|'
+        $llenado = [double]$q[1]
+        # Mas fina que el shuriken a proposito: es una aguja de cuatro puntas.
+        $ok = ($llenado -gt 0.15) -and ($llenado -lt 0.55)
+        Write-Host ("  {0,-10} {1}   {2}x{2} px" -f $pr.id, $pr.archivo, ($RADIO_ROSA * 2 * $DETALLE))
+        Write-Host ("             bronce {0} px, {1:P0} del circulo -> {2}" -f $q[0], $llenado, $(if ($ok) { 'OK' } else { 'REVISAR' }))
+    }
+    elseif ($pr.tipo -eq 'kunai') {
+        $colorMango = [int]([uint32]::Parse($pr.mango, [Globalization.NumberStyles]::HexNumber))
+        $colorAnilla = [int]([uint32]::Parse($pr.anilla, [Globalization.NumberStyles]::HexNumber))
+        $m = [Pirotecnia]::Kunai($ruta, $KUNAI_ANCHO, $KUNAI_ALTO, $DETALLE,
+                                 $pr.paleta, $colorMango, $colorAnilla)
+        $q = $m -split '\|'
+        # La anilla es la pieza que lo distingue de un puñal: si no sale, no hay
+        # kunai. Las otras dos van con ella.
+        $ok = ([int]$q[0] -gt 0) -and ([int]$q[1] -gt 0) -and ([int]$q[2] -gt 0)
+        Write-Host ("  {0,-10} {1}   {2}x{3} px" -f $pr.id, $pr.archivo, ($KUNAI_ANCHO * $DETALLE), ($KUNAI_ALTO * $DETALLE))
+        Write-Host ("             hoja {0} px, mango {1} px, anilla {2} px -> {3}" -f $q[0], $q[1], $q[2], $(if ($ok) { 'OK' } else { 'REVISAR' }))
+    }
+    elseif ($pr.tipo -eq 'columna') {
+        $m = [Pirotecnia]::Columna($ruta, $COLUMNA_ANCHO, $COLUMNA_ALTO, $DETALLE,
+                                   $pr.paleta, [int]$pr.estrias)
+        $celda = $COLUMNA_ANCHO * $COLUMNA_ALTO
+        $ocupa = [double]([int]$m) / $celda
+        # Una columna es maciza y llena casi toda su celda: lo unico que sobra
+        # son las cuatro esquinas del fuste, que es mas estrecho que el capitel.
+        $ok = ($ocupa -gt 0.55) -and ($ocupa -lt 0.95)
+        Write-Host ("  {0,-10} {1}   {2}x{3} px" -f $pr.id, $pr.archivo, ($COLUMNA_ANCHO * $DETALLE), ($COLUMNA_ALTO * $DETALLE))
+        Write-Host ("             {0} px de marmol, {1:P0} de la celda -> {2}" -f $m, $ocupa, $(if ($ok) { 'OK' } else { 'REVISAR' }))
+    }
+    elseif ($pr.tipo -eq 'flecha') {
+        $colorPluma = [int]([uint32]::Parse($pr.pluma, [Globalization.NumberStyles]::HexNumber))
+        $m = [Pirotecnia]::Flecha($ruta, $FLECHA_ANCHO, $FLECHA_ALTO, $DETALLE,
+                                  $pr.paleta, $pr.acero, $colorPluma)
+        $q = $m -split '\|'
+        # Las tres piezas tienen que estar. Una flecha sin plumas es un palo y
+        # una sin punta es una cana.
+        $ok = ([int]$q[0] -gt 0) -and ([int]$q[1] -gt 0) -and ([int]$q[2] -gt 0)
+        Write-Host ("  {0,-10} {1}   {2}x{3} px" -f $pr.id, $pr.archivo, ($FLECHA_ANCHO * $DETALLE), ($FLECHA_ALTO * $DETALLE))
+        Write-Host ("             punta {0} px, astil {1} px, plumas {2} px -> {3}" -f $q[0], $q[1], $q[2], $(if ($ok) { 'OK' } else { 'REVISAR' }))
+    }
+    else {
+        $colorTrapo = [int]([uint32]::Parse($pr.trapo, [Globalization.NumberStyles]::HexNumber))
+        $colorEtiqueta = [int]([uint32]::Parse($pr.etiqueta, [Globalization.NumberStyles]::HexNumber))
+        $m = [Pirotecnia]::Molotov($ruta, $LADO_MOLOTOV, $DETALLE, $pr.paleta, $pr.fuego,
+                                   $colorTrapo, $colorEtiqueta)
+        $q = $m -split '\|'
+        # Tienen que estar las tres cosas: si falta la llama es una botella, si
+        # falta la botella es una antorcha, y sin etiqueta es un frasco.
+        $ok = ([int]$q[0] -gt 0) -and ([int]$q[1] -gt 0) -and ([int]$q[2] -gt 0)
+        Write-Host ("  {0,-10} {1}   {2}x{2} px" -f $pr.id, $pr.archivo, ($LADO_MOLOTOV * $DETALLE))
+        Write-Host ("             botella {0} px, llama {1} px, etiqueta {2} px -> {3}" -f $q[0], $q[1], $q[2], $(if ($ok) { 'OK' } else { 'REVISAR' }))
+    }
+    Write-Host ""
+}
+
+Write-Host "Redes: celda $ladoRed x $ladoRed, 1 fotograma (una red esta quieta)"
+Write-Host ""
+
+foreach ($rd in $REDES) {
+    if ($Solo -and $rd.id -ne $Solo) { continue }
+    $ruta = Join-Path $Destino $rd.archivo
+    $m = [Pirotecnia]::Red($ruta, $radioRedFuente, [double]$MARGEN_CHARCO, $DETALLE,
+                           [uint32]$rd.semilla, $rd.paleta, [double]$rd.paso,
+                           [double]$rd.grosor, [double]$rd.nudo)
+    $q = $m -split '\|'
+    $cub = [int]$q[0]; $dentro = [int]$q[1]; $ocupa = [double]$q[2]
+    # Una red es MALLA: ni disco ni telarana. Si ocupa casi todo el aro es que
+    # los cordeles se han comido los huecos, y si ocupa poco no se vera.
+    $ok = ($ocupa -gt 0.18) -and ($ocupa -lt 0.60)
+    Write-Host ("  {0,-10} {1}" -f $rd.id, $rd.archivo)
+    Write-Host ("             cordel {0} px de {1} del aro, malla al {2:P0} -> {3}" -f `
+                $cub, $dentro, $ocupa, $(if ($ok) { 'OK' } else { 'REVISAR' }))
+    Write-Host ""
+}
+
+Write-Host "Lunas: celda $ladoLuna x $ladoLuna, 1 fotograma (un orbital no se anima)"
+Write-Host ""
+
+foreach ($ln in $LUNAS) {
+    if ($Solo -and $ln.id -ne $Solo) { continue }
+    $ruta = Join-Path $Destino $ln.archivo
+    $colorAura = [int]([uint32]::Parse($ln.aura, [Globalization.NumberStyles]::HexNumber))
+    $m = [Pirotecnia]::Luna($ruta, $radioLunaFuente, $DETALLE, [uint32]$ln.semilla,
+                            $ln.paleta, [double]$ln.fraccion, $colorAura,
+                            [double]$ln.fuerzaAura, [int]$ln.crateres)
+    $q = $m -split '\|'
+    $pixLuna = [int]$q[0]; $pixAura = [int]$q[1]; $llenado = [double]$q[2]
+    # Que la luna sea LLENA -su area tiene que dar el circulo entero- y que
+    # haya aura de verdad alrededor, no cuatro pixeles sueltos.
+    $ok = ($llenado -gt 0.95) -and ($pixAura -gt $pixLuna * 0.4)
+    Write-Host ("  {0,-10} {1}" -f $ln.id, $ln.archivo)
+    Write-Host ("             disco {0} px ({1:P0} del circulo), aura {2} px alrededor -> {3}" -f `
+                $pixLuna, $llenado, $pixAura, $(if ($ok) { 'OK' } else { 'REVISAR' }))
     Write-Host ""
 }
 
@@ -1154,6 +2637,87 @@ foreach ($mn in $MINAS) {
         # Radio del dibujo en unidades LOGICAS. Lo lee el motor para dibujarla
         # a su tamano real sin depender del radio del arma.
         radioDibujo = $RADIO_MINA
+    }
+}
+
+# Los pinchos: ficha de charco con UN fotograma. Llevan `margen` porque se
+# escalan al radio de la zona igual que cualquier calcomania.
+foreach ($pn in $PINCHOS) {
+    $ficha[$pn.atlas] = [ordered]@{
+        archivo = 'efectos/' + $pn.archivo
+        w = $ladoCharco; h = $ladoCharco
+        anclaX = [int]($ladoCharco / 2); anclaY = [int]($ladoCharco / 2)
+        frames = 1
+        plano  = $true
+        margen = $MARGEN_CHARCO
+        aditivo = $false
+    }
+}
+
+# Las auras: ficha minima. El motor las escala a lo que le diga el arma.
+foreach ($au in $AURAS) {
+    $ficha[$au.atlas] = [ordered]@{
+        archivo = 'efectos/' + $au.archivo
+        w = $ladoAura; h = $ladoAura
+        anclaX = [int]($ladoAura / 2); anclaY = [int]($ladoAura / 2)
+        frames = 1
+        plano  = $true
+    }
+}
+
+# Los proyectiles: ficha minima -sin margen, sin bucle, sin radios- porque el
+# motor los dibuja a su tamano en pixeles y no ajustados a ningun radio de dano.
+foreach ($pr in $PROYECTILES) {
+    if ($pr.tipo -eq 'abeja') { $w = $ABEJA_ANCHO * $DETALLE; $h = $ABEJA_ALTO * $DETALLE }
+    elseif ($pr.tipo -eq 'flecha') { $w = $FLECHA_ANCHO * $DETALLE; $h = $FLECHA_ALTO * $DETALLE }
+    elseif ($pr.tipo -eq 'kunai') { $w = $KUNAI_ANCHO * $DETALLE; $h = $KUNAI_ALTO * $DETALLE }
+    elseif ($pr.tipo -eq 'asta') {
+        if ($pr.id -eq 'pilum') { $w = $PILUM_ANCHO * $DETALLE; $h = $PILUM_ALTO * $DETALLE }
+        elseif ($pr.id -eq 'lanza') { $w = $LANZA_ANCHO * $DETALLE; $h = $LANZA_ALTO * $DETALLE }
+        else { $w = $VIROTE_ANCHO * $DETALLE; $h = $VIROTE_ALTO * $DETALLE }
+    }
+    elseif ($pr.tipo -eq 'trozo') {
+        if ($pr.id -eq 'metralla') { $w = $METRALLA_LADO * $DETALLE; $h = $w }
+        else { $w = $PIEDRA_ANCHO * $DETALLE; $h = $PIEDRA_ALTO * $DETALLE }
+    }
+    elseif ($pr.tipo -eq 'lengua') { $w = $LENGUA_ANCHO * $DETALLE; $h = $LENGUA_ALTO * $DETALLE }
+    elseif ($pr.tipo -eq 'rosa') { $w = $RADIO_ROSA * 2 * $DETALLE; $h = $w }
+    elseif ($pr.tipo -eq 'columna') { $w = $COLUMNA_ANCHO * $DETALLE; $h = $COLUMNA_ALTO * $DETALLE }
+    elseif ($pr.tipo -eq 'shuriken') { $w = $RADIO_SHURIKEN * 2 * $DETALLE; $h = $w }
+    else { $w = $LADO_MOLOTOV * $DETALLE; $h = $w }
+    $ficha[$pr.atlas] = [ordered]@{
+        archivo = 'efectos/' + $pr.archivo
+        w = $w; h = $h
+        anclaX = [int]($w / 2); anclaY = [int]($h / 2)
+        frames = 1
+        plano  = $true
+    }
+}
+
+# Las redes: ficha de charco -mismo encuadre y mismo margen, porque son la misma
+# clase de cosa- pero con UN fotograma y sin `bucle`: una red no hierve.
+foreach ($rd in $REDES) {
+    $ficha[$rd.atlas] = [ordered]@{
+        archivo = 'efectos/' + $rd.archivo
+        w = $ladoRed; h = $ladoRed
+        anclaX = [int]($ladoRed / 2); anclaY = [int]($ladoRed / 2)
+        frames = 1
+        plano  = $true
+        margen = $MARGEN_CHARCO
+        aditivo = $false
+    }
+}
+
+# Las lunas: como los orbitales que ya vienen de resources/ —un solo fotograma,
+# sin margen, sin bucle— porque el motor las dibuja igual que a aquellos, a
+# `radioEscudo` del arma y sin animar. Ver dibujarOrbitales en sistemas/armas.js.
+foreach ($ln in $LUNAS) {
+    $ficha[$ln.atlas] = [ordered]@{
+        archivo = 'efectos/' + $ln.archivo
+        w = $ladoLuna; h = $ladoLuna
+        anclaX = [int]($ladoLuna / 2); anclaY = [int]($ladoLuna / 2)
+        frames = 1
+        plano  = $true
     }
 }
 

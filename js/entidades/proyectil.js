@@ -23,7 +23,11 @@ function crearProyectil() {
     vidaMax: 0,              // con los que nació; se repone al rebotar
     danyo: 0, empuje: 0,
     radio: 0,
-    perforacion: 0,          // enemigos que aún puede atravesar
+    // Enemigos que aún puede atravesar. NEGATIVO significa "en seco": gastado
+    // pero todavía volando, que es lo que le pasa a una bala con rebotes de
+    // pared pendientes (ver `rebotesPared` y sistemas/colisiones.js).
+    perforacion: 0,
+    perforacionMax: 0,       // con la que nació; se repone al rebotar
     sello: 0,                // marca para no golpear dos veces al mismo
     // Al agotarse deja una onda expansiva de este radio. 0 = no estalla.
     radioExplosion: 0, danyoExplosion: 0,
@@ -32,6 +36,11 @@ function crearProyectil() {
     // estallar sepa con qué dibujarse. Quien la crea es main.js, y allí ya no
     // queda arma: solo el proyectil.
     spriteOnda: null,
+    // COLUMNA DE RAYO al estallar. `rayoCaida` es desde cuánto más arriba cae
+    // el haz —0 = no cae ninguno— y `rayoGrosor` su trazo. Viaja con el
+    // proyectil por lo mismo que `spriteOnda`: quien revienta es main.js y allí
+    // ya no hay arma a la que preguntarle.
+    rayoCaida: 0, rayoGrosor: 3,
     // REBOTES CONTRA EL BORDE DE LA PANTALLA. Cuántas veces le queda por
     // rebotar antes de seguir de largo. El Fusil los usa: la bala vuelve del
     // margen y barre otra vez, que convierte un arma de un solo blanco en una
@@ -48,7 +57,14 @@ function crearProyectil() {
     forma: 'raya',
     // Id de atlas de un dibujo propio. Si lo trae, sustituye a la forma
     // trazada; si no carga, se vuelve a la forma sin avisar.
-    hoja: null
+    hoja: null,
+    // GIRO SOBRE SÍ MISMO, en radianes por segundo. 0 = el dibujo se orienta
+    // según su vuelo, que es lo normal en un proyectil.
+    //
+    // Hay cosas que no apuntan a donde van: un shuriken voltea, una botella da
+    // vueltas por el aire. Para esas, orientar el dibujo al rumbo lo deja
+    // clavado y rígido, que es justo lo contrario de lo que hacen de verdad.
+    giro: 0
   };
 }
 
@@ -86,16 +102,19 @@ export class Proyectiles {
     p.danyo = def.danyo;
     p.empuje = def.empuje;
     p.radio = def.radio;
-    p.perforacion = def.perforacion;
+    p.perforacion = p.perforacionMax = def.perforacion;
     p.color = def.color;
     p.estela = def.estela || null;
     p.largo = def.largo || 8;
     p.forma = def.forma || 'raya';
     p.hoja = def.hoja || null;
+    p.giro = def.giro || 0;
     p.radioExplosion = def.radioExplosion || 0;
     p.danyoExplosion = def.danyoExplosion || 0;
     p.estallaAlExpirar = !!def.estallaAlExpirar;
     p.spriteOnda = def.spriteOnda || null;
+    p.rayoCaida = def.rayoCaida || 0;
+    p.rayoGrosor = def.rayoGrosor || 3;
     p.vidaMax = p.vida;
     p.rebotesPared = def.rebotesPared || 0;
     p.rebotesEnemigo = def.rebotesEnemigo || 0;
@@ -127,8 +146,15 @@ export class Proyectiles {
       // recolocar, un proyectil rápido puede quedarse fuera un paso más y
       // gastar los dos rebotes contra la misma pared en dos frames seguidos.
       if (p.rebotesPared > 0 && camara) {
-        const izq = camara.izquierda, der = camara.izquierda + ANCHO_LOGICO;
-        const arr = camara.arriba, aba = camara.arriba + ALTO_LOGICO;
+        // El borde sale de la cámara LÓGICA (`camara.x`) y no de `izquierda`,
+        // que se calcula sobre `xVista` — la posición YA INTERPOLADA para
+        // dibujar. Rebotar es lógica: cambia la trayectoria y por tanto a quién
+        // se mata, así que no puede depender de un valor que se mueve con los
+        // fps. Con `xVista`, la misma semilla daba rebotes distintos a 60 y a
+        // 144 Hz, que es justo lo que la reproducibilidad prohíbe.
+        const cx = camara.x - ANCHO_LOGICO / 2, cy = camara.y - ALTO_LOGICO / 2;
+        const izq = cx, der = cx + ANCHO_LOGICO;
+        const arr = cy, aba = cy + ALTO_LOGICO;
         let reboto = false;
         if (p.x < izq && p.vx < 0)      { p.x = izq; p.vx = -p.vx; reboto = true; }
         else if (p.x > der && p.vx > 0) { p.x = der; p.vx = -p.vx; reboto = true; }
@@ -145,6 +171,13 @@ export class Proyectiles {
           // impide que un proyectil dañe dos veces al mismo, y una bala que
           // vuelve del margen es un golpe nuevo.
           p.sello = contadorSello++;
+          // Con la perforación entera otra vez, que es lo que hace que el
+          // rebote SIRVA. Una bala que vuelve gastada rebota de adorno: cruza
+          // la horda sin tocar a nadie y lo único que se ve es una raya. Y es
+          // coherente con las otras dos líneas: si el margen la deja como un
+          // disparo nuevo, lo es entera. El daño sigue acotado, porque cada
+          // tramo entre paredes gasta como mucho su perforación.
+          p.perforacion = p.perforacionMax;
         }
       }
 
@@ -254,21 +287,37 @@ export class Proyectiles {
           // arma concreta. Hoy son seis las que comparten esta bala.
           ctx.globalCompositeOperation = 'source-over';
           ctx.translate(x, y);
-          ctx.rotate(Math.atan2(p.vy, p.vx));
-          // ESPEJADO, no girado 180°. El dibujo mira a la izquierda, y aquí hay
-          // dos maneras de darle la vuelta que NO son la misma: rotar media
-          // vuelta invertiría también el eje vertical —la llama y los brillos
-          // saldrían del revés— mientras que espejar solo cambia el sentido de
-          // la marcha, que es lo único que hay que corregir.
-          ctx.scale(-1, 1);
-          // ANCLADO POR LA PUNTA, no por el centro: detrás del proyectil lo que
-          // hay es llama, y anclar por el centro dejaría media estela por
-          // delante del punto que de verdad colisiona.
-          //
-          // Con el espejo puesto, lo que se dibuja en x=d aparece en -d: el
-          // borde izquierdo del dibujo —que es la punta— acaba en +0,2 de largo
-          // por delante, y la llama se extiende 0,8 hacia atrás.
-          ctx.drawImage(img, 0, 0, meta.w, meta.h, -aw * 0.2, -ah / 2, aw, ah);
+
+          if (p.giro !== 0) {
+            // GIRA SOBRE SÍ MISMO: el shuriken y la botella del molotov. Se
+            // dibuja CENTRADO, porque una cosa que voltea no tiene punta que
+            // anclar — anclarla por el borde la haría orbitar alrededor del
+            // punto de impacto en vez de girar sobre su eje.
+            //
+            // La fase sale de la vida ya gastada y del sello, no de un reloj:
+            // dt es fijo, así que dos partidas con la misma semilla giran igual,
+            // y el sello hace que dos proyectiles a la vez no salgan
+            // sincronizados. Es el mismo truco que el núcleo de `_bola`.
+            ctx.rotate(p.sello * 0.7 + (p.vidaMax - p.vida) * p.giro);
+            ctx.drawImage(img, 0, 0, meta.w, meta.h, -aw / 2, -ah / 2, aw, ah);
+          } else {
+            ctx.rotate(Math.atan2(p.vy, p.vx));
+            // ESPEJADO, no girado 180°. El dibujo mira a la izquierda, y aquí
+            // hay dos maneras de darle la vuelta que NO son la misma: rotar
+            // media vuelta invertiría también el eje vertical —la llama y los
+            // brillos saldrían del revés— mientras que espejar solo cambia el
+            // sentido de la marcha, que es lo único que hay que corregir.
+            ctx.scale(-1, 1);
+            // ANCLADO POR LA PUNTA, no por el centro: detrás del proyectil lo
+            // que hay es llama, y anclar por el centro dejaría media estela por
+            // delante del punto que de verdad colisiona.
+            //
+            // Con el espejo puesto, lo que se dibuja en x=d aparece en -d: el
+            // borde izquierdo del dibujo —que es la punta— acaba en +0,2 de
+            // largo por delante, y la llama se extiende 0,8 hacia atrás. La
+            // abeja usa el mismo convenio: cabeza a la izquierda del dibujo.
+            ctx.drawImage(img, 0, 0, meta.w, meta.h, -aw * 0.2, -ah / 2, aw, ah);
+          }
           ctx.restore();
           continue;
         }

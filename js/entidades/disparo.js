@@ -12,10 +12,13 @@ import { HOJA_ZONAS, huecoDe } from './zonaDanyo.js';
 // respuesta era moverse. Con enemigos que disparan aparecen dos preguntas más:
 // dónde está el que dispara, y qué hago con lo que ya viene de camino.
 //
-// SE PUEDEN DESTRUIR, y eso es la mitad de la idea. Cualquier arma que los toque
-// —un proyectil, un charco, un tajo de melé, un orbital— los rompe. Así el
-// jugador no está obligado a esquivar: puede plantarse y limpiar el aire, que es
-// una decisión distinta y a veces mejor.
+// SE PUEDEN DESTRUIR, y eso es la mitad de la idea. Casi cualquier arma que los
+// toque —un proyectil, una explosión, un tajo de melé, un orbital, un aura— los
+// rompe. Así el jugador no está obligado a esquivar: puede plantarse y limpiar
+// el aire, que es una decisión distinta y a veces mejor.
+//
+// LOS CHARCOS NO. Lo que está en el suelo no toca lo que vuela por encima: ver
+// `bloquea` en el barrido y `bloqueaDisparos` en datos/armas.js.
 //
 // Pool propio y no el de los proyectiles del jugador: van en sentido contrario,
 // chocan contra cosas distintas y se dibujan distinto. Meterlos en el mismo pool
@@ -54,9 +57,21 @@ function crearDisparo() {
     // Radio al que se dibuja ese reventón. Se guarda aparte de `radio` porque
     // un proyectil que muere al chocar no tiene radio de área: el suyo es un
     // salpicón pequeño y fijo, no el círculo de daño de un sismo.
-    radioReventon: 0
+    radioReventon: 0,
+    // DE DÓNDE SALIÓ. Solo lo usa el sismo, y solo para dibujar: con el punto
+    // de partida se puede pintar la piedra volando de la mano del cíclope al
+    // sitio donde va a caer. -1 en `origenX` significa que no hay origen y no
+    // se dibuja nada, que es lo que pasa con todo lo demás del pool.
+    origenX: -1, origenY: 0
   };
 }
+
+// LA PIEDRA DEL CÍCLOPE. Silueta irregular fija, en radios sobre la unidad: una
+// roca no es un círculo, y siete vértices desiguales bastan para que se lea como
+// piedra a los seis píxeles que mide. Va en una constante de módulo porque se
+// dibuja sesenta veces por segundo y sortearla por fotograma la haría hervir en
+// vez de girar.
+const PERFIL_ROCA = [1.0, 0.82, 1.06, 0.88, 1.12, 0.8, 0.95];
 
 export class Disparos {
   constructor(capacidad, rng) {
@@ -101,11 +116,16 @@ export class Disparos {
   // Vive en el pool de disparos y no en el de zonas por un motivo práctico: las
   // zonas son del jugador y dañan enemigos; esto es al revés. Compartir el pool
   // que ya sabe golpear al jugador ahorra un sistema entero.
-  sismo(x, y, def) {
+  // `origenX/origenY` son de dónde sale la piedra, o sea el cíclope. Van al
+  // final y con valor por defecto porque son SOLO para el dibujo: sin ellos el
+  // sismo funciona igual que siempre, marcando el suelo y reventando.
+  sismo(x, y, def, origenX = -1, origenY = 0) {
     const d = this.pool.obtener();
     if (!d) return null;
     d.x = d.xPrev = x;
     d.y = d.yPrev = y;
+    d.origenX = origenX;
+    d.origenY = origenY;
     d.vx = 0; d.vy = 0;
     d.danyo = def.danyo;
     d.radio = def.radio;
@@ -116,7 +136,9 @@ export class Disparos {
     d.charco = false;           // por si este hueco del pool venía de un charco
     d.hoja = null;
     d.color = def.color;
-    d.fase = 0;
+    // Fase de giro, sorteada al lanzarla: dos piedras seguidas no pueden salir
+    // volteando igual. Del RNG de la partida, que es reproducible.
+    d.fase = this._rng() * Math.PI * 2;
     d.reventon = def.spriteReventon || null;
     d.radioReventon = def.radio;   // el sismo revienta exactamente su círculo
     return d;
@@ -182,9 +204,16 @@ export class Disparos {
     // Base tenue bajo la calcomanía, por el mismo motivo que en zonaDanyo.js:
     // los entrantes de la silueta dejarían ver suelo limpio dentro del aro, y
     // dentro del aro se hace daño.
+    //
+    // Y NO bajo las hojas propias, que es la excepción que zonaDanyo.js ya
+    // tenía escrita y a esta copia se le había pasado: un efecto con su PNG
+    // está dibujado para llenar su cuadro, así que el velo no tapa ningún
+    // entrante — solo pone un disco de color sobre el suelo. Los charcos de
+    // los dos jefes son justo eso desde que tienen hoja generada, o sea que
+    // esto era un círculo de más en pantalla durante todo el combate.
     for (let k = 0; k < n; k++) {
       const d = items[k];
-      if (!d.charco || d.sprite < 0 || d.restante > 0) continue;
+      if (!d.charco || d.sprite < 0 || d.hoja || d.restante > 0) continue;
       ctx.globalAlpha = 0.20;
       ctx.fillStyle = d.color;
       ctx.beginPath();
@@ -358,12 +387,21 @@ export class Disparos {
         if (dx * dx + dy * dy < r * r) tocado = true;
       }
 
-      // Zonas: charcos, auras, ondas, explosiones. `radioActual` es el que crece
-      // en las ondas; las zonas fijas no lo mueven y vale igual.
+      // Zonas: auras, ondas, explosiones. `radioActual` es el que crece en las
+      // ondas; las zonas fijas no lo mueven y vale igual.
+      //
+      // MENOS LOS CHARCOS, que no paran nada. Se colaron aquí con el resto por
+      // ser todos `Zonas`, y es un error de categoría: una explosión y un campo
+      // eléctrico ocupan el AIRE por el que vuela el proyectil, pero el fuego
+      // griego, el alquitrán y el aceite son una mancha en el SUELO. Que una
+      // flecha se deshiciera al sobrevolar un charco no lo entiende nadie —y
+      // menos desde que las zonas se dibujan bajo las entidades justamente para
+      // decir que están en el suelo. Lo declara cada arma con `bloqueaDisparos`.
       if (!tocado) {
         const zi = zonas.pool.items;
         for (let q = 0; q < zonas.pool.activos && !tocado; q++) {
           const z = zi[q];
+          if (!z.bloquea) continue;
           const dx = z.x - d.x, dy = z.y - d.y;
           const r = (z.radioActual || z.radio) + d.radio;
           if (dx * dx + dy * dy < r * r) tocado = true;
@@ -482,48 +520,122 @@ export class Disparos {
       const x = d.xPrev + (d.x - d.xPrev) * alpha;
       const y = d.yPrev + (d.y - d.yPrev) * alpha;
       if (d.sismo) {
-        // Círculo de aviso que se va llenando. El anillo exterior marca DÓNDE y
-        // el relleno marca CUÁNTO FALTA: las dos cosas a la vez, porque saber
-        // que viene sin saber cuándo no sirve para decidir si da tiempo a salir.
+        // AVISO: una mancha que se llena hasta el radio de daño. Y SOLO eso.
+        //
+        // Llevaba además un aro fijo dibujado desde el primer instante al radio
+        // exacto de lo que va a doler. Se ha quitado a propósito: era una
+        // circunferencia trazada encima del suelo diciendo "el área es esta",
+        // que es el idioma de un editor de niveles, no el de un juego. Lo que
+        // se conserva es la mancha, porque no es lo mismo: dice DÓNDE y dice
+        // CUÁNTO FALTA con la misma forma, y al completarse cubre justo lo que
+        // va a golpear. La información sigue estando entera; lo que se va es el
+        // subrayado.
+        //
+        // Y UN 30% MÁS TRANSPARENTE, que es el tercer ajuste de este número.
+        // El recorrido, por si hay que volver a moverlo:
+        //
+        //   0,22-0,42   con el aro puesto, que era quien sostenía el aviso
+        //   0,28-0,58   al quitar el aro, para que la mancha lo sostuviera sola
+        //   0,20-0,41   ahora: se pasó de mancha y tapaba el suelo
+        //
+        // Lo que un aviso tiene que hacer es decir DÓNDE va a caer, no sustituir
+        // al terreno mientras avisa. Con la mancha muy opaca, el jugador pierde
+        // de vista lo que hay dentro del círculo justo cuando más falta le hace
+        // para decidir por dónde salir.
         const prog = 1 - d.restante / d.aviso;
-        ctx.globalAlpha = 0.22 + 0.2 * prog;
+        ctx.globalAlpha = 0.196 + 0.21 * prog;
         ctx.fillStyle = d.color;
         ctx.beginPath();
         ctx.arc(x, y, d.radio * prog, 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = 0.85;
-        ctx.strokeStyle = d.color;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(x, y, d.radio, 0, Math.PI * 2);
-        ctx.stroke();
         ctx.globalAlpha = 1;
+
+        // Y LA PIEDRA, VOLANDO.
+        //
+        // El sismo era un ataque sin proyectil: se marcaba el suelo y reventaba.
+        // Funcionaba, pero no contaba de dónde venía el golpe — un cíclope que
+        // levanta el brazo y hace temblar el suelo a treinta unidades de
+        // distancia es un efecto sin causa. Ahora se ve salir la roca de su mano
+        // y caer donde estaba marcado.
+        //
+        // Y no es solo adorno: la piedra es el MISMO aviso contado por otro
+        // canal. Sale a la vez, vuela durante todo el aviso y toca el suelo en
+        // el fotograma exacto en que revienta, así que mirando el aire se sabe
+        // cuánto falta igual que mirando la mancha. Quien no está mirando al
+        // suelo ve la piedra, y al revés.
+        if (d.origenX >= 0) {
+          // Parábola: interpola de la mano al blanco y le resta altura con un
+          // seno. La altura sale de la DISTANCIA —un tiro largo se levanta más—
+          // con tope, o el arco se saldría de cuadro por arriba.
+          const dx = x - d.origenX, dy = y - d.origenY;
+          const alto = Math.min(Math.hypot(dx, dy) * 0.34, 62);
+          const px = d.origenX + dx * prog;
+          const py = d.origenY + dy * prog - Math.sin(prog * Math.PI) * alto;
+
+          // Crece hacia el punto alto del arco y se encoge al bajar. Es
+          // perspectiva barata y es lo que hace legible en qué momento del vuelo
+          // va: sin ella, una piedra que sube y baja parece que se desplaza en
+          // línea recta.
+          const r = 4.6 * (1 + Math.sin(prog * Math.PI) * 0.45);
+          // Voltea mientras vuela. Media vuelta y pico en todo el trayecto:
+          // más y se lee como una peonza, menos y parece arrastrada.
+          const giro = d.fase + prog * 4.2;
+
+          ctx.save();
+          ctx.translate(px, py);
+          ctx.rotate(giro);
+          ctx.beginPath();
+          for (let v = 0; v < PERFIL_ROCA.length; v++) {
+            const a = (v / PERFIL_ROCA.length) * Math.PI * 2;
+            const rv = r * PERFIL_ROCA[v];
+            const vx = Math.cos(a) * rv, vy = Math.sin(a) * rv;
+            if (v === 0) ctx.moveTo(vx, vy); else ctx.lineTo(vx, vy);
+          }
+          ctx.closePath();
+          // Contorno oscuro y grueso, como los proyectiles enemigos: sobre una
+          // pantalla llena de destellos del jugador, lo que va perfilado en
+          // negro es lo que te puede matar.
+          ctx.lineJoin = 'round';
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = 'rgba(14,8,10,.85)';
+          ctx.stroke();
+          ctx.fillStyle = '#8a7f6d';
+          ctx.fill();
+          // Cara iluminada: un triángulo hacia arriba y a la izquierda, que es
+          // de donde viene la luz en todo el juego.
+          ctx.beginPath();
+          ctx.moveTo(-r * 0.75, -r * 0.2);
+          ctx.lineTo(-r * 0.1, -r * 0.85);
+          ctx.lineTo(r * 0.35, -r * 0.15);
+          ctx.closePath();
+          ctx.fillStyle = '#b5a892';
+          ctx.fill();
+          ctx.restore();
+        }
         continue;
       }
 
       if (d.charco) {
         if (d.restante > 0) {
-          // Mismo aviso que el sismo: anillo fijo, relleno que crece con lo
-          // que queda por venir.
+          // Mismo aviso que el sismo y por el mismo motivo: solo la mancha que
+          // crece, sin el aro que la enmarcaba.
           const prog = 1 - d.restante / d.aviso;
-          ctx.globalAlpha = 0.22 + 0.2 * prog;
+          ctx.globalAlpha = 0.28 + 0.3 * prog;
           ctx.fillStyle = d.color;
           ctx.beginPath();
           ctx.arc(x, y, d.radio * prog, 0, Math.PI * 2);
           ctx.fill();
-          ctx.globalAlpha = 0.85;
-          ctx.strokeStyle = d.color;
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.arc(x, y, d.radio, 0, Math.PI * 2);
-          ctx.stroke();
         } else {
-          // Activo: relleno caliente que titila mientras dura. Sin anillo de
-          // aviso porque ya no hay nada que anunciar, el peligro ES el charco.
+          // Activo: el charco y nada más. Sin aviso, porque ya no hay nada que
+          // anunciar —el peligro ES el charco— y ahora tampoco canto.
           //
-          // Con calcomanía el relleno NO se pinta aquí: ya se ha pintado abajo,
-          // en la capa de suelo (ver dibujarSuelo). Lo que sigue saliendo en
-          // los dos casos es el canto, que es la frontera del daño.
+          // El canto se defendía como "la frontera del daño". Pero con la
+          // calcomanía puesta, el charco animado YA dice hasta dónde llega, y
+          // el aro encima era el círculo de siempre pintado sobre el dibujo
+          // nuevo: dos veces el mismo borde, y el trazado ganándole al dibujado.
+          //
+          // Sin calcomanía sigue habiendo relleno, porque entonces es lo único
+          // que hay: quitarlo dejaría un charco invisible que quema.
           if (d.sprite < 0) {
             const late = 1 + Math.sin(d.fase) * 0.15;
             ctx.globalAlpha = 0.32;
@@ -532,12 +644,6 @@ export class Disparos {
             ctx.arc(x, y, d.radio * late, 0, Math.PI * 2);
             ctx.fill();
           }
-          ctx.globalAlpha = 0.7;
-          ctx.strokeStyle = d.color;
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.arc(x, y, d.radio, 0, Math.PI * 2);
-          ctx.stroke();
         }
         ctx.globalAlpha = 1;
         continue;

@@ -594,3 +594,137 @@ Solo si el punto de decisión sale a favor:
 
 - `efectos4.png` es duplicado exacto de `efectos3.png` (2,8 MB). ¿Se borra?
 - `efectos1.png` está corrupta (2,1 MB). ¿Se borra o se regenera desde la 2?
+
+---
+
+## 8. Repaso de huecos tras las hojas generadas
+
+Con el generador ya en marcha, se cruzó el catálogo entero contra el atlas para
+ver qué seguía cayendo al trazo por código. Quedaban **tres** huecos de verdad,
+y ninguno era una lámina que faltara:
+
+| Hueco | Qué pasaba | Arreglo |
+|---|---|---|
+| **Rayo de Júpiter** | `caerRayo` creaba su onda SIN hoja: la única de las siete explosivas que seguía siendo un aro trazado, y encima al final de un haz muy trabajado | hoja nueva `reventonChispa` |
+| **Llamarada** (consumible) | las tres ondas de `actualizarLlamarada` tampoco pedían hoja | `reventonLlama`, que ya existía |
+| **Testudo** | evolucionar el Scutum cambiaba su escudo dibujado por el círculo trazado, o sea que la evolución parecía una rebaja | `orbScutum`, el del arma de la que sale |
+
+Dos de los tres se arreglaron **sin arte nuevo**. Es el argumento del inventario
+otra vez: el hueco no estaba en el material, estaba en el reparto.
+
+La hoja nueva es una fila más en `$CATALOGO`, y va aparte de `explosionJupiter`
+—que es del Pilum— porque son dos cosas distintas: una detonación se ABRE (bola
+llena, hueco que crece) y un chispazo se DESCARGA (núcleo pequeño y todo lo
+demás repartido en brazos). De ahí las chispas más altas del catálogo, 52, y
+`radioRef` a 28 en vez de 50, que es el radio al que el arma dibuja de verdad.
+
+### Lo que sigue sin dibujo, y por qué
+
+- **Los 18 proyectiles** y **los 3 rayos perforantes**: la decisión de §3.7 sigue
+  en pie, el trazo gana a esa escala.
+- **Lanzallamas** y **Lluvia de flechas**: por lo mismo — un cono de fuego son
+  proyectiles, y una lluvia no es una detonación.
+- ~~**Satélites**: es el único que pide arte de verdad.~~ **Resuelto**: lleva
+  lunas llenas con aura azul, y salen del generador. Se daba por hecho que los
+  orbitales tenían que venir de `resources/` porque los otros tres vienen de
+  ahí, y era un prejuicio: una luna son dos circunferencias y una resta, o sea
+  el caso más claro de todo el proyecto para el código como medio. Con eso, el
+  catálogo se queda **sin un solo orbital sin dibujo**.
+- **`charcoPiedra`** está horneada y **sin usar**: era la candidata de las Minas,
+  que se descartó (§ "Minas: la lección del piloto") y acabó con hoja propia.
+  Se deja porque cuesta 13 KB y es la única zona de aspecto mineral que hay.
+
+---
+
+## 9. Fuera los aros: el círculo dejó de ser el efecto
+
+Petición de Sergio tras jugar: *"algunas armas y ataques de enemigos muestran
+círculos del área que van a afectar; es mejor dejar únicamente el efecto o
+animación y quitar esos círculos orientativos"*.
+
+Tenía razón, y el motivo por el que estaban ahí ya no valía. Cuando se
+escribieron, la mayoría de las armas de área NO tenían dibujo y el aro **era** el
+efecto; el argumento escrito al lado —*"marca la frontera del daño, la única
+información que una zona da"*— era cierto en ese mundo. Con las hojas generadas,
+cada efecto está horneado para llenar su cuadro justo hasta el radio que mata, o
+sea que **el dibujo ya es la frontera**. El aro encima era el mismo borde dos
+veces, y de las dos ganaba la trazada.
+
+Lo que se ha quitado:
+
+| Dónde | Qué era |
+|---|---|
+| `zonaDanyo.dibujarSuelo` §3 | aro por zona persistente, bajo las entidades |
+| `zonaDanyo.dibujarAire` §3 | aro de la onda, encima de todo |
+| `disparo.dibujar`, charco activo | aro sobre el charco animado de Cerbero y la Hidra |
+| `disparo.dibujarSuelo` | el velo bajo la calcomanía **cuando hay hoja propia** — la excepción que `zonaDanyo` ya tenía escrita y a esta copia se le había pasado, o sea un disco de color en pantalla durante todo el combate de jefe |
+| avisos del sismo y de los charcos de jefe | el aro fijo al radio de daño |
+
+### Los avisos se quedan, sin el aro
+
+El aviso del sismo del cíclope es lo único que da tiempo a apartarse: 0,85 s y
+un punto que no siempre es el tuyo. Quitarlo entero dejaba el golpe sin señal.
+Se ha quitado solo el **aro** —la circunferencia trazada al radio exacto, que es
+lo que se leía como marca de editor— y se conserva la **mancha que se llena**,
+que dice DÓNDE y CUÁNTO FALTA con la misma forma y al completarse cubre
+exactamente lo que va a golpear. La información sigue entera; lo que se fue es
+el subrayado. Sube algo de opacidad (0,22-0,42 → 0,28-0,58) porque sin la línea
+que la enmarcaba la mancha tiene que sostener el aviso ella sola.
+
+### Y una consecuencia: la Lluvia de flechas necesitaba hoja
+
+Era la última onda del arsenal sin dibujo, o sea la única que dependía del aro
+para verse. Se le puso `reventonTierra`, que además es lo que corresponde:
+§3.7 la había dejado fuera razonando que *"es una lluvia, no una detonación"* —
+por eso lleva polvo y astillas en composición normal, y no una bola de fuego.
+
+Comprobado por texto: cero armas de área sin hoja, cero referencias rotas al
+atlas, y en `zonaDanyo` no queda ni un `stroke` de círculo.
+
+### Lo que sigue siendo un círculo, y por qué
+
+- **El aro de "va a disparar"** sobre la medusa y la mantícora (`enemigo.js`,
+  `dibujarAvisos`): 14 px que se cierran sobre el bicho. No es un área, es un
+  aviso pegado a quien dispara.
+- ~~**Los orbitales sin hoja** (Satélites)~~ — ya no queda ninguno: ver arriba.
+- **Los anillos de recompensa** (subir de nivel, curarse): son premio, no daño.
+
+---
+
+## 10. El catálogo, cerrado: 54 de 57
+
+Se generaron por código las siete hojas que faltaban, y con ellas **diez armas**
+—compartir hoja es la norma, no la excepción, igual que las seis armas de fuego
+comparten la bala de la pistola desde el principio:
+
+| Hoja | Qué es | Armas |
+|---|---|---|
+| `proyPilum` | punta pequeña, **caña de hierro** larga y asta gruesa | Pilum |
+| `proyLanza` | hoja de laurel sobre fresno | Lanzas gemelas, Muro de lanzas |
+| `proyVirote` | cabeza gorda, asta gruesa, plumas cortas | Ballista, Enfilada, Escorpión |
+| `proyMetralla` | casco de hierro roto, con aristas | Metralla |
+| `proyPiedra` | canto casi redondo | Honda balear |
+| `proyRosa` | aguja de brújula en bronce | Rosa de los vientos |
+| `proyLengua` | lengua de fuego | Lanzallamas |
+
+Las tres primeras salen de **una sola función**, `Asta`, con otros números. Y
+esa es la observación que las hace: lo que separa un pilum de una lanza y de un
+virote no es el dibujo, son las PROPORCIONES. El pilum es una punta pequeña
+sobre una caña de hierro larga y fina —la que se doblaba al clavarse y dejaba
+inservible el escudo enemigo, que es la mitad de por qué el pilum es famoso—; la
+lanza es una hoja ancha sobre madera; el virote es un tocho con plumas. Con la
+silueta bien puesta se distinguen a diez píxeles.
+
+La metralla y la piedra también son la misma función, `Trozo`, con otra
+rugosidad: un casco de hierro tiene aristas y un canto de río no.
+
+### Las tres que se quedan sin dibujo, y no es un hueco
+
+**Rayo cruzado, Láser y Aspa de luz.** Son `rayoPerforante`: no disparan nada,
+resuelven una línea y dejan el trazo dibujado. No hay proyectil al que ponerle
+una imagen, y una hoja estirada a lo largo de un haz de 620 unidades sería un
+sprite ampliado veinte veces — exactamente lo que §3.7 descartó para los
+proyectiles pequeños, sólo que al revés.
+
+Lo que sí tienen es barrido, grosor creciente con el nivel y, en el caso del
+Aspa de luz, un giro de 20° al máximo. Su personalidad está ahí, no en un PNG.

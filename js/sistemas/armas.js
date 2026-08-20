@@ -223,18 +223,35 @@ const COMPORTAMIENTOS = {
   direccionFija(arma, sis, ctx) {
     const s = arma.stats;
     const j = ctx.jugador;
-    const dirs = PATRONES[arma.def.patron] || PATRONES.horizontal;
+    const dirs = direccionesDe(arma, s);
     const danyo = danyoDe(s, j);
 
-    for (let d = 0; d < dirs.length; d++) {
+    // ABANICO O CARRIL, y la diferencia importa para lo que se dibuja.
+    //
+    // Por defecto los proyectiles de más se abren en ÁNGULO desde el mismo
+    // punto: es lo que quiere una lluvia de agujas, que cubre un cono.
+    //
+    // `separacion` cambia el reparto a lateral: todos salen con el MISMO rumbo,
+    // corridos a un lado y a otro del eje. Es lo que pide la Columna doble —dos
+    // columnas de mármol abiertas nueve grados no son dos columnas, son dos
+    // columnas torcidas; en paralelo son una columnata.
+    const separa = s.separacion || 0;
+
+    for (let d = 0; d < nDirs; d++) {
       const base = dirs[d];
       for (let i = 0; i < s.proyectiles; i++) {
-        const desvio = (i - (s.proyectiles - 1) / 2) * s.dispersion * GRADOS;
+        const centrado = i - (s.proyectiles - 1) / 2;
+        const a = separa > 0 ? base : base + centrado * s.dispersion * GRADOS;
         sis._rellenarProyectil(arma, s, danyo);
         sis.defProyectil.vida = s.alcance / s.velocidad;
-        const a = base + desvio;
         const b = bocaDe(j, a);
-        ctx.proyectiles.lanzar(b.x, b.y,
+        let ox = b.x, oy = b.y;
+        if (separa > 0) {
+          // Perpendicular al rumbo: (-sin, cos) girado 90°, o sea (sin, -cos).
+          ox += Math.sin(a) * centrado * separa;
+          oy -= Math.cos(a) * centrado * separa;
+        }
+        ctx.proyectiles.lanzar(ox, oy,
           Math.cos(a) * s.velocidad, Math.sin(a) * s.velocidad, sis.defProyectil);
       }
     }
@@ -340,7 +357,14 @@ const COMPORTAMIENTOS = {
         danyo: danyoDe(s, j), intervalo: s.intervalo,
         empuje: s.empuje, ralentiza: s.ralentiza || 0,
         modo: 'zona', color: arma.def.color, relleno: 0.22,
-        sprite: arma.def.sprite, giro: arma.def.giro
+        sprite: arma.def.sprite, giro: arma.def.giro,
+        opacidad: arma.def.opacidad,
+        bloquea: arma.def.bloqueaDisparos,
+        // Que el charco prenda donde cae un enemigo. Sale de la DEFINICIÓN y no
+        // de las stats porque no crece con el nivel: un incendio se extiende
+        // igual de bien al nivel 1 que al 10, lo que sube es el radio de lo que
+        // se extiende.
+        propaga: arma.def.propaga
       });
     }
     return true;
@@ -359,9 +383,21 @@ const COMPORTAMIENTOS = {
   minaProximidad(arma, sis, ctx) {
     const s = arma.stats;
     const j = ctx.jugador;
+    // LA SIEMBRA SE ABRE CON EL NÚMERO DE MINAS, y no es un adorno: con el
+    // reparto fijo de antes —de 20 a 65 unidades— las dos minas del nivel 1
+    // quedaban bien, pero las veinticuatro del 10 caían todas en el mismo
+    // corro y se solapaban unas con otras. Veinticuatro minas apiladas hacen el
+    // daño de una: lo que cobra es la que pisas, no las que hay debajo.
+    //
+    // Crece con la RAÍZ del número porque lo que tiene que quedar constante es
+    // la densidad, y la densidad va por área. Con 2 minas da los 45 de siempre;
+    // con 24, 110 — un campo alrededor de ti, que es lo que promete el arma.
+    // El tope está para que no se siembre fuera de cámara: regalar minas donde
+    // no las ve nadie es tirarlas.
+    const apertura = Math.min(45 * Math.sqrt(s.charcos / 2), 110);
     for (let i = 0; i < s.charcos; i++) {
       const a = ctx.rng() * Math.PI * 2;
-      const d = i === 0 ? 0 : 20 + ctx.rng() * 45;
+      const d = i === 0 ? 0 : 20 + ctx.rng() * apertura;
       ctx.zonas.crear({
         x: j.x + Math.cos(a) * d, y: j.y + Math.sin(a) * d,
         // `radio` es el de la EXPLOSIÓN; el gatillo es mucho más chico, para
@@ -411,6 +447,9 @@ const COMPORTAMIENTOS = {
       arma.zona.danyo = danyoDe(s, j);
       return true;
     }
+    // Ojo: un aura viva se REFRESCA arriba y no vuelve a pasar por aquí, así
+    // que todo lo que se fije abajo tiene que ser constante durante la partida.
+    // `opacidad` lo es —sale de la definición, no de las stats— y por eso vale.
     const desvio = medioAlto(j);
     arma.zona = ctx.zonas.crear({
       x: j.x, y: j.y - desvio, desvioY: desvio,
@@ -418,7 +457,8 @@ const COMPORTAMIENTOS = {
       danyo: danyoDe(s, j), intervalo: s.intervalo,
       empuje: s.empuje, modo: 'zona', seguir: j,
       color: arma.def.color, relleno: 0.10,
-      sprite: arma.def.sprite, giro: arma.def.giro
+      sprite: arma.def.sprite, giro: arma.def.giro,
+      opacidad: arma.def.opacidad
     });
     return true;
   },
@@ -432,22 +472,49 @@ const COMPORTAMIENTOS = {
     const danyo = danyoDe(s, j);
     const items = ctx.enemigos.pool.items;
 
+    // EL BARRIDO. `giroRayo` son los grados que el haz gira mientras se apaga,
+    // en el sentido de las agujas del reloj (positivo hacia la derecha, porque
+    // en el lienzo la Y crece hacia abajo). 0 = haz quieto, que es lo normal.
+    const giro = (s.giroRayo || 0) * GRADOS;
+
     for (let d = 0; d < dirs.length; d++) {
       const a = dirs[d];
-      const ux = Math.cos(a), uy = Math.sin(a);
+      const ux0 = Math.cos(a), uy0 = Math.sin(a);
       // Se busca en un radio igual al alcance y se filtra por distancia a la
       // recta: mucho más barato que marchar el rayo paso a paso.
       const n = enemigosEnRadio(ctx.enemigos, j.x, j.y, s.alcance, sis._alcanzados);
       for (let i = 0; i < n; i++) {
         const e = items[sis._alcanzados[i]];
         const dx = e.x - j.x, dy = e.y - (j.y - 8);
+
+        // SIN BARRIDO es una sola recta, y esta es la rama de siempre.
+        //
+        // CON BARRIDO el haz no es una recta sino un ABANICO de `giro` grados, y
+        // hay que dañar a todo lo que quede dentro — si no, el jugador ve el haz
+        // pasarle por encima a un enemigo sin hacerle nada, que es peor que no
+        // girar. Se resuelve metiendo al enemigo en el abanico: se toma su
+        // ángulo, se recorta al rango [a, a+giro] y se mide contra ESE rayo. Un
+        // enemigo dentro del abanico cae sobre su propio ángulo —distancia cero
+        // a la recta, o sea tocado— y uno de fuera se compara contra el borde
+        // más cercano, que es exactamente lo que hacía el código de antes.
+        let ux = ux0, uy = uy0;
+        if (giro !== 0) {
+          let delta = Math.atan2(dy, dx) - a;
+          while (delta > Math.PI) delta -= Math.PI * 2;
+          while (delta < -Math.PI) delta += Math.PI * 2;
+          const dentro = delta < 0 ? 0 : (delta > giro ? giro : delta);
+          ux = Math.cos(a + dentro);
+          uy = Math.sin(a + dentro);
+        }
+
         const proy = dx * ux + dy * uy;
         if (proy < 0) continue;                       // detrás del jugador
         const perp = Math.abs(dx * uy - dy * ux);     // distancia a la recta
         if (perp > s.grosor + e.radioCuerpo) continue;
         ctx.enemigos.danyar(e, danyo, ux, uy, s.empuje);
       }
-      sis._anotarRayo(j.x, j.y - 8, a, s.alcance, s.grosor, arma.def.color);
+      sis._anotarRayo(j.x, j.y - 8, a, s.alcance, s.grosor, arma.def.color, giro,
+                      arma.def.duracionRayo);
     }
     return true;
   },
@@ -484,6 +551,41 @@ const PATRONES = {
   diagonal: [Math.PI / 4, 3 * Math.PI / 4, -3 * Math.PI / 4, -Math.PI / 4],
   adelante: [0]
 };
+
+// MÁS BRAZOS DE LOS QUE TIENE EL PATRÓN.
+//
+// Un patrón es una lista fija de rumbos, y eso basta mientras el arma tenga
+// siempre los mismos. El Aspa no: abre de cuatro brazos a ocho según sube, así
+// que los rumbos hay que repartirlos en el momento.
+//
+// Se reparten REGULARMENTE por la circunferencia entera, anclados al primer
+// rumbo del patrón. Así el arma conserva su orientación —el Aspa sigue saliendo
+// en diagonal y no en cruz— y los pasos intermedios (cinco brazos, seis, siete)
+// quedan repartidos por igual en vez de amontonados a un lado.
+//
+// Buffer de módulo y no un array nuevo por disparo: esto se llama cada vez que
+// dispara un arma de patrón, y asignar aquí es asignar en caliente.
+const MAX_DIRECCIONES = 16;
+const dirsGeneradas = new Float64Array(MAX_DIRECCIONES);
+
+// Cuántas de las que devuelve `direccionesDe` valen. Va en una variable de
+// módulo, y no devolviendo un array del tamaño justo, porque recortar el buffer
+// —con `slice` o incluso con `subarray`— asigna un objeto nuevo en cada disparo.
+// Es el mismo apaño que `origenDisparo` unas líneas más arriba, y por lo mismo.
+let nDirs = 0;
+
+function direccionesDe(arma, s) {
+  const patron = PATRONES[arma.def.patron] || PATRONES.horizontal;
+  let n = s.direcciones | 0;
+  // Sin `direcciones`, o pidiendo menos de las que el patrón ya trae, manda el
+  // patrón: es lo que usan las otras ocho armas de esta familia.
+  if (n <= patron.length) { nDirs = patron.length; return patron; }
+  if (n > MAX_DIRECCIONES) n = MAX_DIRECCIONES;
+  const paso = Math.PI * 2 / n;
+  for (let i = 0; i < n; i++) dirsGeneradas[i] = patron[0] + paso * i;
+  nDirs = n;
+  return dirsGeneradas;
+}
 
 // CÓMO SE DIBUJA CADA PROYECTIL.
 //
@@ -536,7 +638,8 @@ export class Armas {
     // Rayos dibujados, mismo esquema de buffer circular que los tajos.
     this.rayos = new Array(MAX_TAJOS);
     for (let i = 0; i < MAX_TAJOS; i++) {
-      this.rayos[i] = { x: 0, y: 0, ang: 0, largo: 0, grosor: 0, vida: 0, vidaMax: 1, color: '#fff' };
+      this.rayos[i] = { x: 0, y: 0, ang: 0, largo: 0, grosor: 0, vida: 0, vidaMax: 1,
+                        color: '#fff', giro: 0 };
     }
     this.nRayos = 0;
   }
@@ -551,6 +654,10 @@ export class Armas {
     // Dibujo propio del proyectil, si el arma lo declara. Sustituye a la forma
     // trazada entera (cuerpo, halo y estela): ver entidades/proyectil.js.
     d.hoja = arma.def.spriteProyectil || null;
+    // Radianes por segundo que voltea el dibujo. Sin esto se orienta al vuelo,
+    // que es lo correcto para una bala o una abeja y lo contrario de lo que
+    // hacen un shuriken o una botella dando vueltas.
+    d.giro = arma.def.giroProyectil || 0;
     d.danyo = danyo;
     d.empuje = s.empuje;
     d.radio = s.radio;
@@ -565,6 +672,9 @@ export class Armas {
     // porque quien crea la onda es main.js al estallar, y allí ya no hay arma:
     // solo el proyectil. Mismo camino que `spriteProyectil`.
     d.spriteOnda = arma.def.spriteOnda || null;
+    // Y la columna de rayo, si el arma la declara. Mismo camino y mismo motivo.
+    d.rayoCaida = arma.def.rayoCaida || 0;
+    d.rayoGrosor = arma.def.rayoGrosor || 3;
     // Rebotes. Salen de las STATS y no de la definición porque crecen con el
     // nivel: el Fusil gana uno en el 3 y otro en el 10, la Honda hasta tres.
     d.rebotesPared = s.rebotesPared || 0;
@@ -596,7 +706,10 @@ export class Armas {
       radio, radioIni: radio * 0.18,
       duracion: 0.26, danyo: danyoDe(s, j),
       empuje: s.empuje, modo: 'onda',
-      color: arma.def.color, relleno: 0.34
+      color: arma.def.color, relleno: 0.34,
+      // El chispazo dibujado, si el arma lo trae. Era la última onda del
+      // arsenal que seguía cayendo al círculo trazado.
+      sprite: arma.def.spriteOnda
     });
 
     // Y el haz cayendo a plomo sobre el punto: se traza desde `caida` unidades
@@ -607,11 +720,21 @@ export class Armas {
     }
   }
 
-  _anotarRayo(x, y, ang, largo, grosor, color) {
+  // `giro` en RADIANES: cuánto barre el haz durante su vida. Va con valor por
+  // defecto porque solo lo usa el Aspa de luz al máximo; la tormenta y los otros
+  // dos rayos no lo pasan y salen rectos como siempre.
+  //
+  // `vida` es lo que dura el destello, y con el barrido puesto pasa a ser
+  // también LA VELOCIDAD del giro: el haz recorre sus grados mientras se apaga,
+  // así que alargarle la vida es exactamente ralentizarlo. Un solo número para
+  // las dos cosas, y es lo correcto — un aspa que gira despacio y desaparece
+  // enseguida se cortaría a medio barrido.
+  _anotarRayo(x, y, ang, largo, grosor, color, giro = 0, vida = 0.12) {
     const r = this.rayos[this.nRayos % MAX_TAJOS];
     this.nRayos++;
     r.x = x; r.y = y; r.ang = ang; r.largo = largo;
-    r.grosor = grosor; r.vida = r.vidaMax = 0.12; r.color = color;
+    r.grosor = grosor; r.vida = r.vidaMax = vida; r.color = color;
+    r.giro = giro;
   }
 
   // Los orbitales no "disparan": existen. Se actualizan aparte, cada paso, y
@@ -705,6 +828,40 @@ export class Armas {
       const imgOrb = arma.def.spriteOrbital ? Recursos.imagen(arma.def.spriteOrbital) : null;
       const metaOrb = arma.def.spriteOrbital ? Recursos.meta(arma.def.spriteOrbital) : null;
       if (imgOrb && metaOrb) {
+        // MEDIO LADO DEL DIBUJO. Por defecto es el radio del escudo, o sea el
+        // que hace daño, que es la regla de la casa: el filo del dibujo cae
+        // donde acaba lo que mata.
+        //
+        // `escalaOrbital` la rompe a propósito para las lunas de los Satélites,
+        // que se quieren ver grandes. Es un ajuste SOLO de dibujo y no toca la
+        // colisión —que sigue leyendo `radioEscudo` en actualizarOrbitales— así
+        // que conviene usarlo con cuidado y con el motivo escrito al lado, como
+        // está en datos/armas.js.
+        const rDibujo = r * (arma.def.escalaOrbital || 1);
+
+        // AURA DETRÁS DEL ESCUDO. Una hoja aparte, no horneada en el sprite, y
+        // por un motivo concreto: el Testudo comparte el escudo con el Scutum,
+        // así que un aura metida en el PNG la llevarían los dos y la evolución
+        // dejaría de distinguirse de su arma base.
+        //
+        // En ADITIVO, que es lo que la hace resplandor: sumando luz sobre lo
+        // que haya debajo en vez de taparlo.
+        const imgAura = arma.def.auraOrbital ? Recursos.imagen(arma.def.auraOrbital) : null;
+        const metaAura = arma.def.auraOrbital ? Recursos.meta(arma.def.auraOrbital) : null;
+        if (imgAura && metaAura) {
+          const rAura = r * (arma.def.escalaAura || 1.8);
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          for (let k = 0; k < s.escudos; k++) {
+            const a = arma.anguloOrbital + k * paso;
+            ctx.drawImage(imgAura, 0, 0, metaAura.w, metaAura.h,
+                          cx + Math.cos(a) * radio - rAura,
+                          cy + Math.sin(a) * radio - rAura,
+                          rAura * 2, rAura * 2);
+          }
+          ctx.restore();
+        }
+
         for (let k = 0; k < s.escudos; k++) {
           const a = arma.anguloOrbital + k * paso;
           // save/restore por escudo, como en los tajos: la matriz del mundo la
@@ -713,7 +870,8 @@ export class Armas {
           ctx.save();
           ctx.translate(cx + Math.cos(a) * radio, cy + Math.sin(a) * radio);
           if (arma.def.giroOrbital) ctx.rotate(arma.faseGiro);
-          ctx.drawImage(imgOrb, 0, 0, metaOrb.w, metaOrb.h, -r, -r, r * 2, r * 2);
+          ctx.drawImage(imgOrb, 0, 0, metaOrb.w, metaOrb.h,
+                        -rDibujo, -rDibujo, rDibujo * 2, rDibujo * 2);
           ctx.restore();
         }
         continue;
@@ -1010,8 +1168,13 @@ export class Armas {
       const r = this.rayos[i];
       if (r.vida <= 0) continue;
       const k = r.vida / r.vidaMax;
-      const x2 = r.x + Math.cos(r.ang) * r.largo;
-      const y2 = r.y + Math.sin(r.ang) * r.largo;
+      // El haz recorre su barrido A LA VEZ que se apaga: arranca en su rumbo y
+      // termina `giro` radianes más allá justo cuando desaparece. Que las dos
+      // cosas acaben juntas es lo que lo lee como un aspa que gira y se va, y no
+      // como un haz que da un salto al final.
+      const ang = r.ang + r.giro * (1 - k);
+      const x2 = r.x + Math.cos(ang) * r.largo;
+      const y2 = r.y + Math.sin(ang) * r.largo;
 
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = k * 0.4;
