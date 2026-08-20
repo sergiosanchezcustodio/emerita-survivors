@@ -20,9 +20,27 @@ import { VFX } from './vfx.js';
 
 const MAX = 4;
 
-// Cómo sigue al jugador. No va pegada: se queda atrás y llega con retraso, que
-// es lo que hace que parezca que va detrás en vez de estar clavada al sprite.
-const DISTANCIA = 16;          // unidades lógicas por detrás
+// CÓMO ACOMPAÑA AL JUGADOR: dando vueltas a su alrededor.
+//
+// Iba a un punto FIJO detrás de él —al lado contrario de hacia donde mira— y
+// con eso una mascota quieta era una calcomanía pegada al costado. Ahora el
+// punto al que va gira, así que el bicho trota alrededor sin parar.
+//
+// LA ÓRBITA ES UNA ELIPSE, no un círculo, y bastante aplastada: el juego se ve
+// desde arriba y en escorzo, así que una vuelta redonda de verdad se dibuja
+// como una elipse ancha y baja. Con un círculo, la mascota subiría y bajaría lo
+// mismo que se mueve a los lados y parecería estar orbitando en vertical.
+//
+// Y CENTRADA UN POCO POR DEBAJO DE LOS PIES. El sprite del jugador sube 26
+// unidades desde su línea de pies, y las mascotas se dibujan por encima de él;
+// bajando el centro de la órbita, cuando el bicho pasa por detrás se le solapa
+// como mucho a los tobillos en vez de plantársele en la cara.
+const ORBITA_X = 18;           // semieje horizontal, en unidades lógicas
+const ORBITA_Y = 7;            // semieje vertical: aplastado, por el escorzo
+const ORBITA_CY = 2;           // cuánto baja el centro respecto a los pies
+// Radianes por segundo. 1,15 son unos cinco segundos y medio por vuelta: se ve
+// que rodea, no que da vueltas como un satélite.
+const VEL_ORBITA = 1.15;
 const SUAVIZADO = 5;           // 1/s: cuanto más alto, más pegada
 const FLOTE = 1.6;             // amplitud del balanceo vertical
 const RADIO_DIBUJO = 5;
@@ -45,6 +63,10 @@ export const Mascotas = {
     for (let i = 0; i < MAX; i++) {
       this.activas[i] = {
         x: 0, y: 0, reloj: 0, fase: i * 1.7, viva: false,
+        // Ángulo recorrido en su vuelta alrededor del jugador. Se preasigna con
+        // el resto del estado: las cuatro mascotas se crean al arrancar y no se
+        // asigna una sola durante la partida.
+        orbita: 0,
         mirandoDerecha: true, frame: 0, relojAnim: i * 0.13,
         // UNA MASCOTA POR JUGADOR: cada puesto lleva la suya, su nivel y lo
         // que necesita para dibujarse. Antes había una sola global.
@@ -112,9 +134,22 @@ export const Mascotas = {
         m.x = j.x; m.y = j.y;
       }
 
-      // Se coloca por detrás de hacia donde mira, y llega con retraso.
-      const destinoX = j.x - (j.mirandoDerecha ? DISTANCIA : -DISTANCIA);
-      const destinoY = j.y - 4;
+      // LA ÓRBITA AVANZA CON EL PASO DE LÓGICA, no con el reloj de pared: dt es
+      // fijo, así que dos partidas con la misma semilla las mueven igual. Misma
+      // regla que las fases de los disparos y la sacudida de cámara.
+      //
+      // Y cada jugador arranca en un punto distinto del círculo —`i` reparte las
+      // cuatro— para que en cooperativo no salgan las cuatro mascotas alineadas
+      // como una formación.
+      m.orbita += VEL_ORBITA * dt;
+      const ang = m.orbita + i * (Math.PI * 2 / MAX);
+
+      // El punto al que va, girando alrededor del jugador. La mascota NO se
+      // teletransporta ahí: lo persigue con el mismo suavizado de siempre, y ese
+      // retraso es lo que la hace parecer un bicho que corre detrás de un punto
+      // en vez de un objeto atornillado a una órbita.
+      const destinoX = j.x + Math.cos(ang) * ORBITA_X;
+      const destinoY = j.y + ORBITA_CY + Math.sin(ang) * ORBITA_Y;
       const k = Math.min(1, SUAVIZADO * dt);
       const avanceX = (destinoX - m.x) * k;
       m.x += avanceX;
