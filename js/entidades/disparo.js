@@ -80,9 +80,15 @@ function crearDisparo() {
     radioReventon: 0,
     // DE DÓNDE SALIÓ. Solo lo usa el sismo, y solo para dibujar: con el punto
     // de partida se puede pintar la piedra volando de la mano del cíclope al
-    // sitio donde va a caer. -1 en `origenX` significa que no hay origen y no
-    // se dibuja nada, que es lo que pasa con todo lo demás del pool.
-    origenX: -1, origenY: 0
+    // sitio donde va a caer.
+    //
+    // `piedra` dice si hay origen, y es un BOOLEANO y no un centinela en la
+    // coordenada. Lo era —un -1 en `origenX`— y estaba mal: el mundo es infinito
+    // y la mitad de él tiene la x negativa, así que un cíclope a la izquierda
+    // del origen del mapa pasaba por "sin origen" y tiraba su piedra invisible.
+    // Una coordenada válida no puede servir de bandera.
+    piedra: false,
+    origenX: 0, origenY: 0
   };
 }
 
@@ -119,6 +125,7 @@ export class Disparos {
     d.estela = def.estela || null;
     d.nucleo = def.nucleo || null;
     d.tonos = null;             // campo compartido: solo lo usa el sismo
+    d.piedra = false;           // ídem
     d.aviso = 0;
     d.sismo = false;
     d.charco = false;           // por si este hueco del pool venía de un charco
@@ -140,15 +147,19 @@ export class Disparos {
   // zonas son del jugador y dañan enemigos; esto es al revés. Compartir el pool
   // que ya sabe golpear al jugador ahorra un sistema entero.
   // `origenX/origenY` son de dónde sale la piedra, o sea el cíclope. Van al
-  // final y con valor por defecto porque son SOLO para el dibujo: sin ellos el
+  // final y son opcionales porque sirven SOLO para el dibujo: sin ellos el
   // sismo funciona igual que siempre, marcando el suelo y reventando.
-  sismo(x, y, def, origenX = -1, origenY = 0) {
+  //
+  // Que haya o no origen lo dice `piedra`, no el valor de la coordenada: ver la
+  // nota de `crearDisparo`.
+  sismo(x, y, def, origenX, origenY) {
     const d = this.pool.obtener();
     if (!d) return null;
     d.x = d.xPrev = x;
     d.y = d.yPrev = y;
-    d.origenX = origenX;
-    d.origenY = origenY;
+    d.piedra = origenX !== undefined;
+    d.origenX = origenX || 0;
+    d.origenY = origenY || 0;
     d.vx = 0; d.vy = 0;
     d.danyo = def.danyo;
     d.radio = def.radio;
@@ -192,6 +203,7 @@ export class Disparos {
     d.sismo = false;
     d.estela = null; d.nucleo = null;   // campos compartidos: ver `lanzar`
     d.tonos = null;
+    d.piedra = false;
     d.color = def.color;
     d.fase = 0;
     // Mismo criterio que Zonas.crear: si `sprite` nombra una entrada del atlas
@@ -228,6 +240,55 @@ export class Disparos {
     const n = this.pool.activos;
     if (n === 0) return;
     ctx.save();
+
+    // EL AVISO DEL SISMO, DEBAJO DE TODO LO QUE PISA EL SUELO.
+    //
+    // Estaba en `dibujar`, que va por encima de la horda entera, y eso lo ponía
+    // por delante de los cuerpos, de las estatuas y de las columnas. Un aviso de
+    // área no está en el aire: está pintado en el suelo, y lo que hay de pie
+    // encima tiene que taparlo.
+    //
+    // Y con el aviso por delante pasaba algo peor que ser feo: escondía a los
+    // enemigos que había DENTRO del círculo, que son justo los que hay que ver
+    // para decidir por dónde salir.
+    //
+    // Sigue leyéndose porque lo que se ve es el suelo cambiando de color, que es
+    // exactamente lo que el aviso quiere decir. El reventón sí se queda arriba
+    // (VFX.reventon): eso ya no es un aviso, es el golpe.
+    for (let k = 0; k < n; k++) {
+      const d = items[k];
+      if (!d.sismo || d.restante <= 0) continue;
+      const x = d.xPrev + (d.x - d.xPrev) * alpha;
+      const y = d.yPrev + (d.y - d.yPrev) * alpha;
+
+      const prog = 1 - d.restante / d.aviso;
+      const rMax = d.radio * prog;
+      if (d.tonos) {
+        const nt = d.tonos.length;
+        for (let t = 0; t < nt; t++) {
+          // El más claro ocupa el círculo entero y cada siguiente uno menor, así
+          // que en el centro se han sumado los seis y en el filo solo el
+          // primero. La rampa sale de la SUMA, no de una interpolación.
+          const f = 1 - t / nt;
+          // EL ALFA POR CAPA NO ES EL QUE SE VE: seis capas se componen, así que
+          // lo que hay que fijar es el resultado. Con 0,0165-0,045 por capa el
+          // centro llega a 0,200 y el filo a 0,045 — un 30% menos que la tanda
+          // anterior, que a su vez ya era un 30% menos que la de antes.
+          ctx.globalAlpha = (0.0165 + 0.0285 * prog) * (0.55 + 0.45 * f);
+          ctx.fillStyle = d.tonos[t];
+          ctx.beginPath();
+          ctx.arc(x, y, rMax * f, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else {
+        ctx.globalAlpha = 0.096 + 0.103 * prog;
+        ctx.fillStyle = d.color;
+        ctx.beginPath();
+        ctx.arc(x, y, rMax, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
     // Base tenue bajo la calcomanía, por el mismo motivo que en zonaDanyo.js:
     // los entrantes de la silueta dejarían ver suelo limpio dentro del aro, y
     // dentro del aro se hace daño.
@@ -547,69 +608,14 @@ export class Disparos {
       const x = d.xPrev + (d.x - d.xPrev) * alpha;
       const y = d.yPrev + (d.y - d.yPrev) * alpha;
       if (d.sismo) {
-        // AVISO: una mancha que se llena hasta el radio de daño. Y SOLO eso.
+        // EL AVISO YA NO SE PINTA AQUÍ: se ha bajado a `dibujarSuelo`, que va
+        // por debajo de las entidades. Lo que sigue en esta capa es la PIEDRA,
+        // y con motivo — está en el aire, así que tiene que pasar por encima de
+        // los cuerpos y de las columnas igual que pasaría una piedra de verdad.
         //
-        // Llevaba además un aro fijo dibujado desde el primer instante al radio
-        // exacto de lo que va a doler. Se ha quitado a propósito: era una
-        // circunferencia trazada encima del suelo diciendo "el área es esta",
-        // que es el idioma de un editor de niveles, no el de un juego. Lo que
-        // se conserva es la mancha, porque no es lo mismo: dice DÓNDE y dice
-        // CUÁNTO FALTA con la misma forma, y al completarse cubre justo lo que
-        // va a golpear. La información sigue estando entera; lo que se va es el
-        // subrayado.
-        //
-        // OTRO 30% MÁS TRANSPARENTE, que es el cuarto ajuste de este número.
-        // El recorrido, por si hay que volver a moverlo:
-        //
-        //   0,22-0,42   con el aro puesto, que era quien sostenía el aviso
-        //   0,28-0,58   al quitar el aro, para que la mancha lo sostuviera sola
-        //   0,20-0,41   se pasó de mancha y tapaba el suelo
-        //   0,14-0,28   ahora
-        //
-        // Lo que un aviso tiene que hacer es decir DÓNDE va a caer, no sustituir
-        // al terreno mientras avisa. Con la mancha muy opaca, el jugador pierde
-        // de vista lo que hay dentro del círculo justo cuando más falta le hace
-        // para decidir por dónde salir.
-        //
-        // Y AHORA ES UN DEGRADADO, NO UN DISCO PLANO. Se pinta un anillo por
-        // tono, del más grande y claro al más pequeño y caliente, sumando alfa
-        // donde se solapan: eso da una rampa suave del canto al centro con la
-        // variedad de color que un solo `fillStyle` no puede dar.
-        //
-        // Por anillos concéntricos y no con `createRadialGradient`: un gradiente
-        // asigna memoria cada vez que se crea, y esto se pinta sesenta veces por
-        // segundo mientras dura el aviso. Es el mismo motivo por el que la
-        // escarcha de VFX es un rectángulo plano y no un degradado.
+        // Que las dos mitades del mismo ataque vivan en capas distintas no es un
+        // descuido: una está pintada en el suelo y la otra vuela.
         const prog = 1 - d.restante / d.aviso;
-        const rMax = d.radio * prog;
-        if (d.tonos) {
-          const n = d.tonos.length;
-          for (let t = 0; t < n; t++) {
-            // El más claro ocupa el círculo entero y cada siguiente uno menor,
-            // así que en el centro se han sumado los n y en el filo solo el
-            // primero. La rampa sale de la SUMA, no de una interpolación.
-            const f = 1 - t / n;
-            // EL ALFA DE CADA ANILLO ES BAJO PORQUE SE SUMAN. Seis capas de
-            // 0,14 no dan 0,14: dan 1-(1-0,14)^6 = 0,60, o sea MÁS opaco que
-            // el disco plano de antes, que es lo contrario de lo que se pide.
-            // Lo que hay que fijar es la opacidad COMPUESTA, y de ahí sale este
-            // 0,023-0,067 por capa: el centro acaba en 0,284 —el 70% del 0,41
-            // que tenía— y el filo en 0,07, casi transparente.
-            ctx.globalAlpha = (0.023 + 0.0442 * prog) * (0.55 + 0.45 * f);
-            ctx.fillStyle = d.tonos[t];
-            ctx.beginPath();
-            ctx.arc(x, y, rMax * f, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        } else {
-          ctx.globalAlpha = 0.137 + 0.147 * prog;
-          ctx.fillStyle = d.color;
-          ctx.beginPath();
-          ctx.arc(x, y, rMax, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.globalAlpha = 1;
-
         // Y LA PIEDRA, VOLANDO.
         //
         // El sismo era un ataque sin proyectil: se marcaba el suelo y reventaba.
@@ -623,7 +629,7 @@ export class Disparos {
         // el fotograma exacto en que revienta, así que mirando el aire se sabe
         // cuánto falta igual que mirando la mancha. Quien no está mirando al
         // suelo ve la piedra, y al revés.
-        if (d.origenX >= 0) {
+        if (d.piedra) {
           // Parábola: interpola de la mano al blanco y le resta altura con un
           // seno. La altura sale de la DISTANCIA —un tiro largo se levanta más—
           // con tope, o el arco se saldría de cuadro por arriba.
