@@ -83,6 +83,14 @@ function crearZona() {
     // arma a la que preguntárselo.
     radioGatillo: 0,
     hojaOnda: null,
+    // ONDA QUE VA POR EL SUELO. Las ondas se dibujan por encima de todo porque
+    // una explosión está en el AIRE y tiene que tapar lo que pilla debajo. Pero
+    // no todas lo están: el Sismo es la tierra abriéndose, y una grieta que pasa
+    // por delante de una columna de dos metros no se lee como una grieta.
+    //
+    // Con esto puesto, la onda se pinta con las calcomanías —entre el terreno y
+    // las entidades— en vez de encima de la horda.
+    enSuelo: false,
     // ZONA HECHA DE PIEZAS SUELTAS, en vez de una calcomanía estirada.
     //
     // Casi todas las zonas son una mancha: un charco de aceite es UNA cosa que
@@ -197,6 +205,7 @@ export class Zonas {
     z.radioGatillo = def.radioGatillo || 0;
     z.hojaOnda = (def.spriteOnda && Recursos.meta(def.spriteOnda)) ? def.spriteOnda : null;
     z.desvioY = def.desvioY || 0;
+    z.enSuelo = !!def.enSuelo;
     z.hojaPieza = (def.hojaPieza && Recursos.meta(def.hojaPieza)) ? def.hojaPieza : null;
     z.piezas = def.piezas || 0;
     z.origenX = def.origenX === undefined ? def.x : def.origenX;
@@ -315,6 +324,7 @@ export class Zonas {
     h.relleno = padre.relleno;
     h.opacidad = padre.opacidad;
     h.bloquea = padre.bloquea;
+    h.enSuelo = padre.enSuelo;
     h.hojaPieza = padre.hojaPieza;
     h.piezas = padre.piezas;
     h.origenX = x; h.origenY = y;   // el hijo brota donde cae el cuerpo
@@ -630,7 +640,11 @@ export class Zonas {
 
   // Capa de AIRE: solo las ONDAS, relleno y canto. Una explosión no está en el
   // suelo, está en el aire, y tiene que tapar lo que pilla debajo.
-  dibujarAire(ctx) {
+  // `deSuelo` elige la pasada: con `true` pinta las ondas marcadas como de
+  // suelo —el Sismo— y con `false` todas las demás. main.js la llama dos veces,
+  // una antes de las entidades y otra después, y cada pasada salta lo que no le
+  // toca. Es el mismo reparto que ya tienen los reventones (ver VFX).
+  dibujarAire(ctx, deSuelo = false) {
     const items = this.pool.items;
     const n = this.pool.activos;
     if (n === 0) return;
@@ -650,7 +664,7 @@ export class Zonas {
     ctx.save();
     for (let k = 0; k < n; k++) {
       const z = items[k];
-      if (z.modo !== 'onda' || !z.hoja) continue;
+      if (z.modo !== 'onda' || !z.hoja || z.enSuelo !== deSuelo) continue;
       const img = Recursos.imagen(z.hoja);
       const meta = Recursos.meta(z.hoja);
       if (!img || !meta) continue;
@@ -721,7 +735,7 @@ export class Zonas {
     ctx.globalCompositeOperation = 'lighter';
     for (let k = 0; k < n; k++) {
       const z = items[k];
-      if (z.modo !== 'onda' || z.hoja || z.relleno <= 0) continue;
+      if (z.modo !== 'onda' || z.hoja || z.enSuelo !== deSuelo || z.relleno <= 0) continue;
       const t = z.vida / z.vidaMax;
       ctx.globalAlpha = t * 0.75 * z.relleno;
       ctx.fillStyle = z.color;

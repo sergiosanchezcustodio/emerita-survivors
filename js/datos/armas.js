@@ -943,6 +943,15 @@ export const ARMAS = {
     descripcion: 'La tierra se abre a lo ancho. Tarda, pero llega lejos.',
     comportamiento: 'ondaCircular',
     spriteOnda: 'reventonTierra',
+    // POR DEBAJO DE TODO. Las ondas se dibujan encima de la horda porque una
+    // explosión está en el aire; esta no. El Sismo es la tierra abriéndose, y
+    // pasando por delante de una columna o de una estatua no se lee como una
+    // grieta sino como una nube — y a 140 de radio, que es media pantalla, se
+    // come el combate entero.
+    //
+    // Es la única de las cuatro `ondaCircular` que lo lleva: la Onda expansiva,
+    // el Grito de guerra y el Gladius Hispaniensis sí van por el aire.
+    ondaEnSuelo: true,
     danyo: 22, radio: 140, duracion: 0.7, recarga: 4.0, empuje: 150,
     color: '#c0a070',
     niveles: [{}, { radio: 18 }, { danyo: 7 }, { recarga: -0.5 },

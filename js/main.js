@@ -1774,6 +1774,10 @@ function dibujar(alpha) {
   // todo, con el resto de efectos (ver zonaDanyo.js).
   if (activo.efectos) {
     zonas.dibujarSuelo(ctx);
+    // Y las ondas que van POR EL SUELO, hoy la del arma Sismo: la tierra
+    // abriéndose tiene que pasar por debajo de los cuerpos y de las columnas.
+    // El resto de ondas —choque, grito, explosiones— siguen arriba.
+    zonas.dibujarAire(ctx, true);
     disparos.dibujarSuelo(ctx, alpha);
     // Y los reventones DE SUELO, que hoy es el del sismo del cíclope: la tierra
     // levantándose tiene que quedar debajo de lo que la pisa. Los de aire —el
@@ -1793,7 +1797,7 @@ function dibujar(alpha) {
   // haya ochocientos cuerpos debajo.
   t = performance.now();
   if (activo.efectos) {
-    zonas.dibujarAire(ctx);
+    zonas.dibujarAire(ctx, false);
     proyectiles.dibujar(ctx, alpha);
     for (let i = 0; i < arsenales.length; i++) {
       arsenales[i].dibujarTajos(ctx);

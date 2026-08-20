@@ -401,7 +401,10 @@ const COMPORTAMIENTOS = {
       duracion: s.duracion,
       danyo: danyoDe(s, j), empuje: s.empuje,
       modo: 'onda', color: arma.def.color, relleno: 0.08,
-      sprite: arma.def.spriteOnda
+      sprite: arma.def.spriteOnda,
+      // Por el suelo o por el aire. El Sismo abre la tierra y va por debajo de
+      // todo; una onda de choque o un grito pasan por encima.
+      enSuelo: arma.def.ondaEnSuelo
     });
     return true;
   },
