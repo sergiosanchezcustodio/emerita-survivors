@@ -91,17 +91,38 @@ Cada personaje lleva **su** arma, la que nadie más puede llevar. En cooperativo
 eso garantiza que los cuatro arrancan jugando distinto, y el sorteo de subida de
 nivel se encarga de que sigan sin repetirse.
 
-<table>
-<tr>
-<td width="50%"><img src="docs/capturas/menu_seleccion_jugadores.jpg" alt="Selección de personaje"></td>
-<td width="50%"><img src="docs/capturas/menu_seleccion_mascotas.jpg" alt="Selección de mascota"></td>
-</tr>
-</table>
+![Selección de personaje](docs/capturas/menu_seleccion_jugadores.jpg)
 
 ![Personajes](docs/personajes.png)
 
-Y cada uno elige mascota: el conejo, el gato, el perro, la gallina, la tortuga o
-el hámster. Suben de nivel y pelean contigo.
+---
+
+## Las mascotas
+
+Antes de empezar eliges una, y te acompaña toda la partida. **Sube de nivel
+contigo** y ninguna hace lo mismo que otra: unas te dan una estadística y otras
+tienen habilidad propia, con su cadencia y su alcance.
+
+![Selección de mascota](docs/capturas/menu_seleccion_mascotas.jpg)
+
+![Las ocho mascotas](docs/mascotas.png)
+
+| | Qué hace |
+|---|---|
+| **Heladio** el Hámster | Recoge gemas desde mucho más lejos: +45% de radio |
+| **Escipión** la Tortuga | Su caparazón te presta +2 de armadura |
+| **Plinio** el Búho | Te lo explica todo: +20% de experiencia |
+| **Nerón** el Gato | Le gusta el oro: +35% de denarios en cada partida |
+| **Karim** el Perro | Se lanza a morder al enemigo más cercano, cada 1,8 s |
+| **Cleopatra** la Gallina | Pone un huevo cada 9 s, y el huevo te cura |
+| **Oreo** el Conejo | Escarba sin parar y desentierra denarios |
+| **El Pollito Fantasma** | Un chillido de ultratumba y la horda de alrededor huye |
+
+Las cuatro primeras cambian un número; las cuatro últimas **actúan**, y eso es lo
+que las hace elegir distinto: un perro que muerde no es un porcentaje, es un
+segundo aliado en pantalla.
+
+Se compran una vez con denarios y se quedan desbloqueadas para siempre.
 
 ---
 
@@ -168,20 +189,46 @@ llegó al fichero.
 
 ---
 
-## Progreso entre partidas
+## La tienda
 
-Los denarios sobreviven a la muerte. La tienda tiene tres secciones y los cofres
-de élite abren una ruleta.
+**Los denarios sobreviven a la muerte.** Cada partida —te salga bien o te maten
+en el minuto tres— deja dinero, y ese dinero compra mejoras que valen en todas
+las siguientes. Es lo que hace que una mala partida no sea una partida perdida.
+
+Tres secciones:
 
 <table>
 <tr>
-<td width="33%"><img src="docs/capturas/tienda_potenciadores.jpg" alt="Potenciadores"><p align="center"><b>Potenciadores</b></p></td>
-<td width="33%"><img src="docs/capturas/tienda_mascotas.jpg" alt="Mascotas"><p align="center"><b>Mascotas</b></p></td>
-<td width="33%"><img src="docs/capturas/tienda_jugadores.jpg" alt="Jugadores"><p align="center"><b>Jugadores</b></p></td>
+<td width="33%"><img src="docs/capturas/tienda_potenciadores.jpg" alt="Potenciadores"><p align="center"><b>Potenciadores</b><br><sub>mejoras permanentes</sub></p></td>
+<td width="33%"><img src="docs/capturas/tienda_mascotas.jpg" alt="Mascotas"><p align="center"><b>Mascotas</b><br><sub>se desbloquean</sub></p></td>
+<td width="33%"><img src="docs/capturas/tienda_jugadores.jpg" alt="Jugadores"><p align="center"><b>Jugadores</b><br><sub>los cuatro, gratis</sub></p></td>
 </tr>
 </table>
 
-![Tienda](docs/tienda.png)
+### Los diez potenciadores
+
+![Potenciadores](docs/potenciadores.png)
+
+| Potenciador | Por nivel | Coste |
+|---|---|---|
+| **Codicia** | +5% de radio de recogida | 300 |
+| **Vitalidad** | +4% de vida máxima | 400 |
+| **Premura** | +2% de velocidad | 400 |
+| **Coraza** | +1 de armadura | 500 |
+| **Onda expansiva** | +2% de área de efecto | 500 |
+| **Furia** | +3% de daño | 600 |
+| **Clepsidra eterna** | −1,5% de recarga | 600 |
+| **Panacea** | +0,15 de vida por segundo | 700 |
+| **Égida** | +6 de escudo, que se recarga solo si no te golpean | 800 |
+| **Moneda de Caronte** | Una vida extra por nivel: vuelves a media vida donde caíste | 1200 |
+
+Cinco niveles cada uno, con el coste subiendo. Los valores son **pequeños a
+propósito** al lado de los pasivos de partida —la clepsidra de partida da 4% de
+recarga por nivel y esta 1,5%—: un pasivo lo llevas una partida y ocupa una de
+tus cuatro ranuras, esto no caduca nunca.
+
+Y los cofres de élite abren una **ruleta** de ocho casillas dentro de la partida,
+que es la otra forma de que te toque algo bueno sin haberlo comprado.
 
 ---
 
@@ -273,11 +320,17 @@ Hay dos clases, y conviene no confundirlas:
   `montar-galeria.ps1 -Capturas`. Se bajaron de 43,6 MB a 1,5 MB: 960 porque la
   columna de un README en GitHub mide unos 900 px, y todo lo más ancho lo reduce
   el navegador emborronando el pixel art.
-- **Láminas compuestas** (`docs/`) — bestiario, personajes, arsenal, efectos y
-  tienda. No son capturas: son sprites recortados de sus hojas y colocados sobre
-  el suelo del nivel, que genera `montar-galeria.ps1` leyendo el atlas. Se
+- **Láminas compuestas** (`docs/`) — bestiario, personajes, arsenal, efectos,
+  potenciadores y mascotas. No son capturas: son sprites recortados de sus hojas
+  y colocados sobre el suelo del nivel, que genera `montar-galeria.ps1`. Se
   rehacen solas cuando cambia el arte, que es justo lo que unas capturas hechas
   a mano no hacen.
+
+  Y las dos últimas **leen `js/datos/`**, no una lista escrita a mano: nombres,
+  costes, niveles y descripciones salen del mismo sitio del que los saca el
+  juego. La primera versión no lo hacía y se notó — dibujó los potenciadores con
+  una hoja de iconos que la tienda no usa, y dejó fuera a dos de las ocho
+  mascotas por haberlas contado mirando la carpeta de assets.
 
 </details>
 

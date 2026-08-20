@@ -190,6 +190,44 @@ if ($Capturas) {
     return
 }
 
+# LEER LOS DATOS DEL JUEGO, no copiarlos aqui.
+#
+# datos/ es la fuente de verdad de este proyecto -nombres, costes, niveles,
+# descripciones- y una lamina que los duplique se queda desfasada en cuanto
+# alguien toque un numero. Node ya esta en la maquina (el propio juego se
+# comprueba con el), asi que se le pide que exporte lo justo en texto plano y se
+# parsea aqui. Es una llamada por lamina, offline y sin dependencias nuevas.
+function Leer-Datos($fichero, $constante) {
+    $js = @"
+const M = (await import('./js/datos/$fichero')).$constante;
+for (const k of Object.keys(M)) {
+  const d = M[k];
+  const nombre = d.nombre || k;
+  const desc = d.descripcion || '';
+  const coste = d.costeBase === undefined ? '' : d.costeBase;
+  const max = d.maxNivel === undefined ? '' : d.maxNivel;
+  const arte = d.arte || '';
+  console.log([k, nombre, desc, coste, max, arte].join('\u0001'));
+}
+"@
+    # El temporal va en la RAIZ DEL REPOSITORIO y no en %TEMP%: un `import` de
+    # modulo se resuelve contra la ruta del FICHERO que lo escribe, no contra el
+    # directorio de trabajo, asi que desde %TEMP% buscaba js\datos\ dentro de
+    # %TEMP% y no lo encontraba.
+    $tmp = Join-Path $raiz ('.galeria-' + [guid]::NewGuid().ToString('N') + '.mjs')
+    [IO.File]::WriteAllText($tmp, $js)
+    $salida = & node $tmp 2>&1
+    Remove-Item $tmp -Force
+    $r = [ordered]@{}
+    foreach ($linea in $salida) {
+        $p = "$linea" -split ([char]1)
+        if ($p.Count -lt 6) { continue }
+        $r[$p[0]] = @{ nombre = $p[1]; desc = $p[2]; coste = $p[3]; max = $p[4]; arte = $p[5] }
+    }
+    if ($r.Count -eq 0) { throw "No he podido leer $constante de datos/$fichero" }
+    return $r
+}
+
 Write-Host ""
 Write-Host "Galeria del README, desde el arte real del juego"
 Write-Host ""
@@ -362,53 +400,98 @@ for ($f = 0; $f -lt $ico.frames; $f++) {
 $img.Dispose()
 Guardar $o 'arsenal.png'
 
-# --- 6. TIENDA --------------------------------------------------------------
+# --- 6. POTENCIADORES -------------------------------------------------------
 #
-# Lo que se COMPRA: las seis mascotas y los potenciadores permanentes. No es la
-# pantalla de la tienda -eso pide ejecutar el juego- pero si su contenido.
-$fichas = @(
-    @{ id = 'mascotaOreoFicha';      nombre = 'Oreo' }
-    @{ id = 'mascotaNeronFicha';     nombre = 'Neron' }
-    @{ id = 'mascotaKarimFicha';     nombre = 'Karim' }
-    @{ id = 'mascotaCleopatraFicha'; nombre = 'Cleopatra' }
-    @{ id = 'mascotaEscipionFicha';  nombre = 'Escipion' }
-    @{ id = 'mascotaHeladioFicha';   nombre = 'Heladio' }
-)
-$escF = 0.78
-$hueco = 22
-$ancho = $hueco
-foreach ($f2 in $fichas) {
-    $e = $atlas.entidades.($f2.id)
-    $ancho += [int]([math]::Round($e.w * $escF)) + $hueco
-}
-# El alto se reparte a mano y no a ojo: titulo (50) + ficha + nombre (34) +
-# la banda de potenciadores (66). Con el reparto anterior los iconos caian
-# encima de los nombres de las mascotas.
-$alto = 50 + [int]([math]::Round(160 * $escF)) + 34 + 66
+# LOS DATOS MANDAN, y esta lamina es la razon de que lo diga en voz alta: la
+# primera version se dibujo con `iconosObjetos`, una hoja de ocho iconos de 32
+# px que NO es la que usa la tienda. Los potenciadores llevan su propio arte,
+# uno por cada uno, y lo declaran ellos mismos en datos/potenciadores.js con el
+# campo `arte`. Se lee de ahi y no de una lista escrita a mano: asi no puede
+# volver a salir el arte de otro, ni faltar uno al anadirlo.
+#
+# Se leen tambien el nombre, el coste y el maximo, que es lo que convierte la
+# lamina en informacion en vez de en una fila de dibujitos.
+$pots = Leer-Datos 'potenciadores.js' 'POTENCIADORES'
+$col = 5
+$anchoCelda = 200
+$altoCelda = 176
+$filas = [math]::Ceiling($pots.Count / $col)
+$ancho = $col * $anchoCelda + 40
+$alto = $filas * $altoCelda + 74
 $o = Nuevo $ancho $alto
 Degradado $o.g $ancho $alto
-Texto $o.g 'MASCOTAS Y POTENCIADORES, LO QUE SE COMPRA CON DENARIOS' $hueco 16 11 $ORO $true $false
-$x = $hueco
-foreach ($f2 in $fichas) {
-    $e = $atlas.entidades.($f2.id)
-    $w = Fotograma $o.g $f2.id $x 50 $escF
-    Texto $o.g $f2.nombre ($x + $w / 2) (50 + [int]([math]::Round(160 * $escF)) + 8) 10 $HUESO $false $true
-    $x += $w + $hueco
+Texto $o.g 'POTENCIADORES PERMANENTES' 24 18 12 $ORO $true $false
+Texto $o.g 'Se compran con denarios y no caducan: valen en todas las partidas siguientes.' 24 44 9 $APAGADO $false $false
+
+$i = 0
+foreach ($k in $pots.Keys) {
+    $d = $pots[$k]
+    $cx = 20 + ($i % $col) * $anchoCelda + $anchoCelda / 2
+    $cy = 74 + [math]::Floor($i / $col) * $altoCelda
+    $e = $atlas.entidades.($d.arte)
+    if ($e) {
+        # Todos a la misma ALTURA y no al mismo ancho: son piezas de 88 a 128 de
+        # ancho por 112 de alto, asi que igualar la altura los alinea y respeta
+        # la proporcion de cada uno.
+        $esc = 86.0 / $e.h
+        $w = [int]([math]::Round($e.w * $esc))
+        Fotograma $o.g $d.arte ([int]($cx - $w / 2)) ($cy + 4) $esc | Out-Null
+    }
+    Texto $o.g $d.nombre $cx ($cy + 96) 10 $HUESO $true $true
+    Texto $o.g ($d.coste + ' denarios') $cx ($cy + 118) 8 $ORO $false $true
+    Texto $o.g ('hasta nivel ' + $d.max) $cx ($cy + 136) 8 $APAGADO $false $true
+    $i++
 }
-# Y la fila de potenciadores permanentes, abajo.
-$obj = $atlas.entidades.iconosObjetos
-$img = [System.Drawing.Bitmap]::FromFile((Join-Path $assets $obj.archivo))
-$ladoO = 44
-$x = $hueco
-$y = $alto - $ladoO - 14
-for ($f = 0; $f -lt $obj.frames; $f++) {
-    $dst = New-Object System.Drawing.Rectangle($x, $y, $ladoO, $ladoO)
-    $ori = New-Object System.Drawing.Rectangle(($f * $obj.w), 0, $obj.w, $obj.h)
-    $o.g.DrawImage($img, $dst, $ori, [System.Drawing.GraphicsUnit]::Pixel)
-    $x += $ladoO + 12
+Guardar $o 'potenciadores.png'
+
+# --- 7. MASCOTAS ------------------------------------------------------------
+#
+# Las OCHO, no seis: la lamina anterior se hizo mirando la carpeta de assets y
+# se dejo fuera a Plinio el Buho y al Pollito Fantasma, que estan igual de
+# presentes en datos/mascotas.js. Otra vez lo mismo — leyendo los datos no pasa.
+$mascotas = Leer-Datos 'mascotas.js' 'MASCOTAS'
+$col = 4
+$anchoCelda = 250
+$altoCelda = 214
+$filas = [math]::Ceiling($mascotas.Count / $col)
+$ancho = $col * $anchoCelda + 40
+$alto = $filas * $altoCelda + 74
+$o = Nuevo $ancho $alto
+Degradado $o.g $ancho $alto
+Texto $o.g 'LAS OCHO MASCOTAS' 24 18 12 $ORO $true $false
+Texto $o.g 'Te acompanan toda la partida, suben de nivel y cada una hace algo distinto.' 24 44 9 $APAGADO $false $false
+
+$i = 0
+foreach ($k in $mascotas.Keys) {
+    $d = $mascotas[$k]
+    $cx = 20 + ($i % $col) * $anchoCelda + $anchoCelda / 2
+    $cy = 74 + [math]::Floor($i / $col) * $altoCelda
+    $idFicha = 'mascota' + $k.Substring(0,1).ToUpper() + $k.Substring(1) + 'Ficha'
+    $e = $atlas.entidades.$idFicha
+    if ($e) {
+        $esc = 110.0 / $e.h
+        $w = [int]([math]::Round($e.w * $esc))
+        Fotograma $o.g $idFicha ([int]($cx - $w / 2)) ($cy + 4) $esc | Out-Null
+    }
+    Texto $o.g $d.nombre $cx ($cy + 122) 10 $HUESO $true $true
+    # La descripcion, partida en dos renglones por la palabra mas cercana al
+    # medio: a 8 pt caben unos 34 caracteres por linea en una celda de 250.
+    $txt = $d.desc
+    $corte = 0
+    if ($txt.Length -gt 34) {
+        $mitad = [int]($txt.Length / 2)
+        $corte = $txt.LastIndexOf(' ', $mitad + 8)
+        if ($corte -lt 8) { $corte = $txt.IndexOf(' ', $mitad) }
+    }
+    if ($corte -gt 0) {
+        Texto $o.g $txt.Substring(0, $corte) $cx ($cy + 146) 8 $APAGADO $false $true
+        Texto $o.g $txt.Substring($corte + 1) $cx ($cy + 164) 8 $APAGADO $false $true
+    } else {
+        Texto $o.g $txt $cx ($cy + 146) 8 $APAGADO $false $true
+    }
+    $i++
 }
-$img.Dispose()
-Guardar $o 'tienda.png'
+Guardar $o 'mascotas.png'
 
 Write-Host ""
 Write-Host "Hecho. Las laminas estan en $Destino\ y las referencia el README."
