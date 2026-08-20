@@ -31,13 +31,30 @@ const MAX = 4;
 // como una elipse ancha y baja. Con un círculo, la mascota subiría y bajaría lo
 // mismo que se mueve a los lados y parecería estar orbitando en vertical.
 //
-// Y CENTRADA UN POCO POR DEBAJO DE LOS PIES. El sprite del jugador sube 26
-// unidades desde su línea de pies, y las mascotas se dibujan por encima de él;
-// bajando el centro de la órbita, cuando el bicho pasa por detrás se le solapa
-// como mucho a los tobillos en vez de plantársele en la cara.
+// Y CENTRADA UN POCO POR DEBAJO DE LOS PIES, que es lo que deja media vuelta
+// por delante del jugador y media por detrás.
+//
+// SIN TAPAR AL PERSONAJE. Cualquier vuelta cerrada alrededor de alguien pasa
+// por detrás de él: no hay órbita que rodee y a la vez esquive el sprite. Así
+// que no se esquiva, se OCULTA — las mascotas de suelo entran en el mismo
+// ordenado por Y que los enemigos, los jugadores y las columnas (ver
+// `prepararOrden` y `enemigos.dibujar`), y en la mitad de arriba de la vuelta
+// el jugador se dibuja después y las tapa. Que es lo que hace un cuerpo con
+// algo que le pasa por detrás.
+// LAS MEDIDAS SALEN DEL SPRITE, no del gusto. El personaje mide 11 de ancho por
+// 26 de alto desde sus pies y la mascota más grande 14 de alto. Con el centro
+// de la elipse 4 por debajo de los pies y semieje vertical 10, el punto más
+// bajo de la vuelta —el de delante, el peligroso, porque además cae justo sobre
+// la x del jugador— deja los pies de la mascota 14 por debajo de los del
+// personaje: exactamente su propia altura, así que su cabeza roza la línea de
+// los pies del jugador y no le sube por la pierna. Las otras siete son más
+// bajas y despejan de sobra.
+//
+// El punto más alto queda 6 por encima de los pies, dentro del sprite — pero
+// ahí la mascota va POR DETRÁS y el ordenado la tapa, que es de lo que se trata.
 const ORBITA_X = 18;           // semieje horizontal, en unidades lógicas
-const ORBITA_Y = 7;            // semieje vertical: aplastado, por el escorzo
-const ORBITA_CY = 2;           // cuánto baja el centro respecto a los pies
+const ORBITA_Y = 10;           // semieje vertical: aplastado, por el escorzo
+const ORBITA_CY = 4;           // cuánto baja el centro respecto a los pies
 // Radianes por segundo. 1,15 son unos cinco segundos y medio por vuelta: se ve
 // que rodea, no que da vueltas como un satélite.
 const VEL_ORBITA = 1.15;
@@ -67,12 +84,31 @@ export const Mascotas = {
         // el resto del estado: las cuatro mascotas se crean al arrancar y no se
         // asigna una sola durante la partida.
         orbita: 0,
+        // Desplazamiento respecto a su jugador. Es lo que se suaviza, y por eso
+        // vive aquí en vez de calcularse: ver `actualizar`.
+        despX: 0, despY: 0,
+        // Para el ordenado por profundidad: el ordenador de `enemigo.js` pide a
+        // todo lo que le pasan un `yVista` y un `dibujar(ctx)`, y con eso mezcla
+        // mascotas, jugadores, obstáculos y horda en una sola pasada. La mascota
+        // no interpola —se mueve con suavizado, no a saltos— así que su yVista
+        // es su y.
+        //
+        // El cierre se crea AQUÍ, al arrancar, junto con el resto del estado: es
+        // una función por mascota y son cuatro para toda la sesión.
+        yVista: 0,
+        dibujar: null,
         mirandoDerecha: true, frame: 0, relojAnim: i * 0.13,
         // UNA MASCOTA POR JUGADOR: cada puesto lleva la suya, su nivel y lo
         // que necesita para dibujarse. Antes había una sola global.
         id: '', def: null, nivel: 0, factor: 1, idAtlas: '', frames: 1
       };
+      const m = this.activas[i];
+      m.dibujar = (ctx) => this._una(ctx, m);
     }
+    // Las mascotas que entran en el ordenado por profundidad este frame.
+    // Preasignada, como todo lo demás: nunca se crea nada en partida.
+    this.enOrden = new Array(MAX);
+    this.nEnOrden = 0;
     this.releer(null);
   },
 
@@ -132,6 +168,7 @@ export const Mascotas = {
       if (!m.viva) {                     // aparece donde esté el jugador
         m.viva = true;
         m.x = j.x; m.y = j.y;
+        m.despX = 0; m.despY = 0;        // y sale hacia su sitio desde ahí
       }
 
       // LA ÓRBITA AVANZA CON EL PASO DE LÓGICA, no con el reloj de pared: dt es
@@ -144,16 +181,32 @@ export const Mascotas = {
       m.orbita += VEL_ORBITA * dt;
       const ang = m.orbita + i * (Math.PI * 2 / MAX);
 
-      // El punto al que va, girando alrededor del jugador. La mascota NO se
-      // teletransporta ahí: lo persigue con el mismo suavizado de siempre, y ese
-      // retraso es lo que la hace parecer un bicho que corre detrás de un punto
-      // en vez de un objeto atornillado a una órbita.
-      const destinoX = j.x + Math.cos(ang) * ORBITA_X;
-      const destinoY = j.y + ORBITA_CY + Math.sin(ang) * ORBITA_Y;
+      // EL SUAVIZADO VA SOBRE EL DESPLAZAMIENTO, no sobre la posición del mundo.
+      //
+      // Persiguiendo el punto de la órbita en coordenadas de mundo, la mascota
+      // se quedaba a la zaga cuando el jugador corría: con el retraso de un
+      // quinto de segundo y sesenta unidades por segundo de carrera, el bicho
+      // aparecía DOCE unidades por detrás del anillo, o sea encima del jugador.
+      // Medido: llegaba a taparle la mitad del sprite, justo cuando se está
+      // moviendo y hace más falta verse.
+      //
+      // Suavizando el desplazamiento RELATIVO al jugador, la traslación del
+      // jugador se traslada entera y sin retraso —el anillo va con él— y el
+      // suavizado solo amortigua lo que cambia de verdad, que es el giro. Como
+      // el giro es lento, la órbita conserva su tamaño y la mascota no se mete
+      // en el sprite ni corriendo ni en zigzag.
+      const objX = Math.cos(ang) * ORBITA_X;
+      const objY = ORBITA_CY + Math.sin(ang) * ORBITA_Y;
       const k = Math.min(1, SUAVIZADO * dt);
-      const avanceX = (destinoX - m.x) * k;
-      m.x += avanceX;
-      m.y += (destinoY - m.y) * k;
+      m.despX += (objX - m.despX) * k;
+      m.despY += (objY - m.despY) * k;
+      const antX = m.x;
+      m.x = j.x + m.despX;
+      m.y = j.y + m.despY;
+      // Hacia dónde se mueve DE VERDAD, contando el arrastre del jugador: una
+      // mascota que acompaña una carrera hacia la derecha mira a la derecha
+      // aunque en ese momento le toque la mitad de atrás de la vuelta.
+      const avanceX = m.x - antX;
       m.fase += dt * 3;
       // Mira hacia donde se mueve, con una zona muerta: sin ella, el temblor
       // del suavizado cuando ya está en su sitio la haría girar sin parar.
@@ -195,62 +248,86 @@ export const Mascotas = {
   // los tapaba: un escudo que desaparece detrás del perro deja de decir dónde
   // estás protegido, que es lo único que un orbital tiene que decir.
   //
-  // Pasan por ENCIMA de las mascotas que pisan el suelo, porque un disco de
-  // sierra vuela a la altura del pecho y el perro no. Y por DEBAJO de las que
-  // vuelan —el búho y el pollito fantasma, `vuela` en datos/mascotas.js— que
-  // están por encima de todo eso. La altura del sprite manda sobre el orden.
+  // Pasan por ENCIMA de todas las mascotas, también de las que vuelan: desde que
+  // las ocho entran en el ordenado por profundidad se dibujan con la horda, o
+  // sea antes que los orbitales. Es el precio de que el jugador pueda taparlas,
+  // y sale a cuenta — un escudo que se ve siempre importa más que un búho que
+  // pase por encima de él.
+  // LAS MASCOTAS NO SE DIBUJAN AQUÍ, se entregan al ordenador por profundidad.
   //
-  // `soloVuelan`: null dibuja todas (por si alguien quiere una sola pasada),
-  // false solo las de suelo, true solo las voladoras. Ver el orden en main.js.
-  dibujar(ctx, jugadores, soloVuelan = null) {
-    ctx.save();
+  // Devuelve cuántas ha dejado en `this.enOrden` para que main.js se las pase a
+  // `enemigos.dibujar`, que las mezcla con la horda, los jugadores y las
+  // columnas en una sola pasada ordenada por Y.
+  //
+  // ENTRAN TAMBIÉN LAS QUE VUELAN. El búho y el pollito fantasma se pintaban por
+  // encima de todo porque vuelan más alto que un escudo orbital, y eso es cierto
+  // — pero también los ponía delante de la cara del jugador media vuelta de cada
+  // vuelta, que es justo lo que no puede pasar. Entre ganar la discusión con los
+  // orbitales y no taparle la cara al personaje, gana el personaje.
+  //
+  // Se ordenan por su `y` de suelo, la que persigue la órbita, no por la altura
+  // a la que se dibujan: el flote es un adorno de dibujado y usarlo aquí haría
+  // que el bicho cambiase de capa al subir y bajar.
+  prepararOrden(jugadores) {
+    let n = 0;
     for (let i = 0; i < jugadores.length && i < MAX; i++) {
       const m = this.activas[i];
       if (!m.viva || !m.def) continue;
-      const d = m.def;
-      if (soloVuelan !== null && !!d.vuela !== soloVuelan) continue;
-      const idAtlas = m.idAtlas;
-      const meta = Recursos.meta(idAtlas);
-
-      // SOLO FLOTAN LAS QUE VUELAN. El balanceo lo tenían las ocho, y a las que
-      // andan las dejaba levitando: ya tienen su animación de patas, que es lo
-      // que cuenta que caminan, y el vaivén encima las despegaba del suelo. El
-      // búho y el pollito fantasma sí lo conservan, que es lo que dice que no
-      // pisan (ver `vuela` en datos/mascotas.js).
-      //
-      // Y NINGUNA LLEVA SOMBRA. La tenían para no parecer pegadas al cristal,
-      // pero no la lleva nadie más —ni los personajes ni los enemigos— así que
-      // la mascota era lo único del mundo con una elipse negra debajo, y eso se
-      // notaba más que el problema que resolvía.
-      const y = d.vuela ? m.y + Math.sin(m.fase) * FLOTE : m.y;
-
-      if (meta) {
-        const img = m.mirandoDerecha ? Recursos.imagen(idAtlas) : Recursos.espejo(idAtlas);
-        if (img) {
-          const w = meta.w / ESCALA_ARTE;
-          const h = meta.h / ESCALA_ARTE;
-          // La copia espejada está volteada FOTOGRAMA A FOTOGRAMA (ver
-          // recursos.js), así que el índice vale igual en las dos y la
-          // animación no corre del revés al girar.
-          ctx.drawImage(img, m.frame * meta.w, 0, meta.w, meta.h,
-                        m.x - w / 2, y - h, w, h);
-          continue;
-        }
-      }
-
-      ctx.beginPath();
-      ctx.arc(m.x, y, RADIO_DIBUJO, 0, Math.PI * 2);
-      ctx.fillStyle = d.color;
-      ctx.fill();
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = 'rgba(8,7,10,.75)';
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(12,10,14,.8)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = '700 6px sans-serif';
-      ctx.fillText(d.inicial, m.x, y + 0.5);
+      m.yVista = m.y;
+      this.enOrden[n++] = m;
     }
+    this.nEnOrden = n;
+    return n;
+  },
+
+  // Una mascota, en la posición en la que esté. No la llama nadie directamente:
+  // la invoca el ordenador por profundidad, mascota a mascota, a través del
+  // cierre `m.dibujar` que se prepara en `iniciar`.
+  _una(ctx, m) {
+    ctx.save();
+    const d = m.def;
+    const idAtlas = m.idAtlas;
+    const meta = Recursos.meta(idAtlas);
+
+    // SOLO FLOTAN LAS QUE VUELAN. El balanceo lo tenían las ocho, y a las que
+    // andan las dejaba levitando: ya tienen su animación de patas, que es lo
+    // que cuenta que caminan, y el vaivén encima las despegaba del suelo. El
+    // búho y el pollito fantasma sí lo conservan, que es lo que dice que no
+    // pisan (ver `vuela` en datos/mascotas.js).
+    //
+    // Y NINGUNA LLEVA SOMBRA. La tenían para no parecer pegadas al cristal,
+    // pero no la lleva nadie más —ni los personajes ni los enemigos— así que
+    // la mascota era lo único del mundo con una elipse negra debajo, y eso se
+    // notaba más que el problema que resolvía.
+    const y = d.vuela ? m.y + Math.sin(m.fase) * FLOTE : m.y;
+
+    if (meta) {
+      const img = m.mirandoDerecha ? Recursos.imagen(idAtlas) : Recursos.espejo(idAtlas);
+      if (img) {
+        const w = meta.w / ESCALA_ARTE;
+        const h = meta.h / ESCALA_ARTE;
+        // La copia espejada está volteada FOTOGRAMA A FOTOGRAMA (ver
+        // recursos.js), así que el índice vale igual en las dos y la
+        // animación no corre del revés al girar.
+        ctx.drawImage(img, m.frame * meta.w, 0, meta.w, meta.h,
+                      m.x - w / 2, y - h, w, h);
+        ctx.restore();
+        return;
+      }
+    }
+
+    ctx.beginPath();
+    ctx.arc(m.x, y, RADIO_DIBUJO, 0, Math.PI * 2);
+    ctx.fillStyle = d.color;
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(8,7,10,.75)';
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(12,10,14,.8)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '700 6px sans-serif';
+    ctx.fillText(d.inicial, m.x, y + 0.5);
     ctx.restore();
   },
 

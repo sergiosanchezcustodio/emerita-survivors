@@ -1790,7 +1790,15 @@ function dibujar(alpha) {
   // por debajo de la horda, que es justo para lo que está.
   recogibles.dibujar(ctx, alpha);
   cofres.dibujar(ctx, alpha);
-  enemigos.dibujar(ctx, camara, alpha, jugadores, Obstaculos);
+  // LAS MASCOTAS ENTRAN EN EL ORDENADO POR PROFUNDIDAD, no se pintan después.
+  //
+  // Dan vueltas alrededor de su jugador y buena parte de la vuelta la hacen por
+  // detrás de él: si se dibujan al final, se le plantan en la cara. Metiéndolas
+  // aquí, con la horda y las columnas, el jugador las tapa cuando le pasan por
+  // detrás — que es lo que hace un cuerpo con lo que tiene detrás.
+  const nMascotas = Mascotas.prepararOrden(jugadores);
+  enemigos.dibujar(ctx, camara, alpha, jugadores, Obstaculos,
+                   Mascotas.enOrden, nMascotas);
   perfil.entidades = performance.now() - t;
 
   // Por encima de las entidades: los efectos tienen que leerse siempre, aunque
@@ -1807,21 +1815,18 @@ function dibujar(alpha) {
     // cosa dibujada por otro camino (ver VFX.haz).
     VFX.dibujarHaces(ctx);
   }
-  // LAS MASCOTAS, EN DOS MITADES, CON LOS ORBITALES EN MEDIO.
+  // LAS MASCOTAS YA ESTÁN DIBUJADAS, con la horda, unas líneas más arriba: van
+  // dentro del ordenado por profundidad para que su jugador pueda taparlas
+  // cuando la vuelta pasa por detrás de él.
   //
-  // Primero las que pisan el suelo. Un disco de sierra o un escudo giran a la
-  // altura del pecho del jugador y la mascota se los comía: un orbital que
+  // Eso las deja por debajo de los orbitales, que además es donde interesa: un
+  // disco de sierra o un escudo giran a la altura del pecho, y un orbital que
   // desaparece detrás del perro deja de decir dónde estás protegido.
-  Mascotas.dibujar(ctx, jugadores, false);
   if (activo.efectos) {
     for (let i = 0; i < arsenales.length; i++) {
       arsenales[i].dibujarOrbitales(ctx, jugadores[i]);
     }
   }
-  // Y luego las voladoras, que quedan por encima de los orbitales: el búho y el
-  // pollito fantasma vuelan más alto que un escudo. Manda la altura, no el
-  // sistema al que pertenece cada cosa.
-  Mascotas.dibujar(ctx, jugadores, true);
 
   // Los disparos enemigos, por encima de todo lo del mundo: uno que viene tiene
   // que verse aunque cruce por detrás de un cíclope.

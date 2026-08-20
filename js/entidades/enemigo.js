@@ -1138,7 +1138,11 @@ export class Enemigos {
     ctx.restore();
   }
 
-  dibujar(ctx, camara, alpha, jugadores, obstaculos) {
+  // `extras`/`nExtras` son cosas sueltas que quieren entrar en el ordenado por
+  // profundidad sin pertenecer a ningún pool de aquí: hoy, las mascotas que
+  // pisan el suelo. Basta con que cada una traiga un `yVista` y un
+  // `dibujar(ctx)`, igual que los jugadores y los obstáculos.
+  dibujar(ctx, camara, alpha, jugadores, obstaculos, extras = null, nExtras = 0) {
     const items = this.pool.items;
     const n = this.pool.activos;
     const izq = camara.izquierda;
@@ -1200,6 +1204,17 @@ export class Enemigos {
         while (p > 0 && ordenJ[p - 1].yVista > o.yVista) { ordenJ[p] = ordenJ[p - 1]; p--; }
         ordenJ[p] = o;
       }
+    }
+    // Y los extras, por el mismo camino. Van los últimos en insertarse pero la
+    // inserción los coloca por su y, así que una mascota que orbita por encima
+    // de los pies de su jugador acaba ANTES que él en la lista y el jugador la
+    // tapa al dibujarse encima. Es lo único que hace falta para que la vuelta
+    // pase por detrás del personaje en vez de por delante de su cara.
+    for (let i = 0; i < nExtras; i++) {
+      const x = extras[i];
+      let p = nj++;
+      while (p > 0 && ordenJ[p - 1].yVista > x.yVista) { ordenJ[p] = ordenJ[p - 1]; p--; }
+      ordenJ[p] = x;
     }
     let sigJugador = 0;
 
