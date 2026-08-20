@@ -1,21 +1,38 @@
+<div align="center">
+
+<img src="docs/capturas/main_menu.jpg" alt="Emerita Survivors" width="100%">
+
 # Emerita Survivors
 
-Survivors-like ambientado en la Extremadura romana. HTML5 Canvas 2D puro,
-módulos ES6 nativos, cero dependencias externas. Empieza en Emerita Augusta
-(Mérida); el plan es recorrer la región — Cáceres, Trujillo, Monfragüe,
-Guadalupe, el puente de Alcántara — añadiendo un nivel a la vez.
+**Un survivors-like en la Extremadura romana.** Aguanta treinta minutos entre las
+ruinas de Emerita Augusta mientras la horda crece, sube de nivel eligiendo entre
+tres armas cada vez, y acaba con la Loba Capitolina.
 
-## Ejecutar
+[![HTML5 Canvas](https://img.shields.io/badge/HTML5-Canvas%202D-e34f26?style=flat-square)](#)
+[![ES6](https://img.shields.io/badge/JavaScript-m%C3%B3dulos%20ES6-f7df1e?style=flat-square)](#)
+[![Sin dependencias](https://img.shields.io/badge/dependencias-cero-2ea043?style=flat-square)](#)
+[![Sin build](https://img.shields.io/badge/build-ninguno-2ea043?style=flat-square)](#)
+[![Armas](https://img.shields.io/badge/armas-57-e2c27a?style=flat-square)](#)
+[![Cooperativo](https://img.shields.io/badge/cooperativo-hasta%204-e2c27a?style=flat-square)](#)
 
-```
+</div>
+
+---
+
+## Jugar
+
+```bash
 python -m http.server 8000
 ```
 
-Abrir `http://localhost:8000`. No hay paso de build: es JS servido tal cual.
+Abrir `http://localhost:8000`. **No hay paso de build**: es JavaScript servido tal
+cual. Sin `npm install`, sin bundler, sin transpilar. Se edita un fichero, se
+recarga la pestaña y ya está.
 
-## Aplicación de escritorio (Windows)
+<details>
+<summary><b>Aplicación de escritorio para Windows</b></summary>
 
-```
+```powershell
 powershell -ExecutionPolicy Bypass -File herramientas\empaquetar.ps1
 ```
 
@@ -26,13 +43,208 @@ empaquetado como aplicación, 200 MB— y lo deja en caché; las siguientes tard
 segundos.
 
 El código del juego NO se compila ni se toca: los mismos `index.html`, `js/` y
-`assets/` que sirve el servidor local van tal cual dentro del ejecutable. Por eso
-esto es una carpeta aparte y no una forma distinta de construir el proyecto.
+`assets/` que sirve el servidor local van tal cual dentro del ejecutable.
 
 **El resultado ocupa 520 MB y no entra en el repositorio**: una sola DLL de
 Chromium pesa 297 y GitHub rechaza ficheros de más de 100 MB. Lo que se versiona
 es el script; el ejecutable se genera cuando hace falta y se reparte como
 release. Con `-Zip` sale además el comprimido listo para enviar (200 MB).
+
+</details>
+
+---
+
+## La partida
+
+Te mueves, las armas disparan solas. Cada gema que recoges te acerca al siguiente
+nivel, y cada nivel son tres armas u objetos entre los que elegir. La horda no
+para de crecer: al minuto 16 hay cientos de cuerpos en pantalla a la vez.
+
+![Partida](docs/capturas/gameplay_un_jugador.jpg)
+
+Treinta minutos, tres jefes por el camino y un contador que no perdona.
+
+---
+
+## Cooperativo local
+
+Hasta **cuatro jugadores** en la misma pantalla, cada uno con su panel en una
+esquina. Quien cae deja un ataúd y un contador, y cualquiera puede ir a
+levantarlo.
+
+![Cooperativo](docs/capturas/gameplay_multiplayer_coop.jpg)
+
+La cámara va con **correa**: sigue al centro del grupo y quien se queda atrás topa
+con el borde, como en los beat'em ups de toda la vida. Es una consecuencia de
+diseño, no una limitación — el juego corre a 480×270 con escalado entero, y
+alejar la cámara al abrirse el grupo rompería la rejilla de píxeles que le da la
+nitidez.
+
+Cada mando que se enchufa suma un jugador con la partida en marcha, o `J` desde
+el teclado.
+
+---
+
+## Los cuatro
+
+Cada personaje lleva **su** arma, la que nadie más puede llevar. En cooperativo
+eso garantiza que los cuatro arrancan jugando distinto, y el sorteo de subida de
+nivel se encarga de que sigan sin repetirse.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/capturas/menu_seleccion_jugadores.jpg" alt="Selección de personaje"></td>
+<td width="50%"><img src="docs/capturas/menu_seleccion_mascotas.jpg" alt="Selección de mascota"></td>
+</tr>
+</table>
+
+![Personajes](docs/personajes.png)
+
+Y cada uno elige mascota: el conejo, el gato, el perro, la gallina, la tortuga o
+el hámster. Suben de nivel y pelean contigo.
+
+---
+
+## La ficha
+
+En cualquier momento de la partida, `Tab` abre la ficha del jugador: vida,
+experiencia, las seis estadísticas, las armas con su nivel y los objetos que
+llevas.
+
+![Ficha de jugador](docs/capturas/ficha_jugador.jpg)
+
+---
+
+## El bestiario
+
+De la serpiente que huye a la Loba Capitolina. **A escala real entre ellos**: el
+mismo factor para todos, para que la diferencia de tamaño sea la de verdad y no
+la que resultara cómoda de maquetar.
+
+![Bestiario](docs/bestiario.png)
+
+Cerbero entra en el minuto 10, la Hidra en el 20 y la Loba cierra la partida. Los
+demás van llegando por oleadas, con élites que sueltan cofre y variantes doradas
+que huyen en vez de perseguir.
+
+---
+
+## El arsenal
+
+**57 armas**, tres opciones cada vez que subes de nivel, y evoluciones que piden
+un arma al 8 más su pasivo y un cofre de élite.
+
+![Arsenal](docs/arsenal.png)
+
+Desde el pilum y el gladius hasta el lanzallamas, las minas de proximidad, los
+satélites en órbita y la tormenta de rayos de Júpiter. La ambientación va
+mezclada a propósito: honda balear junto a subfusil. Es una decisión tomada, no
+un descuido — Mérida es una ciudad romana en la que vive gente hoy.
+
+---
+
+## Efectos generados por código
+
+Ni un solo efecto está dibujado a mano. Los 41 se **hornean por fórmula** con
+`herramientas/generar-efectos.ps1`, offline y sin dependencias.
+
+![Efectos](docs/efectos.png)
+
+La observación que lo hace posible es que casi todo esto es geometría: una luna
+son dos circunferencias y una resta, una red de pesca es una malla de rombos, y
+lo que separa un pilum de una lanza y de un virote no es el dibujo sino las
+proporciones — los tres salen de la misma función con otros números.
+
+Lo que se gana frente a recortar de una lámina: la secuencia **existe de verdad**
+(una explosión es el mismo dibujo evaluado en otro instante), el color es un
+parámetro, es determinista —misma semilla, mismo PNG byte a byte— y se puede
+reajustar mil veces sin coste.
+
+Y cada familia trae su **comprobación por texto**, que es lo que evita abrir un
+PNG para saber si algo salió bien: radio creciente, fotogramas vacíos, cobertura
+del aro, píxeles de lámpara. Ese control ha cazado una red que era un disco con
+agujeritos, unos pinchos apelotonados con un cuadrante vacío y una luz que nunca
+llegó al fichero.
+
+---
+
+## Progreso entre partidas
+
+Los denarios sobreviven a la muerte. La tienda tiene tres secciones y los cofres
+de élite abren una ruleta.
+
+<table>
+<tr>
+<td width="33%"><img src="docs/capturas/tienda_potenciadores.jpg" alt="Potenciadores"><p align="center"><b>Potenciadores</b></p></td>
+<td width="33%"><img src="docs/capturas/tienda_mascotas.jpg" alt="Mascotas"><p align="center"><b>Mascotas</b></p></td>
+<td width="33%"><img src="docs/capturas/tienda_jugadores.jpg" alt="Jugadores"><p align="center"><b>Jugadores</b></p></td>
+</tr>
+</table>
+
+![Tienda](docs/tienda.png)
+
+---
+
+## Cómo está hecho
+
+**Restricciones no negociables**, y se cumplen todas:
+
+| | |
+|---|---|
+| **Cero dependencias** | Solo HTML/CSS/JS con módulos ES6 nativos |
+| **Canvas 2D puro** | Nada de WebGL ni librerías |
+| **Object pooling** | Cero `new` durante la partida: todo se preasigna |
+| **Spatial hash** | Colisiones nunca N² |
+| **480×270** | Escalado entero, `imageSmoothingEnabled = false` |
+| **Reproducible** | Misma semilla, mismas oleadas |
+
+### Cuatro carpetas
+
+- **`js/core/`** — motor: bucle de juego, entrada, cámara, RNG con semilla,
+  carga de recursos, pool de objetos, spatial hash.
+- **`js/datos/`** — **datos puros, cero lógica.** Bestiario, armas, pasivos,
+  potenciadores, personajes, jefes y niveles. Todo lo que un balance nuevo
+  necesita tocar vive aquí, nunca en `sistemas/`.
+- **`js/sistemas/`** — la lógica que LEE esos datos: director de oleadas,
+  colisiones, armas, progresión, jefes, audio.
+- **`js/entidades/`** y **`js/ui/`** — lo que se mueve por pantalla y lo que se
+  dibuja encima.
+
+### Rendimiento
+
+Objetivo del plan: 800 entidades activas a 60 fps. Medido llenando el pool de
+enemigos por encima de su objetivo con `E.avanzar(60)` desde la consola —
+midiendo el paso de lógica en sí, no los fps que reporta la pestaña:
+
+```
+1000/1000 enemigos activos  →  5,91 ms de lógica  +  2,7 ms de render
+```
+
+Bien por debajo de los 16,6 ms que exige 60 fps, con margen de sobra.
+
+<details>
+<summary><b>Opciones</b></summary>
+
+<img src="docs/capturas/menu_configuracion.jpg" alt="Configuración" width="100%">
+
+</details>
+
+---
+
+## Herramientas
+
+Todas offline, en PowerShell y sin dependencias. Ninguna forma parte del juego.
+
+| Herramienta | Qué hace |
+|---|---|
+| `jugar.ps1` | Levanta el servidor y abre el juego (`jugar.bat` a doble clic) |
+| `procesar-assets.ps1` | Convierte `resources/` en sprites y escribe el atlas |
+| `generar-efectos.ps1` | Hornea por código las 41 hojas de efectos |
+| `montar-galeria.ps1` | Compone las láminas de este README, y con `-Capturas` normaliza las capturas de pantalla |
+| `ver-assets.ps1` | Describe imágenes sin abrirlas |
+| `empaquetar.ps1` | Genera la aplicación de escritorio |
+
+---
 
 ## Estado
 
@@ -40,212 +252,37 @@ Fases 1-8 del plan completas (`prompt-emerita-survivors.md`): movimiento y
 combate, oleadas, armas y progresión, escenario con objetos sólidos y ancho
 limitado, los tres jefes y presentación completa.
 
-Y por encima del plan, lo pedido después: cooperativo local hasta cuatro
-jugadores con reanimación, mascotas con niveles, tienda de tres secciones
-—potenciadores, mascotas y jugadores—, ruleta en los cofres, resumen final por
-jugador, música compuesta y esta aplicación de escritorio.
-Perfilado en `js/sistemas/audio.js` § "Perfilado de rendimiento" más abajo.
+Y por encima del plan, lo pedido después: cooperativo local con reanimación,
+mascotas con niveles, tienda de tres secciones, ruleta en los cofres, resumen
+final por jugador, música compuesta y aplicación de escritorio.
 
-## Arquitectura, en cuatro carpetas
+**Lo que viene**: recorrer la región — Cáceres, Trujillo, Monfragüe, Guadalupe,
+el puente de Alcántara — añadiendo un nivel a la vez. El contrato para escribir
+uno está en **[docs/anadir-un-nivel.md](docs/anadir-un-nivel.md)**, con lo que es
+copiar un fichero de datos y lo que todavía obliga a tocar código.
 
-- `js/core/` — motor: bucle de juego, entrada, cámara, RNG con semilla,
-  carga de recursos, pool de objetos, spatial hash.
-- `js/datos/` — **datos puros, cero lógica.** Bestiario, armas, pasivos,
-  potenciadores, personajes, jefes y niveles. Todo lo que un balance nuevo
-  necesita tocar vive aquí, nunca en `sistemas/`.
-- `js/sistemas/` — la lógica que LEE esos datos: director de oleadas,
-  colisiones, armas, progresión, jefes, audio.
-- `js/entidades/` y `js/ui/` — las cosas que se mueven por pantalla y las
-  que se dibujan encima.
+---
 
-## El contrato de un nivel
+<details>
+<summary><b>Nota sobre las imágenes de este README</b></summary>
 
-`js/datos/niveles/merida.js` exporta un único objeto `NIVEL`. Un nivel nuevo
-es, en el caso ideal, copiar ese archivo y cambiar los valores — sin tocar
-nada de `sistemas/` ni de `ui/`. La forma real (la que lee el código hoy, no
-un boceto) es esta:
+Hay dos clases, y conviene no confundirlas:
 
-```js
-export const NIVEL = {
-  id: 'merida',                // clave interna: nombra el atlas de assets,
-                                // 'merida-suelo.png', 'merida' + sprite, etc.
-  nombre: 'Emerita Augusta',
-  subtitulo: 'Las ruinas del Imperio',
-  duracion: 1800,               // segundos que dura la partida (30 min)
+- **Capturas de pantalla** (`docs/capturas/`) — el juego funcionando. Salen de
+  jugar y fotografiar, reducidas a 960 de ancho con
+  `montar-galeria.ps1 -Capturas`. Se bajaron de 43,6 MB a 1,5 MB: 960 porque la
+  columna de un README en GitHub mide unos 900 px, y todo lo más ancho lo reduce
+  el navegador emborronando el pixel art.
+- **Láminas compuestas** (`docs/`) — bestiario, personajes, arsenal, efectos y
+  tienda. No son capturas: son sprites recortados de sus hojas y colocados sobre
+  el suelo del nivel, que genera `montar-galeria.ps1` leyendo el atlas. Se
+  rehacen solas cuando cambia el arte, que es justo lo que unas capturas hechas
+  a mano no hacen.
 
-  paleta: { arena: '#b99b6b', /* ... */ },      // colores del suelo procedural
-                                                  // de emergencia (sin PNG)
-  interfaz: {                                    // tema visual de menús: pausa,
-    ornamento: 'romano',                         // derrota/victoria, subida de
-    fondo: '#2b2e33', /* ... */                  // nivel — lo lee ui/tema.js
-  },
+</details>
 
-  suelo: {                      // ui/... si no hay `imagen`, o si no carga,
-    imagen: 'niveles/merida-suelo.png',   // el nivel sigue siendo jugable con
-    variantes: 4, base: 'arena',          // el suelo procedural de `paleta`
-    motas: ['arenaOscura', 'piedra', 'caliza'],
-    densidadMotas: 42, grietas: 2
-  },
-
-  // Curva de oleadas: array de FUENTES. Cada una está viva entre `desde` y
-  // `hasta` (segundos), suelta `cantidad` enemigos cada `cada` segundos con
-  // un `patron` ('anillo' | 'linea' | 'oleada' | 'cerco' | 'individual'),
-  // eligiendo el tipo al azar de `tipos`. Los ids de `tipos` son claves del
-  // catálogo GLOBAL y COMPARTIDO en datos/enemigos.js — hoy no hay bestiario
-  // por nivel; si Cáceres necesita un monstruo que Mérida no tiene, se añade
-  // como entrada nueva a ese catálogo global.
-  eventos: [
-    { desde: 0, hasta: 120, patron: 'anillo', cada: 0.37, cantidad: 2,
-      tipos: ['serpiente'] },
-    // 'individual' es el patrón de los élites: entra UNA vez al abrir su
-    // ventana, no cuenta contra el techo de densidad, y admite `aviso` (el
-    // texto que anuncia un élite o un jefe al entrar).
-    { desde: 300, hasta: 302, patron: 'individual', cada: 60, cantidad: 1,
-      tipos: ['manticora'], aviso: 'MANTICORA' }
-  ],
-
-  // Techo de enemigos vivos a la vez, interpolado entre marcas — un freno de
-  // rendimiento, no un objetivo de diseño. Sin marca para t > la última, se
-  // queda en el valor de la última (ver `topeEn` en sistemas/director.js).
-  densidad: [
-    { t: 0, max: 90 },
-    { t: 1200, max: 850 }
-  ],
-
-  // Vida y daño de cada enemigo se multiplican por 1 + factor * minutos al
-  // aparecer. La velocidad NO escala nunca (bestiario ilegible si acelera).
-  escalado: { vida: 0.11, danyo: 0.05 },
-
-  // Momentos en los que entra un JEFE DE VERDAD, aparte del final (ver más
-  // abajo). `jefe` es una clave dentro de `jefes`, así que el director
-  // resuelve el tipo sin saber nada de Cerbero ni de la Loba.
-  hitos: [
-    { t: 600, texto: 'CERBERO', jefe: 'intermedio' }
-  ],
-
-  // Objetos sólidos del escenario (columnas, antorchas, estatuas, ruinas),
-  // repetidos cada vez que el tile de suelo repite. Coordenadas LOCALES al
-  // tile (0..ancho, 0..alto), no de mundo. `tipo` es un id del atlas de
-  // objetos que procesa herramientas/procesar-assets.ps1.
-  decoracion: [
-    { tipo: 'columna', x: 186, y: 50 }
-  ],
-
-  // Los tres jefes del nivel. `intermedio`, `segundo` y `final` son claves
-  // que apuntan a entradas de datos/jefes.js — ver el aviso importante más
-  // abajo sobre qué significa reutilizar una de esas tres claves.
-  jefes: { intermedio: 'cerbero', segundo: 'hidra', final: 'loba',
-           escolta: 'gemelo', avisoFinal: 'LA LOBA CAPITOLINA' }
-  // Sin campo `musica`: la Fase 7 sustituyó los ficheros de audio previstos
-  // originalmente por síntesis procedural (sistemas/audio.js). No hay nada
-  // que referenciar desde un nivel — el audio no depende del nivel en curso.
-};
-```
-
-### Lo que NO es "solo copiar el archivo de datos" (todavía)
-
-El contrato de arriba es real, pero hay dos sitios donde un nivel nuevo sí
-obliga a tocar código, y conviene saberlo antes de prometer que Cáceres es
-gratis:
-
-1. **Los jefes tienen comportamiento a medida, no genérico.**
-   `sistemas/jefes.js` reconoce por nombre exactamente tres tipos —
-   `'cerbero'`, `'hidra'`, `'loba'`— y cada uno lleva su propia máquina de
-   estados (fases, conos de fuego, veneno, furia...). Un nivel nuevo puede
-   **reutilizar** cualquiera de los tres (con su propio nombre de aviso y
-   sus propios números de escalado, vía `datos/jefes.js`) sin escribir una
-   sola línea de lógica. Pero un jefe con un comportamiento genuinamente
-   distinto —no una Loba con más vida, sino un enemigo que hace algo que
-   ninguno de los tres hace hoy— necesita una función `actualizarNombre(...)`
-   nueva en `sistemas/jefes.js`, siguiendo el mismo patrón que las tres que
-   ya existen.
-
-2. **El pipeline de assets está escrito para el nivel 1, no en bucle.**
-   `herramientas/procesar-assets.ps1` espera el arte en
-   `resources/stages/<n>/` (mapa, objetos de escenario, bestiario si trae
-   ilustraciones propias) y hoy tiene las rutas de `stages\1\...` escritas a
-   mano en sus tablas de configuración (`$SUELOS`, la lista de objetos del
-   escenario, etc.). Añadir Cáceres implica **añadir sus propias entradas
-   en esas tablas** (`stages\2\...` → `dst='niveles\caceres-suelo.png'`,
-   etc.), no solo dejar caer los PNG en una carpeta y esperar a que el
-   script los encuentre solo.
-
-3. **Hoy solo se carga un nivel: no hay selector.** `js/main.js` importa
-   `NIVEL` de un único sitio fijo (`import { NIVEL } from
-   './datos/niveles/merida.js'`). Con un segundo archivo de datos ya
-   escrito, jugarlo hoy es cambiar esa línea de import; construir un menú
-   de selección de nivel de verdad es trabajo aparte, no incluido en el
-   contrato de datos.
-
-### Ejemplo comentado: añadir Cáceres como nivel 2
-
-```js
-// js/datos/niveles/caceres.js
-//
-// Copiado de merida.js y con los números cambiados. Mientras Cáceres
-// reutilice el bestiario y los tres jefes existentes (solo con otro nombre
-// y otra curva de escalado), esto es TODO lo que hace falta escribir aquí.
-
-export const NIVEL = {
-  id: 'caceres',
-  nombre: 'Norba Caesarina',
-  subtitulo: 'La ciudad amurallada',
-  duracion: 1800,
-
-  paleta: { /* ocres de la muralla, en vez de los de Mérida */ },
-  interfaz: { /* mismo formato que merida.js, otra paleta */ },
-
-  suelo: {
-    imagen: 'niveles/caceres-suelo.png',   // sale de resources/stages/2/...
-    variantes: 4, base: 'piedra',
-    motas: ['piedraOscura', 'musgo'], densidadMotas: 38, grietas: 3
-  },
-
-  // Puede EMPEZAR copiando los eventos de Mérida tal cual y solo retocar
-  // cadencias/cantidades: la curva ya está una vez validada jugando, y
-  // reescribirla desde cero es tirar ese trabajo.
-  eventos: [ /* ... */ ],
-  densidad: [ /* ... */ ],
-  escalado: { vida: 0.12, danyo: 0.05 },   // un pelín más duro que Mérida
-
-  hitos: [
-    { t: 600, texto: 'CERBERO', jefe: 'intermedio' }
-  ],
-  decoracion: [ /* columnas/estatuas medidas sobre caceres-suelo.png */ ],
-
-  // Reutiliza los tres jefes SIN tocar sistemas/jefes.js: solo cambian el
-  // nombre de aviso y los números de datos/jefes.js si se quiere que
-  // pegue distinto que en Mérida.
-  jefes: { intermedio: 'cerbero', segundo: 'hidra', final: 'loba',
-           escolta: 'gemelo', avisoFinal: 'EL LOBO DE LA MURALLA' }
-};
-```
-
-Para jugarlo: `herramientas/procesar-assets.ps1` necesita sus propias
-entradas para `stages\2\...` (ver el aviso 2 de arriba), y `js/main.js`
-necesita importar `NIVEL` desde `caceres.js` en vez de `merida.js` (aviso 3)
-hasta que exista un selector de nivel de verdad.
-
-## Perfilado de rendimiento
-
-Objetivo del plan: 800 entidades activas a 60 fps (`ESCALA_ARTE` es la
-válvula de escape si algún día no se sostiene — bajarla a 1 devuelve
-rendimiento sin tocar una constante de balance).
-
-Medido llenando el pool de enemigos a su capacidad máxima (1000/1000, por
-encima del objetivo) con `E.avanzar(60)` desde la consola del navegador —
-midiendo el paso de lógica en sí, no los fps que reporta la pestaña, que en
-un navegador automatizado en segundo plano se acota artificialmente por
-`requestAnimationFrame`:
-
-```
-1000/1000 enemigos activos → 5.91 ms de lógica por paso, 2.7 ms de render
-```
-
-Bien por debajo de los 16.6 ms que exige 60 fps, con margen de sobra. No
-hizo falta ningún cambio de rendimiento en esta pasada.
-
-## Claude Code Setup
+<details>
+<summary><b>Claude Code setup</b></summary>
 
 First time running Claude Code on this machine?
 
@@ -257,4 +294,7 @@ This script copies the recommended Claude Code settings:
 - **Effort**: low (optimized for balance tweaks & graphics)
 - **Model**: claude-opus-5 (best performance/cost)
 
-If you want to use different settings, edit `~/.claude/settings.json` locally (not in repo).
+If you want to use different settings, edit `~/.claude/settings.json` locally
+(not in repo).
+
+</details>
