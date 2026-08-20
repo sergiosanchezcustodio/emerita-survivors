@@ -35,7 +35,10 @@ param(
     [string]$Version = 'v0.114.2',
     # Comprimir el resultado en un zip listo para enviar. Tarda un par de
     # minutos, asi que no se hace salvo que se pida.
-    [switch]$Zip
+    [switch]$Zip,
+    # Refrescar SOLO el juego dentro de una build que ya existe, sin volver a
+    # copiar el runtime de NW.js.
+    [switch]$Actualizar
 )
 
 $ErrorActionPreference = 'Stop'
@@ -45,6 +48,33 @@ $RAIZ    = Split-Path -Parent $PSScriptRoot
 $CACHE   = Join-Path $PSScriptRoot 'lanzador\cache'
 $SALIDA  = Join-Path $RAIZ 'dist\emerita-survivors-win64'
 $APP     = Join-Path $SALIDA 'package.nw'
+
+# ---------------------------------------------------------------------------
+# ACTUALIZAR: solo el juego, sin tocar el runtime
+# ---------------------------------------------------------------------------
+#
+# El ejecutable son 520 MB de los que 519 son Chromium y uno es el juego. Cuando
+# lo unico que ha cambiado es el juego -que es SIEMPRE, salvo la primera vez-
+# rehacerlo entero es copiar medio giga para nada.
+#
+# Y hace falta un atajo porque si no pasa lo que ya paso: se prueba con el .exe
+# de hace dias, se ve el fallo que ya estaba arreglado, y se busca en el sitio
+# equivocado. Una build vieja miente igual que un dato viejo.
+if ($Actualizar) {
+    if (-not (Test-Path $APP)) {
+        throw "No hay build que actualizar en $APP. Genera una primero sin -Actualizar."
+    }
+    foreach ($d in @('css', 'js', 'assets')) {
+        $dst = Join-Path $APP $d
+        if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
+        Copy-Item (Join-Path $RAIZ $d) $APP -Recurse -Force
+    }
+    Copy-Item (Join-Path $RAIZ 'index.html') $APP -Force
+    "Juego actualizado dentro de $APP"
+    "El runtime de NW.js no se ha tocado."
+    return
+}
+
 $EXE     = 'Emerita Survivors.exe'
 
 # Recorte del icono sobre la ilustracion del titulo: el aguila con la corona de
