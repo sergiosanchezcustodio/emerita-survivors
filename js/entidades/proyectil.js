@@ -11,9 +11,20 @@ import { Recursos } from '../core/recursos.js';
 // una jabalina de 8 píxeles dibujada como trazo siempre estará más limpia que
 // un sprite reducido.
 
-// Margen fuera de pantalla antes de reciclar. Basta con poco: un proyectil que
-// sale de cámara ya no le importa a nadie.
-const MARGEN = 48;
+// Margen fuera de pantalla antes de reciclar.
+//
+// Era 48, que basta para lo que SALE de cámara: un proyectil que se va ya no le
+// importa a nadie. Pero desde la Lluvia de flechas también hay proyectiles que
+// ENTRAN —nacen por encima del borde superior y caen dentro— y con el margen
+// corto se reciclaban en el mismo frame en que se lanzaban, antes de que nadie
+// los viera. La caja tiene que ser lo bastante alta para sostenerlos mientras
+// bajan.
+//
+// 200 cubre una caída de 150 sobre un blanco en el borde de la pantalla. Lo que
+// cuesta es que un proyectil que se va de cuadro tarda un poco más en devolver
+// su hueco al pool; da igual, porque de todas formas muere solo al agotar su
+// `vida`, que es su alcance partido por su velocidad.
+const MARGEN = 200;
 
 function crearProyectil() {
   return {
@@ -58,6 +69,12 @@ function crearProyectil() {
     // Id de atlas de un dibujo propio. Si lo trae, sustituye a la forma
     // trazada; si no carga, se vuelve a la forma sin avisar.
     hoja: null,
+    // CUÁNTO SE AMPLÍA SU DIBUJO. 1 = a su tamaño horneado, que es lo normal.
+    //
+    // Lo usa la Rosa de los vientos, que crece con el nivel del arma: su hitbox
+    // sube de 3 a 12 y la estrella tiene que subir con él, o al máximo estaría
+    // haciendo daño a cuatro veces la distancia de lo que se ve.
+    escala: 1,
     // GIRO SOBRE SÍ MISMO, en radianes por segundo. 0 = el dibujo se orienta
     // según su vuelo, que es lo normal en un proyectil.
     //
@@ -109,6 +126,7 @@ export class Proyectiles {
     p.forma = def.forma || 'raya';
     p.hoja = def.hoja || null;
     p.giro = def.giro || 0;
+    p.escala = def.escala || 1;
     p.radioExplosion = def.radioExplosion || 0;
     p.danyoExplosion = def.danyoExplosion || 0;
     p.estallaAlExpirar = !!def.estallaAlExpirar;
@@ -266,8 +284,8 @@ export class Proyectiles {
         const img = Recursos.imagen(p.hoja);
         const meta = Recursos.meta(p.hoja);
         if (img && meta) {
-          const aw = meta.w / ESCALA_ARTE;
-          const ah = meta.h / ESCALA_ARTE;
+          const aw = meta.w / ESCALA_ARTE * p.escala;
+          const ah = meta.h / ESCALA_ARTE * p.escala;
           ctx.save();
           ctx.globalAlpha = 1;
           // FUERA EL 'lighter' PARA LOS QUE TRAEN DIBUJO.

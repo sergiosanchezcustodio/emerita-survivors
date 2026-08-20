@@ -32,6 +32,10 @@ const VIDA_MAXIMA = 6;
 // pantalla y vuelve sería peor que uno que desaparece.
 const CULL = 700;
 
+// Discos de la estela de un proyectil enemigo. Cinco bastan para leer la cola;
+// más es gastar relleno en algo que se ve medio segundo.
+const GOTAS_ESTELA = 5;
+
 function crearDisparo() {
   return {
     x: 0, y: 0, xPrev: 0, yPrev: 0,
@@ -45,6 +49,12 @@ function crearDisparo() {
     // del modo 'zona' de sistemas/zonaDanyo.js, que solo daña enemigos.
     charco: false, duracion: 0, intervalo: 0, relojTic: 0,
     color: '#ffffff', fase: 0,
+    // ESTELA Y NÚCLEO. `estela` es el color del rastro que va dejando y
+    // `nucleo` el del brillo de dentro. Sin ellos se usa el color del disparo,
+    // que es lo que hacían todos hasta ahora: una bola lisa con una raya
+    // detrás. Con los dos puestos, un escupitajo de veneno y una bola de fuego
+    // dejan de ser el mismo dibujo en dos colores.
+    estela: null, nucleo: null,
     // Calcomanía de suelo del charco, cuando la tiene. Misma hoja y mismo
     // resolutor que las zonas del jugador (ver entidades/zonaDanyo.js).
     sprite: -1,
@@ -96,6 +106,8 @@ export class Disparos {
     d.vida = def.vida || 1;
     d.restante = VIDA_MAXIMA;
     d.color = def.color;
+    d.estela = def.estela || null;
+    d.nucleo = def.nucleo || null;
     d.aviso = 0;
     d.sismo = false;
     d.charco = false;           // por si este hueco del pool venía de un charco
@@ -134,6 +146,7 @@ export class Disparos {
     d.aviso = def.aviso;
     d.sismo = true;
     d.charco = false;           // por si este hueco del pool venía de un charco
+    d.estela = null; d.nucleo = null;   // campos compartidos: ver `lanzar`
     d.hoja = null;
     d.color = def.color;
     // Fase de giro, sorteada al lanzarla: dos piedras seguidas no pueden salir
@@ -165,6 +178,7 @@ export class Disparos {
     d.relojTic = 0;             // el primer tic entra en cuanto se activa
     d.charco = true;
     d.sismo = false;
+    d.estela = null; d.nucleo = null;   // campos compartidos: ver `lanzar`
     d.color = def.color;
     d.fase = 0;
     // Mismo criterio que Zonas.crear: si `sprite` nombra una entrada del atlas
@@ -655,18 +669,28 @@ export class Disparos {
       // proyectil enemigo es media esquiva: con la pantalla llena, para cuando
       // deduces el rumbo mirándolo dos frames ya te ha dado. La cola apunta de
       // dónde viene, así que la línea de peligro se lee en un vistazo.
+      //
+      // Y NO ES UNA RAYA, SON GOTAS. Era un solo trazo de grosor constante, que
+      // se lee como una barra pegada detrás. Ahora es una hilera de discos cada
+      // vez más pequeños y más transparentes: eso es lo que hace un líquido
+      // lanzado —el escupitajo de la medusa— y también una bola de fuego, que
+      // va soltando lo que le sobra. La misma forma sirve para las dos porque
+      // la diferencia está en el color, no en el gesto.
       const v = Math.hypot(d.vx, d.vy);
       if (v > 1) {
         const ux = d.vx / v, uy = d.vy / v;
-        const largo = d.radio * 4.5;
-        ctx.globalAlpha = 0.35;
-        ctx.strokeStyle = d.color;
-        ctx.lineCap = 'round';
-        ctx.lineWidth = d.radio * 1.1;
-        ctx.beginPath();
-        ctx.moveTo(x - ux * largo, y - uy * largo);
-        ctx.lineTo(x, y);
-        ctx.stroke();
+        ctx.fillStyle = d.estela || d.color;
+        for (let g = 1; g <= GOTAS_ESTELA; g++) {
+          const t = g / GOTAS_ESTELA;               // 1 = la más lejana
+          // Se separan un poco más de lo que encogen, para que la cola se vea
+          // deshacerse en vez de ser un cono macizo.
+          ctx.globalAlpha = 0.42 * (1 - t) * (1 - t * 0.5);
+          const dist = d.radio * 1.5 * g;
+          const r = d.radio * (1 - t * 0.78);
+          ctx.beginPath();
+          ctx.arc(x - ux * dist, y - uy * dist, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
       ctx.globalAlpha = 0.30;
@@ -690,7 +714,10 @@ export class Disparos {
       ctx.arc(x, y, d.radio * late, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = '#ffffff';
+      // El brillo de dentro. Blanco por defecto —es un reflejo— pero las armas
+      // que lo declaran mandan: el corazón de una bola de fuego es amarillo
+      // pálido y el de un escupitajo, verde claro.
+      ctx.fillStyle = d.nucleo || '#ffffff';
       ctx.beginPath();
       ctx.arc(x - d.radio * 0.25, y - d.radio * 0.25, d.radio * 0.42, 0, Math.PI * 2);
       ctx.fill();

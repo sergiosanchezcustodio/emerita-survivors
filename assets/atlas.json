@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260820142407",
+    "version":  "20260820163246",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -1359,6 +1359,31 @@
                                                         1
                                                     ]
                                      },
+                      "ondaAurea":  {
+                                        "archivo":  "efectos/onda-aurea.png",
+                                        "w":  304,
+                                        "h":  304,
+                                        "anclaX":  152,
+                                        "anclaY":  152,
+                                        "frames":  12,
+                                        "plano":  true,
+                                        "margen":  1.35,
+                                        "aditivo":  true,
+                                        "radios":  [
+                                                       0.15,
+                                                       0.20275,
+                                                       0.25816,
+                                                       0.31673,
+                                                       0.37905,
+                                                       0.44583,
+                                                       0.51791,
+                                                       0.59628,
+                                                       0.68213,
+                                                       0.77686,
+                                                       0.88216,
+                                                       1
+                                                   ]
+                                    },
                       "ondaGrito":  {
                                         "archivo":  "efectos/onda-grito.png",
                                         "w":  864,
@@ -1632,7 +1657,7 @@
                                             "plano":  true,
                                             "aditivo":  false,
                                             "bucle":  true,
-                                            "fps":  9,
+                                            "fps":  24,
                                             "radioDibujo":  9
                                         },
                       "pinchos":  {
@@ -1684,9 +1709,9 @@
                                       },
                       "proyPilum":  {
                                         "archivo":  "efectos/proy-pilum.png",
-                                        "w":  52,
+                                        "w":  144,
                                         "h":  14,
-                                        "anclaX":  26,
+                                        "anclaX":  72,
                                         "anclaY":  7,
                                         "frames":  1,
                                         "plano":  true
@@ -1738,10 +1763,10 @@
                                      },
                       "proyRosa":  {
                                        "archivo":  "efectos/proy-rosa.png",
-                                       "w":  24,
-                                       "h":  24,
-                                       "anclaX":  12,
-                                       "anclaY":  12,
+                                       "w":  40,
+                                       "h":  40,
+                                       "anclaX":  20,
+                                       "anclaY":  20,
                                        "frames":  1,
                                        "plano":  true
                                    },

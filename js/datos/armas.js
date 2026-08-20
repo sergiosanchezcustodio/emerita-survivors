@@ -25,15 +25,40 @@ export const ARMAS = {
     proyectiles: 1,
     velocidad: 230,
     alcance: 300,            // hasta dónde busca objetivo y cuánto vuela
-    radio: 4,                // círculo de impacto del proyectil
+    // ÁREA x3: el círculo de impacto pasa de 4 a 12. Es un salto grande para un
+    // arma de un solo blanco, y se nota sobre todo en que deja de fallar por un
+    // pelo a los que se cruzan de lado.
+    radio: 12,               // círculo de impacto del proyectil
     perforacion: 0,          // enemigos extra que atraviesa
     dispersion: 7,           // grados entre proyectiles del mismo disparo
     empuje: 90,
     color: '#f0e2b6',
-    // El pilum, con su caña de hierro entre la punta y el asta. Es lo que lo
-    // distingue de una lanza cualquiera y por lo que es famoso: se doblaba al
-    // clavarse y dejaba inservible el escudo enemigo.
+    // Una lanza larga: hoja de laurel al frente y fuste fino de una pieza
+    // detrás. Llevaba la silueta del pilum histórico —punta pequeña, caña de
+    // hierro y asta gruesa— y a tamaño de juego eso se leía como un palo con un
+    // nudo en medio, porque la caña es una línea de un píxel que parte la
+    // silueta en dos trozos. Ver el catálogo de generar-efectos.ps1.
     spriteProyectil: 'proyPilum',
+    // DIBUJADO x2,4 sobre una hoja de 36x3,5 unidades: 86 de largo por 8,4 de
+    // alto en pantalla.
+    //
+    // Son las dos cosas a la vez y por caminos distintos, que es lo que hay que
+    // tener claro si se vuelve a tocar:
+    //
+    //   el doble de GRANDE -> esta escala, de 1,2 a 2,4. Afecta a todo.
+    //   el doble de LARGA  -> la hoja, de 36 a 72 de fuente. Solo al largo.
+    //
+    // Estirar por la hoja y no por la escala es lo que mantiene el grosor: la
+    // proporción sube a 10 a 1 y se lee lanza. Doblando solo la escala habría
+    // salido la misma jabalina al doble de gorda.
+    //
+    // Y CUIDADO CON EL ANCLAJE si se sigue alargando. El dibujo se ancla por la
+    // punta: sobresale un 20% por delante del punto que colisiona y el 80%
+    // restante va por detrás. A 86 de largo eso son casi 70 unidades de fuste
+    // arrastrando, así que al disparar a un enemigo pegado la culata asoma por
+    // el lado contrario del personaje. Es geometría, no un fallo, pero es el
+    // límite práctico de este anclaje.
+    escalaProyectil: 2.4,
     estela: '#c89a4a',
     // Sección 9: nivel 8 + este pasivo a 1 o más, y un COFRE de élite.
     evolucion: { pasivo: 'anilloAugusto', arma: 'pilumJupiter' },
@@ -176,20 +201,42 @@ export const ARMAS = {
   },
   rosaDeVientos: {
     nombre: 'Rosa de los vientos',
-    descripcion: 'Cuatro disparos en cruz. Cubre, pero pega flojo.',
+    descripcion: 'Estrellas en cruz que crecen con el nivel.',
     comportamiento: 'direccionFija', patron: 'cruz',
     danyo: 8, recarga: 1.3, proyectiles: 1, velocidad: 210, alcance: 200,
     radio: 3, perforacion: 0, dispersion: 0, empuje: 60,
     color: '#d8c8f0', estela: '#6a5a8a', largoTrazo: 7,
-    // Una aguja de brújula en bronce: cuatro puntas finas, que es exactamente
-    // lo que dispara el arma y lo que dice su nombre. Gira despacio sobre sí
-    // misma porque es simétrica — sin giro, orientarla al vuelo no se notaría y
-    // parecería una pegatina.
+    // La estrella de la rosa de los vientos: ocho puntas, cuatro largas a los
+    // rumbos cardinales y cuatro cortas en las diagonales, con cada punta
+    // partida en cara clara y cara en sombra como en las cartas de navegar. Un
+    // cuatro puntas era una estrella cualquiera; lo que la hace una rosa es
+    // justamente la segunda serie más corta.
+    //
+    // Gira despacio sobre sí misma porque es simétrica: sin giro, orientarla al
+    // vuelo no se notaría y parecería una pegatina.
     spriteProyectil: 'proyRosa',
     giroProyectil: 6,
-    niveles: [{}, { danyo: 3 }, { perforacion: 1 }, { recarga: -0.2 },
-              { danyo: 4 }, { proyectiles: 1, dispersion: 11 }, { perforacion: 1 }, { danyo: 6 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    // CRECE CON EL NIVEL, y crecen las dos cosas a la vez y al mismo ritmo:
+    // `radio` es lo que golpea y `escalaProyectil` lo que se ve. De 3 a 12 y de
+    // x1 a x4 — el 300% más que se pidió.
+    //
+    // Van clavadas la una a la otra a propósito. Una estrella dibujada al
+    // cuádruple golpeando a la distancia de siempre sería una mentira de las
+    // gordas, y al revés todavía peor: daño invisible.
+    //
+    // Es la única arma del catálogo cuyo proyectil engorda, y le da una subida
+    // que se ve sin leer un número: al 1 son cuatro chispas y al 10, cuatro
+    // ruedas de bronce cruzando la pantalla.
+    escalaProyectil: 1,
+    niveles: [{}, { danyo: 3, radio: 1, escalaProyectil: 0.33 },
+              { perforacion: 1, radio: 1, escalaProyectil: 0.33 },
+              { recarga: -0.2, radio: 1, escalaProyectil: 0.33 },
+              { danyo: 4, radio: 1, escalaProyectil: 0.33 },
+              { proyectiles: 1, dispersion: 11, radio: 1, escalaProyectil: 0.33 },
+              { perforacion: 1, radio: 1, escalaProyectil: 0.33 },
+              { danyo: 6, radio: 1, escalaProyectil: 0.33 },
+              { danyo: 6, radio: 1, escalaProyectil: 0.33 },
+              { danyo: 9, recarga: -0.15, radio: 1, escalaProyectil: 0.36 }]
   },
   metralla: {
     nombre: 'Metralla',
@@ -373,6 +420,9 @@ export const ARMAS = {
     nombre: 'Rayo cruzado',
     descripcion: 'Cuatro haces en cruz. Mucho alcance, poco daño.',
     comportamiento: 'rayoPerforante', patron: 'cruz',
+    // El destello dura el doble que el de un rayo normal: se ve el haz en vez
+    // de intuirlo. Mismo número y mismo motivo que el Aspa de luz.
+    duracionRayo: 0.24,
     danyo: 6, recarga: 2.2, alcance: 260, grosor: 4, empuje: 50,
     color: '#e0c8ff',
     niveles: [{}, { danyo: 2 }, { grosor: 2 }, { recarga: -0.3 },
@@ -462,15 +512,26 @@ export const ARMAS = {
     descripcion: 'Flecha rápida al más cercano. Barato y constante.',
     comportamiento: 'proyectilDirigido',
     danyo: 9, recarga: 0.85, proyectiles: 1, velocidad: 320, alcance: 330,
-    radio: 3, perforacion: 0, dispersion: 5, empuje: 50,
+    radio: 3, perforacion: 0, empuje: 50,
     color: '#dcc9a0', estela: '#7a6440', largoTrazo: 9,
     // Una flecha de verdad: punta, astil y plumas. Se orienta al vuelo y sin
     // giro propio — una flecha va derecha a donde apunta, que es justamente
     // toda su gracia.
     spriteProyectil: 'proyFlecha',
-    niveles: [{}, { danyo: 3 }, { recarga: -0.1 }, { proyectiles: 1 },
-              { danyo: 4, perforacion: 1 }, { recarga: -0.1 }, { proyectiles: 1 },
-              { danyo: 7 }, { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    // Y RECTAS DE VERDAD: `dispersion` fuera, `separacion` en su sitio.
+    //
+    // El abanico de 5 grados abría las flechas de más en uve, y una flecha
+    // torcida contradice al arma entera — lo que un arco hace es poner la
+    // flecha donde apuntas. Con `separacion` salen todas con el mismo rumbo,
+    // corridas 7 unidades una de otra: una andanada de arquero.
+    separacion: 7,
+    // EL TRIPLE DE FLECHAS AL 10: de 3 a 9, una más en cada nivel salvo el
+    // segundo. La subida del arma pasa a ser la andanada, que es lo suyo.
+    niveles: [{}, { danyo: 3 }, { recarga: -0.1, proyectiles: 1 }, { proyectiles: 1 },
+              { danyo: 4, perforacion: 1, proyectiles: 1 }, { recarga: -0.1, proyectiles: 1 },
+              { proyectiles: 1 },
+              { danyo: 7, proyectiles: 1 }, { danyo: 6, proyectiles: 1 },
+              { danyo: 9, recarga: -0.15, proyectiles: 1 }]
   },
   honda: {
     nombre: 'Honda balear',
@@ -811,16 +872,22 @@ export const ARMAS = {
     danyo: 0, danyoExplosion: 11, radioExplosion: 22, duracion: 0.28,
     recarga: 1.5, proyectiles: 4, empuje: 40,
     color: '#d8c89a',
-    // El polvo que levanta la andanada al clavarse. efectos-mapa.md la había
-    // dejado sin hoja razonando que "es una lluvia, no una detonación", y es
-    // cierto — por eso lleva el reventón de TIERRA y no una explosión: astillas
-    // y polvo, en composición normal, no una bola de fuego.
+    // SE VE CAER CADA FLECHA. `caida` son las unidades desde las que se lanza,
+    // por encima del punto de impacto, y `velocidad` lo rápido que baja: 150 a
+    // 420 son 0,36 s de vuelo, lo justo para verlas venir y apartarse sin que
+    // el arma pierda su cadencia.
     //
-    // Hacía falta además por otro motivo: era la última onda del arsenal sin
-    // dibujo, o sea la única que seguía saliendo como el disco y el aro
-    // trazados. Quitados esos aros (ver zonaDanyo.dibujarAire), sin hoja se
-    // habría quedado en una mancha pálida.
-    spriteOnda: 'reventonTierra',
+    // Antes la onda aparecía en el suelo sin más y el arma no se distinguía de
+    // un bombardeo. Una lluvia de flechas es lo que se ve en el aire.
+    caida: 150, velocidad: 420,
+    spriteProyectil: 'proyFlecha',
+    // Y AL CLAVARSE, UNA ONDA REDONDA Y DORADA. Llevaba el reventón de tierra,
+    // que es polvo desgarrado y en composición normal; ahora que las flechas se
+    // ven caer de verdad, lo que hay que enseñar en el suelo no es un impacto
+    // sucio sino el círculo exacto que acaban de cubrir. De ahí la
+    // circunferencia limpia —`rugosidad` a cero, la única del catálogo— y el
+    // dorado, que es el color de la andanada.
+    spriteOnda: 'ondaAurea',
     niveles: [{}, { proyectiles: 2 }, { danyoExplosion: 3 }, { recarga: -0.2 },
               { proyectiles: 2 }, { danyoExplosion: 4 }, { radioExplosion: 6 },
               { proyectiles: 3, danyoExplosion: 5 },
@@ -938,6 +1005,9 @@ export const ARMAS = {
     nombre: 'Láser',
     descripcion: 'Haz fino que cruza la pantalla de lado a lado.',
     comportamiento: 'rayoPerforante', patron: 'horizontal',
+    // El destello dura el doble que el de un rayo normal (0,12): un haz que
+    // cruza la pantalla entera merece verse cruzarla.
+    duracionRayo: 0.24,
     // `grosor` es el MEDIO ancho del haz: la altura de lo que barre a cada lado
     // de la línea (ver rayoPerforante en sistemas/armas.js, donde se compara
     // contra la distancia perpendicular). Sube de 4 a 24, o sea el doble de lo
@@ -984,6 +1054,12 @@ export const ARMAS = {
     nombre: 'Satélites',
     descripcion: 'Esferas lejanas y lentas. Guardan el perímetro.',
     comportamiento: 'orbital',
+    // ÁREA x3 Y DAÑO x2 AL NIVEL 10, los dos progresivos: `radioEscudo` va de 7
+    // a 21 y el daño de 10 a 72 (antes llegaba a 36).
+    //
+    // `radioEscudo` es a la vez lo que golpea y lo que se dibuja, así que las
+    // lunas crecen solas con el arma — no hay nada que sincronizar y no puede
+    // desincronizarse. Ver dibujarOrbitales en sistemas/armas.js.
     danyo: 10, recarga: 1.0, escudos: 2, radioOrbita: 68, radioEscudo: 7,
     velocidadAngular: 1.4, empuje: 80, color: '#a0c8ff',
     // LUNAS EN CUARTO MENGUANTE. Era el último orbital sin dibujo, y el único
@@ -995,20 +1071,29 @@ export const ARMAS = {
     // luna, y rotándola queda del revés media vuelta de cada dos. Mismo motivo
     // que el escudo del Scutum, que lleva emblema.
     spriteOrbital: 'orbLuna',
-    // LA LUNA SE DIBUJA x2,5. `escalaOrbital` afecta SOLO al dibujo: el radio
-    // que hace daño sigue siendo `radioEscudo`, o sea 7.
+    // LA LUNA SE DIBUJA x1,5 SOBRE SU RADIO DE DAÑO. `escalaOrbital` afecta solo
+    // al dibujo.
     //
-    // Es una mentira consciente y conviene tenerla escrita. Casi todo en este
-    // proyecto está horneado para que el filo del dibujo caiga donde acaba el
-    // daño, y aquí no: la luna asoma bastante por fuera de lo que golpea. Se
-    // sostiene porque lo que sobresale es sobre todo el aura —que se lee como
-    // resplandor y no como filo— y porque un satélite es un objeto lejano, no
-    // un arma de contacto. Si algún día molesta, la salida honrada es subir
-    // `radioEscudo` y bajar esto, no al revés.
-    escalaOrbital: 2.5,
-    niveles: [{}, { escudos: 1 }, { radioOrbita: 8 }, { danyo: 4 },
-              { escudos: 1 }, { velocidadAngular: 0.5 }, { escudos: 1 }, { danyo: 7 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    // BAJA DE 2,5 A 1,5, y no es un cambio de gusto: es la consecuencia de
+    // triplicar el área. Con 2,5 sobre un `radioEscudo` de 21, cada luna se
+    // dibujaría a 52 de radio —más de un tercio del alto de la pantalla por
+    // satélite, y son hasta seis—. El 2,5 se puso cuando el radio era 7 fijo y
+    // la luna se veía diminuta; ahora el radio hace ese trabajo él solo.
+    //
+    // Sigue habiendo algo de exceso, y es a propósito: lo que sobresale es
+    // sobre todo el aura, que se lee como resplandor y no como filo. La salida
+    // honrada, si molesta, es bajar esto a 1 — nunca subir el radio para
+    // justificar el dibujo.
+    escalaOrbital: 1.5,
+    niveles: [{}, { escudos: 1, danyo: 5, radioEscudo: 1 },
+              { radioOrbita: 8, danyo: 6, radioEscudo: 2 },
+              { danyo: 8, radioEscudo: 1 },
+              { escudos: 1, danyo: 6, radioEscudo: 2 },
+              { velocidadAngular: 0.5, danyo: 7, radioEscudo: 1 },
+              { escudos: 1, danyo: 6, radioEscudo: 2 },
+              { danyo: 10, radioEscudo: 1 },
+              { danyo: 7, radioEscudo: 2 },
+              { danyo: 7, recarga: -0.15, radioEscudo: 2 }]
   },
   discosDeSierra: {
     nombre: 'Discos de sierra',

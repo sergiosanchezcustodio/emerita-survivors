@@ -195,7 +195,11 @@ export const ENEMIGOS = {
   //   proyectiles + dispersion   abanico, en grados entre uno y otro
   //   vida        impactos que aguanta antes de romperse
   medusa:     { sprite:'medusa',     rol:'distancia', xp:8, vida:160,   velocidad:8,  danyo:7,  radio:7.6,  masa:3.5,  vuela:false, inmuneEmpuje:false, movimiento:'acecho',
-                ataque: { danyo:12, cadencia:2.8, alcance:190, velocidad:78, proyectiles:1, dispersion:0, radio:4.5, color:'#9ae86a', vida:1, spriteReventon:'reventonVeneno' },
+                // ESCUPITAJO. Verde de veneno con el corazón claro y una cola
+                // de gotas que se deshace por detrás (ver Disparos.dibujar):
+                // lo que sale de la boca de una medusa es líquido, y un líquido
+                // lanzado se separa en el aire.
+                ataque: { danyo:12, cadencia:2.8, alcance:190, velocidad:78, proyectiles:1, dispersion:0, radio:4.5, color:'#6cc93a', estela:'#3f8a22', nucleo:'#dcf7a8', vida:1, spriteReventon:'reventonVeneno' },
                 // Muere en el mismo verde con el que dispara: lo que le sale del
                 // cuerpo es lo que llevaban sus púas, y eso se lee sin leer nada.
                 restos:'veneno' },
@@ -236,7 +240,12 @@ export const ENEMIGOS = {
   // plan. Desde lejos y en abanico: es lo que la convierte en un enemigo al que
   // hay que acercarse con cuidado, en vez de un saco de vida al que rodear.
   manticora:  { sprite:'manticora',  rol:'elite',     xp:120, vida:2600,  velocidad:28, danyo:13, radio:15.0, masa:30.0, vuela:true,  inmuneEmpuje:false, movimiento:'orbita',  cofre:true, persistente:true,
-                ataque: { danyo:14, cadencia:2.5, alcance:260, velocidad:105, proyectiles:3, dispersion:16, radio:4, color:'#ffb14a', vida:1, spriteReventon:'reventonLlama' } },
+                // BOLA DE FUEGO. Mismo mecanismo que el escupitajo de la
+                // medusa y a propósito: la cola de gotas vale igual para un
+                // líquido que para algo que arde soltando lo que le sobra. Lo
+                // que las separa es el color — aquí naranja con el corazón
+                // amarillo pálido y el rastro rojo apagándose.
+                ataque: { danyo:14, cadencia:2.5, alcance:260, velocidad:105, proyectiles:3, dispersion:16, radio:4, color:'#ff8a1a', estela:'#c43a08', nucleo:'#fff0a8', vida:1, spriteReventon:'reventonLlama' } },
 
   // Serpiente dorada (sección 11 del plan): la SEGUNDA vía de las evoluciones.
   // Variante de color de la serpiente, así que no cuesta ni un PNG.

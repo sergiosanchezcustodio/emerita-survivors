@@ -7,7 +7,7 @@
 //
 // Elegidas por Sergio, y cada una define una forma de jugar distinta: Eric va
 // pegado con los escudos girando, Vicky tiene que meterse en el montón para
-// barrer con la katana, Lucy dispara desde lejos y Sara no apunta a nada.
+// barrer con la katana, Lucy abre pasillo a bocajarro y Sara no apunta a nada.
 //
 // `mods` son multiplicadores sobre las estadísticas base de la sección 6 del
 // plan (vida 100, velocidad 85, recogida 40). Se aplican al crear el personaje,
@@ -36,7 +36,16 @@ export const PERSONAJES = {
     nombre: 'Lucy',
     sprite: 'lucy',
     descripcion: 'Divierte, sonríe, y sigue pintándote los labios.',
-    arma: 'pistola',
+    // LA RECORTADA, no la pistola. Cambia por completo cómo se juega con ella:
+    // la pistola dispara sola al más cercano desde donde estés, y la recortada
+    // tiene 82 de alcance —hay que ir— a cambio de nueve perdigones en un cono
+    // de 78 grados que abre pasillo.
+    //
+    // Encaja con sus `mods`, que ya eran los de un personaje frágil y rápido:
+    // poca vida obliga a no quedarse y la velocidad es lo que te saca después de
+    // haber entrado. Con la pistola esos números no pedían nada; con la
+    // recortada son el arma.
+    arma: 'recortada',
     coste: 0,
     mods: { vidaMaxima: 0.85, velocidad: 1.15, radioRecogida: 1.0 }
   },

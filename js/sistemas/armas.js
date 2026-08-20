@@ -58,7 +58,9 @@ const MAX_TAJOS = 12;
 // Si la hoja no está cargada, el tajo cae al arco trazado de siempre sin
 // avisar: misma red que los placeholders del atlas.
 
-// Media altura del sprite de un jugador, en unidades lógicas.
+// Media altura del sprite de un jugador, en unidades lógicas. La usa `bocaDe`,
+// que está declarada más abajo: da igual el orden porque es una declaración de
+// función y sube al principio del módulo.
 //
 // La `y` de un jugador es su LÍNEA DE PIES: el sprite se dibuja con el borde
 // inferior ahí, así que el cuerpo ocupa de `y - alto` a `y` y su centro visual
@@ -78,14 +80,22 @@ function medioAlto(j) {
 //
 // Antes nacían todos en (x, y-8), o sea dentro del pecho del personaje: el
 // proyectil aparecía encima de él y lo primero que hacía era atravesarlo, lo
-// que se ve como si le brotara del cuerpo. Ahora salen por FUERA, del lado
-// hacia el que se dispara: apuntando a la derecha sale por su costado derecho,
-// hacia abajo por sus pies, y así con todas.
+// que se ve como si le brotara del cuerpo. Se movieron al borde del CÍRCULO de
+// colisión, y con eso quedó bien a los lados y mal por arriba: el círculo tiene
+// radio 8 y el personaje mide 26 unidades de alto, así que un disparo hacia
+// arriba seguía naciendo a la altura del pecho — dentro del dibujo.
 //
-// El desplazamiento es el radio del cuerpo más un dedo de margen. El margen
-// importa: pegado exacto al borde, el proyectil nace rozando la silueta y a
-// media velocidad todavía se solapa un frame.
-const ALTURA_DISPARO = 8;      // a qué altura del cuerpo se empuña
+// AHORA LA BOCA ES UNA ELIPSE, no un círculo, y con las medidas del sprite: el
+// semieje horizontal sale del radio de colisión y el vertical de la media
+// altura del personaje. Una figura de pie es más alta que ancha y su contorno
+// también, así que el punto de salida tiene que serlo.
+//
+// Y se calcula el CORTE DE LA ELIPSE CON EL RAYO del disparo, no el punto
+// paramétrico del mismo ángulo: en una elipse esos dos puntos no coinciden, y
+// usar el fácil dejaría el disparo desviado del rumbo en las diagonales.
+//
+// El margen importa: pegado exacto al borde, el proyectil nace rozando la
+// silueta y a media velocidad todavía se solapa un frame.
 const MARGEN_BOCA = 3;
 
 // Rellena `origenDisparo` con el punto de salida para un ángulo dado. Objeto de
@@ -93,9 +103,16 @@ const MARGEN_BOCA = 3;
 // escopeta son trece— y devolver un objeto nuevo sería asignar en caliente.
 const origenDisparo = { x: 0, y: 0 };
 function bocaDe(j, ang) {
-  const d = j.radioCuerpo + MARGEN_BOCA;
-  origenDisparo.x = j.x + Math.cos(ang) * d;
-  origenDisparo.y = j.y - ALTURA_DISPARO + Math.sin(ang) * d;
+  const medio = medioAlto(j);
+  const a = j.radioCuerpo + MARGEN_BOCA;     // semieje horizontal
+  const b = medio + MARGEN_BOCA;             // semieje vertical
+  const cx = Math.cos(ang), sy = Math.sin(ang);
+  // Distancia del centro al borde de la elipse EN ESTA DIRECCIÓN.
+  const d = 1 / Math.sqrt((cx * cx) / (a * a) + (sy * sy) / (b * b));
+  origenDisparo.x = j.x + cx * d;
+  // El centro de la elipse es el centro VISUAL del personaje, no sus pies: la
+  // `y` de un jugador es su línea de pies y el cuerpo sube de ahí hacia arriba.
+  origenDisparo.y = j.y - medio + sy * d;
   return origenDisparo;
 }
 
@@ -123,29 +140,46 @@ const COMPORTAMIENTOS = {
 
     const base = Math.atan2(dy, dx);
     const n = s.proyectiles;
+    // ABANICO O CARRIL, igual que en `direccionFija`: con `separacion` los
+    // proyectiles de más salen con el MISMO rumbo, corridos de lado. Lo pide el
+    // Arco corto — nueve flechas abiertas en abanico son nueve flechas
+    // torcidas; en paralelo son una andanada.
+    const separa = s.separacion || 0;
+
     for (let i = 0; i < n; i++) {
       // Abanico centrado: con 1 sale recto, con 3 uno recto y dos abiertos.
-      const desvio = (i - (n - 1) / 2) * s.dispersion * GRADOS;
-      const a = base + desvio;
-      sis.defProyectil.danyo = danyoDe(s, ctx.jugador);
-      sis.defProyectil.empuje = s.empuje;
-      sis.defProyectil.radio = s.radio;
-      sis.defProyectil.perforacion = s.perforacion;
+      const centrado = i - (n - 1) / 2;
+      const a = separa > 0 ? base : base + centrado * s.dispersion * GRADOS;
+
+      // POR `_rellenarProyectil` Y NO A MANO, y esto era un fallo de verdad.
+      //
+      // Aquí se escribían nueve campos de `defProyectil` uno a uno, y ese objeto
+      // es COMPARTIDO por todas las armas: lo que este comportamiento no
+      // escriba se queda con lo que dejó el disparo anterior, de otra arma. El
+      // propio comentario que había aquí avisaba de ello... y aun así faltaban
+      // `rebotesPared` y `rebotesEnemigo`.
+      //
+      // O sea que los rebotes del Fusil y los saltos de la Honda —las dos son
+      // `proyectilDirigido`— NUNCA se pasaban al proyectil: con esas armas
+      // solas en el arsenal salían siempre a cero, y acompañadas heredaban el
+      // valor de la última arma que sí rellenó el descriptor. La función que
+      // los reparte estaba bien; el dato no llegaba.
+      //
+      // El repartidor común escribe TODOS los campos, que es justo para lo que
+      // se hizo. Y de paso el `largo` deja de estar clavado a 9 y sale de
+      // `largoTrazo`, que las siete armas de esta familia ya declaraban y que
+      // esta rama se estaba comiendo.
+      sis._rellenarProyectil(arma, s, danyoDe(s, ctx.jugador));
       sis.defProyectil.vida = s.alcance / s.velocidad;
-      sis.defProyectil.color = arma.def.color;
-      sis.defProyectil.estela = arma.def.estela;
-      sis.defProyectil.largo = 9;
-      // `defProyectil` es UN objeto compartido por todas las armas, así que todo
-      // campo que este comportamiento no escriba se queda con el valor que dejó
-      // el disparo anterior —de otra arma—. Sin esta línea, la pistola salía con
-      // la forma del lanzagranadas si acababa de disparar el lanzagranadas.
-      sis.defProyectil.forma = formaDe(arma);
-      // Mismo motivo que `forma`: `hoja` es campo compartido y hay que
-      // escribirlo siempre, o el arma hereda el dibujo de la anterior.
-      sis.defProyectil.hoja = arma.def.spriteProyectil || null;
+
       const b = bocaDe(ctx.jugador, a);
+      let ox = b.x, oy = b.y;
+      if (separa > 0) {
+        ox += Math.sin(a) * centrado * separa;
+        oy -= Math.cos(a) * centrado * separa;
+      }
       ctx.proyectiles.lanzar(
-        b.x, b.y,
+        ox, oy,
         Math.cos(a) * s.velocidad, Math.sin(a) * s.velocidad,
         sis.defProyectil);
     }
@@ -318,6 +352,26 @@ const COMPORTAMIENTOS = {
       // regalar daño que nadie ve.
       const x = j.x + (ctx.rng() - 0.5) * ANCHO_LOGICO * 0.9;
       const y = j.y + (ctx.rng() - 0.5) * ALTO_LOGICO * 0.9;
+
+      // CON CAÍDA: se ve venir. En vez de aparecer la onda en el suelo, se
+      // lanza un proyectil de verdad desde `caida` unidades más arriba, cayendo
+      // a plomo, y la onda la deja él al agotarse (`estallaAlExpirar`, ver
+      // `estallar` en main.js). Así una lluvia de flechas es una lluvia: se ve
+      // caer cada flecha y clavarse.
+      //
+      // Y el daño va donde el jugador lo ve: no se reparte por el camino —el
+      // proyectil no lleva daño de impacto— sino entero en la onda del suelo.
+      // Si toca a alguien mientras baja, revienta ahí: le ha caído encima.
+      if (arma.def.caida > 0) {
+        sis._rellenarProyectil(arma, s, 0);
+        sis.defProyectil.vida = arma.def.caida / s.velocidad;
+        sis.defProyectil.radioExplosion = radio;
+        sis.defProyectil.danyoExplosion = danyo;
+        sis.defProyectil.estallaAlExpirar = true;
+        ctx.proyectiles.lanzar(x, y - arma.def.caida, 0, s.velocidad, sis.defProyectil);
+        continue;
+      }
+
       ctx.zonas.crear({
         x, y, radio, radioIni: radio * 0.15, duracion: s.duracion,
         danyo, empuje: s.empuje, modo: 'onda', color: arma.def.color,
@@ -480,12 +534,21 @@ const COMPORTAMIENTOS = {
     for (let d = 0; d < dirs.length; d++) {
       const a = dirs[d];
       const ux0 = Math.cos(a), uy0 = Math.sin(a);
+      // EL HAZ NACE EN EL CONTORNO, igual que un proyectil. Salía del pecho
+      // (y-8) y por tanto se dibujaba por encima del personaje antes de salir
+      // de él; con la boca puesta, empieza donde acaba la silueta.
+      //
+      // Y el daño se mide desde el MISMO punto que el dibujo. Si no, un enemigo
+      // pegado al jugador por el lado contrario entraría por `proy < 0` en uno
+      // y no en el otro.
+      const b = bocaDe(j, a);
+      const bx = b.x, by = b.y;
       // Se busca en un radio igual al alcance y se filtra por distancia a la
       // recta: mucho más barato que marchar el rayo paso a paso.
       const n = enemigosEnRadio(ctx.enemigos, j.x, j.y, s.alcance, sis._alcanzados);
       for (let i = 0; i < n; i++) {
         const e = items[sis._alcanzados[i]];
-        const dx = e.x - j.x, dy = e.y - (j.y - 8);
+        const dx = e.x - bx, dy = e.y - by;
 
         // SIN BARRIDO es una sola recta, y esta es la rama de siempre.
         //
@@ -513,7 +576,7 @@ const COMPORTAMIENTOS = {
         if (perp > s.grosor + e.radioCuerpo) continue;
         ctx.enemigos.danyar(e, danyo, ux, uy, s.empuje);
       }
-      sis._anotarRayo(j.x, j.y - 8, a, s.alcance, s.grosor, arma.def.color, giro,
+      sis._anotarRayo(bx, by, a, s.alcance, s.grosor, arma.def.color, giro,
                       arma.def.duracionRayo);
     }
     return true;
@@ -658,6 +721,10 @@ export class Armas {
     // que es lo correcto para una bala o una abeja y lo contrario de lo que
     // hacen un shuriken o una botella dando vueltas.
     d.giro = arma.def.giroProyectil || 0;
+    // Cuánto se amplía el dibujo. Sale de las STATS y no de la definición
+    // porque crece con el nivel: ver `escalaProyectil` en la Rosa de los
+    // vientos, que cuadruplica su estrella del 1 al 10.
+    d.escala = s.escalaProyectil || 1;
     d.danyo = danyo;
     d.empuje = s.empuje;
     d.radio = s.radio;

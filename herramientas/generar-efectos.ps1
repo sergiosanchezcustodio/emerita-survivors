@@ -68,6 +68,20 @@ public class Pirotecnia {
     // Escribe en el buffer logico quedandose con lo MAS OPACO. No se mezcla
     // por alfa: el destino final es composicion aditiva en el juego, y ahi
     // mezclar aqui solo emborrona el escalon de paleta que da el aspecto.
+    // CUIDADO: ESTO NO ES PINTAR ENCIMA, ES QUEDARSE CON EL MAS OPACO.
+    //
+    // Solo escribe si el alfa nuevo SUPERA al que ya habia. Es lo que quieren
+    // las explosiones -donde se superponen decenas de chispas y manda la mas
+    // brillante- y por eso esta asi.
+    //
+    // Pero convierte en trampa cualquier dibujo por capas: una segunda capa
+    // OPACA sobre otra capa OPACA se descarta en silencio, porque 255 no supera
+    // a 255. Le paso a la lampara de la mina, que se dibujaba despues del
+    // cuerpo con alfa 1 y nunca llego al PNG — y no salto ninguna alarma porque
+    // la comprobacion medía la variable del brillo, no los pixeles.
+    //
+    // Si una pieza va tapando a otra, hay que decidir el color ANTES y llamar
+    // aqui UNA sola vez por pixel. Ver Mina.
     static void Poner(byte[] al, int[] rgb, int lado, int x, int y, int color, double a) {
         if (x < 0 || y < 0 || x >= lado || y >= lado) return;
         if (a <= 0) return;
@@ -593,7 +607,7 @@ public class Pirotecnia {
             Array.Clear(alfa, 0, alfa.Length);
             Array.Clear(rgb, 0, rgb.Length);
 
-            int opacos = 0;
+            int opacos = 0, rojos = 0;
             for (int y = 0; y < lado; y++) {
                 for (int x = 0; x < lado; x++) {
                     double dx = x + 0.5 - radio, dy = y + 0.5 - radio;
@@ -621,23 +635,42 @@ public class Pirotecnia {
                     }
                     if (idx < 0) idx = 0;
                     if (idx >= pal.Length) idx = pal.Length - 1;
-                    Poner(alfa, rgb, lado, x, y, pal[idx], 1.0);
+                    int color = pal[idx];
 
-                    // EL DETONADOR. Va el ultimo porque tapa lo que haya
-                    // debajo, y su color sale del brillo del instante: apagado
-                    // es rojo oscuro, encendido es casi blanco.
-                    if (u < 0.24) {
+                    // EL DETONADOR, la luz roja del centro. Su color sale del
+                    // brillo del instante: apagado es rojo oscuro, encendido es
+                    // casi blanco.
+                    //
+                    // SE DECIDE AQUI, ANTES DE PINTAR, y no con un segundo
+                    // Poner encima. Con dos llamadas opacas la segunda se
+                    // descartaba entera -ver el comentario de Poner- y la mina
+                    // llevaba desde que existe sin lampara: cero pixeles rojos
+                    // en el PNG, medido.
+                    // LA CUARTA PARTE DE GRANDE que antes: de 0,30 del radio
+                    // a 0,075. Estaba puesta a ojo cuando la lampara no llegaba
+                    // siquiera al PNG, y una vez visible resulto ser un ojo de
+                    // buey — se comia el centro de la chapa entera. Una mina es
+                    // un objeto con un piloto, no un piloto con una carcasa.
+                    if (u < 0.075) {
                         int li = (int)((1 - brillo) * (luz.Length - 1));
                         if (li < 0) li = 0;
                         if (li >= luz.Length) li = luz.Length - 1;
-                        Poner(alfa, rgb, lado, x, y, luz[li], 1.0);
+                        color = luz[li];
+                        rojos++;
                     }
+
+                    Poner(alfa, rgb, lado, x, y, color, 1.0);
                     opacos++;
                 }
             }
 
             Ampliar(buf, stride, alfa, rgb, lado, escala, f);
-            medidas += (f > 0 ? ";" : "") + opacos + "|" + brillo.ToString("0.000", CultureInfo.InvariantCulture);
+            // Se devuelve el numero de pixeles de LAMPARA de este fotograma
+            // ademas del brillo. La comprobacion de antes miraba solo el brillo,
+            // que es la intencion; con los pixeles se comprueba el resultado,
+            // que es lo que fallaba.
+            medidas += (f > 0 ? ";" : "") + opacos + "|" +
+                       brillo.ToString("0.000", CultureInfo.InvariantCulture) + "|" + rojos;
         }
 
         Volcar(salida, buf, anchoTira, altoTira, stride);
@@ -803,6 +836,7 @@ public class Pirotecnia {
     //
     // De ahi PonerR y AmpliarR, los mismos de siempre pero con ancho y alto por
     // separado. No se tocan los cuadrados, para no mover lo que ya funciona.
+    // Mismo criterio -y misma trampa- que Poner: ver el comentario de alli.
     static void PonerR(byte[] al, int[] rgb, int ancho, int alto, int x, int y, int color, double a) {
         if (x < 0 || y < 0 || x >= ancho || y >= alto) return;
         if (a <= 0) return;
@@ -1155,6 +1189,70 @@ public class Pirotecnia {
         AmpliarR(buf, stride, alfa, rgb, ancho, alto, escala);
         Volcar(salida, buf, ancho * escala, alto * escala, stride);
         return pixeles.ToString();
+    }
+
+    // ROSA DE LOS VIENTOS. Ocho puntas: cuatro largas a los rumbos cardinales y
+    // cuatro cortas en las diagonales, que es LA figura — un cuatro puntas es
+    // una estrella cualquiera, y lo que convierte una estrella en una rosa de
+    // los vientos es precisamente la segunda serie mas corta.
+    //
+    // Y cada punta va partida en dos caras, una clara y otra oscura, por su
+    // eje. Es como se han grabado siempre en las cartas de navegar y es lo que
+    // le da relieve sin dibujar ni una sombra.
+    //
+    // El contorno sale de dos perfiles polares superpuestos, uno girado 45
+    // grados respecto al otro, quedandose con el mayor de los dos en cada
+    // angulo. Mismo truco que el shuriken, dos veces.
+    public static string Rosa(string salida, int radio, int escala, string paletaTxt,
+                              double afilado, double cuerpo, double corta) {
+        int[] pal = LeerPaleta(paletaTxt);
+        int lado = radio * 2;
+        byte[] alfa = new byte[lado * lado];
+        int[] rgb = new int[lado * lado];
+        int anchoTira = lado * escala, altoTira = lado * escala;
+        int stride = anchoTira * 4;
+        byte[] buf = new byte[stride * altoTira];
+
+        double octavo = Math.PI / 4;
+        int pixeles = 0;
+        for (int y = 0; y < lado; y++) {
+            for (int x = 0; x < lado; x++) {
+                double dx = x + 0.5 - radio, dy = y + 0.5 - radio;
+                double d = Math.Sqrt(dx * dx + dy * dy);
+                if (d < 0.0001) continue;
+                double ang = Math.Atan2(dy, dx);
+
+                double pLargo = Math.Pow(Math.Abs(Math.Cos(2 * ang)), afilado);
+                double pCorto = Math.Pow(Math.Abs(Math.Cos(2 * (ang - octavo))), afilado);
+                double rLargo = cuerpo + (1 - cuerpo) * pLargo;
+                double rCorto = cuerpo + (corta - cuerpo) * pCorto;
+                double rBorde = radio * Math.Max(rLargo, rCorto);
+                if (d > rBorde - 0.5) continue;
+
+                // A que punta pertenece este pixel y de que lado de su eje cae.
+                // El lado decide la cara: una clara y otra en sombra.
+                double rel = ang / octavo;
+                double resto = rel - Math.Floor(rel);
+                bool caraClara = resto < 0.5;
+
+                int idx = caraClara ? 1 : pal.Length - 2;
+                // Nucleo: un boton mas claro en el centro, que es donde se
+                // juntan las ocho puntas y sin el queda un revoltijo.
+                if (d < radio * cuerpo * 1.5) idx = 0;
+                // Y el canto exterior al tono mas oscuro, para recortarse.
+                if (d > rBorde - 1.2) idx = pal.Length - 1;
+
+                if (idx < 0) idx = 0;
+                if (idx >= pal.Length) idx = pal.Length - 1;
+                Poner(alfa, rgb, lado, x, y, pal[idx], 1.0);
+                pixeles++;
+            }
+        }
+
+        Ampliar(buf, stride, alfa, rgb, lado, escala, 0);
+        Volcar(salida, buf, anchoTira, altoTira, stride);
+        double llenado = pixeles / (Math.PI * radio * radio);
+        return pixeles + "|" + llenado.ToString("0.000", CultureInfo.InvariantCulture);
     }
 
     // KUNAI. Para la Lluvia de agujas, que eran puas trazadas.
@@ -1756,6 +1854,17 @@ $CATALOGO = @(
        paleta = 'ffffff,eef4ff,c6d8f2,93b0da,6484b8,3f5688'
        radioRef = 80; chispas = 10; huecoIni = 0.62; hueco = 0.90; rugosidad = 0.55; anillo = 1.0; nucleo = 0.55; chispaTam = 1.0 }
 
+    # ONDA REDONDA, y redonda de verdad: `rugosidad` a cero. Todas las demas
+    # llevan el borde algo roto porque son explosiones, y una explosion perfecta
+    # no existe; esta es el golpe de una andanada de flechas clavandose a la vez
+    # en un circulo, asi que la circunferencia limpia es lo correcto.
+    #
+    # `radioRef` 28 y no el 50 por defecto: el radio de la Lluvia de flechas va
+    # de 22 a 28, y hornear al tamano al que se dibuja evita ampliar en caliente.
+    @{ id = 'aurea';   atlas = 'ondaAurea';   archivo = 'onda-aurea.png';   semilla = 141414
+       paleta = 'fffbe0,ffee9c,ffd94e,f0b41c,c08610,8a5c08'
+       radioRef = 28; chispas = 8; huecoIni = 0.58; hueco = 0.92; rugosidad = 0.0; anillo = 1.0; nucleo = 0.45; chispaTam = 1.0 }
+
     @{ id = 'grito';   atlas = 'ondaGrito';   archivo = 'onda-grito.png';   semilla = 909090
        paleta = 'fff4d8,ffe1a0,f2c05a,d69433,a86a22,764716'
        radioRef = 80; chispas = 14; huecoIni = 0.55; hueco = 0.88; rugosidad = 0.85; anillo = 0.9; nucleo = 0.60; chispaTam = 1.0 }
@@ -2089,13 +2198,22 @@ $MINAS = @(
 # cubren: son piezas sueltas con suelo limpio entre ellas.
 $PINCHOS = @(
     @{ id = 'pinchos'; atlas = 'pinchos'; archivo = 'pinchos.png'; semilla = 61224
-       # Hierro forjado: del brillo del filo al contorno.
-       paleta = 'dfe6ec,b3bec9,8a95a1,626c78,414a54,222932'
+       # HIERRO AL ROJO, no acero limpio: del rescoldo del filo al oxido casi
+       # negro del contorno. Un abrojo que ha estado en la fragua y se ha
+       # quedado ahi, que ademas es lo que avisa de que eso pincha.
+       #
+       # La rampa arranca en un rojo CLARO y no en un naranja palido: la cara
+       # iluminada de cada pieza es la que manda en el color que se ve a tamano
+       # de juego, y con el naranja el conjunto salia salmon.
+       paleta = 'ffb4a0,f0604a,cf2b1c,981a0e,5e0f07,2f0704'
        # `cuantos` piezas, de `tam` en fracciones del radio de dano y con
-       # `variacion` de tamano entre unas y otras. 34 a 0,085 llena el aro sin
-       # que se toquen: mas grandes se funden en una placa y mas pequenos
-       # desaparecen al reducir la calcomania a radios chicos.
-       cuantos = 44; tam = 0.085; variacion = 0.30 }
+       # `variacion` de tamano entre unas y otras.
+       #
+       # `tam` sube de 0,085 a 0,1275, o sea un 50% mas grandes. Con 44 piezas
+       # a ese tamano la malla se aprieta pero sigue habiendo suelo entre ellas
+       # -la medicion de mas abajo es justo eso- y a cambio se ven a los radios
+       # pequenos, que es donde antes se perdian.
+       cuantos = 44; tam = 0.1275; variacion = 0.30 }
 )
 
 # Las AURAS son resplandores sueltos que se dibujan detras de otra cosa.
@@ -2127,9 +2245,14 @@ $FLECHA_ANCHO  = 22      # fuente; 44x16 fisicos, o sea 11x4 unidades logicas
 $FLECHA_ALTO   = 8
 $KUNAI_ANCHO   = 20      # fuente; 40x16 fisicos
 $KUNAI_ALTO    = 8
-# Las tres astas. El pilum es el mas largo y el mas fino: es un arma de
-# arrojar de dos metros con una cana de hierro. El virote, corto y gordo.
-$PILUM_ANCHO   = 26; $PILUM_ALTO   = 7      # 52x14 fisicos
+# Las tres astas. La del Pilum es con diferencia la mas larga y la mas fina: 72
+# de fuente por 7 de alto, o sea una proporcion de DIEZ A UNO. El virote, al
+# otro extremo: corto y gordo.
+#
+# Se alargo dos veces -26, 36 y ahora 72- y siempre a lo LARGO, sin tocar el
+# alto: es lo que la va convirtiendo en lanza en vez de en jabalina gorda. Una
+# lanza no es un dardo grande, es un dardo estirado.
+$PILUM_ANCHO   = 72; $PILUM_ALTO   = 7      # 144x14 fisicos
 $LANZA_ANCHO   = 26; $LANZA_ALTO   = 8      # 52x16
 $VIROTE_ANCHO  = 22; $VIROTE_ALTO  = 10     # 44x20
 # Pedazos sueltos: casco de metralla y canto de honda.
@@ -2138,7 +2261,10 @@ $PIEDRA_ANCHO  = 10; $PIEDRA_ALTO  = 9      # 20x18
 # Lengua de fuego del lanzallamas.
 $LENGUA_ANCHO  = 16; $LENGUA_ALTO  = 9      # 32x18
 # La rosa de los vientos: misma figura que el shuriken con otros numeros.
-$RADIO_ROSA    = 6                          # 24x24
+# La rosa de los vientos crece con el nivel del arma hasta cuadruplicar su
+# tamano, asi que se hornea generosa: 40x40 fisicos. Lo que se amplia en caliente
+# es la escala, no la hoja, y partir de una hoja chica se notaria al maximo.
+$RADIO_ROSA    = 10                         # 40x40
 # La columna es la pieza mas grande del lote y tiene que serlo: es un fuste de
 # marmol, no un dardo. 68x24 fisicos son 17x6 unidades logicas.
 $COLUMNA_ANCHO = 34
@@ -2175,10 +2301,23 @@ $PROYECTILES = @(
        paleta = 'b99a63,5c4726'          # fresno
        acero = 'dfe4ea,4e5762'
        pluma = '000000'
-       # Punta pequena, VASTAGO largo y fino hasta la mitad del arma, y asta
-       # gruesa detras. Esa cana de hierro es la firma del pilum.
-       fracPunta = 0.13; anchoPunta = 0.30; fracVastago = 0.50
-       anchoAsta = 0.19; fracPluma = 0 }
+       # LANZA LARGA, no el pilum historico.
+       #
+       # Llevaba la firma del arma de verdad: punta pequena, vastago de hierro
+       # largo y fino hasta la mitad, y asta gruesa detras. Es lo que distingue
+       # a un pilum... y a tamano de juego lo que se leia era un palo con un
+       # nudo en medio: el vastago es una linea de un pixel y rompe la silueta
+       # en dos trozos en vez de dar una pieza.
+       #
+       # Asi que se cambia por lo que se lee: hoja de laurel al frente y un
+       # fuste largo y fino detras, de una pieza. Sin vastago.
+       #
+       # `fracPunta` BAJA A LA MITAD al doblarse el ancho de la celda, y es a
+       # proposito: es una fraccion del largo total, asi que dejandola en 0,22
+       # la hoja habria crecido tambien al doble y saldria una alabarda. Lo que
+       # tiene que alargarse es el FUSTE; la hoja de una lanza mide lo que mide.
+       fracPunta = 0.11; anchoPunta = 0.32; fracVastago = 0
+       anchoAsta = 0.13; fracPluma = 0 }
 
     @{ id = 'lanza'; tipo = 'asta'; atlas = 'proyLanza'; archivo = 'proy-lanza.png'
        paleta = 'c2a468,634d2a'
@@ -2217,11 +2356,12 @@ $PROYECTILES = @(
 
     @{ id = 'rosa'; tipo = 'rosa'; atlas = 'proyRosa'; archivo = 'proy-rosa.png'
        # Bronce de instrumento, no acero: una rosa de los vientos es una pieza
-       # de latón grabada.
-       paleta = 'ffeab0,e0bf6a,b8933f,8a6b28,5c4718,332708'
-       # Sin ojo en el centro y con las puntas mucho mas afiladas que las de un
-       # shuriken: lo que se quiere es la aguja de una brujula.
-       afilado = 0.34; hueco = 0; cuerpo = 0.13 }
+       # de laton grabada.
+       paleta = 'fff3cd,e8c877,c19a45,8f6f2c,5c4718,2e2208'
+       # `corta` es lo que alcanzan las cuatro puntas diagonales frente a las
+       # cardinales. 0,52 es la proporcion de las rosas de las cartas nauticas:
+       # se ven claramente como una segunda serie y no compiten con las largas.
+       afilado = 0.40; cuerpo = 0.14; corta = 0.52 }
 
     @{ id = 'kunai'; tipo = 'kunai'; atlas = 'proyKunai'; archivo = 'proy-kunai.png'
        # Acero pavonado. La sombra es un gris MEDIO y no casi negro: a ocho
@@ -2332,14 +2472,22 @@ foreach ($mn in $MINAS) {
     # Lo que hay que comprobar de una mina: que el cuerpo sea SIEMPRE el mismo
     # -es un objeto solido, no puede cambiar de tamano- y que la luz de verdad
     # parpadee, o sea que el brillo recorra un rango amplio.
-    $op = @(); $br = @()
-    foreach ($fr in ($m -split ';')) { $q = $fr -split '\|'; $op += [int]$q[0]; $br += [double]$q[1] }
+    $op = @(); $br = @(); $ro = @()
+    foreach ($fr in ($m -split ';')) { $q = $fr -split '\|'; $op += [int]$q[0]; $br += [double]$q[1]; $ro += [int]$q[2] }
     $cuerpoFijo = (($op | Measure-Object -Minimum).Minimum -eq ($op | Measure-Object -Maximum).Maximum)
     $rango = ($br | Measure-Object -Maximum).Maximum - ($br | Measure-Object -Minimum).Minimum
+    # LA LAMPARA, CONTADA EN PIXELES. Antes solo se miraba el rango del brillo,
+    # o sea la intencion, y la lampara podia no llegar al PNG sin que saltara
+    # nada — y no llego durante toda su vida. Si esto sale a cero, no hay luz.
+    $luzMin = ($ro | Measure-Object -Minimum).Minimum
+    # Se exige un minimo de pixeles y no solo "mas de cero": la lampara es ahora
+    # muy pequena y el riesgo ya no es que no llegue al PNG -eso esta arreglado-
+    # sino que se quede en un punto suelto que no se lea.
+    $ok = $cuerpoFijo -and ($rango -gt 0.8) -and ($luzMin -ge 4)
     Write-Host ("  {0,-10} {1}" -f $mn.id, $mn.archivo)
     Write-Host ("             brillo de la luz  {0}" -f (($br | ForEach-Object { $_.ToString('0.00') }) -join ' '))
-    Write-Host ("             cuerpo de tamano fijo: {0}   rango del parpadeo: {1:N2}  -> {2}" -f `
-                $cuerpoFijo, $rango, $(if ($cuerpoFijo -and $rango -gt 0.8) { 'OK' } else { 'REVISAR' }))
+    Write-Host ("             lampara: {0} px por fotograma   cuerpo fijo: {1}   rango del parpadeo: {2:N2}  -> {3}" -f `
+                $luzMin, $cuerpoFijo, $rango, $(if ($ok) { 'OK' } else { 'REVISAR' }))
     Write-Host ""
 }
 
@@ -2444,12 +2592,13 @@ foreach ($pr in $PROYECTILES) {
         Write-Host ("             {0} px de fuego, {1:P0} de la celda -> {2}" -f $m, $ocupa, $(if ($ok) { 'OK' } else { 'REVISAR' }))
     }
     elseif ($pr.tipo -eq 'rosa') {
-        $m = [Pirotecnia]::Shuriken($ruta, $RADIO_ROSA, $DETALLE, $pr.paleta,
-                                    [double]$pr.afilado, [double]$pr.hueco, [double]$pr.cuerpo)
+        $m = [Pirotecnia]::Rosa($ruta, $RADIO_ROSA, $DETALLE, $pr.paleta,
+                                [double]$pr.afilado, [double]$pr.cuerpo, [double]$pr.corta)
         $q = $m -split '\|'
         $llenado = [double]$q[1]
-        # Mas fina que el shuriken a proposito: es una aguja de cuatro puntas.
-        $ok = ($llenado -gt 0.15) -and ($llenado -lt 0.55)
+        # Ocho puntas ocupan mas que cuatro, pero sigue siendo una estrella: si
+        # se acerca al lleno es que las puntas se han fundido en un disco.
+        $ok = ($llenado -gt 0.20) -and ($llenado -lt 0.70)
         Write-Host ("  {0,-10} {1}   {2}x{2} px" -f $pr.id, $pr.archivo, ($RADIO_ROSA * 2 * $DETALLE))
         Write-Host ("             bronce {0} px, {1:P0} del circulo -> {2}" -f $q[0], $llenado, $(if ($ok) { 'OK' } else { 'REVISAR' }))
     }
@@ -2633,7 +2782,11 @@ foreach ($mn in $MINAS) {
         plano  = $true
         aditivo = $false
         bucle  = $true
-        fps    = 9
+        # UN PARPADEO CADA MEDIO SEGUNDO. La tira son 12 fotogramas y trae UN
+        # destello completo por vuelta, asi que los fps deciden el ritmo del
+        # piloto: 12 / 24 = 0,5 s por ciclo. Estaba a 9, o sea un parpadeo cada
+        # 1,33 s, y a ese ritmo una mina sembrada parecia apagada.
+        fps    = 24
         # Radio del dibujo en unidades LOGICAS. Lo lee el motor para dibujarla
         # a su tamano real sin depender del radio del arma.
         radioDibujo = $RADIO_MINA
