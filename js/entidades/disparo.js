@@ -585,8 +585,16 @@ export class Disparos {
   // Las chispas se quedan, y no como redundancia: pasan por el racionamiento de
   // Particulas y desaparecen con la pantalla llena, mientras que el reventón no.
   _reventar(d) {
+    // EL DEL SISMO VA EN EL SUELO, el resto en el aire. Un sismo es la tierra
+    // levantándose bajo los pies, así que lo que hay de pie encima —cuerpos,
+    // columnas, estatuas— tiene que taparlo; el veneno de una medusa revienta
+    // en el proyectil, a la altura del pecho, y ese sí tapa.
+    //
+    // Es la misma división que ya tiene el aviso, que se dibuja con las
+    // calcomanías (ver `dibujarSuelo`): las dos mitades del ataque del cíclope
+    // están pintadas en el suelo y solo la piedra vuela.
     VFX.reventon(d.x, d.y, d.radioReventon || d.radio, d.reventon,
-                 d.sismo ? 0.42 : 0.28, this._rng);
+                 d.sismo ? 0.42 : 0.28, this._rng, d.sismo);
     if (Particulas.saturado()) return;
     Particulas.estallido(d.x, d.y, 4, 60, 0.25, 1.5, COLOR_CHISPA, 0.8, this._rng);
   }

@@ -70,7 +70,15 @@ function crearReventon() {
     radio: 0,             // radio en unidades lógicas al que se dibuja
     vida: 0, vidaMax: 1,
     hoja: null,           // id de atlas de la hoja animada
-    giro: 0               // orientación fija, sorteada al nacer
+    giro: 0,              // orientación fija, sorteada al nacer
+    // ¿VA EN EL SUELO O EN EL AIRE? No todos los reventones están a la misma
+    // altura: el veneno de una medusa revienta EN el proyectil, a la altura del
+    // pecho, y el sismo de un cíclope es el suelo levantándose. El primero tiene
+    // que taparlo todo y el segundo tiene que quedar debajo de lo que lo pisa.
+    //
+    // Comparten pool porque son la misma clase de cosa —una animación de una
+    // sola vez— y lo único que cambia es en qué pasada se dibujan.
+    suelo: false
   };
 }
 
@@ -440,13 +448,14 @@ export const VFX = {
   // dónde tiene que caer el filo del dibujo, o sea el borde de lo que ha hecho
   // daño. Si la hoja no está cargada no se dibuja nada y no pasa nada: misma
   // red que los placeholders del atlas.
-  reventon(x, y, radio, hoja, vida = 0.34, rng = null) {
+  reventon(x, y, radio, hoja, vida = 0.34, rng = null, suelo = false) {
     if (!this.reventones || !hoja) return;
     const r = this.reventones.obtener();
     if (!r) return;
     r.x = x; r.y = y;
     r.radio = radio;
     r.hoja = hoja;
+    r.suelo = !!suelo;
     r.vida = r.vidaMax = vida;
     // Orientación al azar. La hoja es una sola, así que sin esto dos sismos
     // seguidos en el mismo sitio salen calcados y se lee como un sello
@@ -457,7 +466,10 @@ export const VFX = {
   // Los reventones, en el lienzo del MUNDO y en ADITIVO. Aditivo por lo mismo
   // que las explosiones: son luz, y dos solapados tienen que verse más
   // calientes. Las hojas están horneadas sin tonos oscuros justo para esto.
-  dibujarReventones(ctx) {
+  // `deSuelo` elige la pasada: los de tierra van con las calcomanías, entre el
+  // terreno y las entidades, y el resto por encima de la horda. Se llama dos
+  // veces por frame desde main.js y cada una salta lo que no le toca.
+  dibujarReventones(ctx, deSuelo = false) {
     if (!this.reventones) return;
     const items = this.reventones.items;
     const n = this.reventones.activos;
@@ -466,6 +478,7 @@ export const VFX = {
     ctx.save();
     for (let k = 0; k < n; k++) {
       const v = items[k];
+      if (!!v.suelo !== deSuelo) continue;
       const img = Recursos.imagen(v.hoja);
       const meta = Recursos.meta(v.hoja);
       if (!img || !meta) continue;

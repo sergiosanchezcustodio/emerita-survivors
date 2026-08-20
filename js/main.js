@@ -1772,7 +1772,15 @@ function dibujar(alpha) {
   // aceite es una mancha en el suelo y tiene que quedar por debajo de todo lo
   // que se pueda pisar, gemas incluidas. Su canto se pinta luego, arriba del
   // todo, con el resto de efectos (ver zonaDanyo.js).
-  if (activo.efectos) { zonas.dibujarSuelo(ctx); disparos.dibujarSuelo(ctx, alpha); }
+  if (activo.efectos) {
+    zonas.dibujarSuelo(ctx);
+    disparos.dibujarSuelo(ctx, alpha);
+    // Y los reventones DE SUELO, que hoy es el del sismo del cíclope: la tierra
+    // levantándose tiene que quedar debajo de lo que la pisa. Los de aire —el
+    // veneno de la medusa, la bola de la mantícora— siguen por encima de todo,
+    // más abajo en este mismo método.
+    VFX.dibujarReventones(ctx, true);
+  }
   // Las gemas van bajo las entidades: son suelo, y taparlas con un cuerpo es
   // información correcta, no un fallo. El cofre también, pero su halo lo delata
   // por debajo de la horda, que es justo para lo que está.
@@ -1822,11 +1830,14 @@ function dibujar(alpha) {
   // Las marcas de golpe van DESPUÉS de las partículas y con ellas en el lienzo
   // del mundo: son lo último del impacto y tienen que quedar por encima.
   if (activo.efectos) VFX.dibujarImpactos(ctx);
-  // Los reventones de los ataques enemigos, por encima de la horda. Es el mismo
-  // criterio que los avisos de disparo de un par de líneas más arriba: el aviso
-  // dice que viene y el reventón dice que ha llegado, y las dos mitades del
-  // mismo mensaje tienen que leerse aunque estés rodeado.
-  if (activo.efectos) VFX.dibujarReventones(ctx);
+  // Los reventones DE AIRE, por encima de la horda: el veneno de la medusa y la
+  // bola de la mantícora revientan EN el proyectil, a la altura del pecho, así
+  // que tapan. Es el mismo criterio que los avisos de disparo de unas líneas más
+  // arriba — el aviso dice que viene y el reventón dice que ha llegado, y las
+  // dos mitades del mismo mensaje tienen que leerse aunque estés rodeado.
+  //
+  // Los de SUELO ya se han pintado con las calcomanías, antes que las entidades.
+  if (activo.efectos) VFX.dibujarReventones(ctx, false);
   // Y los anillos de recompensa los últimos del mundo: subir de nivel o curarse
   // tapa por un instante lo que haya debajo, y eso es lo que se quiere.
   if (activo.efectos) VFX.dibujarAnillos(ctx);
