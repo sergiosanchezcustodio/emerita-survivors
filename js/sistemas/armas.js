@@ -755,6 +755,10 @@ export class Armas {
     // nivel: el Fusil gana uno en el 3 y otro en el 10, la Honda hasta tres.
     d.rebotesPared = s.rebotesPared || 0;
     d.rebotesEnemigo = s.rebotesEnemigo || 0;
+    // Lo que gana de velocidad por rebote. De la DEFINICIÓN y no de las stats:
+    // es una propiedad del arma, no algo que suba con el nivel — lo que sube
+    // con el nivel son los rebotes, y cada uno vale lo mismo.
+    d.aceleraRebote = arma.def.aceleraRebote || 0;
   }
 
   // UN rayo de la tormenta. Va aquí y no dentro del comportamiento porque se

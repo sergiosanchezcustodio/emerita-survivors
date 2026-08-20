@@ -57,6 +57,9 @@ function crearProyectil() {
     // margen y barre otra vez, que convierte un arma de un solo blanco en una
     // que castiga los pasillos.
     rebotesPared: 0,
+    // Cuánto gana de velocidad en CADA rebote de pared, en tanto por uno. 0 =
+    // vuelve igual de rápido que se fue, que es lo normal.
+    aceleraRebote: 0,
     // REBOTES DE ENEMIGO A ENEMIGO. Al gastarse contra uno, en vez de morir
     // salta al más cercano que no haya tocado ya. Es la Honda: una piedra que
     // va haciendo cabriolas entre la horda.
@@ -135,6 +138,7 @@ export class Proyectiles {
     p.rayoGrosor = def.rayoGrosor || 3;
     p.vidaMax = p.vida;
     p.rebotesPared = def.rebotesPared || 0;
+    p.aceleraRebote = def.aceleraRebote || 0;
     p.rebotesEnemigo = def.rebotesEnemigo || 0;
     p.sello = contadorSello++;
     return p;
@@ -196,6 +200,21 @@ export class Proyectiles {
           // disparo nuevo, lo es entera. El daño sigue acotado, porque cada
           // tramo entre paredes gasta como mucho su perforación.
           p.perforacion = p.perforacionMax;
+
+          // Y SALE MÁS RÁPIDA DE LO QUE ENTRÓ. Es lo que convierte los rebotes
+          // de un recurso a una amenaza que crece: la primera vuelta es una
+          // bala y la décima es un latigazo cruzando la pantalla.
+          //
+          // Se multiplica la velocidad y NO se toca `vida`, que se acaba de
+          // reponer entera: como `vida` es tiempo y no distancia, una bala más
+          // rápida recorre más en ese mismo tiempo. O sea que cada rebote alarga
+          // también el tramo siguiente, que es justo lo que hace falta para que
+          // le dé tiempo a llegar a la pared de enfrente.
+          if (p.aceleraRebote > 0) {
+            const k = 1 + p.aceleraRebote;
+            p.vx *= k;
+            p.vy *= k;
+          }
         }
       }
 

@@ -791,10 +791,40 @@ export function impactosProyectiles(proyectiles, enemigos, alEstallar) {
     // hay nada que pueda pasarle a un proyectil que no golpea.
     if (p.perforacion < 0) { k++; continue; }
 
-    const c0 = rejilla.columnaDe(p.x - p.radio);
-    const c1 = rejilla.columnaDe(p.x + p.radio);
-    const f0 = rejilla.filaDe(p.y - p.radio);
-    const f1 = rejilla.filaDe(p.y + p.radio);
+    // EL PROYECTIL SE PRUEBA COMO SEGMENTO, NO COMO PUNTO.
+    //
+    // Se probaba dónde está AHORA, y eso falla en cuanto vuela rápido: entre un
+    // fotograma y el siguiente recorre `velocidad/60` unidades, y si eso es más
+    // que la ventana de impacto —el radio de la bala más el del enemigo— salta
+    // por encima de un cuerpo sin llegar a tocarlo nunca.
+    //
+    // Medido con el Fusil al máximo, que rebota diez veces ganando un 10% de
+    // velocidad en cada una: acaba a 1654 de velocidad, o sea 27,6 unidades por
+    // fotograma, contra una ventana de 8 frente a un enemigo pequeño. Tres de
+    // cada cuatro cuerpos le pasaban por debajo. La mejora se volvía castigo
+    // justo cuando el arma tenía que estar más fuerte.
+    //
+    // Se arregla midiendo contra el TRAMO recorrido —de la posición anterior a
+    // la actual— en vez de contra el punto final. `xPrev`/`yPrev` ya existían
+    // para interpolar el dibujado, así que el dato estaba ahí.
+    //
+    // NO CUESTA NADA EN EL CASO NORMAL: para un proyectil lento, la posición
+    // anterior y la actual están a menos de un píxel, así que la caja que se
+    // consulta en la rejilla es la misma de antes y se recorren las mismas
+    // celdas. Solo los rápidos miran unas pocas más, que es exactamente cuando
+    // hace falta.
+    const px0 = p.xPrev, py0 = p.yPrev;
+    const segX = p.x - px0, segY = p.y - py0;
+    const segLen2 = segX * segX + segY * segY;
+
+    const minX = px0 < p.x ? px0 : p.x;
+    const maxX = px0 < p.x ? p.x : px0;
+    const minY = py0 < p.y ? py0 : p.y;
+    const maxY = py0 < p.y ? p.y : py0;
+    const c0 = rejilla.columnaDe(minX - p.radio);
+    const c1 = rejilla.columnaDe(maxX + p.radio);
+    const f0 = rejilla.filaDe(minY - p.radio);
+    const f1 = rejilla.filaDe(maxY + p.radio);
 
     for (let fy = f0; fy <= f1 && !agotado; fy++) {
       if (fy < 0 || fy >= filas) continue;
@@ -804,8 +834,17 @@ export function impactosProyectiles(proyectiles, enemigos, alEstallar) {
         for (let q = inicio[c]; q < inicio[c + 1]; q++) {
           const e = items[indices[q]];
           if (e.vida <= 0 || e.ultimoSello === p.sello) continue;
-          const dx = e.x - p.x;
-          const dy = e.y - p.y;
+          // Distancia del enemigo AL TRAMO, no al punto final: se proyecta su
+          // centro sobre el segmento, se recorta a los extremos y se mide desde
+          // ahí. Con el tramo de longitud cero —un proyectil parado— sale el
+          // punto de siempre y la cuenta es la de antes.
+          let t = 0;
+          if (segLen2 > 0) {
+            t = ((e.x - px0) * segX + (e.y - py0) * segY) / segLen2;
+            if (t < 0) t = 0; else if (t > 1) t = 1;
+          }
+          const dx = e.x - (px0 + segX * t);
+          const dy = e.y - (py0 + segY * t);
           const r = p.radio + e.radioCuerpo;
           if (dx * dx + dy * dy > r * r) continue;
 

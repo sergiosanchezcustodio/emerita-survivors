@@ -576,25 +576,35 @@ export const ARMAS = {
     nombre: 'Fusil',
     descripcion: 'Disparo largo y perforante. Pega donde mira.',
     comportamiento: 'proyectilDirigido',
-    // Rebota en los márgenes de la pantalla VISIBLE: gana uno en los niveles 3,
-    // 5, 7, 9 y 10, o sea cinco al máximo. Ver `rebotesPared` en
+    // Rebota en los márgenes de la pantalla VISIBLE: uno por nivel desde el 2, y
+    // dos en el último, o sea DIEZ al máximo. Ver `rebotesPared` en
     // entidades/proyectil.js.
     //
-    // Y cada rebote le devuelve el alcance entero, así que una bala al máximo
-    // puede recorrer seis veces los 440 de su alcance sin salir de cuadro: la
-    // pantalla se convierte en una mesa de billar. Es lo que separa al Fusil del
-    // Revólver, que pega igual de fuerte y solo hacia delante.
+    // Y cada rebote le devuelve el alcance entero Y LE SUBE UN 10% LA VELOCIDAD.
+    // Eso último compone: diez rebotes son 1,1^10 = x2,59 de velocidad, así que
+    // la última vuelta cruza la pantalla más del doble de rápido que la primera.
+    // Una bala al máximo recorre once tramos de 440 sin salir de cuadro, cada
+    // uno más largo que el anterior: la pantalla se convierte en una mesa de
+    // billar y la bola va cada vez más lanzada.
+    //
+    // Es lo que separa al Fusil del Revólver, que pega igual de fuerte y solo
+    // hacia delante.
+    aceleraRebote: 0.10,
     rebotesPared: 0,
     forma: 'bala',
     danyo: 38, recarga: 1.35, proyectiles: 1, velocidad: 560, alcance: 440,
     radio: 3, perforacion: 1, dispersion: 3, empuje: 100,
     color: '#cfd6dd', estela: '#6d7480', largoTrazo: 14,
     spriteProyectil: 'balaPistola',
-    niveles: [{}, { danyo: 18 }, { perforacion: 1, danyo: 14, rebotesPared: 1 }, { recarga: -0.2, danyo: 16 },
-              { danyo: 24, rebotesPared: 1 }, { perforacion: 1, danyo: 20 },
+    niveles: [{}, { danyo: 18, rebotesPared: 1 },
+              { perforacion: 1, danyo: 14, rebotesPared: 1 },
+              { recarga: -0.2, danyo: 16, rebotesPared: 1 },
+              { danyo: 24, rebotesPared: 1 },
+              { perforacion: 1, danyo: 20, rebotesPared: 1 },
               { velocidad: 80, danyo: 22, rebotesPared: 1 },
-              { danyo: 32, recarga: -0.2 }, { danyo: 24, rebotesPared: 1 },
-              { danyo: 32, recarga: -0.15, rebotesPared: 1 }]
+              { danyo: 32, recarga: -0.2, rebotesPared: 1 },
+              { danyo: 24, rebotesPared: 1 },
+              { danyo: 32, recarga: -0.15, rebotesPared: 2 }]
   },
   subfusil: {
     nombre: 'Subfusil',
