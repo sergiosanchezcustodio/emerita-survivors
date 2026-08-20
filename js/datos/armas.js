@@ -217,26 +217,30 @@ export const ARMAS = {
     spriteProyectil: 'proyRosa',
     giroProyectil: 6,
     // CRECE CON EL NIVEL, y crecen las dos cosas a la vez y al mismo ritmo:
-    // `radio` es lo que golpea y `escalaProyectil` lo que se ve. De 3 a 12 y de
-    // x1 a x4 — el 300% más que se pidió.
+    // `radio` es lo que golpea y `escalaProyectil` lo que se ve.
     //
-    // Van clavadas la una a la otra a propósito. Una estrella dibujada al
-    // cuádruple golpeando a la distancia de siempre sería una mentira de las
-    // gordas, y al revés todavía peor: daño invisible.
+    // A UN TERCIO DE LO QUE CRECÍA. Llegó a x4 y a radio 12, y al máximo eran
+    // cuatro ruedas de bronce que se comían la pantalla; ahora se queda en x1,33
+    // y radio 4. Sigue notándose que sube —la estrella entra siendo una chispa y
+    // acaba con cuerpo— sin convertirse en el arma más aparatosa del juego.
     //
-    // Es la única arma del catálogo cuyo proyectil engorda, y le da una subida
-    // que se ve sin leer un número: al 1 son cuatro chispas y al 10, cuatro
-    // ruedas de bronce cruzando la pantalla.
+    // Van clavadas la una a la otra a propósito, y por eso se reducen las dos:
+    // una estrella dibujada al cuádruple golpeando a la distancia de siempre
+    // sería una mentira de las gordas, y al revés todavía peor, daño invisible.
     escalaProyectil: 1,
-    niveles: [{}, { danyo: 3, radio: 1, escalaProyectil: 0.33 },
-              { perforacion: 1, radio: 1, escalaProyectil: 0.33 },
-              { recarga: -0.2, radio: 1, escalaProyectil: 0.33 },
-              { danyo: 4, radio: 1, escalaProyectil: 0.33 },
-              { proyectiles: 1, dispersion: 11, radio: 1, escalaProyectil: 0.33 },
-              { perforacion: 1, radio: 1, escalaProyectil: 0.33 },
-              { danyo: 6, radio: 1, escalaProyectil: 0.33 },
-              { danyo: 6, radio: 1, escalaProyectil: 0.33 },
-              { danyo: 9, recarga: -0.15, radio: 1, escalaProyectil: 0.36 }]
+    // El radio sube UNA sola vez, a mitad de camino, y la escala lo acompaña en
+    // pasos pequeños: 3 -> 4 y x1 -> x1,33 son la MISMA proporción. Repartir el
+    // radio en tres saltos como antes lo habría dejado en x2 con el dibujo en
+    // x1,33, que es exactamente el descuadre que estas dos líneas evitan.
+    niveles: [{}, { danyo: 3, escalaProyectil: 0.04 },
+              { perforacion: 1, escalaProyectil: 0.04 },
+              { recarga: -0.2, escalaProyectil: 0.04 },
+              { danyo: 4, escalaProyectil: 0.04 },
+              { proyectiles: 1, dispersion: 11, radio: 1, escalaProyectil: 0.04 },
+              { perforacion: 1, escalaProyectil: 0.04 },
+              { danyo: 6, escalaProyectil: 0.03 },
+              { danyo: 6, escalaProyectil: 0.03 },
+              { danyo: 9, recarga: -0.15, escalaProyectil: 0.03 }]
   },
   metralla: {
     nombre: 'Metralla',

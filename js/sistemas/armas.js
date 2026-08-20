@@ -225,18 +225,27 @@ const COMPORTAMIENTOS = {
     for (let i = 0; i < s.proyectiles; i++) {
       const a = base + (ctx.rng() * 2 - 1) * semi;
       const v = s.velocidad * (0.82 + ctx.rng() * 0.36);
-      sis.defProyectil.danyo = danyo;
-      sis.defProyectil.empuje = s.empuje;
-      sis.defProyectil.radio = s.radio;
-      sis.defProyectil.perforacion = s.perforacion;
+      // POR EL REPARTIDOR COMÚN, y este era el ÚLTIMO sitio que no pasaba por
+      // él. Aquí se escribían nueve campos a mano sobre `defProyectil`, que es
+      // UN objeto compartido por todas las armas: lo que este comportamiento no
+      // escriba se queda con lo que dejó el disparo anterior, de otra arma.
+      //
+      // Lo que se colaba, medido sobre lo que faltaba: `escala` y `giro` —los
+      // perdigones de la Recortada crecían y volteaban si llevabas también la
+      // Rosa de los vientos o el Aspa—, los rebotes de pared y de enemigo, y lo
+      // peor de todo, `radioExplosion` con `estallaAlExpirar`: con un
+      // lanzagranadas en el arsenal, los perdigones de una escopeta reventaban
+      // en área al agotarse.
+      //
+      // Es el mismo fallo que tenía `proyectilDirigido` y se arregla igual. Las
+      // tres armas de cono —Escopeta, Recortada y Lanzallamas— lo sufrían.
+      sis._rellenarProyectil(arma, s, danyo);
+      // Y estos dos SÍ son de aquí, así que van después: el vuelo de cada
+      // perdigón se sortea uno a uno (`v` ya trae su propio azar), y el trazo es
+      // corto a propósito porque un cono es muchos destellos pequeños, no una
+      // andanada de rayas largas.
       sis.defProyectil.vida = (s.alcance / v) * (0.8 + ctx.rng() * 0.4);
-      sis.defProyectil.color = arma.def.color;
-      sis.defProyectil.estela = arma.def.estela;
       sis.defProyectil.largo = 5;
-      sis.defProyectil.forma = formaDe(arma);      // ver la nota de arriba
-      // Mismo motivo que `forma`: `hoja` es campo compartido y hay que
-      // escribirlo siempre, o el arma hereda el dibujo de la anterior.
-      sis.defProyectil.hoja = arma.def.spriteProyectil || null;
       const b = bocaDe(j, a);
       ctx.proyectiles.lanzar(b.x, b.y, Math.cos(a) * v, Math.sin(a) * v,
                              sis.defProyectil);
