@@ -488,7 +488,13 @@ const DURACION_LLAMARADA = 8;
 // sistemas/colisiones.js). Es lo que convierte el objeto en la salida de
 // verdad del peor momento de la partida: quedar rodeado y que los cuerpos
 // siguieran siendo pared dejaba el pánico intacto, solo que en silencio.
-const PARALISIS_RELOJ = 12;
+// EL DOBLE DE LO QUE DURABA (12 -> 24). Es el objeto más raro de los tres
+// consumibles y el que menos veces se coge en una partida; con doce segundos se
+// acababa antes de que diera tiempo a aprovecharlo de verdad.
+//
+// Congela a la horda ENTERA, incluida la que aparezca durante esos segundos:
+// ver `paralizarTodos` en entidades/enemigo.js.
+const PARALISIS_RELOJ = 24;
 // Las monedas se cobran FUERA de la partida: van al progreso META y siguen ahí
 // mañana. Es el único consumible que no cambia nada de lo que está pasando.
 const DENARIOS_MONEDAS = 10;

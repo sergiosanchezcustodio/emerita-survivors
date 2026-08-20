@@ -333,6 +333,10 @@ export class Enemigos {
     // dos bichos sería pagar 800 comprobaciones por una respuesta que cabe en un
     // entero.
     this.elitesVivos = 0;
+    // Segundos que le quedan a la parálisis del Reloj de Emerita. Es de la
+    // HORDA y no de cada enemigo: mientras corra, lo que aparezca nace ya
+    // congelado. Ver `paralizarTodos`.
+    this.paralisisRestante = 0;
     // Escoltas de jefe vivos ahora mismo (los gemelos de la loba). Mismo motivo
     // que elitesVivos: sistemas/jefes.js necesita saber si ha caído alguno este
     // paso sin recorrer el pool entero para contarlo.
@@ -434,7 +438,11 @@ export class Enemigos {
     e.relojAtaque = def.ataque ? this._rng() * def.ataque.cadencia : 0;
     e.huidaTotal = false;
     e.panico = 0;
-    e.paralizado = 0;
+    // NACE PARALIZADO si el Reloj está corriendo. Es lo que hace que el efecto
+    // valga también para lo que todavía no había aparecido — que es la mitad de
+    // la horda, porque el director no deja de soltar mientras dura. Ver
+    // `paralizarTodos`.
+    e.paralizado = this.paralisisRestante;
     e.movPrevio = 0;
 
     if (def.cofre) this.elitesVivos++;
@@ -486,6 +494,13 @@ export class Enemigos {
   // sismo del cíclope) para poder soltar el punto en cualquier sitio visible
   // en vez de encima del jugador. Nada más en esta función lo necesita.
   mover(dt, jugadores, camara) {
+    // El reloj de la parálisis global corre aquí, una vez por paso y no una vez
+    // por enemigo: es de la horda, no de cada bicho.
+    if (this.paralisisRestante > 0) {
+      this.paralisisRestante -= dt;
+      if (this.paralisisRestante < 0) this.paralisisRestante = 0;
+    }
+
     const items = this.pool.items;
     const n = this.pool.activos;
 
@@ -1003,7 +1018,22 @@ export class Enemigos {
   // A todos de verdad, jefes incluidos: es un objeto raro, dura seis segundos y
   // el momento en que más falta hace es justo cuando hay un jefe encima. Se
   // saltan solo los objetos del escenario, que no se mueven de todas formas.
+  // EL RELOJ DE EMERITA PARA LA HORDA ENTERA, no solo la que ya existe.
+  //
+  // Esto congelaba a los que estuvieran vivos en ese instante, y con eso no
+  // basta: el director sigue soltando enemigos mientras dura, y nacen JUSTO
+  // FUERA DE CUADRO. Entraban andando por el borde con todo lo demás
+  // petrificado, que es exactamente lo que rompe la ilusión de tiempo parado.
+  //
+  // Y no era solo el director: un enemigo congelado que se aleja lo bastante lo
+  // recicla `reciclarLejanos`, y el hueco vuelve a usarse para uno nuevo — sin
+  // congelar.
+  //
+  // Se arregla guardando el tiempo que le queda a la PARÁLISIS, no a cada
+  // enemigo: mientras corra, todo el que aparezca nace ya paralizado con lo que
+  // reste (ver `aparecer`). Un solo número para toda la horda.
   paralizarTodos(duracion) {
+    if (duracion > this.paralisisRestante) this.paralisisRestante = duracion;
     const items = this.pool.items;
     for (let k = 0; k < this.pool.activos; k++) {
       const e = items[k];
@@ -1035,7 +1065,14 @@ export class Enemigos {
     }
   }
 
-  vaciar() { this.pool.vaciar(); this.elitesVivos = 0; this.escoltasVivos = 0; }
+  vaciar() {
+    this.pool.vaciar();
+    this.elitesVivos = 0;
+    this.escoltasVivos = 0;
+    // Sin esto, una partida nueva empezada durante una congelación heredaría el
+    // reloj y su primera oleada saldría petrificada.
+    this.paralisisRestante = 0;
+  }
 
   // Ordenación por profundidad (eje Y) mediante ordenación por CONTEO sobre
   // arrays tipados preasignados. Nada de Array.sort con una closure de
