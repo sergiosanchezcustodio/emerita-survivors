@@ -1763,11 +1763,23 @@ public class Pirotecnia {
                         idx = (int)(lz * (pal.Length - 2) * 0.75);
                         iluminados++;
                     } else {
-                        // Cara en sombra: los dos tonos mas bajos de la paleta.
-                        idx = pal.Length - 2;
+                        // CARA EN SOMBRA, DEL MISMO TONO QUE EL CANTO.
+                        //
+                        // Llevaba el penultimo de la paleta y el canto el
+                        // ultimo, asi que la parte oscura tenia dentro un
+                        // segundo borde mas oscuro todavia — dos fronteras en
+                        // una pieza que solo tiene una. Con el mismo tono, la
+                        // sombra y el canto se funden por ese lado y el filo
+                        // solo se ve donde hace falta: contra la cara iluminada.
+                        idx = pal.Length - 1;
                     }
 
-                    if (u2 > 0.88) idx = pal.Length - 1;   // canto
+                    // CANTO DE UN PIXEL. Era una banda del 12% del radio, unos
+                    // cinco pixeles de origen, y a tamano de juego se comia el
+                    // disco por fuera: la luna parecia una moneda con reborde en
+                    // vez de una esfera. Un pixel basta para recortarla contra
+                    // el suelo, que es para lo unico que esta.
+                    if (d > rLuna - 1.5) idx = pal.Length - 1;
 
                     // Los crateres solo se ven donde da la luz, como en la luna
                     // de verdad: en la parte oscura no hay relieve que mirar.

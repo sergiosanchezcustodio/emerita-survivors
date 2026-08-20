@@ -1108,9 +1108,16 @@ export const ARMAS = {
     // completo. No hace falta declarar nada más: sale de `frames` en el atlas
     // (ver dibujarOrbitales en sistemas/armas.js).
     //
-    // Y sin `giroOrbital`, ahora con más motivo que antes: una luna que además
-    // rotara sobre sí misma haría bailar los cráteres y se perdería la fase,
-    // que es lo único que hay que leer.
+    // Y GIRAN SOBRE SÍ MISMAS. Lo tuve sin girar a propósito y me equivocaba de
+    // miedo: pensé que rotar haría bailar los cráteres y taparía la fase. Pero
+    // 0,55 rad/s es una vuelta cada once segundos —más lento que la propia
+    // órbita, que da una vuelta cada cuatro— así que no compite con nada: la
+    // fase sigue leyéndose y lo que se gana es que la luna deje de parecer una
+    // pegatina clavada al aire.
+    //
+    // Despacio y en el sentido de la órbita, que es como gira un satélite de
+    // verdad: acompaña, no marea.
+    giroOrbital: 0.55,
     niveles: [{}, { escudos: 1, danyo: 5, radioEscudo: 1 },
               { radioOrbita: 8, danyo: 6, radioEscudo: 2 },
               { danyo: 8, radioEscudo: 1 },

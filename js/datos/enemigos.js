@@ -232,7 +232,14 @@ export const ENEMIGOS = {
   // de castigar dónde estabas a castigar quedarse quieto, que es lo que se le
   // pedía desde el principio.
   ciclope:    { sprite:'ciclope',    rol:'tanque',    xp:45, vida:950,   velocidad:7,  danyo:30, radio:11.8, masa:20.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo',
-                ataque: { tipo:'sismo', danyo:24, cadencia:4.2, alcance:230, aviso:0.85, radio:22.5, azarObjetivo:0.33, color:'#c98a3a', spriteReventon:'reventonTierra' } },
+                // `tonos`: la rampa del aviso, del canto al centro. Seis pasos
+                // de arena clara a brasa oscura, que es lo que hace el suelo
+                // cuando va a reventar. Van escritos y no interpolados en
+                // caliente para no crear cadenas dentro del bucle de dibujado
+                // (ver el sismo en entidades/disparo.js).
+                ataque: { tipo:'sismo', danyo:24, cadencia:4.2, alcance:230, aviso:0.85, radio:22.5, azarObjetivo:0.33, color:'#c98a3a',
+                          tonos:['#e8c894','#d8a95e','#c98a3a','#a86524','#7d4415','#52290c'],
+                          spriteReventon:'reventonTierra' } },
   minotauro:  { sprite:'minotauro',  rol:'tanque',    xp:24, vida:520,   velocidad:15, danyo:21, radio:10.9, masa:14.0, vuela:false, inmuneEmpuje:false, movimiento:'acecho'    },
 
   // --- Élite: suelta cofre garantizado ------------------------------------

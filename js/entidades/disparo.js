@@ -49,6 +49,16 @@ function crearDisparo() {
     // del modo 'zona' de sistemas/zonaDanyo.js, que solo daña enemigos.
     charco: false, duracion: 0, intervalo: 0, relojTic: 0,
     color: '#ffffff', fase: 0,
+    // TONOS DEL AVISO. Un aviso de area se dibujaba con un solo color a alfa
+    // plano, o sea un disco de plastilina. Con varios tonos se pinta en anillos
+    // concentricos y sale un degradado: del mas claro por fuera al mas caliente
+    // en el centro. Ver el bloque del sismo en `dibujar`.
+    //
+    // Son cadenas ya escritas en datos/enemigos.js y NO se interpolan en
+    // caliente: componer un `rgba(...)` por anillo y por fotograma seria crear
+    // cadenas dentro del bucle de dibujado, que es justo lo que este motor
+    // evita en todas partes.
+    tonos: null,
     // ESTELA Y NÚCLEO. `estela` es el color del rastro que va dejando y
     // `nucleo` el del brillo de dentro. Sin ellos se usa el color del disparo,
     // que es lo que hacían todos hasta ahora: una bola lisa con una raya
@@ -108,6 +118,7 @@ export class Disparos {
     d.color = def.color;
     d.estela = def.estela || null;
     d.nucleo = def.nucleo || null;
+    d.tonos = null;             // campo compartido: solo lo usa el sismo
     d.aviso = 0;
     d.sismo = false;
     d.charco = false;           // por si este hueco del pool venía de un charco
@@ -147,6 +158,7 @@ export class Disparos {
     d.sismo = true;
     d.charco = false;           // por si este hueco del pool venía de un charco
     d.estela = null; d.nucleo = null;   // campos compartidos: ver `lanzar`
+    d.tonos = def.tonos || null;
     d.hoja = null;
     d.color = def.color;
     // Fase de giro, sorteada al lanzarla: dos piedras seguidas no pueden salir
@@ -179,6 +191,7 @@ export class Disparos {
     d.charco = true;
     d.sismo = false;
     d.estela = null; d.nucleo = null;   // campos compartidos: ver `lanzar`
+    d.tonos = null;
     d.color = def.color;
     d.fase = 0;
     // Mismo criterio que Zonas.crear: si `sprite` nombra una entrada del atlas
@@ -545,23 +558,56 @@ export class Disparos {
         // va a golpear. La información sigue estando entera; lo que se va es el
         // subrayado.
         //
-        // Y UN 30% MÁS TRANSPARENTE, que es el tercer ajuste de este número.
+        // OTRO 30% MÁS TRANSPARENTE, que es el cuarto ajuste de este número.
         // El recorrido, por si hay que volver a moverlo:
         //
         //   0,22-0,42   con el aro puesto, que era quien sostenía el aviso
         //   0,28-0,58   al quitar el aro, para que la mancha lo sostuviera sola
-        //   0,20-0,41   ahora: se pasó de mancha y tapaba el suelo
+        //   0,20-0,41   se pasó de mancha y tapaba el suelo
+        //   0,14-0,28   ahora
         //
         // Lo que un aviso tiene que hacer es decir DÓNDE va a caer, no sustituir
         // al terreno mientras avisa. Con la mancha muy opaca, el jugador pierde
         // de vista lo que hay dentro del círculo justo cuando más falta le hace
         // para decidir por dónde salir.
+        //
+        // Y AHORA ES UN DEGRADADO, NO UN DISCO PLANO. Se pinta un anillo por
+        // tono, del más grande y claro al más pequeño y caliente, sumando alfa
+        // donde se solapan: eso da una rampa suave del canto al centro con la
+        // variedad de color que un solo `fillStyle` no puede dar.
+        //
+        // Por anillos concéntricos y no con `createRadialGradient`: un gradiente
+        // asigna memoria cada vez que se crea, y esto se pinta sesenta veces por
+        // segundo mientras dura el aviso. Es el mismo motivo por el que la
+        // escarcha de VFX es un rectángulo plano y no un degradado.
         const prog = 1 - d.restante / d.aviso;
-        ctx.globalAlpha = 0.196 + 0.21 * prog;
-        ctx.fillStyle = d.color;
-        ctx.beginPath();
-        ctx.arc(x, y, d.radio * prog, 0, Math.PI * 2);
-        ctx.fill();
+        const rMax = d.radio * prog;
+        if (d.tonos) {
+          const n = d.tonos.length;
+          for (let t = 0; t < n; t++) {
+            // El más claro ocupa el círculo entero y cada siguiente uno menor,
+            // así que en el centro se han sumado los n y en el filo solo el
+            // primero. La rampa sale de la SUMA, no de una interpolación.
+            const f = 1 - t / n;
+            // EL ALFA DE CADA ANILLO ES BAJO PORQUE SE SUMAN. Seis capas de
+            // 0,14 no dan 0,14: dan 1-(1-0,14)^6 = 0,60, o sea MÁS opaco que
+            // el disco plano de antes, que es lo contrario de lo que se pide.
+            // Lo que hay que fijar es la opacidad COMPUESTA, y de ahí sale este
+            // 0,023-0,067 por capa: el centro acaba en 0,284 —el 70% del 0,41
+            // que tenía— y el filo en 0,07, casi transparente.
+            ctx.globalAlpha = (0.023 + 0.0442 * prog) * (0.55 + 0.45 * f);
+            ctx.fillStyle = d.tonos[t];
+            ctx.beginPath();
+            ctx.arc(x, y, rMax * f, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else {
+          ctx.globalAlpha = 0.137 + 0.147 * prog;
+          ctx.fillStyle = d.color;
+          ctx.beginPath();
+          ctx.arc(x, y, rMax, 0, Math.PI * 2);
+          ctx.fill();
+        }
         ctx.globalAlpha = 1;
 
         // Y LA PIEDRA, VOLANDO.
