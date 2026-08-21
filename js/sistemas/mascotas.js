@@ -87,6 +87,9 @@ export const Mascotas = {
         // Desplazamiento respecto a su jugador. Es lo que se suaviza, y por eso
         // vive aquí en vez de calcularse: ver `actualizar`.
         despX: 0, despY: 0,
+        // Si este frame se ha entregado al ordenado por profundidad. Lo que no,
+        // lo pinta `dibujarPorEncima`. Ver `prepararOrden`.
+        ordenada: false,
         // Para el ordenado por profundidad: el ordenador de `enemigo.js` pide a
         // todo lo que le pasan un `yVista` y un `dibujar(ctx)`, y con eso mezcla
         // mascotas, jugadores, obstáculos y horda en una sola pasada. La mascota
@@ -248,22 +251,34 @@ export const Mascotas = {
   // los tapaba: un escudo que desaparece detrás del perro deja de decir dónde
   // estás protegido, que es lo único que un orbital tiene que decir.
   //
-  // Pasan por ENCIMA de todas las mascotas, también de las que vuelan: desde que
-  // las ocho entran en el ordenado por profundidad se dibujan con la horda, o
-  // sea antes que los orbitales. Es el precio de que el jugador pueda taparlas,
-  // y sale a cuenta — un escudo que se ve siempre importa más que un búho que
-  // pase por encima de él.
+  // Pasan por ENCIMA de las mascotas que pisan el suelo, que se dibujan con la
+  // horda: un disco de sierra gira a la altura del pecho y el perro no. Y por
+  // DEBAJO del búho y el pollito fantasma cuando estos van por delante del
+  // jugador, que es cuando se ven enteros. Manda la altura del bicho.
   // LAS MASCOTAS NO SE DIBUJAN AQUÍ, se entregan al ordenador por profundidad.
   //
   // Devuelve cuántas ha dejado en `this.enOrden` para que main.js se las pase a
   // `enemigos.dibujar`, que las mezcla con la horda, los jugadores y las
   // columnas en una sola pasada ordenada por Y.
   //
-  // ENTRAN TAMBIÉN LAS QUE VUELAN. El búho y el pollito fantasma se pintaban por
-  // encima de todo porque vuelan más alto que un escudo orbital, y eso es cierto
-  // — pero también los ponía delante de la cara del jugador media vuelta de cada
-  // vuelta, que es justo lo que no puede pasar. Entre ganar la discusión con los
-  // orbitales y no taparle la cara al personaje, gana el personaje.
+  // LAS QUE VUELAN ENTRAN SOLO EN LA MITAD DE ATRÁS DE LA VUELTA.
+  //
+  // El búho y el pollito fantasma tienen que quedar por ENCIMA de los orbitales
+  // —vuelan más alto que un escudo— y eso obliga a pintarlos al final de todo,
+  // después de la horda. Pero al final de todo también se le plantan en la cara
+  // al jugador cuando le pasan por detrás.
+  //
+  // Las dos cosas se pueden tener porque no ocurren a la vez: cada frame la
+  // mascota está en una mitad de la vuelta o en la otra, así que se dibuja en
+  // una pasada o en la otra, nunca en las dos.
+  //
+  //   - Detrás del jugador (`m.y < j.y`): entra aquí, con la horda, y el sprite
+  //     del jugador la tapa. Ahí abajo pierde contra los orbitales, pero es que
+  //     ahí abajo está medio escondida detrás del personaje de todas formas.
+  //   - Delante: se queda para `dibujarPorEncima`, después de los orbitales.
+  //
+  // Las que pisan el suelo entran siempre: esas sí van por debajo de un escudo
+  // que gira a la altura del pecho.
   //
   // Se ordenan por su `y` de suelo, la que persigue la órbita, no por la altura
   // a la que se dibujan: el flote es un adorno de dibujado y usarlo aquí haría
@@ -272,12 +287,26 @@ export const Mascotas = {
     let n = 0;
     for (let i = 0; i < jugadores.length && i < MAX; i++) {
       const m = this.activas[i];
+      m.ordenada = false;
       if (!m.viva || !m.def) continue;
+      if (m.def.vuela && m.y >= jugadores[i].y) continue;   // va por delante
       m.yVista = m.y;
+      m.ordenada = true;
       this.enOrden[n++] = m;
     }
     this.nEnOrden = n;
     return n;
+  },
+
+  // Lo que no cupo en el ordenado: las voladoras que este frame van por delante
+  // del jugador. Se llama después de los orbitales (ver main.js), que es lo que
+  // las deja por encima de un escudo o de un disco de sierra.
+  dibujarPorEncima(ctx, jugadores) {
+    for (let i = 0; i < jugadores.length && i < MAX; i++) {
+      const m = this.activas[i];
+      if (!m.viva || !m.def || m.ordenada) continue;
+      this._una(ctx, m);
+    }
   },
 
   // Una mascota, en la posición en la que esté. No la llama nadie directamente:

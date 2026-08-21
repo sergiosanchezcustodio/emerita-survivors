@@ -1815,18 +1815,19 @@ function dibujar(alpha) {
     // cosa dibujada por otro camino (ver VFX.haz).
     VFX.dibujarHaces(ctx);
   }
-  // LAS MASCOTAS YA ESTÁN DIBUJADAS, con la horda, unas líneas más arriba: van
-  // dentro del ordenado por profundidad para que su jugador pueda taparlas
-  // cuando la vuelta pasa por detrás de él.
-  //
-  // Eso las deja por debajo de los orbitales, que además es donde interesa: un
-  // disco de sierra o un escudo giran a la altura del pecho, y un orbital que
-  // desaparece detrás del perro deja de decir dónde estás protegido.
+  // Los orbitales, por encima de las mascotas que se han dibujado con la horda:
+  // un escudo que desaparece detrás del perro deja de decir dónde estás
+  // protegido, que es lo único que un orbital tiene que decir.
   if (activo.efectos) {
     for (let i = 0; i < arsenales.length; i++) {
       arsenales[i].dibujarOrbitales(ctx, jugadores[i]);
     }
   }
+  // Y aquí las voladoras que este frame van POR DELANTE del jugador, que son las
+  // únicas que no entraron en el ordenado. El búho y el pollito vuelan más alto
+  // que un escudo, así que les toca ir encima. Las de la mitad de atrás ya están
+  // pintadas con la horda, debajo del personaje, que es de lo que se trataba.
+  Mascotas.dibujarPorEncima(ctx, jugadores);
 
   // Los disparos enemigos, por encima de todo lo del mundo: uno que viene tiene
   // que verse aunque cruce por detrás de un cíclope.

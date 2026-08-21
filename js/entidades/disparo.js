@@ -289,6 +289,26 @@ export class Disparos {
       }
     }
     ctx.globalAlpha = 1;
+
+    // EL AVISO DE CHARCO, TAMBIÉN DEBAJO DE TODO. Mismo caso que el del sismo:
+    // el veneno del Cérbero y el de la Hidra se anuncian con una mancha que
+    // crece en el suelo, y una mancha del suelo pintada por encima de los
+    // cuerpos tapa justo a quien la está pisando — que es el que necesita verla.
+    for (let k = 0; k < n; k++) {
+      const d = items[k];
+      if (!d.charco || d.restante <= 0) continue;
+      const x = d.xPrev + (d.x - d.xPrev) * alpha;
+      const y = d.yPrev + (d.y - d.yPrev) * alpha;
+      // Solo la mancha que crece, sin el aro que la enmarcaba.
+      const prog = 1 - d.restante / d.aviso;
+      ctx.globalAlpha = 0.28 + 0.3 * prog;
+      ctx.fillStyle = d.color;
+      ctx.beginPath();
+      ctx.arc(x, y, d.radio * prog, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
     // Base tenue bajo la calcomanía, por el mismo motivo que en zonaDanyo.js:
     // los entrantes de la silueta dejarían ver suelo limpio dentro del aro, y
     // dentro del aro se hace daño.
@@ -396,7 +416,12 @@ export class Disparos {
           // de ser aviso — que es lo que hay que enseñar. Después no se repite
           // porque el reventón se consume aquí mismo.
           if (d.reventon) {
-            VFX.reventon(d.x, d.y, d.radio, d.reventon, 0.3, this._rng);
+            // Y VA EN LA CAPA DE SUELO, como el del sismo. Un charco de veneno
+            // del Cérbero o de la Hidra es algo que PASA EN EL SUELO: pintado
+            // por encima, tapa a quien lo está pisando justo cuando el jugador
+            // necesita ver dónde se mete. Lo que revienta en el aire —el veneno
+            // de una medusa, la bola de la mantícora— sigue tapando.
+            VFX.reventon(d.x, d.y, d.radio, d.reventon, 0.3, this._rng, true);
             d.reventon = null;
           }
           d.relojTic = d.intervalo;
@@ -691,14 +716,8 @@ export class Disparos {
 
       if (d.charco) {
         if (d.restante > 0) {
-          // Mismo aviso que el sismo y por el mismo motivo: solo la mancha que
-          // crece, sin el aro que la enmarcaba.
-          const prog = 1 - d.restante / d.aviso;
-          ctx.globalAlpha = 0.28 + 0.3 * prog;
-          ctx.fillStyle = d.color;
-          ctx.beginPath();
-          ctx.arc(x, y, d.radio * prog, 0, Math.PI * 2);
-          ctx.fill();
+          // AVISANDO TODAVÍA: no se pinta nada aquí. La mancha que crece la
+          // dibuja `dibujarSuelo`, con las calcomanías, igual que la del sismo.
         } else {
           // Activo: el charco y nada más. Sin aviso, porque ya no hay nada que
           // anunciar —el peligro ES el charco— y ahora tampoco canto.

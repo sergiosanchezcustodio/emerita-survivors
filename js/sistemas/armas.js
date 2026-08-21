@@ -483,6 +483,12 @@ const COMPORTAMIENTOS = {
         empuje: s.empuje,
         modo: 'mina', color: arma.def.color,
         sprite: arma.def.sprite,
+        // NO PARA LOS DISPAROS ENEMIGOS. Y hay que decirlo aquí, porque sin este
+        // campo la zona se queda con el valor por defecto —bloquear— y entonces
+        // cada mina era una pared invisible del tamaño de su EXPLOSIÓN, que es
+        // mucho más que el gatillo que se ve. Con veinticuatro sembradas, medio
+        // campo paraba flechas sin que nada en pantalla lo explicara.
+        bloquea: arma.def.bloqueaDisparos,
         // Con qué se dibuja el reventón cuando la pisen.
         spriteOnda: arma.def.spriteOnda
       });

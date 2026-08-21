@@ -370,6 +370,11 @@ export const ARMAS = {
     sprite: 'redPesca',
     descripcion: 'Red que frena a la mitad. Control, no matanza.',
     comportamiento: 'zonaPersistente',
+    // NO PARA LOS DISPAROS ENEMIGOS. Una red tirada en el suelo enreda los pies
+    // de quien la pisa; no es una pared, y una flecha le pasa por encima. Misma
+    // regla que el Fuego griego y sus evoluciones: una zona del suelo estorba a
+    // quien anda, no a lo que vuela.
+    bloqueaDisparos: false,
     danyo: 3, intervalo: 0.5, recarga: 3.0, charcos: 1, duracion: 3.5, radio: 25,
     ralentiza: 0.5, empuje: 0, color: '#b9c7d6',
     niveles: [{}, { radio: 8 }, { duracion: 1 }, { danyo: 2 },
@@ -997,6 +1002,9 @@ export const ARMAS = {
     // que el arma no vale por lo que hace sino por cuánto suelo cubre. Con seis
     // no cubría nada; con veinticuatro es un campo minado, que es lo que
     // promete el nombre.
+    // NO PARAN LOS DISPAROS ENEMIGOS. Una mina está EN el suelo, esperando a que
+    // la pisen: no hay nada ahí arriba contra lo que un proyectil pueda chocar.
+    bloqueaDisparos: false,
     danyo: 140, intervalo: 0.9, recarga: 3.6, charcos: 2, duracion: 8, radio: 16,
     ralentiza: 0, empuje: 180, color: '#ff8a6b',
     niveles: [{}, { charcos: 2 }, { danyo: 50, charcos: 2 }, { duracion: 2, charcos: 2 },
