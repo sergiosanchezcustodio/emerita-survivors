@@ -14,6 +14,7 @@ tres armas cada vez, y acaba con la Loba Capitolina.
 [![Sin build](https://img.shields.io/badge/build-ninguno-2ea043?style=flat-square)](#)
 [![Armas](https://img.shields.io/badge/armas-57-e2c27a?style=flat-square)](#)
 [![Cooperativo](https://img.shields.io/badge/cooperativo-hasta%204-e2c27a?style=flat-square)](#)
+[![Licencia: GPL v3](https://img.shields.io/badge/licencia-GPLv3-blue?style=flat-square)](LICENSE)
 
 </div>
 
@@ -351,3 +352,18 @@ If you want to use different settings, edit `~/.claude/settings.json` locally
 (not in repo).
 
 </details>
+
+## Licencia
+
+Este proyecto se distribuye bajo la **GNU General Public License v3.0**. Texto
+completo en [`LICENSE`](LICENSE).
+
+En corto: puedes copiar, ejecutar, modificar y redistribuir el código, incluso
+con fines comerciales, siempre que cualquier versión modificada que
+redistribuyas se publique también bajo GPL-3.0 y con el código fuente
+disponible.
+
+La licencia cubre el código y el arte original del proyecto. No concede -ni
+puede conceder- derechos sobre marcas o contenido de terceros que aparecen
+como referencia dentro del juego (por ejemplo, la equipación del Atlético de
+Madrid en uno de los personajes).
