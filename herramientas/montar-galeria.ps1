@@ -280,7 +280,7 @@ $o = Nuevo $ancho $alto
 Degradado $o.g $ancho $alto
 
 # El suelo de Merida como banda inferior: los bichos se apoyan en algo suyo.
-$suelo = [System.Drawing.Bitmap]::FromFile((Join-Path $assets 'niveles\merida-suelo.png'))
+$suelo = [System.Drawing.Bitmap]::FromFile((Join-Path $assets 'niveles\merida-suelo.jpg'))
 $bandaAlto = 54
 $franja = New-Object System.Drawing.Rectangle(0, ($alto - $bandaAlto), $ancho, $bandaAlto)
 $o.g.SetClip($franja)

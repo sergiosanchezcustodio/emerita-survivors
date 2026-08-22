@@ -65,7 +65,7 @@ export const NIVEL = {
   // el requisito 7 del plan. Un nivel nuevo que no traiga mapa se queda con su
   // suelo generado y no hay que tocar nada.
   suelo: {
-    imagen: 'niveles/merida-suelo.png',
+    imagen: 'niveles/merida-suelo.jpg',
     variantes: 4,
     base: 'arena',
     motas: ['arenaOscura', 'piedra', 'caliza'],
@@ -364,7 +364,7 @@ export const NIVEL = {
   // (0..361 de ancho, 0..430 de alto una vez procesado por
   // herramientas/procesar-assets.ps1), no coordenadas de mundo.
   //
-  // Medidas a ojo sobre niveles/merida-suelo.png: el borde calzada/arcén cae
+  // Medidas a ojo sobre niveles/merida-suelo.jpg: el borde calzada/arcén cae
   // en x≈186 y x≈367, y la franja de hierba utilizable queda centrada en
   // x≈141 (izquierda) y x≈412 (derecha). Columnas y antorchas van justo sobre
   // el borde, tal como se pidió; estatuas y ruinas, más adentro en la

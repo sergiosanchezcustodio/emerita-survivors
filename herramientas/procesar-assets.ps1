@@ -1420,6 +1420,104 @@ public class Procesador {
     // Con la avenida cruzando de arriba abajo esto sale especialmente bien: el
     // borde superior y el inferior son los dos empedrado, así que la fusión
     // vertical mezcla losa con losa y la calzada sigue de largo.
+    // Guarda como JPEG si la extension del destino es .jpg (con la calidad
+    // dada) y como PNG en cualquier otro caso. El suelo teselado sale siempre
+    // opaco (ver los tmp[q+3]=255 mas abajo), asi que el canal alfa que PNG
+    // conservaria no aporta nada y JPEG pesa una fraccion.
+    public static void Guardar(Bitmap bmp, string ruta, long calidadJpg) {
+        string ext = System.IO.Path.GetExtension(ruta).ToLowerInvariant();
+        if (ext == ".jpg" || ext == ".jpeg") {
+            ImageCodecInfo codec = null;
+            foreach (ImageCodecInfo ci in ImageCodecInfo.GetImageEncoders())
+                if (ci.MimeType == "image/jpeg") codec = ci;
+            EncoderParameters ps = new EncoderParameters(1);
+            ps.Param[0] = new EncoderParameter(Encoder.Quality, calidadJpg);
+            bmp.Save(ruta, codec, ps);
+        } else {
+            bmp.Save(ruta, ImageFormat.Png);
+        }
+    }
+
+    // Reencodea a PNG INDEXADO (8bpp, paleta propia) cuando es matematicamente
+    // sin perdida: cero pixeles de alfa parcial (todo pixel es 0 o 255, lo que
+    // ver-assets.ps1 llama alfa "binaria") y 255 colores opacos como mucho -el
+    // hueco 256 lo ocupa la entrada transparente-. En vertical -PNG truecolor
+    // de 32bpp- cada pixel de un sprite de pocos colores gasta 4 bytes para
+    // repetir uno de un puñado de valores; en indexado gasta 1 byte y la
+    // paleta entera pesa unas pocas decenas de bytes. Es EL MISMO dibujo, pixel
+    // a pixel: no hay aproximacion ni redondeo de color.
+    //
+    // Si el sprite no cumple las dos condiciones (tiene degradado de alfa, o
+    // mas colores de los que caben en una paleta), no se toca: se deja el PNG
+    // truecolor tal cual y se informa por que.
+    public static string Indexar(string entrada, string salida) {
+        int w, h;
+        using (Bitmap orig = new Bitmap(entrada)) {
+            w = orig.Width; h = orig.Height;
+            using (Bitmap src = new Bitmap(w, h, PixelFormat.Format32bppArgb))
+            using (Graphics g = Graphics.FromImage(src)) {
+                g.DrawImage(orig, 0, 0, w, h);
+
+                BitmapData sd = src.LockBits(new Rectangle(0, 0, w, h),
+                                              ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                byte[] px = new byte[sd.Stride * h];
+                Marshal.Copy(sd.Scan0, px, 0, px.Length);
+                src.UnlockBits(sd);
+                int stride = sd.Stride;
+
+                Dictionary<int, int> paletaIdx = new Dictionary<int, int>();
+                List<int> paleta = new List<int>();
+                paleta.Add(0); // indice 0 = transparente; el valor RGB es indiferente
+                byte[] indices = new byte[w * h];
+                bool demasiados = false;
+
+                for (int y = 0; y < h && !demasiados; y++) {
+                    int fila = y * stride;
+                    for (int x = 0; x < w; x++) {
+                        int i = fila + x * 4;
+                        int a = px[i + 3];
+                        if (a > 0 && a < 255) return "SUAVE";
+                        int idx;
+                        if (a == 0) {
+                            idx = 0;
+                        } else {
+                            int c = (px[i + 2] << 16) | (px[i + 1] << 8) | px[i];
+                            if (!paletaIdx.TryGetValue(c, out idx)) {
+                                paleta.Add(c);
+                                idx = paleta.Count - 1;
+                                if (idx > 255) { demasiados = true; break; }
+                                paletaIdx[c] = idx;
+                            }
+                        }
+                        indices[y * w + x] = (byte)idx;
+                    }
+                }
+                if (demasiados) return "DEMASIADOS_COLORES";
+
+                using (Bitmap sal = new Bitmap(w, h, PixelFormat.Format8bppIndexed)) {
+                    ColorPalette pal = sal.Palette;
+                    for (int i = 0; i < 256; i++) {
+                        if (i == 0) { pal.Entries[i] = Color.FromArgb(0, 0, 0, 0); continue; }
+                        if (i < paleta.Count) {
+                            int c = paleta[i];
+                            pal.Entries[i] = Color.FromArgb(255, (c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF);
+                        } else {
+                            pal.Entries[i] = Color.FromArgb(0, 0, 0, 0);
+                        }
+                    }
+                    sal.Palette = pal;
+                    BitmapData dd = sal.LockBits(new Rectangle(0, 0, w, h),
+                                                  ImageLockMode.WriteOnly, PixelFormat.Format8bppIndexed);
+                    for (int y = 0; y < h; y++)
+                        Marshal.Copy(indices, y * w, (IntPtr)(dd.Scan0.ToInt64() + y * dd.Stride), w);
+                    sal.UnlockBits(dd);
+                    sal.Save(salida, ImageFormat.Png);
+                }
+                return "OK|" + (paleta.Count - 1);
+            }
+        }
+    }
+
     public static string HacerTeselable(string entrada, string salida, int margen, int escala) {
         byte[] px; int w, h, stride;
         CargarPx(entrada, out px, out w, out h, out stride);
@@ -1481,7 +1579,7 @@ public class Procesador {
             for (int y = 0; y < h2; y++)
                 Marshal.Copy(dst, y * dStride, (IntPtr)(dd.Scan0.ToInt64() + y * dd.Stride), dStride);
             sal.UnlockBits(dd);
-            sal.Save(salida, ImageFormat.Png);
+            Guardar(sal, salida, 90);
         }
 
         // Costura medida sobre el RESULTADO, para no fiarse de la teoría.
@@ -3621,7 +3719,7 @@ if (Test-Path $rutaMapaOriginal) {
 }
 
 $SUELOS = @(
-    @{ src='stages\1\mapa_emerita_survivor_ancho.png'; dst='niveles\merida-suelo.png'; margen=92 }
+    @{ src='stages\1\mapa_emerita_survivor_ancho.png'; dst='niveles\merida-suelo.jpg'; margen=92 }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'niveles') | Out-Null
@@ -3675,12 +3773,21 @@ $informeSuelo | Format-Table -AutoSize
 # La del TITULO es ahora `Nueva_Pantalla_Start.jpg`, que trae las cuatro
 # opciones del menu ya pintadas en la lapida. Se copia como .jpg y no se
 # convierte: un fondo de pantalla completa no necesita canal alfa, y el JPG que
-# entrego Sergio pesa 565 KB contra los 2,7 MB del PNG anterior. La antigua se
-# sigue copiando por si hay que volver a ella.
+# entrego Sergio pesa 565 KB contra los 2,7 MB del PNG anterior.
+#
+# La ilustracion ANTIGUA (Pantalla_Start.png) ya NO se copia a assets/: no la
+# lee el juego -RUTA_TITULO en ui/pantallas.js apunta al jpg- y guardarla aqui
+# "por si acaso" significaba 2,7 MB de peso muerto en cada build de
+# empaquetar.ps1, que copia assets/ entero. Sigue existiendo intacta en
+# resources/menus/Pantalla_Start.png si algun dia hay que volver a ella; el
+# manual del jugador (manual/manual-jugador.html) la referencia ahi.
+#
+# SELECCION sigue el mismo razonamiento que el titulo nuevo: opaca, sin
+# recorte que perder, y ver-assets.ps1 confirmo que no tiene alfa real.
+# Convertida a JPEG calidad 90 cae de 2,6 MB a 0,4 MB sin diferencia visible.
 $MENUS = @(
     @{ src='menus\Nueva_Pantalla_Start.jpg'; dst='menus\titulo.jpg' }
-    @{ src='menus\Pantalla_Start.png';    dst='menus\titulo.png' }
-    @{ src='menus\seleccion_jugador.png'; dst='menus\seleccion.png' }
+    @{ src='menus\seleccion_jugador.png'; dst='menus\seleccion.jpg' }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'menus') | Out-Null
@@ -3693,12 +3800,23 @@ foreach ($m in $MENUS) {
         $informeMenus += [PSCustomObject]@{ Menu=$m.dst; Tamano='-'; Estado='NO EXISTE' }
         continue
     }
-    Copy-Item $rutaSrc $rutaDst -Force
+    $srcExt = [System.IO.Path]::GetExtension($rutaSrc).ToLowerInvariant()
+    $dstExt = [System.IO.Path]::GetExtension($rutaDst).ToLowerInvariant()
+    $estado = 'COPIADA'
+    if ($srcExt -ne $dstExt -and $dstExt -eq '.jpg') {
+        # Cambia de formato (normalmente PNG opaco -> JPEG): reencodear, no copiar.
+        $bmp = [System.Drawing.Bitmap]::FromFile($rutaSrc)
+        [Procesador]::Guardar($bmp, $rutaDst, 90)
+        $bmp.Dispose()
+        $estado = 'CONVERTIDA'
+    } else {
+        Copy-Item $rutaSrc $rutaDst -Force
+    }
     $img = [System.Drawing.Image]::FromFile($rutaDst)
     $informeMenus += [PSCustomObject]@{
         Menu   = $m.dst
         Tamano = "$($img.Width)x$($img.Height)"
-        Estado = 'COPIADA'
+        Estado = $estado
     }
     $img.Dispose()
 }
@@ -3744,9 +3862,16 @@ if (Test-Path $rutaRuleta) {
 # MUSICA
 # ---------------------------------------------------------------------------
 #
-# Las dos canciones del nivel 1. Se copian tal cual, igual que las
-# ilustraciones de menu: aqui no hay nada que procesar y recodificar solo
-# perderia calidad.
+# Las dos canciones del nivel 1, mas la del menu. Los .mp3 que entrega Sergio
+# vienen a ~185 kbps con la caratula incrustada (un JPEG dentro del propio
+# fichero, que ffprobe ve como un segundo "stream" de video mjpeg); eso ni
+# suena ni se ve en el juego, es peso muerto en cada partida que se carga.
+#
+# Si hay `ffmpeg` en el PATH se reencodea a 128 kbps -bitrate habitual para
+# musica de fondo en bucle, cae un 30% y no se nota- y se descarta la
+# caratula. Si no hay `ffmpeg`, se copia tal cual: es mejor una musica mas
+# pesada que un pipeline que se rompe por no tener instalada una herramienta
+# de terceros.
 #
 # El ORDEN de esta lista es el orden en que suenan, y de ahi vuelven a empezar.
 # Lo lee sistemas/audio.js por las rutas de assets/musica/.
@@ -3764,7 +3889,22 @@ $MUSICA = @(
 $rutaMenu = Get-ChildItem -Path (Join-Path $ORIGEN 'musica') -Filter 'Ruinas*.mp3' -ErrorAction SilentlyContinue |
             Select-Object -First 1
 
+$ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue
+
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'musica') | Out-Null
+
+# Copia o reencodea segun haya ffmpeg. Devuelve el ESTADO para la tabla; el
+# fichero destino ya queda escrito en los dos casos.
+function Resolver-Pista($rutaSrc, $rutaDst) {
+    if ($ffmpeg) {
+        & $ffmpeg.Source -y -v error -i $rutaSrc -map 0:a -map_metadata -1 `
+            -id3v2_version 0 -codec:a libmp3lame -b:a 128k $rutaDst
+        if ($LASTEXITCODE -eq 0) { return '128k' }
+        # ffmpeg fallo (formato raro, etc.): mejor una copia que nada.
+    }
+    Copy-Item $rutaSrc $rutaDst -Force
+    return 'COPIADA'
+}
 
 $informeMusica = @()
 foreach ($m in $MUSICA) {
@@ -3774,24 +3914,72 @@ foreach ($m in $MUSICA) {
         $informeMusica += [PSCustomObject]@{ Pista=$m.dst; Tamano='-'; Estado='NO EXISTE' }
         continue
     }
-    Copy-Item $rutaSrc $rutaDst -Force
+    $estado = Resolver-Pista $rutaSrc $rutaDst
     $informeMusica += [PSCustomObject]@{
         Pista  = $m.dst
         Tamano = "{0:N1} MB" -f ((Get-Item $rutaDst).Length / 1MB)
-        Estado = 'COPIADA'
+        Estado = $estado
     }
 }
 if ($rutaMenu) {
-    Copy-Item $rutaMenu.FullName (Join-Path $DESTINO 'musica\menu.mp3') -Force
+    $rutaDst = Join-Path $DESTINO 'musica\menu.mp3'
+    $estado = Resolver-Pista $rutaMenu.FullName $rutaDst
     $informeMusica += [PSCustomObject]@{
         Pista  = 'musica/menu.mp3'
-        Tamano = "{0:N1} MB" -f ($rutaMenu.Length / 1MB)
-        Estado = 'COPIADA'
+        Tamano = "{0:N1} MB" -f ((Get-Item $rutaDst).Length / 1MB)
+        Estado = $estado
     }
 } else {
     $informeMusica += [PSCustomObject]@{ Pista='musica/menu.mp3'; Tamano='-'; Estado='NO EXISTE' }
 }
 $informeMusica | Format-Table -AutoSize
+
+# ---------------------------------------------------------------------------
+# OPTIMIZACION: PNG A INDEXADO SIN PERDIDA
+# ---------------------------------------------------------------------------
+#
+# Pasada final sobre TODO lo que se acaba de generar en enemigos/, efectos/,
+# personajes/, objetos/, iconos/ y mascotas/: [Procesador]::Indexar reencodea
+# a PNG de 8bpp con paleta propia cuando es matematicamente sin perdida (ver
+# el comentario de la funcion) y deja el fichero tal cual en cualquier otro
+# caso. No hace falta mantener una lista de que sprites cumplen -eso cambia
+# cada vez que se dibuja algo nuevo-, se prueban todos y solo se tocan los
+# que de verdad ganan sin arriesgar un pixel.
+$carpetasIndexables = @('enemigos', 'efectos', 'personajes', 'objetos', 'iconos', 'mascotas')
+$informeIndexado = @()
+$ahorroIndexado = 0
+foreach ($carpeta in $carpetasIndexables) {
+    $ruta = Join-Path $DESTINO $carpeta
+    if (-not (Test-Path $ruta)) { continue }
+    Get-ChildItem -Path $ruta -Filter '*.png' -File | ForEach-Object {
+        $antes = $_.Length
+        $tmp = $_.FullName + '.tmp'
+        $r = [Procesador]::Indexar($_.FullName, $tmp)
+        if ($r -like 'OK|*') {
+            $despues = (Get-Item $tmp).Length
+            if ($despues -lt $antes) {
+                Move-Item $tmp $_.FullName -Force
+                $ahorroIndexado += ($antes - $despues)
+                $informeIndexado += [PSCustomObject]@{
+                    Fichero = "$carpeta\$($_.Name)"
+                    Colores = $r.Split('|')[1]
+                    Antes   = "{0:N0} KB" -f ($antes / 1KB)
+                    Despues = "{0:N0} KB" -f ($despues / 1KB)
+                }
+            } else {
+                # Paso raro pero posible en sprites minusculos: la paleta +
+                # cabecera PNG pesa mas que los pocos bytes que ya tenia.
+                Remove-Item $tmp -Force
+            }
+        } elseif (Test-Path $tmp) {
+            Remove-Item $tmp -Force
+        }
+    }
+}
+if ($informeIndexado.Count -gt 0) {
+    $informeIndexado | Format-Table -AutoSize
+}
+"{0} sprites pasados a indexado, {1:N1} MB ahorrados." -f $informeIndexado.Count, ($ahorroIndexado / 1MB)
 
 # `version` es el SELLO ANTICACHE, y es la razon por la que existe este campo:
 # el juego se sirve con `python -m http.server`, que no manda ninguna cabecera

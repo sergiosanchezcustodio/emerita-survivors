@@ -14,7 +14,7 @@ un boceto) es esta:
 ```js
 export const NIVEL = {
   id: 'merida',                // clave interna: nombra el atlas de assets,
-                                // 'merida-suelo.png', 'merida' + sprite, etc.
+                                // 'merida-suelo.jpg', 'merida' + sprite, etc.
   nombre: 'Emerita Augusta',
   subtitulo: 'Las ruinas del Imperio',
   duracion: 1800,               // segundos que dura la partida (30 min)
@@ -27,7 +27,7 @@ export const NIVEL = {
   },
 
   suelo: {                      // ui/... si no hay `imagen`, o si no carga,
-    imagen: 'niveles/merida-suelo.png',   // el nivel sigue siendo jugable con
+    imagen: 'niveles/merida-suelo.jpg',   // el nivel sigue siendo jugable con
     variantes: 4, base: 'arena',          // el suelo procedural de `paleta`
     motas: ['arenaOscura', 'piedra', 'caliza'],
     densidadMotas: 42, grietas: 2

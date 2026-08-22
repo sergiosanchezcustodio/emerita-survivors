@@ -42,7 +42,7 @@ const RUTA_TITULO = 'assets/menus/titulo.jpg';
 // de una ventana baja; centrado, se comía la punta del remate del logo. Un
 // quinto por arriba es lo que deja las dos cosas dentro.
 const ANCLA_TITULO = 0.2;
-const RUTA_SELECCION = 'assets/menus/seleccion.png';
+const RUTA_SELECCION = 'assets/menus/seleccion.jpg';
 
 // Píxeles del lienzo del mundo por unidad de interfaz. Las dos rejillas cubren
 // el mismo rectángulo, así que basta la proporción entre sus anchos.
