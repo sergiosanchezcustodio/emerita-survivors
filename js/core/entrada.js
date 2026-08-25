@@ -47,6 +47,17 @@ export class Control {
     return false;
   }
 
+  // ¿Está el botón pulsado AHORA MISMO? Es otra pregunta que `consumirBoton`,
+  // que pregunta por el flanco —el instante en que se pulsó— y además lo gasta.
+  //
+  // Hace falta porque la intro se salta MANTENIENDO A, y un gesto que hay que
+  // sostener no se puede leer de un flanco: el flanco dura un solo paso.
+  // `_botonesPrev` es la instantánea que dejó `Entrada.actualizar` al final de
+  // este mismo paso, así que es el estado de AHORA pese a llamarse "prev".
+  botonMantenido(boton) {
+    return (this._botonesPrev & (1 << boton)) !== 0;
+  }
+
   // Flanco del STICK tratado como si fuera una cruceta.
   //
   // Hace falta porque en los menús el stick no servía: la cruceta son botones y
@@ -264,6 +275,15 @@ export class Entrada {
     if (this._flanco.size > 0) return true;
     for (let i = 0; i < this.controles.length; i++) {
       if (this.controles[i]._flancoBotones !== 0) return true;
+    }
+    return false;
+  }
+
+  // ¿Alguien mantiene pulsado ese botón, en CUALQUIER mando? Igual que la
+  // pausa, saltar la intro no es de nadie en particular.
+  botonMantenido(boton) {
+    for (let i = 0; i < this.controles.length; i++) {
+      if (this.controles[i].botonMantenido(boton)) return true;
     }
     return false;
   }

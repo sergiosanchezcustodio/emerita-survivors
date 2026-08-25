@@ -852,6 +852,153 @@ public class Procesador {
     }
 
     // ---------------------------------------------------------------------
+    // Bandera de la intro: fuera el fondo, y a la medida
+    // ---------------------------------------------------------------------
+    //
+    // La ilustracion viene en JPEG sobre fondo blanco, y el JPEG no sabe de
+    // transparencia.
+    //
+    // Quitar ese fondo NO es "borrar todo lo blanco": LA FRANJA CENTRAL DE LA
+    // BANDERA EXTREMENA TAMBIEN ES BLANCA -medido, el 60% del dibujo es casi
+    // blanco- y un borrado por color se la llevaria por delante, dejando un
+    // agujero en mitad del pano por donde se veria el cielo.
+    //
+    // Asi que se INUNDA DESDE EL BORDE: se parte de los pixeles del marco y se
+    // avanza a los vecinos mientras se sigan pareciendo al fondo. Lo que no se
+    // alcanza desde fuera se queda, y la franja blanca del centro esta rodeada
+    // de verde y de negro, asi que la inundacion nunca llega hasta ella.
+    //
+    // Y el JPEG deja HALO: alrededor del dibujo quedan pixeles a medio camino
+    // entre el blanco y el color, que ni son fondo ni son tela. A esos se les
+    // da alfa PARCIAL segun lo lejos que esten del fondo, que es lo que evita
+    // el diente de sierra blanco al recortar contra un cielo oscuro.
+    //
+    // Devuelve: anchoFinal|altoFinal|pctOpaco
+    public static string RecortarBandera(string entrada, string salida, int anchoDest) {
+        int w, h, stride;
+        byte[] px;
+        using (Bitmap orig = new Bitmap(entrada)) {
+            w = orig.Width; h = orig.Height;
+            using (Bitmap src = new Bitmap(w, h, PixelFormat.Format32bppArgb)) {
+                using (Graphics g = Graphics.FromImage(src)) g.DrawImage(orig, 0, 0, w, h);
+                BitmapData bd = src.LockBits(new Rectangle(0, 0, w, h),
+                                             ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                stride = bd.Stride;
+                px = new byte[stride * h];
+                Marshal.Copy(bd.Scan0, px, 0, px.Length);
+                src.UnlockBits(bd);
+            }
+        }
+
+        // Color del fondo: el mas repetido del BORDE del lienzo. Contarlos y no
+        // fiarse de la esquina es la misma precaucion que en QuitarFondoOpaco:
+        // una firma o un pixel suelto en una esquina no debe decidir por todo.
+        Dictionary<int, int> votos = new Dictionary<int, int>();
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++) {
+                if (x != 0 && y != 0 && x != w - 1 && y != h - 1) continue;
+                int p = y * stride + x * 4;
+                int llave = (px[p + 2] << 16) | (px[p + 1] << 8) | px[p];
+                int n; votos.TryGetValue(llave, out n); votos[llave] = n + 1;
+            }
+        int mejor = 0xFFFFFF, mejorN = -1;
+        foreach (KeyValuePair<int, int> kv in votos)
+            if (kv.Value > mejorN) { mejorN = kv.Value; mejor = kv.Key; }
+        int fr = (mejor >> 16) & 255, fg = (mejor >> 8) & 255, fb = mejor & 255;
+
+        // Tolerancia mas ancha que TOL_FONDO: esto es un JPEG, y su fondo
+        // "blanco" no es 255,255,255 uniforme sino un blanco que respira un par
+        // de puntos por la compresion.
+        const int TOL = 26;
+
+        bool[] fuera = new bool[w * h];
+        Queue<int> cola = new Queue<int>();
+        for (int x = 0; x < w; x++) {
+            SembrarFondo(px, stride, fuera, cola, x, 0, w, fr, fg, fb, TOL);
+            SembrarFondo(px, stride, fuera, cola, x, h - 1, w, fr, fg, fb, TOL);
+        }
+        for (int y = 0; y < h; y++) {
+            SembrarFondo(px, stride, fuera, cola, 0, y, w, fr, fg, fb, TOL);
+            SembrarFondo(px, stride, fuera, cola, w - 1, y, w, fr, fg, fb, TOL);
+        }
+        while (cola.Count > 0) {
+            int idx = cola.Dequeue();
+            int x = idx % w, y = idx / w;
+            if (x > 0)     SembrarFondo(px, stride, fuera, cola, x - 1, y, w, fr, fg, fb, TOL);
+            if (x < w - 1) SembrarFondo(px, stride, fuera, cola, x + 1, y, w, fr, fg, fb, TOL);
+            if (y > 0)     SembrarFondo(px, stride, fuera, cola, x, y - 1, w, fr, fg, fb, TOL);
+            if (y < h - 1) SembrarFondo(px, stride, fuera, cola, x, y + 1, w, fr, fg, fb, TOL);
+        }
+
+        // Alfa: fuera a cero, y el contorno a medio camino segun su distancia al
+        // color del fondo. `fuera` es la autoridad, no el alfa, asi que da igual
+        // el orden en que se recorra.
+        long opacos = 0;
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++) {
+                int idx = y * w + x, p = y * stride + x * 4;
+                if (fuera[idx]) { px[p + 3] = 0; continue; }
+                opacos++;
+                bool toca = (x > 0 && fuera[idx - 1]) || (x < w - 1 && fuera[idx + 1]) ||
+                            (y > 0 && fuera[idx - w]) || (y < h - 1 && fuera[idx + w]);
+                if (!toca) continue;
+                int d = Math.Max(Math.Abs(px[p + 2] - fr),
+                        Math.Max(Math.Abs(px[p + 1] - fg), Math.Abs(px[p] - fb)));
+                int a = d * 255 / (TOL * 3);
+                px[p + 3] = (byte)(a > 255 ? 255 : a);
+            }
+
+        // Encuadre a lo que ha quedado opaco: el original trae 443 pixeles de
+        // blanco por arriba y 130 por abajo, y cargarlos seria pagar por nada.
+        int minx = w, maxx = -1, miny = h, maxy = -1;
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                if (px[y * stride + x * 4 + 3] > 8) {
+                    if (x < minx) minx = x;
+                    if (x > maxx) maxx = x;
+                    if (y < miny) miny = y;
+                    if (y > maxy) maxy = y;
+                }
+        if (maxx < minx) return "0|0|0";
+        int cw = maxx - minx + 1, ch = maxy - miny + 1;
+
+        using (Bitmap full = new Bitmap(w, h, PixelFormat.Format32bppArgb)) {
+            BitmapData bd = full.LockBits(new Rectangle(0, 0, w, h),
+                                          ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < h; y++)
+                Marshal.Copy(px, y * stride, (IntPtr)(bd.Scan0.ToInt64() + y * bd.Stride), w * 4);
+            full.UnlockBits(bd);
+
+            int destW = anchoDest > 0 ? anchoDest : cw;
+            int destH = (int)Math.Round(ch * (double)destW / cw);
+            using (Bitmap sal = new Bitmap(destW, destH, PixelFormat.Format32bppArgb)) {
+                using (Graphics g = Graphics.FromImage(sal)) {
+                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                    g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                    g.DrawImage(full, new Rectangle(0, 0, destW, destH),
+                                minx, miny, cw, ch, GraphicsUnit.Pixel);
+                }
+                Guardar(sal, salida, 90);
+            }
+            int pct = (int)(100L * opacos / (w * (long)h));
+            return destW + "|" + destH + "|" + pct;
+        }
+    }
+
+    static void SembrarFondo(byte[] px, int stride, bool[] fuera, Queue<int> cola,
+                             int x, int y, int w, int fr, int fg, int fb, int tol) {
+        int idx = y * w + x;
+        if (fuera[idx]) return;
+        int p = y * stride + x * 4;
+        if (Math.Abs(px[p + 2] - fr) > tol) return;
+        if (Math.Abs(px[p + 1] - fg) > tol) return;
+        if (Math.Abs(px[p]     - fb) > tol) return;
+        fuera[idx] = true;
+        cola.Enqueue(idx);
+    }
+
+    // ---------------------------------------------------------------------
     // Ruleta del cofre: se guarda SOLO EL ARMAZON
     // ---------------------------------------------------------------------
     //
@@ -3770,10 +3917,14 @@ $informeSuelo | Format-Table -AutoSize
 # La copia existe igualmente para que se mantenga la regla del proyecto: el
 # juego lee de assets/ y de ningun otro sitio, y resources/ es solo la fuente.
 #
-# La del TITULO es ahora `Nueva_Pantalla_Start.jpg`, que trae las cuatro
-# opciones del menu ya pintadas en la lapida. Se copia como .jpg y no se
-# convierte: un fondo de pantalla completa no necesita canal alfa, y el JPG que
-# entrego Sergio pesa 565 KB contra los 2,7 MB del PNG anterior.
+# La del TITULO es ahora `Main_menu.jpg`, que trae las cuatro opciones ya
+# pintadas en su placa -START, TIENDA, CONFIGURACION y SALIR- y las dos
+# antorchas encendidas. Se copia como .jpg y no se convierte: un fondo de
+# pantalla completa no necesita canal alfa.
+#
+# Sustituye a `Nueva_Pantalla_Start.jpg`, que sustituyo a `Pantalla_Start.png`.
+# Las dos siguen en resources/ y ninguna se copia ya a assets/: el juego lee la
+# que diga esta tabla y solo esa.
 #
 # La ilustracion ANTIGUA (Pantalla_Start.png) ya NO se copia a assets/: no la
 # lee el juego -RUTA_TITULO en ui/pantallas.js apunta al jpg- y guardarla aqui
@@ -3785,9 +3936,21 @@ $informeSuelo | Format-Table -AutoSize
 # SELECCION sigue el mismo razonamiento que el titulo nuevo: opaca, sin
 # recorte que perder, y ver-assets.ps1 confirmo que no tiene alfa real.
 # Convertida a JPEG calidad 90 cae de 2,6 MB a 0,4 MB sin diferencia visible.
+#
+# EL SPLASH y LA PLACA DE LA HISTORIA siguen el mismo criterio: opacas, sin
+# recorte que perder, y convertidas a JPEG calidad 90 al copiarlas. La placa se
+# deja a su tamano original (1248x832) porque la intro la AMPLIA a lo alto del
+# lienzo, igual que el titulo.
+#
+# `ancho` y `recorte` son opcionales -reduccion y quitado de fondo- y ahora
+# mismo no los usa nadie: los estreno la bandera de Extremadura, que dejo de
+# hacer falta cuando Sergio dibujo esta placa con la tricolor ya integrada. Se
+# quedan porque el siguiente menu con fondo blanco los va a querer.
 $MENUS = @(
-    @{ src='menus\Nueva_Pantalla_Start.jpg'; dst='menus\titulo.jpg' }
+    @{ src='menus\Main_menu.jpg'; dst='menus\titulo.jpg' }
     @{ src='menus\seleccion_jugador.png'; dst='menus\seleccion.jpg' }
+    @{ src='menus\splash_screen.png'; dst='menus\splash.jpg' }
+    @{ src='menus\intro_historia.jpg'; dst='menus\intro-historia.jpg' }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'menus') | Out-Null
@@ -3803,7 +3966,26 @@ foreach ($m in $MENUS) {
     $srcExt = [System.IO.Path]::GetExtension($rutaSrc).ToLowerInvariant()
     $dstExt = [System.IO.Path]::GetExtension($rutaDst).ToLowerInvariant()
     $estado = 'COPIADA'
-    if ($srcExt -ne $dstExt -and $dstExt -eq '.jpg') {
+    if ($m.ContainsKey('recorte')) {
+        # Fondo fuera, encuadre a la silueta y reduccion, todo en una pasada.
+        $r = [Procesador]::RecortarBandera($rutaSrc, $rutaDst, $m.ancho) -split '\|'
+        $estado = "RECORTADA ($($r[2])% opaco)"
+    } elseif ($m.ContainsKey('ancho')) {
+        # Reduccion con bicubica de calidad: es una fotografia, no pixel art, y
+        # el vecino mas proximo solo dejaria dientes de sierra en el asta.
+        $orig = [System.Drawing.Bitmap]::FromFile($rutaSrc)
+        $alto = [int][Math]::Round($orig.Height * ($m.ancho / $orig.Width))
+        $red = New-Object System.Drawing.Bitmap $m.ancho, $alto
+        $g = [System.Drawing.Graphics]::FromImage($red)
+        $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+        $g.DrawImage($orig, 0, 0, $m.ancho, $alto)
+        $g.Dispose()
+        [Procesador]::Guardar($red, $rutaDst, 90)
+        $red.Dispose()
+        $orig.Dispose()
+        $estado = 'REDUCIDA'
+    } elseif ($srcExt -ne $dstExt -and $dstExt -eq '.jpg') {
         # Cambia de formato (normalmente PNG opaco -> JPEG): reencodear, no copiar.
         $bmp = [System.Drawing.Bitmap]::FromFile($rutaSrc)
         [Procesador]::Guardar($bmp, $rutaDst, 90)

@@ -32,6 +32,17 @@ export const FUENTE = '"Segoe UI", "Noto Sans", system-ui, sans-serif';
 // serifa robusta. NUNCA una de serifas finas: se deshacen contra el fondo.
 export const FUENTE_TITULO = '"Trajan Pro", "Palatino Linotype", "Book Antiqua", Georgia, serif';
 
+// Familia de RELATO: los párrafos largos de la intro. Serifa de estilo romano,
+// para que el texto de la historia case con la piedra labrada sobre la que se
+// lee, en vez de parecer la interfaz de una aplicación encima de un dibujo.
+//
+// NO usa FUENTE_TITULO aunque sea la más romana de las dos, y el motivo es
+// Trajan: es una tipografía CAPITAL, sin minúsculas de verdad. Un titular de
+// cuatro palabras en versales es un titular; tres párrafos en versales no hay
+// quien los lea. Así que aquí se empieza directamente por la humanista, que sí
+// tiene caja baja, y Trajan se queda para el titular.
+export const FUENTE_RELATO = '"Palatino Linotype", "Book Antiqua", Palatino, Georgia, "Times New Roman", serif';
+
 // Tope de densidad. La interfaz se dibuja al doble de la resolución CSS como
 // mucho, aunque la pantalla dé más.
 //

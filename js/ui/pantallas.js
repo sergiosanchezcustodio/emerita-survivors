@@ -7,12 +7,13 @@ import { ARMAS } from '../datos/armas.js';
 import { COLOR_JUGADOR, dibujarIconoArma } from './hud.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
 import { MASCOTAS, MAX_NIVEL_MASCOTA } from '../datos/mascotas.js';
+import { TituloVivo } from './tituloVivo.js';
 
 // Pantallas de TÍTULO y de SELECCIÓN DE PERSONAJE.
 //
 // Las dos se apoyan en una ilustración que ha pintado Sergio y que trae ya
-// horneado casi todo: el logo, el botón START, el rótulo "Elige a tu Héroe" y
-// los cuatro arcos con sus personajes dentro. Aquí NO se vuelve a dibujar nada
+// horneado casi todo: el logo, las cuatro opciones del menú, el rótulo "Elige a
+// tu Héroe" y los cuatro arcos con sus personajes dentro. Aquí NO se vuelve a dibujar nada
 // de eso — sería competir con el arte y perder. Lo único que se añade es lo que
 // una imagen no puede tener: qué arco está elegido, de quién es cada cursor y
 // qué hay que pulsar.
@@ -27,20 +28,22 @@ import { MASCOTAS, MAX_NIVEL_MASCOTA } from '../datos/mascotas.js';
 // Y la ilustración se dibuja CON SUAVIZADO, al revés que todo el arte del
 // mundo. Es la misma decisión que el retrato de la ficha: ninguna de las dos
 // imágenes encaja en 1920x1080 por un múltiplo entero —la del título pide
-// 1,25x y la de selección 1,18x— así que a vecino más próximo saldrían filas de
+// 1,30x y la de selección 1,18x— así que a vecino más próximo saldrían filas de
 // píxeles dobladas sí y no, que en las letras del logo se ve como un defecto.
 // Son pantallas quietas: no hay hormigueo que temer, solo un pelo de blandura.
 
 const RUTA_TITULO = 'assets/menus/titulo.jpg';
 
-// Por dónde se recorta la ilustración del título. La imagen mide 1248x832
-// (proporción 3:2) y la pantalla es más apaisada, así que al llenar el ancho
-// sobran 100 unidades de alto que hay que quitar de algún sitio.
+// Por dónde se recortaría la ilustración del título si hubiera que recortarla.
 //
-// Ni todo de abajo (0) ni centrado (0,5): a ras de arriba, la lápida con el
-// menú se iba contra el borde inferior y "SALIR" quedaba a un pelo del recorte
-// de una ventana baja; centrado, se comía la punta del remate del logo. Un
-// quinto por arriba es lo que deja las dos cosas dentro.
+// YA NO SE RECORTA: con el dibujo nuevo, la ilustración se encaja entera a lo
+// alto y los lados se rellenan por detrás (ver ui/tituloVivo.js). Recortar
+// dejaba SALIR fuera de la pantalla y CONFIGURACIÓN partida por la mitad,
+// porque las cuatro opciones están pintadas mucho más abajo que en el dibujo
+// anterior.
+//
+// La constante sobrevive para el REPLIEGUE: si la imagen no carga, `cubrir` la
+// sigue necesitando para pintar el fondo liso de reserva.
 const ANCLA_TITULO = 0.2;
 const RUTA_SELECCION = 'assets/menus/seleccion.jpg';
 
@@ -71,34 +74,54 @@ const ARCO_ANCHO = 292;
 const ARCO_Y = 264;
 const ARCO_ALTO = 482;
 
-// LAS CUATRO OPCIONES DEL MENÚ, medidas sobre la ilustración nueva
-// (Nueva_Pantalla_Start.jpg, 1248x832). Vienen pintadas en la lápida —JUGAR,
-// TIENDA, CONFIGURACIÓN y SALIR—, así que aquí NO se vuelven a escribir: lo
-// único que falta es decir cuál está señalada, y eso se hace ILUMINANDO SU
-// RECUADRO, que es lo que pidió Sergio.
+// LAS CUATRO OPCIONES DEL MENÚ, medidas sobre la ilustración (Main_menu.jpg,
+// 1264x842). Vienen pintadas en su marco —START, TIENDA, CONFIGURACIÓN y
+// SALIR—, así que aquí NO se vuelven a escribir: lo único que falta es decir
+// cuál está señalada, y eso se hace ILUMINANDO SU RECUADRO. Es el criterio de
+// toda esta pantalla: no competir con el arte.
 //
-// Es el mismo criterio que el resto de esta pantalla: no competir con el arte.
-// La versión anterior tenía que tapar el botón START horneado con una placa
-// opaca y volver a escribir las cuatro opciones encima, porque la ilustración
-// vieja solo traía un botón y hacían falta cuatro. Con el dibujo nuevo eso
-// sobra entero.
+// LAS MEDIDAS NO VAN A OJO, y con este dibujo hubo que afinar cómo se toman.
+// La versión anterior del menú tenía una placa de fondo OSCURO y bastaba con
+// buscar píxeles claros; esta trae un marco CALADO, con el escenario visible
+// por detrás, así que el empedrado se colaba en el recuento. Se calibró
+// midiendo la luminancia máxima por fila en la banda del menú: los renglones de
+// texto dan 120-141 y los huecos entre ellos 35-58, sin solape ninguno, así que
+// el corte en 90 los separa limpiamente.
 //
-// Medidas tomadas sobre el propio dibujo, ampliándolo con una rejilla encima:
-// las `y` son el centro de cada renglón y la `x` el centro de las CUATRO
-// palabras, que no es el centro de la lápida.
+// Lo medido, en píxeles de la imagen:
 //
-// Esa diferencia era el fallo de la primera versión: se puso el recuadro en el
-// centro geométrico de la piedra (636) y las palabras están centradas diez
-// píxeles más a la izquierda (627), así que sobraba margen por la derecha y se
-// notaba. El ancho también se ha recortado: 232 le venía muy grande incluso a
-// CONFIGURACIÓN, que mide 170 y es la más larga.
-const OPCION_X = 627;
-const OPCION_ANCHO = 198;
+//     START            y 641..664   x 574..692   (119 de ancho)
+//     TIENDA           y 680..702   x 569..699   (131)
+//     CONFIGURACIÓN    y 718..740   x 498..767   (270)
+//     SALIR            y 756..778   x 583..683   (101)
+//
+// Las cuatro miden lo mismo de alto y van separadas 38-39.
+//
+// EL CENTRO ES EL DEL TEXTO, NO EL DEL MARCO. Los rieles del marco están en
+// x=462 y x=814 —salen como dos picos de luz al perfilar la banda por columnas—
+// así que su hueco interior va de 472 a 808 y su centro cae en 640. Pero las
+// cuatro palabras están centradas en 633, siete píxeles a la izquierda. Poner
+// el recuadro en el centro del marco fue justo el fallo de la primera versión
+// de esta pantalla, y se notaba: sobraba margen por un lado.
+const OPCION_X = 633;
+
+// Un solo ancho para las cuatro, y lo manda la más larga: CONFIGURACIÓN mide
+// 270. Con 296 quedan trece píxeles de aire a cada lado de esa palabra, y el
+// recuadro sigue holgado dentro del hueco del marco (472..808).
+//
+// Que a SALIR —101 de ancho— le sobre sitio es deliberado: un recuadro que
+// cambia de tamaño según la palabra no se lee como un cursor que se mueve, sino
+// como cuatro recuadros distintos.
+const OPCION_ANCHO = 296;
+
+// Alto: 23 de texto más 10 de aire. Con 38 de separación entre renglones, deja
+// cinco píxeles de hueco entre un recuadro y el siguiente — suficiente para que
+// se vean como cajas separadas y no como una columna continua.
 const OPCIONES_TITULO = [
-  { y: 507, alto: 52 },     // JUGAR, más grande que las otras en el dibujo
-  { y: 561, alto: 32 },     // TIENDA
-  { y: 600, alto: 32 },     // CONFIGURACIÓN
-  { y: 639, alto: 32 }      // SALIR
+  { y: 652, alto: 33 },     // START
+  { y: 691, alto: 33 },     // TIENDA
+  { y: 729, alto: 33 },     // CONFIGURACIÓN
+  { y: 767, alto: 33 }      // SALIR
 ];
 
 const Imagenes = { titulo: null, seleccion: null };
@@ -114,6 +137,11 @@ export const Pantallas = {
     ]);
     Imagenes.titulo = t;
     Imagenes.seleccion = s;
+
+    // La pantalla de título se hornea aquí: la ilustración escalada una sola vez
+    // a su propio lienzo. A partir de ahí cada fotograma es una copia 1:1 más el
+    // fuego de las antorchas (ver tituloVivo.js).
+    TituloVivo.hornear(t);
   },
 
   titulo(ctxMundo, ctxUi, menu, cursor) { dibujarTitulo(ctxMundo, ctxUi, menu, cursor); },
@@ -257,6 +285,7 @@ function fondo(ctxMundo, img, e) {
 // dos sitios calculándolo por su cuenta es la forma segura de que un día dejen
 // de coincidir.
 export function fondoTitulo(ctxMundo) {
+  if (TituloVivo.listo()) { TituloVivo.fondo(ctxMundo); return; }
   const img = Imagenes.titulo;
   fondo(ctxMundo, img, cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, ANCLA_TITULO));
 }
@@ -276,8 +305,20 @@ function latido(periodo, minimo) {
 // ayuda: ver OPCIONES_TITULO arriba.
 function dibujarTitulo(ctxMundo, ctxUi, menu, cursor) {
   const img = Imagenes.titulo;
-  const e = cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, ANCLA_TITULO);
-  fondo(ctxMundo, img, e);
+
+  // El encuadre es FIJO: la ilustración no se mueve ni un píxel (ver la cabecera
+  // de tituloVivo.js). Lo único que cambia de un fotograma a otro es la luz que
+  // se suma encima.
+  let e;
+  if (TituloVivo.listo()) {
+    TituloVivo.avanzar();
+    TituloVivo.fondo(ctxMundo);
+    TituloVivo.efectos(ctxMundo);
+    e = TituloVivo.encaje();
+  } else {
+    e = cubrir(img || { width: ANCHO_UI, height: ALTO_UI }, ANCLA_TITULO);
+    fondo(ctxMundo, img, e);
+  }
 
   dibujarOro(ctxUi);
   if (!img || !menu) return;

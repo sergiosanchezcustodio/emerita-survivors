@@ -47,6 +47,7 @@ import { NIVEL } from './datos/niveles/merida.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from './datos/personajes.js';
 import { ARMAS } from './datos/armas.js';
 import { POTENCIADORES } from './datos/potenciadores.js';
+import { Intro } from './ui/intro.js';
 
 
 // Capacidad del pool. El objetivo del plan son 800 entidades simultáneas; el
@@ -175,6 +176,9 @@ const PANTALLA_TIENDA = 3;
 // solo sirve para pulsar otra vez.
 const PANTALLA_MASCOTAS = 4;
 const PANTALLA_CONFIG = 5;
+// La INTRO: la ficha del proyecto y el rótulo, antes del menú. Es la pantalla
+// de arranque, y de ella solo se sale hacia el título — nunca se vuelve.
+const PANTALLA_INTRO = 6;
 // Sin valor de arranque: lo pone `irA` al final de este bloque, porque el
 // estado de pantalla no es solo esta variable — arrastra la clase del body, y
 // dejarlos puestos por separado es tener dos verdades que se desincronizan.
@@ -301,7 +305,8 @@ let denariosAlEmpezar = 0;
 // consulta `resumenFinal` y `finalMostrado`, que se declaran unas líneas más
 // arriba con `let`: llamarla antes de esas declaraciones revienta con un error
 // de zona muerta temporal y el juego no arranca.
-irA(PANTALLA_TITULO);
+Intro.iniciar();
+irA(PANTALLA_INTRO);
 let zoomPantalla = 1;
 let tilesDibujados = 0;
 let indicePersonaje = 0;
@@ -1219,7 +1224,10 @@ function actualizar(dt) {
   // Título y selección salen por aquí, antes de tocar nada de la simulación:
   // todo lo que viene debajo da por hecho que hay al menos un jugador vivo.
   if (pantalla !== PANTALLA_JUEGO) {
-    if (pantalla === PANTALLA_TITULO) entradaTitulo();
+    if (pantalla === PANTALLA_INTRO) {
+      if (Intro.actualizar(dt, entrada)) irA(PANTALLA_TITULO);
+    }
+    else if (pantalla === PANTALLA_TITULO) entradaTitulo();
     else if (pantalla === PANTALLA_TIENDA) entradaTienda();
     else if (pantalla === PANTALLA_MASCOTAS) entradaMascotas();
     else if (pantalla === PANTALLA_CONFIG) entradaConfig(() => irA(PANTALLA_TITULO));
@@ -1717,6 +1725,7 @@ function dibujar(alpha) {
     GestorAudio.musicaMenu();
     Capa.limpiar();
     if (despedida) { Pantallas.titulo(ctx, Capa.ctx, null, 0); dibujarDespedida(Capa.ctx); return; }
+    if (pantalla === PANTALLA_INTRO) { Intro.dibujar(ctx, Capa.ctx); return; }
     if (pantalla === PANTALLA_TITULO) {
       Pantallas.titulo(ctx, Capa.ctx, MENU, cursorMenu);
       // El "empezar de cero" vive en el título desde que dejó de ser un ajuste,
@@ -2089,7 +2098,9 @@ async function arrancar() {
   // haya elegido en la pantalla de selección. Todo lo de arriba —pools,
   // director, recursos— sí se monta ya, para que al pulsar START no haya que
   // esperar a nada.
-  await Pantallas.cargar();
+  // La intro carga junto a las pantallas, no antes ni después: las dos leen
+  // imágenes sueltas y ninguna depende de la otra.
+  await Promise.all([Pantallas.cargar(), Intro.cargar()]);
 
   redimensionar();
   vigilarDensidad();
@@ -2127,8 +2138,9 @@ async function arrancar() {
     get turnoMascota() { return turnoMascota; },
     get cursorMenu() { return cursorMenu; },
     get pestanyaTienda() { return pestanyaTienda; },
-    PANTALLA: { titulo: PANTALLA_TITULO, seleccion: PANTALLA_SELECCION,
-                juego: PANTALLA_JUEGO, tienda: PANTALLA_TIENDA },
+    PANTALLA: { intro: PANTALLA_INTRO, titulo: PANTALLA_TITULO,
+                seleccion: PANTALLA_SELECCION, juego: PANTALLA_JUEGO,
+                tienda: PANTALLA_TIENDA },
     // Progreso META y mascotas. Se exponen para poder probar desde la consola
     // sin jugar veinte partidas para reunir denarios, y para poder mirar qué
     // hay guardado sin abrir el inspector de localStorage.
