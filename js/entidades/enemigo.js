@@ -11,6 +11,7 @@ import {
   COLOR_PIEDRA, COLOR_VENENO
 } from '../sistemas/particulas.js';
 import { tipoConsumible } from './cofre.js';
+import { sen, cos, atan2, exp } from '../core/mate.js';
 
 // Denarios por baja (progreso META, ver core/metaProgreso.js): proporcionales
 // a lo que ya vale el enemigo en XP, con un suelo de 1 para que hasta una
@@ -153,14 +154,19 @@ const CERCA = 26;
 const DIST_ALCANCE_JEFE = 300;
 
 // --- Tabla de senos ----------------------------------------------------------
-// Math.sin llamado dos o tres veces por entidad y paso son 150.000 llamadas por
-// segundo con la horda llena. La tabla cuesta 4 KB una sola vez y el error de
-// muestreo a 1024 entradas es de milésimas de radián: invisible en una
-// trayectoria.
+// Dos o tres senos por entidad y paso son 150.000 llamadas por segundo con la
+// horda llena. La tabla cuesta 4 KB una sola vez y el error de muestreo a 1024
+// entradas es de milésimas de radián: invisible en una trayectoria.
+//
+// Y desde que se llena con `sen` en vez de con `Math.sin` (ver core/mate.js), la
+// tabla es además IDÉNTICA EN TODOS LOS NAVEGADORES. Antes no lo era: se
+// horneaba con la biblioteca del motor, así que Chrome y Firefox arrancaban la
+// partida con dos tablas distintas y todo lo que se moviera con ellas divergía
+// desde el primer paso.
 const TAU = Math.PI * 2;
 const N_SENO = 1024;
 const SENO = new Float32Array(N_SENO);
-for (let i = 0; i < N_SENO; i++) SENO[i] = Math.sin(i * TAU / N_SENO);
+for (let i = 0; i < N_SENO; i++) SENO[i] = sen(i * TAU / N_SENO);
 const ESCALA_SENO = N_SENO / TAU;
 function seno(a) { return SENO[((a * ESCALA_SENO) | 0) & (N_SENO - 1)]; }
 
@@ -611,12 +617,12 @@ export class Enemigos {
             } else {
 
             const inv = 1 / Math.sqrt(d2a);
-            const base = Math.atan2(dya * inv, dxa * inv);
+            const base = atan2(dya * inv, dxa * inv);
             const paso = at.dispersion * Math.PI / 180;
             const inicio = base - paso * (at.proyectiles - 1) * 0.5;
             for (let q = 0; q < at.proyectiles; q++) {
               const a = inicio + paso * q;
-              this.disparos.lanzar(e.x, e.y - 6, Math.cos(a), Math.sin(a), at);
+              this.disparos.lanzar(e.x, e.y - 6, cos(a), sen(a), at);
             }
             }
           } else {
@@ -639,10 +645,10 @@ export class Enemigos {
       // de batalla y esquivar vuelve a significar algo.
       if (e.mov === MOV_TRAVESIA) {
         if (e.dirX === 0 && e.dirY === 0) {
-          const ang = Math.atan2(objetivo.y - e.y, objetivo.x - e.x) +
+          const ang = atan2(objetivo.y - e.y, objetivo.x - e.x) +
                       (this._rng() - 0.5) * 0.5;
-          e.dirX = Math.cos(ang);
-          e.dirY = Math.sin(ang);
+          e.dirX = cos(ang);
+          e.dirY = sen(ang);
         }
         const v = e.velocidad * (1 - e.frenado);
         if (e.frenado > 0) {
@@ -654,7 +660,7 @@ export class Enemigos {
         if (e.empujeX !== 0 || e.empujeY !== 0) {
           e.x += e.empujeX * dt;
           e.y += e.empujeY * dt;
-          const fr = Math.exp(-DECAIMIENTO_EMPUJE * dt);
+          const fr = exp(-DECAIMIENTO_EMPUJE * dt);
           e.empujeX *= fr; e.empujeY *= fr;
           if (Math.abs(e.empujeX) < 1 && Math.abs(e.empujeY) < 1) { e.empujeX = 0; e.empujeY = 0; }
         }
@@ -678,8 +684,8 @@ export class Enemigos {
       // alrededor del jugador. Ver el comentario de DERIVA_ACOSO arriba: es lo
       // que convierte la cola que te sigue en un cerco que se cierra.
       e.anguloAcoso += dt * e.derivaAcoso;
-      const metaX = objetivo.x + Math.cos(e.anguloAcoso) * e.radioAcoso;
-      const metaY = objetivo.y + Math.sin(e.anguloAcoso) * e.radioAcoso;
+      const metaX = objetivo.x + cos(e.anguloAcoso) * e.radioAcoso;
+      const metaY = objetivo.y + sen(e.anguloAcoso) * e.radioAcoso;
 
       let dx = metaX - e.x;
       let dy = metaY - e.y;
@@ -788,7 +794,7 @@ export class Enemigos {
       if (e.empujeX !== 0 || e.empujeY !== 0) {
         e.x += e.empujeX * dt;
         e.y += e.empujeY * dt;
-        const frenado = Math.exp(-DECAIMIENTO_EMPUJE * dt);
+        const frenado = exp(-DECAIMIENTO_EMPUJE * dt);
         e.empujeX *= frenado;
         e.empujeY *= frenado;
         if (Math.abs(e.empujeX) < 1 && Math.abs(e.empujeY) < 1) {
@@ -1282,7 +1288,7 @@ export class Enemigos {
       // blits a escala 1:1. Si algún día sobra presupuesto, el squash vuelve
       // aquí y en ningún otro sitio.
       const amp = e.vuela ? FLOTE_PX : BOTE_PX;
-      const dyF = cyF - meta.h + Math.round(Math.sin(e.fase) * amp);
+      const dyF = cyF - meta.h + Math.round(sen(e.fase) * amp);
       ctx.drawImage(img,
         (cxF - (meta.w >> 1)) / ESCALA_ARTE, dyF / ESCALA_ARTE,
         meta.w / ESCALA_ARTE, meta.h / ESCALA_ARTE);

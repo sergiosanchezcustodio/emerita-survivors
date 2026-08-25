@@ -9,6 +9,7 @@ import { Progresion, xpNecesaria, REROLLS } from '../sistemas/progresion.js';
 import { GestorAudio } from '../sistemas/audio.js';
 import { Particulas, COLOR_SANGRE, COLOR_POLVO } from '../sistemas/particulas.js';
 import { VFX } from '../sistemas/vfx.js';
+import { hipot } from '../core/mate.js';
 
 // --- Animación ---------------------------------------------------------------
 //
@@ -363,7 +364,7 @@ export class Jugador {
     // Cono ancho, como la muerte de un enemigo: es un cuerpo reventando, no una
     // chispa de choque contra metal.
     if (rng && !Particulas.saturado()) {
-      const v = Math.hypot(dirX, dirY);
+      const v = hipot(dirX, dirY);
       const n = 4 + Math.round(frac * 8);
       if (v > 0.0001) {
         Particulas.chorro(this.x, this.y - 12, dirX / v, dirY / v,
@@ -486,7 +487,7 @@ export class Jugador {
     this.x += vx * dt;
     this.y += vy * dt;
 
-    const mag = Math.hypot(entrada.ejeX, entrada.ejeY);
+    const mag = hipot(entrada.ejeX, entrada.ejeY);
     this.andando = mag > 0.02;
     this.magAndar = Math.min(1, mag);
     if (this.andando) {

@@ -2,6 +2,7 @@ import { ANCHO_LOGICO, ALTO_LOGICO } from '../core/constantes.js';
 import { Recursos } from '../core/recursos.js';
 import { tipoConsumible } from '../entidades/cofre.js';
 import { Jefes } from './jefes.js';
+import { sen, cos, atan2, hipot } from '../core/mate.js';
 
 // Mismo margen que MARGEN_NIVEL en main.js: no se importa de ahí porque
 // main.js es el arranque, no un módulo pensado para que otros tiren de él.
@@ -158,11 +159,11 @@ function puntoDeEntrada(t, rng, rumboX, rumboY) {
   }
   // Ángulo del rumbo, ±70°: un cono ancho por delante, no un punto. Con un cono
   // estrecho la horda entra en fila por el mismo sitio y se nota el truco.
-  const ang = Math.atan2(rumboY, rumboX) + (rng() - 0.5) * 2.44;
+  const ang = atan2(rumboY, rumboX) + (rng() - 0.5) * 2.44;
   // De ángulo a recorrido del perímetro: se proyecta el rayo sobre el
   // rectángulo, que es lo que evita el apelotonamiento en las esquinas del que
   // habla el comentario de `perimetro`.
-  const cos = Math.cos(ang), sin = Math.sin(ang);
+  const cos = cos(ang), sin = sen(ang);
   const escala = Math.min(
     Math.abs(cos) > 1e-6 ? SEMI_X / Math.abs(cos) : Infinity,
     Math.abs(sin) > 1e-6 ? SEMI_Y / Math.abs(sin) : Infinity);
@@ -427,7 +428,7 @@ export const Director = {
     const k = Math.min(1, dt * 2.5);
     this.rumboX += (vx / dt * 0.012 - this.rumboX) * k;
     this.rumboY += (vy / dt * 0.012 - this.rumboY) * k;
-    const mag = Math.hypot(this.rumboX, this.rumboY);
+    const mag = hipot(this.rumboX, this.rumboY);
     // Por debajo de este umbral se considera que no hay avance: perseguir el
     // ruido de la correa de cámara daría un cono de entrada que da bandazos.
     const rX = mag > 0.25 ? this.rumboX / mag : 0;
@@ -517,13 +518,13 @@ export const Director = {
         // Con el nivel de ancho limitado, un punto en anillo alrededor de la
         // cámara puede caer en el hueco vacío de fuera del mapa: se recorta a
         // los límites del suelo igual que se hace con jugadores y enemigos.
-        let px = camara.x + Math.cos(ang) * d;
+        let px = camara.x + cos(ang) * d;
         if (Recursos.mapaPintado) {
           const limIzq = MARGEN_NIVEL;
           const limDer = Recursos.anchoSuelo - MARGEN_NIVEL;
           if (px < limIzq) px = limIzq; else if (px > limDer) px = limDer;
         }
-        this.objetos.soltar(px, camara.y + Math.sin(ang) * d, tipo);
+        this.objetos.soltar(px, camara.y + sen(ang) * d, tipo);
       }
     }
 

@@ -3,6 +3,7 @@ import { Recursos } from '../core/recursos.js';
 import { Particulas, COLOR_CHISPA } from '../sistemas/particulas.js';
 import { VFX } from '../sistemas/vfx.js';
 import { HOJA_ZONAS, huecoDe } from './zonaDanyo.js';
+import { sen, cos, hipot } from '../core/mate.js';
 
 // DISPAROS ENEMIGOS. Los sueltan los enemigos que llevan `ataque` en su ficha
 // (medusa y mantícora, de momento): los poderosos, nunca la masa.
@@ -350,7 +351,7 @@ export class Disparos {
         hueco = ((d.fase * (meta.fps || 11) / 9) | 0) % meta.frames;
       }
 
-      const r = d.radio * (1 + Math.sin(d.fase) * 0.06) * (meta.margen || 1);
+      const r = d.radio * (1 + sen(d.fase) * 0.06) * (meta.margen || 1);
       // Translúcido, mismo criterio y mismo número que las zonas del jugador
       // (ver OPACIDAD_ZONA en entidades/zonaDanyo.js).
       ctx.globalAlpha = 0.40;
@@ -540,8 +541,8 @@ export class Disparos {
             const s = arma.stats;
             for (let e = 0; e < s.escudos && !tocado; e++) {
               const ang = arma.anguloOrbital + (e / s.escudos) * Math.PI * 2;
-              const ox = j.x + Math.cos(ang) * s.radioOrbita;
-              const oy = j.y - 6 + Math.sin(ang) * s.radioOrbita;
+              const ox = j.x + cos(ang) * s.radioOrbita;
+              const oy = j.y - 6 + sen(ang) * s.radioOrbita;
               const dx = ox - d.x, dy = oy - d.y;
               const r = s.radioEscudo + d.radio;
               if (dx * dx + dy * dy < r * r) tocado = true;
@@ -574,8 +575,8 @@ export class Disparos {
           for (let q = 0; q < rayos.length && !tocado; q++) {
             const r = rayos[q];
             if (r.vida <= 0) continue;
-            const ex = Math.cos(r.ang) * r.largo;
-            const ey = Math.sin(r.ang) * r.largo;
+            const ex = cos(r.ang) * r.largo;
+            const ey = sen(r.ang) * r.largo;
             const px = d.x - r.x, py = d.y - r.y;
             const largo2 = ex * ex + ey * ey;
             let t = largo2 > 0 ? (px * ex + py * ey) / largo2 : 0;
@@ -667,15 +668,15 @@ export class Disparos {
           // seno. La altura sale de la DISTANCIA —un tiro largo se levanta más—
           // con tope, o el arco se saldría de cuadro por arriba.
           const dx = x - d.origenX, dy = y - d.origenY;
-          const alto = Math.min(Math.hypot(dx, dy) * 0.34, 62);
+          const alto = Math.min(hipot(dx, dy) * 0.34, 62);
           const px = d.origenX + dx * prog;
-          const py = d.origenY + dy * prog - Math.sin(prog * Math.PI) * alto;
+          const py = d.origenY + dy * prog - sen(prog * Math.PI) * alto;
 
           // Crece hacia el punto alto del arco y se encoge al bajar. Es
           // perspectiva barata y es lo que hace legible en qué momento del vuelo
           // va: sin ella, una piedra que sube y baja parece que se desplaza en
           // línea recta.
-          const r = 4.6 * (1 + Math.sin(prog * Math.PI) * 0.45);
+          const r = 4.6 * (1 + sen(prog * Math.PI) * 0.45);
           // Voltea mientras vuela. Media vuelta y pico en todo el trayecto:
           // más y se lee como una peonza, menos y parece arrastrada.
           const giro = d.fase + prog * 4.2;
@@ -687,7 +688,7 @@ export class Disparos {
           for (let v = 0; v < PERFIL_ROCA.length; v++) {
             const a = (v / PERFIL_ROCA.length) * Math.PI * 2;
             const rv = r * PERFIL_ROCA[v];
-            const vx = Math.cos(a) * rv, vy = Math.sin(a) * rv;
+            const vx = cos(a) * rv, vy = sen(a) * rv;
             if (v === 0) ctx.moveTo(vx, vy); else ctx.lineTo(vx, vy);
           }
           ctx.closePath();
@@ -730,7 +731,7 @@ export class Disparos {
           // Sin calcomanía sigue habiendo relleno, porque entonces es lo único
           // que hay: quitarlo dejaría un charco invisible que quema.
           if (d.sprite < 0) {
-            const late = 1 + Math.sin(d.fase) * 0.15;
+            const late = 1 + sen(d.fase) * 0.15;
             ctx.globalAlpha = 0.32;
             ctx.fillStyle = d.color;
             ctx.beginPath();
@@ -742,7 +743,7 @@ export class Disparos {
         continue;
       }
 
-      const late = 1 + Math.sin(d.fase) * 0.12;
+      const late = 1 + sen(d.fase) * 0.12;
 
       // ESTELA HACIA ATRÁS. Un disco no dice a dónde va, y saber a dónde va un
       // proyectil enemigo es media esquiva: con la pantalla llena, para cuando
@@ -755,7 +756,7 @@ export class Disparos {
       // lanzado —el escupitajo de la medusa— y también una bola de fuego, que
       // va soltando lo que le sobra. La misma forma sirve para las dos porque
       // la diferencia está en el color, no en el gesto.
-      const v = Math.hypot(d.vx, d.vy);
+      const v = hipot(d.vx, d.vy);
       if (v > 1) {
         const ux = d.vx / v, uy = d.vy / v;
         ctx.fillStyle = d.estela || d.color;

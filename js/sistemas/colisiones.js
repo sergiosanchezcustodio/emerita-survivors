@@ -1,5 +1,6 @@
 import { nuevoSello } from '../entidades/proyectil.js';
 import { DT } from '../core/constantes.js';
+import { hipot } from '../core/mate.js';
 
 // Colisiones sobre la rejilla espacial. Dos consumidores:
 //   - separacion()      enemigo <-> enemigo, para que no se apilen en un punto
@@ -849,7 +850,7 @@ export function impactosProyectiles(proyectiles, enemigos, alEstallar) {
           if (dx * dx + dy * dy > r * r) continue;
 
           e.ultimoSello = p.sello;
-          const v = Math.hypot(p.vx, p.vy) || 1;
+          const v = hipot(p.vx, p.vy) || 1;
           enemigos.danyar(e, p.danyo, p.vx / v, p.vy / v, p.empuje, p.duenyo);
 
           if (p.perforacion > 0) { p.perforacion--; continue; }
@@ -877,10 +878,10 @@ export function impactosProyectiles(proyectiles, enemigos, alEstallar) {
             if (otro) {
               p.rebotesEnemigo--;
               const ddx = otro.x - p.x, ddy = otro.y - p.y;
-              const dd = Math.hypot(ddx, ddy) || 1;
+              const dd = hipot(ddx, ddy) || 1;
               // Conserva la RAPIDEZ y cambia solo la dirección: si se copiara
               // el vector al blanco, un rebote corto dejaría la piedra parada.
-              const rapidez = Math.hypot(p.vx, p.vy) || 1;
+              const rapidez = hipot(p.vx, p.vy) || 1;
               p.vx = (ddx / dd) * rapidez;
               p.vy = (ddy / dd) * rapidez;
               // Sello nuevo: puede volver a tocar a quien ya tocó si el rebote

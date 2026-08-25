@@ -2,6 +2,7 @@ import { ESCALA_ARTE } from '../core/constantes.js';
 import { Pool } from '../core/pool.js';
 import { Recursos } from '../core/recursos.js';
 import { enemigosEnRadio } from '../sistemas/colisiones.js';
+import { sen, cos, hipot } from '../core/mate.js';
 
 // Zonas de daño: charcos, trampas, auras, explosiones y ondas expansivas.
 //
@@ -364,7 +365,7 @@ export class Zonas {
       }
       let dx = e.x - z.x;
       let dy = e.y - z.y;
-      const d = Math.hypot(dx, dy) || 1;
+      const d = hipot(dx, dy) || 1;
       // `danyar` devuelve true SOLO en el golpe que lo mata, así que sirve de
       // aviso de muerte con posición sin tener que inventar ninguno: el sistema
       // de zonas ya está mirando al enemigo justo cuando cae.
@@ -544,8 +545,8 @@ export class Zonas {
         for (let i = 0; i < z.piezas; i++) {
           const ang = i * 2.39996;                       // ángulo áureo
           const dist = Math.sqrt((i + 0.5) / z.piezas) * z.radioActual * 0.92;
-          const dx = z.x + Math.cos(ang) * dist;
-          const dy = z.y + Math.sin(ang) * dist;
+          const dx = z.x + cos(ang) * dist;
+          const dy = z.y + sen(ang) * dist;
 
           let px = dx, py = dy, giro = 0, alfa = alfaZona;
           if (z.vuelo > 0) {
@@ -559,7 +560,7 @@ export class Zonas {
               py = z.origenY + (dy - z.origenY) * v;
               // Sube y baja: lo que lanzas a mano hace una parábola, y sin ella
               // los abrojos se deslizarían por el suelo en vez de volar.
-              py -= Math.sin(v * Math.PI) * 22;
+              py -= sen(v * Math.PI) * 22;
               // Y voltean mientras vuelan, hasta quedarse quietos al posarse.
               giro = (1 - v) * 9 + i;
             }

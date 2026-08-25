@@ -1,6 +1,7 @@
 import { Pool } from '../core/pool.js';
 import { ESCALA_ARTE } from '../core/constantes.js';
 import { Recursos } from '../core/recursos.js';
+import { sen, cos, exp } from '../core/mate.js';
 
 // Cofres. Los sueltan los élites al morir (mantícora y serpiente dorada) y son
 // la ÚNICA vía a las evoluciones, según la sección 9 del plan.
@@ -140,8 +141,8 @@ export class Cofres {
     const ang = this._rng() * Math.PI * 2;
     c.x = c.xPrev = x;
     c.y = c.yPrev = y;
-    c.vx = Math.cos(ang) * IMPULSO;
-    c.vy = Math.sin(ang) * IMPULSO * 0.6;   // menos vertical: la vista es cenital
+    c.vx = cos(ang) * IMPULSO;
+    c.vy = sen(ang) * IMPULSO * 0.6;   // menos vertical: la vista es cenital
     c.fase = 0;
     c.vida = 0;
     c.tipo = tipo;
@@ -166,7 +167,7 @@ export class Cofres {
       if (c.vx !== 0 || c.vy !== 0) {
         c.x += c.vx * dt;
         c.y += c.vy * dt;
-        const frenado = Math.exp(-ROZAMIENTO * dt);
+        const frenado = exp(-ROZAMIENTO * dt);
         c.vx *= frenado;
         c.vy *= frenado;
         if (Math.abs(c.vx) < 1 && Math.abs(c.vy) < 1) { c.vx = 0; c.vy = 0; }
@@ -212,7 +213,7 @@ export class Cofres {
       const c = items[k];
       const x = c.xPrev + (c.x - c.xPrev) * alpha;
       const y = c.yPrev + (c.y - c.yPrev) * alpha;
-      const late = Math.sin(c.fase);
+      const late = sen(c.fase);
 
       // Alfa bajo y radio que respira; a plena opacidad taparía a los enemigos
       // que pasan por encima justo donde hay que mirar.

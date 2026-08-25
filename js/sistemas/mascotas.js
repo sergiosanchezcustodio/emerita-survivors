@@ -4,6 +4,7 @@ import { Recursos } from '../core/recursos.js';
 import { ESCALA_ARTE } from '../core/constantes.js';
 import { enemigoMasCercano, enemigosEnRadio } from './colisiones.js';
 import { VFX } from './vfx.js';
+import { sen, cos, hipot } from '../core/mate.js';
 
 // Mascotas: el bicho que acompaña a cada jugador y hace su cosa cada tantos
 // segundos. Ver datos/mascotas.js para el catálogo.
@@ -198,8 +199,8 @@ export const Mascotas = {
       // suavizado solo amortigua lo que cambia de verdad, que es el giro. Como
       // el giro es lento, la órbita conserva su tamaño y la mascota no se mete
       // en el sprite ni corriendo ni en zigzag.
-      const objX = Math.cos(ang) * ORBITA_X;
-      const objY = ORBITA_CY + Math.sin(ang) * ORBITA_Y;
+      const objX = cos(ang) * ORBITA_X;
+      const objY = ORBITA_CY + sen(ang) * ORBITA_Y;
       const k = Math.min(1, SUAVIZADO * dt);
       m.despX += (objX - m.despX) * k;
       m.despY += (objY - m.despY) * k;
@@ -328,7 +329,7 @@ export const Mascotas = {
     // pero no la lleva nadie más —ni los personajes ni los enemigos— así que
     // la mascota era lo único del mundo con una elipse negra debajo, y eso se
     // notaba más que el problema que resolvía.
-    const y = d.vuela ? m.y + Math.sin(m.fase) * FLOTE : m.y;
+    const y = d.vuela ? m.y + sen(m.fase) * FLOTE : m.y;
 
     if (meta) {
       const img = m.mirandoDerecha ? Recursos.imagen(idAtlas) : Recursos.espejo(idAtlas);
@@ -377,7 +378,7 @@ const HABILIDADES = {
     if (!presa) { m.reloj = 0.3; return; }   // sin blanco, reintenta pronto
     let dx = presa.x - m.x;
     let dy = presa.y - m.y;
-    const dist = Math.hypot(dx, dy) || 1;
+    const dist = hipot(dx, dy) || 1;
     // La mordida se le apunta a SU jugador: la mascota es suya, y lo que
     // mata cuenta para él.
     ctx.enemigos.danyar(presa, Math.round(def.danyo * m.factor), dx / dist, dy / dist, 60, j);

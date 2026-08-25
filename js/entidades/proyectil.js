@@ -1,6 +1,7 @@
 import { ANCHO_LOGICO, ALTO_LOGICO, ESCALA_ARTE } from '../core/constantes.js';
 import { Pool } from '../core/pool.js';
 import { Recursos } from '../core/recursos.js';
+import { sen, cos, atan2, hipot } from '../core/mate.js';
 
 // Proyectiles. Mismo patrón que los enemigos: pool preasignado, activos
 // contiguos, cero `new` en partida.
@@ -308,7 +309,7 @@ export class Proyectiles {
       const x = p.xPrev + (p.x - p.xPrev) * alpha;
       const y = p.yPrev + (p.y - p.yPrev) * alpha;
 
-      const v = Math.hypot(p.vx, p.vy);
+      const v = hipot(p.vx, p.vy);
       if (v < 0.001) continue;
       const ux = p.vx / v, uy = p.vy / v;
       const l = p.largo;
@@ -354,7 +355,7 @@ export class Proyectiles {
             ctx.rotate(p.sello * 0.7 + (p.vidaMax - p.vida) * p.giro);
             ctx.drawImage(img, 0, 0, meta.w, meta.h, -aw / 2, -ah / 2, aw, ah);
           } else {
-            ctx.rotate(Math.atan2(p.vy, p.vx));
+            ctx.rotate(atan2(p.vy, p.vx));
             // ESPEJADO, no girado 180°. El dibujo mira a la izquierda, y aquí
             // hay dos maneras de darle la vuelta que NO son la misma: rotar
             // media vuelta invertiría también el eje vertical —la llama y los
@@ -462,7 +463,7 @@ export class Proyectiles {
     const a = p.sello * 0.7 + p.vida * 9;
     ctx.fillStyle = '#fff4d2';
     ctx.beginPath();
-    ctx.arc(x + Math.cos(a) * r * 0.32, y + Math.sin(a) * r * 0.32, r * 0.42, 0, Math.PI * 2);
+    ctx.arc(x + cos(a) * r * 0.32, y + sen(a) * r * 0.32, r * 0.42, 0, Math.PI * 2);
     ctx.fill();
     if (p.estela) {
       ctx.strokeStyle = p.estela;
@@ -482,8 +483,8 @@ export class Proyectiles {
   _rayo(ctx, p, x, y, ux, uy, l) {
     const px = -uy, py = ux;
     const f = p.sello * 1.7 + p.vida * 40;
-    const a1 = Math.sin(f) * l * 0.45;
-    const a2 = Math.sin(f * 1.7 + 2) * l * 0.45;
+    const a1 = sen(f) * l * 0.45;
+    const a2 = sen(f * 1.7 + 2) * l * 0.45;
     const x0 = x - ux * l * 2, y0 = y - uy * l * 2;
     ctx.strokeStyle = p.color;
     ctx.lineWidth = 2.2;

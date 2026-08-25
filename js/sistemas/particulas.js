@@ -1,4 +1,5 @@
 import { Pool } from '../core/pool.js';
+import { sen, cos, atan2, exp } from '../core/mate.js';
 
 // Partículas. Singleton con pool preasignado, como Recursos: hay uno solo y lo
 // usa todo el mundo, así que pasarlo por parámetro por media docena de archivos
@@ -92,7 +93,7 @@ export const Particulas = {
     for (let i = 0; i < cantidad; i++) {
       const a = rng() * Math.PI * 2;
       const v = velocidad * (0.35 + rng() * 0.65);
-      this.emitir(x, y, Math.cos(a) * v, Math.sin(a) * v,
+      this.emitir(x, y, cos(a) * v, sen(a) * v,
                   vida * (0.6 + rng() * 0.4), tam, color, gravedad);
     }
   },
@@ -109,18 +110,18 @@ export const Particulas = {
   // `apertura` es el medio ángulo del cono en radianes: 0 escupe una línea y
   // Math.PI vuelve a ser un estallido redondo.
   chorro(x, y, dirX, dirY, cantidad, velocidad, apertura, vida, tam, color, gravedad, rng) {
-    const base = Math.atan2(dirY, dirX);
+    const base = atan2(dirY, dirX);
     for (let i = 0; i < cantidad; i++) {
       const a = base + (rng() * 2 - 1) * apertura;
       const v = velocidad * (0.45 + rng() * 0.55);
-      this.emitir(x, y, Math.cos(a) * v, Math.sin(a) * v,
+      this.emitir(x, y, cos(a) * v, sen(a) * v,
                   vida * (0.6 + rng() * 0.4), tam, color, gravedad);
     }
   },
 
   actualizar(dt) {
     const items = this.pool.items;
-    const frenado = Math.exp(-ROZAMIENTO * dt);
+    const frenado = exp(-ROZAMIENTO * dt);
     let k = 0;
     while (k < this.pool.activos) {
       const p = items[k];

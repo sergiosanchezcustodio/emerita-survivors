@@ -2,6 +2,7 @@ import { ESCALA_ARTE } from '../core/constantes.js';
 import { Pool } from '../core/pool.js';
 import { Recursos } from '../core/recursos.js';
 import { FUENTE } from '../ui/capa.js';
+import { sen, cos, hipot, exp } from '../core/mate.js';
 
 // Efectos de realimentación: números de daño flotantes, sacudida de cámara y
 // hitstop. Singleton, como Particulas.
@@ -337,9 +338,9 @@ export const VFX = {
     // de reproducibilidad.
     if (this.sacudida > 0.01) {
       this._fase += dt * 47;
-      this.desvioX = Math.sin(this._fase) * this.sacudida;
-      this.desvioY = Math.cos(this._fase * 1.7) * this.sacudida * 0.7;
-      this.sacudida *= Math.exp(-9 * dt);
+      this.desvioX = sen(this._fase) * this.sacudida;
+      this.desvioY = cos(this._fase * 1.7) * this.sacudida * 0.7;
+      this.sacudida *= exp(-9 * dt);
     } else {
       this.sacudida = 0;
       this.desvioX = 0;
@@ -354,7 +355,7 @@ export const VFX = {
     if (!this.marcas) return;
     const m = this.marcas.obtener();
     if (!m) return;
-    const v = Math.hypot(dirX, dirY) || 1;
+    const v = hipot(dirX, dirY) || 1;
     m.x = x; m.y = y;
     m.dx = dirX / v; m.dy = dirY / v;
     m.largo = 5 + Math.min(9, fuerza * 0.22);
@@ -434,7 +435,7 @@ export const VFX = {
           // El último nudo va clavado en el punto de impacto: el rayo tiene que
           // acabar EXACTAMENTE donde revienta la onda, o se lee como si hubiera
           // caído al lado.
-          const desvio = i === NUDOS ? 0 : Math.sin(h.fase + i * 2.3) * ancho;
+          const desvio = i === NUDOS ? 0 : sen(h.fase + i * 2.3) * ancho;
           ctx.lineTo(h.x + desvio, h.y - h.largo * (1 - f));
         }
         ctx.stroke();
@@ -644,7 +645,7 @@ export const VFX = {
     let alfa = 0;
     if (fracVida < UMBRAL_VIDA_BAJA) {
       const gravedad = 1 - fracVida / UMBRAL_VIDA_BAJA;
-      alfa = gravedad * (0.20 + 0.10 * Math.sin(this._faseVida));
+      alfa = gravedad * (0.20 + 0.10 * sen(this._faseVida));
     }
     // Y el fogonazo del golpe por encima, que se suma al latido: recibir un
     // mordisco estando ya a punto de caer tiene que verse peor que recibirlo
@@ -654,7 +655,7 @@ export const VFX = {
 
     if (!this._grad || this._gradW !== ancho || this._gradH !== alto) {
       const cx = ancho / 2, cy = alto / 2;
-      const radio = Math.hypot(cx, cy);
+      const radio = hipot(cx, cy);
       const g = ctx.createRadialGradient(cx, cy, radio * 0.42, cx, cy, radio);
       g.addColorStop(0, 'rgba(150,14,20,0)');
       g.addColorStop(0.65, 'rgba(150,14,20,.55)');

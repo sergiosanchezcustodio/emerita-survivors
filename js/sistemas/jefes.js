@@ -3,6 +3,7 @@ import { masCercano } from '../entidades/enemigo.js';
 import { Particulas, COLOR_CHISPA, COLOR_POLVO, COLOR_SANGRE } from './particulas.js';
 import { VFX } from './vfx.js';
 import { GestorAudio } from './audio.js';
+import { sen, cos, atan2, hipot } from '../core/mate.js';
 
 // FASE 6: comportamiento de los jefes. Motor genérico, parametrizado por
 // datos/jefes.js — mismo reparto que el resto del juego: aquí solo hay
@@ -79,7 +80,7 @@ function actualizarFuego(dt, e, objetivo, disparos, rng) {
   // vez: es lo que hace que se lea como "una cabeza distinta cada vez" sin
   // tener que animar tres cabezas de verdad.
   const dx = objetivo.x - e.x, dy = objetivo.y - e.y;
-  const base = Math.atan2(dy, dx) + cfg.angulos[est.cicloFuego % cfg.angulos.length];
+  const base = atan2(dy, dx) + cfg.angulos[est.cicloFuego % cfg.angulos.length];
   est.cicloFuego++;
 
   defCharco.danyo = cfg.danyoCharco;
@@ -91,7 +92,7 @@ function actualizarFuego(dt, e, objetivo, disparos, rng) {
   defCharco.spriteReventon = 'reventonLlama';
   defCharco.sprite = cfg.sprite || null;
 
-  const cx = Math.cos(base), cy = Math.sin(base);
+  const cx = cos(base), cy = sen(base);
   for (let p = 0; p < cfg.pasos; p++) {
     const d = 26 + p * cfg.paso;
     disparos.charco(e.x + cx * d, e.y + cy * d, defCharco);
@@ -111,7 +112,7 @@ function actualizarFuego(dt, e, objetivo, disparos, rng) {
 function lanzarEmbestida(e, objetivo, cfg) {
   const est = estadoCerbero;
   const dx = objetivo.x - e.x, dy = objetivo.y - e.y;
-  const d = Math.hypot(dx, dy) || 1;
+  const d = hipot(dx, dy) || 1;
   e.dirX = dx / d;
   e.dirY = dy / d;
   e.velocidad = est.velBase * cfg.velocidad;
@@ -178,7 +179,7 @@ function actualizarInvocacion(dt, e, enemigos, rng) {
   for (let i = 0; i < cfg.cantidad; i++) {
     const ang = rng() * Math.PI * 2;
     const d = cfg.radio * (0.5 + rng() * 0.5);
-    enemigos.aparecer(cfg.tipo, e.x + Math.cos(ang) * d, e.y + Math.sin(ang) * d,
+    enemigos.aparecer(cfg.tipo, e.x + cos(ang) * d, e.y + sen(ang) * d,
                        cfg.escala, cfg.escala);
   }
   if (!Particulas.saturado()) {
@@ -228,7 +229,7 @@ function actualizarVeneno(dt, e, objetivo, disparos, rng) {
   est.relojVeneno = cfg.cadencia;
 
   const dx = objetivo.x - e.x, dy = objetivo.y - e.y;
-  const base = Math.atan2(dy, dx) + cfg.angulos[est.cicloVeneno % cfg.angulos.length];
+  const base = atan2(dy, dx) + cfg.angulos[est.cicloVeneno % cfg.angulos.length];
   est.cicloVeneno++;
 
   defCharco.danyo = cfg.danyoCharco;
@@ -240,7 +241,7 @@ function actualizarVeneno(dt, e, objetivo, disparos, rng) {
   defCharco.spriteReventon = 'reventonVeneno';
   defCharco.sprite = cfg.sprite || null;
 
-  const cx = Math.cos(base), cy = Math.sin(base);
+  const cx = cos(base), cy = sen(base);
   for (let p = 0; p < cfg.pasos; p++) {
     const d = 24 + p * cfg.paso;
     disparos.charco(e.x + cx * d, e.y + cy * d, defCharco);

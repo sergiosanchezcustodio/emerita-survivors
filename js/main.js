@@ -9,6 +9,7 @@ import { Recursos } from './core/recursos.js';
 import { MetaProgreso } from './core/metaProgreso.js';
 import { crearRng, hash2 } from './core/rng.js';
 import { crearProbador, huellaMotor } from './core/determinismo.js';
+import { sen, cos, hipot } from './core/mate.js';
 import { Jugador } from './entidades/jugador.js';
 import { Enemigos, prepararVariantes } from './entidades/enemigo.js';
 import { Proyectiles } from './entidades/proyectil.js';
@@ -358,8 +359,8 @@ function anyadirJugador(idPersonaje, idMascota) {
   const ang = (i / MAX_JUGADORES) * Math.PI * 2;
   const cx = i === 0 ? ANCHO_LOGICO / 2 : jugadores[0].x;
   const cy = i === 0 ? ALTO_LOGICO / 2 : jugadores[0].y;
-  j.x = j.xPrev = j.xVista = cx + (i === 0 ? 0 : Math.cos(ang) * 26);
-  j.y = j.yPrev = j.yVista = cy + (i === 0 ? 0 : Math.sin(ang) * 26);
+  j.x = j.xPrev = j.xVista = cx + (i === 0 ? 0 : cos(ang) * 26);
+  j.y = j.yPrev = j.yVista = cy + (i === 0 ? 0 : sen(ang) * 26);
   jugadores.push(j);
 
   // Arsenal propio, con el arma que le toca a su personaje. Eso ya garantiza
@@ -620,7 +621,7 @@ function actualizarLlamarada(dt) {
       ax = j.mirandoDerecha ? 1 : -1;
       ay = 0;
     }
-    const m = Math.hypot(ax, ay) || 1;
+    const m = hipot(ax, ay) || 1;
     ax /= m; ay /= m;
 
     for (let k = 0; k < 3; k++) {

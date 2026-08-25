@@ -1,3 +1,4 @@
+import { hipot } from './mate.js';
 // Teclado, gamepad y joystick virtual táctil, repartidos POR JUGADOR.
 //
 // Reparto: el teclado siempre maneja al jugador 1; el mando k maneja al jugador
@@ -164,13 +165,13 @@ export class Entrada {
           const inv = Math.SQRT1_2;      // 1/raiz(2): nada de ir un 41% más rápido
           tx *= inv; ty *= inv;
         }
-        magMax = Math.hypot(tx, ty);
+        magMax = hipot(tx, ty);
         x = tx; y = ty;
 
         if (this.tactilActivo) {
           let dx = (this.tactilX - this.tactilBaseX) / RADIO_STICK;
           let dy = (this.tactilY - this.tactilBaseY) / RADIO_STICK;
-          const m = Math.hypot(dx, dy);
+          const m = hipot(dx, dy);
           if (m > 1) { dx /= m; dy /= m; }
           if (m > magMax) { x = dx; y = dy; magMax = Math.min(m, 1); fuente = 'tactil'; }
         }
@@ -185,7 +186,7 @@ export class Entrada {
 
         let gx = gp.axes[0] || 0;
         let gy = gp.axes[1] || 0;
-        const m = Math.hypot(gx, gy);
+        const m = hipot(gx, gy);
         if (m > ZONA_MUERTA) {
           // Reescalado desde el borde de la zona muerta: el primer milímetro
           // útil del stick vale 0, no 0.18, o el personaje arranca a tirones.

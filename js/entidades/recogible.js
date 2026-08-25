@@ -2,6 +2,7 @@ import { Pool } from '../core/pool.js';
 import { ESCALA_ARTE } from '../core/constantes.js';
 import { Recursos } from '../core/recursos.js';
 import { GestorAudio } from '../sistemas/audio.js';
+import { sen, hipot } from '../core/mate.js';
 
 // Gemas de experiencia. Pool preasignado, como todo lo demás.
 //
@@ -134,7 +135,7 @@ export class Recogibles {
           const dy = j.y - g.y;
           if (dx * dx + dy * dy < j.radioRecogida * j.radioRecogida) {
             g.atraidaPor = j;
-            const d = Math.hypot(dx, dy) || 1;
+            const d = hipot(dx, dy) || 1;
             g.vx = (dx / d) * VELOCIDAD_INICIAL;
             g.vy = (dy / d) * VELOCIDAD_INICIAL;
             break;
@@ -161,7 +162,7 @@ export class Recogibles {
 
         const d = Math.sqrt(d2);
         dx /= d; dy /= d;
-        const v = Math.min(VELOCIDAD_MAXIMA, Math.hypot(g.vx, g.vy) + ACELERACION * dt);
+        const v = Math.min(VELOCIDAD_MAXIMA, hipot(g.vx, g.vy) + ACELERACION * dt);
         g.vx = dx * v;
         g.vy = dy * v;
         g.x += g.vx * dt;
@@ -258,7 +259,7 @@ export class Recogibles {
       g.atraidaPor = jugador;
       const dx = jugador.x - g.x;
       const dy = jugador.y - g.y;
-      const d = Math.hypot(dx, dy) || 1;
+      const d = hipot(dx, dy) || 1;
       g.vx = (dx / d) * VELOCIDAD_INICIAL;
       g.vy = (dy / d) * VELOCIDAD_INICIAL;
     }
@@ -292,7 +293,7 @@ export class Recogibles {
       for (let k = 0; k < n; k++) {
         const g = items[k];
         if (g.tipo !== t || !g.atraidaPor) continue;
-        const v = Math.hypot(g.vx, g.vy);
+        const v = hipot(g.vx, g.vy);
         if (v < 1) continue;
         if (!abierta) {
           ctx.strokeStyle = GEMAS[t].brillo;
@@ -328,7 +329,7 @@ export class Recogibles {
       const x = g.xPrev + (g.x - g.xPrev) * alpha;
       // Cabeceo suave mientras espera en el suelo.
       const y = g.yPrev + (g.y - g.yPrev) * alpha +
-                (g.atraidaPor ? 0 : Math.sin(g.fase) * 1.2);
+                (g.atraidaPor ? 0 : sen(g.fase) * 1.2);
       const meta = Recursos.meta(def.arte);
       const img = Recursos.imagen(def.arte);
       if (meta && img) {

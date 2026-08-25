@@ -602,7 +602,20 @@ export function crearProbador(gancho) {
       gancho.reiniciar(semilla);
       const h = correr(pasos, cada);
       const texto = h.map((p) => fundir(p).toString(16).padStart(8, '0')).join(' ');
-      console.log(`Huella de ${pasos} fotogramas (semilla ${semilla.toString(16)}):\n${texto}`);
+      console.log(`Huella de ${pasos} fotogramas (semilla ${semilla.toString(16)}):`);
+      console.log(texto);
+
+      // Y LA MISMA HUELLA, DESGLOSADA POR COMPONENTE.
+      //
+      // Comparando entre navegadores no se pueden restar dos ejecuciones: cada
+      // una vive en una maquina distinta. Con el desglose, quien compara ve en
+      // que FILA difieren las dos tablas, que es la diferencia entre "algo
+      // falla" y "fallan las particulas".
+      const tabla = {};
+      for (let k = 0; k < PARTES.length; k++) {
+        tabla[PARTES[k]] = h.map((p) => p[k].toString(16).padStart(8, '0')).join(' ');
+      }
+      console.table(tabla);
       return texto;
     },
 

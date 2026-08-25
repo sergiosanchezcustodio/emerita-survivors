@@ -1,4 +1,5 @@
 import { ANCHO_LOGICO, ALTO_LOGICO } from './constantes.js';
+import { exp } from './mate.js';
 
 // Cuánto se queda el jugador por dentro del borde al topar con la correa. Es
 // medio sprite más un respiro: pegado al filo no se le vería entero.
@@ -25,7 +26,7 @@ export class Camara {
     this.yPrev = this.y;
     // Independiente del dt: con timestep fijo da igual, pero así no se rompe
     // si algún día el paso cambia.
-    const k = 1 - Math.exp(-this.suavizado * dt);
+    const k = 1 - exp(-this.suavizado * dt);
     this.x += (objetivoX - this.x) * k;
     this.y += (objetivoY - this.y) * k;
   }

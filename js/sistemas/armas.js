@@ -4,6 +4,7 @@ import { ARMAS } from '../datos/armas.js';
 import { MAX_NIVEL } from './progresion.js';
 import { enemigoMasCercano, enemigosEnRadio } from './colisiones.js';
 import { Particulas, COLOR_CHISPA } from './particulas.js';
+import { sen, cos, atan2, hipot } from '../core/mate.js';
 
 // Motor genérico de armas.
 //
@@ -106,7 +107,7 @@ function bocaDe(j, ang) {
   const medio = medioAlto(j);
   const a = j.radioCuerpo + MARGEN_BOCA;     // semieje horizontal
   const b = medio + MARGEN_BOCA;             // semieje vertical
-  const cx = Math.cos(ang), sy = Math.sin(ang);
+  const cx = cos(ang), sy = sen(ang);
   // Distancia del centro al borde de la elipse EN ESTA DIRECCIÓN.
   const d = 1 / Math.sqrt((cx * cx) / (a * a) + (sy * sy) / (b * b));
   origenDisparo.x = j.x + cx * d;
@@ -135,10 +136,10 @@ const COMPORTAMIENTOS = {
 
     let dx = objetivo.x - ctx.jugador.x;
     let dy = objetivo.y - ctx.jugador.y;
-    const d = Math.hypot(dx, dy) || 1;
+    const d = hipot(dx, dy) || 1;
     dx /= d; dy /= d;
 
-    const base = Math.atan2(dy, dx);
+    const base = atan2(dy, dx);
     const n = s.proyectiles;
     // ABANICO O CARRIL, igual que en `direccionFija`: con `separacion` los
     // proyectiles de más salen con el MISMO rumbo, corridos de lado. Lo pide el
@@ -175,12 +176,12 @@ const COMPORTAMIENTOS = {
       const b = bocaDe(ctx.jugador, a);
       let ox = b.x, oy = b.y;
       if (separa > 0) {
-        ox += Math.sin(a) * centrado * separa;
-        oy -= Math.cos(a) * centrado * separa;
+        ox += sen(a) * centrado * separa;
+        oy -= cos(a) * centrado * separa;
       }
       ctx.proyectiles.lanzar(
         ox, oy,
-        Math.cos(a) * s.velocidad, Math.sin(a) * s.velocidad,
+        cos(a) * s.velocidad, sen(a) * s.velocidad,
         sis.defProyectil);
     }
     return true;
@@ -212,12 +213,12 @@ const COMPORTAMIENTOS = {
 
     let base;
     if (objetivo) {
-      base = Math.atan2(objetivo.y - j.y, objetivo.x - j.x);
+      base = atan2(objetivo.y - j.y, objetivo.x - j.x);
     } else {
       // Sin blanco dispara igual, hacia donde ENCARA: una escopeta a bocajarro
       // no espera a tener puntería. Y encara con el rumbo completo, no con la
       // horizontal: apuntando hacia arriba y parado, disparaba a un lado.
-      base = Math.atan2(j.rumboY, j.rumboX);
+      base = atan2(j.rumboY, j.rumboX);
     }
 
     const semi = s.angulo * 0.5 * GRADOS;
@@ -247,7 +248,7 @@ const COMPORTAMIENTOS = {
       sis.defProyectil.vida = (s.alcance / v) * (0.8 + ctx.rng() * 0.4);
       sis.defProyectil.largo = 5;
       const b = bocaDe(j, a);
-      ctx.proyectiles.lanzar(b.x, b.y, Math.cos(a) * v, Math.sin(a) * v,
+      ctx.proyectiles.lanzar(b.x, b.y, cos(a) * v, sen(a) * v,
                              sis.defProyectil);
     }
     return true;
@@ -291,11 +292,11 @@ const COMPORTAMIENTOS = {
         let ox = b.x, oy = b.y;
         if (separa > 0) {
           // Perpendicular al rumbo: (-sin, cos) girado 90°, o sea (sin, -cos).
-          ox += Math.sin(a) * centrado * separa;
-          oy -= Math.cos(a) * centrado * separa;
+          ox += sen(a) * centrado * separa;
+          oy -= cos(a) * centrado * separa;
         }
         ctx.proyectiles.lanzar(ox, oy,
-          Math.cos(a) * s.velocidad, Math.sin(a) * s.velocidad, sis.defProyectil);
+          cos(a) * s.velocidad, sen(a) * s.velocidad, sis.defProyectil);
       }
     }
     return true;
@@ -313,7 +314,7 @@ const COMPORTAMIENTOS = {
       sis.defProyectil.vida = s.alcance / s.velocidad;
       const b = bocaDe(j, a);
       ctx.proyectiles.lanzar(b.x, b.y,
-        Math.cos(a) * s.velocidad, Math.sin(a) * s.velocidad, sis.defProyectil);
+        cos(a) * s.velocidad, sen(a) * s.velocidad, sis.defProyectil);
     }
     return true;
   },
@@ -331,7 +332,7 @@ const COMPORTAMIENTOS = {
       base = dirs[(ctx.rng() * dirs.length) | 0];
     } else {
       const obj = enemigoMasCercano(ctx.enemigos, j.x, j.y, s.alcance);
-      base = obj ? Math.atan2(obj.y - j.y, obj.x - j.x) : ctx.rng() * Math.PI * 2;
+      base = obj ? atan2(obj.y - j.y, obj.x - j.x) : ctx.rng() * Math.PI * 2;
     }
 
     for (let i = 0; i < s.proyectiles; i++) {
@@ -343,7 +344,7 @@ const COMPORTAMIENTOS = {
       sis.defProyectil.estallaAlExpirar = true;
       const b = bocaDe(j, a);
       ctx.proyectiles.lanzar(b.x, b.y,
-        Math.cos(a) * s.velocidad, Math.sin(a) * s.velocidad, sis.defProyectil);
+        cos(a) * s.velocidad, sen(a) * s.velocidad, sis.defProyectil);
     }
     return true;
   },
@@ -421,7 +422,7 @@ const COMPORTAMIENTOS = {
       const d = i === 0 ? 0 : 20 + ctx.rng() * 45;
       ctx.zonas.crear({
         duenyo: ctx.jugador,
-        x: j.x + Math.cos(a) * d, y: j.y + Math.sin(a) * d,
+        x: j.x + cos(a) * d, y: j.y + sen(a) * d,
         radio: areaDe(s.radio, j), duracion: s.duracion,
         danyo: danyoDe(s, j), intervalo: s.intervalo,
         empuje: s.empuje, ralentiza: s.ralentiza || 0,
@@ -477,7 +478,7 @@ const COMPORTAMIENTOS = {
       const d = i === 0 ? 0 : 20 + ctx.rng() * apertura;
       ctx.zonas.crear({
         duenyo: ctx.jugador,
-        x: j.x + Math.cos(a) * d, y: j.y + Math.sin(a) * d,
+        x: j.x + cos(a) * d, y: j.y + sen(a) * d,
         // `radio` es el de la EXPLOSIÓN; el gatillo es mucho más chico, para
         // que haya que pisarla de verdad y no basta con rozarla.
         radio: areaDe(s.radio, j),
@@ -564,7 +565,7 @@ const COMPORTAMIENTOS = {
 
     for (let d = 0; d < dirs.length; d++) {
       const a = dirs[d];
-      const ux0 = Math.cos(a), uy0 = Math.sin(a);
+      const ux0 = cos(a), uy0 = sen(a);
       // EL HAZ NACE EN EL CONTORNO, igual que un proyectil. Salía del pecho
       // (y-8) y por tanto se dibujaba por encima del personaje antes de salir
       // de él; con la boca puesta, empieza donde acaba la silueta.
@@ -593,12 +594,12 @@ const COMPORTAMIENTOS = {
         // más cercano, que es exactamente lo que hacía el código de antes.
         let ux = ux0, uy = uy0;
         if (giro !== 0) {
-          let delta = Math.atan2(dy, dx) - a;
+          let delta = atan2(dy, dx) - a;
           while (delta > Math.PI) delta -= Math.PI * 2;
           while (delta < -Math.PI) delta += Math.PI * 2;
           const dentro = delta < 0 ? 0 : (delta > giro ? giro : delta);
-          ux = Math.cos(a + dentro);
-          uy = Math.sin(a + dentro);
+          ux = cos(a + dentro);
+          uy = sen(a + dentro);
         }
 
         const proy = dx * ux + dy * uy;
@@ -797,8 +798,8 @@ export class Armas {
     // apelotonaría encima del jugador en vez de cubrir la zona.
     const a = ctx.rng() * Math.PI * 2;
     const d = Math.sqrt(ctx.rng()) * areaDe(s.alcance, j);
-    const x = j.x + Math.cos(a) * d;
-    const y = j.y - medioAlto(j) + Math.sin(a) * d;
+    const x = j.x + cos(a) * d;
+    const y = j.y - medioAlto(j) + sen(a) * d;
 
     // El reventón. Modo 'onda' y no 'zona': hace daño UNA vez a lo que pilla al
     // abrirse, como una explosión, en vez de por tics — un rayo golpea al caer,
@@ -881,15 +882,15 @@ export class Armas {
 
       for (let k = 0; k < s.escudos; k++) {
         const a = arma.anguloOrbital + (k / s.escudos) * Math.PI * 2;
-        const ox = j.x + Math.cos(a) * radio;
-        const oy = cy + Math.sin(a) * radio;
+        const ox = j.x + cos(a) * radio;
+        const oy = cy + sen(a) * radio;
         const n = enemigosEnRadio(ctx.enemigos, ox, oy, s.radioEscudo, this._alcanzados);
         for (let q = 0; q < n; q++) {
           const e = items[this._alcanzados[q]];
           if (e.ultimoSello === arma.selloOrbital) continue;
           e.ultimoSello = arma.selloOrbital;
           const dx = e.x - j.x, dy = e.y - j.y;
-          const d = Math.hypot(dx, dy) || 1;
+          const d = hipot(dx, dy) || 1;
           ctx.enemigos.danyar(e, danyo, dx / d, dy / d, s.empuje, ctx.jugador);
         }
       }
@@ -959,8 +960,8 @@ export class Armas {
           for (let k = 0; k < s.escudos; k++) {
             const a = arma.anguloOrbital + k * paso;
             ctx.drawImage(imgAura, 0, 0, metaAura.w, metaAura.h,
-                          cx + Math.cos(a) * radio - rAura,
-                          cy + Math.sin(a) * radio - rAura,
+                          cx + cos(a) * radio - rAura,
+                          cy + sen(a) * radio - rAura,
                           rAura * 2, rAura * 2);
           }
           ctx.restore();
@@ -998,7 +999,7 @@ export class Armas {
           // fija main.js con el desvío de cámara ya redondeado, y reconstruirla
           // aquí sería copiar ese cálculo en un segundo sitio.
           ctx.save();
-          ctx.translate(cx + Math.cos(a) * radio, cy + Math.sin(a) * radio);
+          ctx.translate(cx + cos(a) * radio, cy + sen(a) * radio);
           if (arma.def.giroOrbital) ctx.rotate(arma.faseGiro);
           ctx.drawImage(imgOrb, f * metaOrb.w, 0, metaOrb.w, metaOrb.h,
                         -rDibujo, -rDibujo, rDibujo * 2, rDibujo * 2);
@@ -1014,7 +1015,7 @@ export class Armas {
       for (let k = 0; k < s.escudos; k++) {
         const a = arma.anguloOrbital + k * paso;
         ctx.beginPath();
-        ctx.arc(cx + Math.cos(a) * radio, cy + Math.sin(a) * radio,
+        ctx.arc(cx + cos(a) * radio, cy + sen(a) * radio,
                 r * 1.35, 0, Math.PI * 2);
         ctx.fill();
       }
@@ -1029,8 +1030,8 @@ export class Armas {
       ctx.lineWidth = 1.4;
       for (let k = 0; k < s.escudos; k++) {
         const a = arma.anguloOrbital + k * paso;
-        const ox = cx + Math.cos(a) * radio;
-        const oy = cy + Math.sin(a) * radio;
+        const ox = cx + cos(a) * radio;
+        const oy = cy + sen(a) * radio;
 
         ctx.globalAlpha = 0.32;
         ctx.fillStyle = arma.def.color;
@@ -1200,7 +1201,7 @@ export class Armas {
       ax = j.rumboX;
       ay = j.rumboY;
     }
-    const ang = Math.atan2(ay, ax);
+    const ang = atan2(ay, ax);
     const semi = s.angulo * 0.5 * GRADOS;
     const alcance = areaDe(s.alcance, j);
     const danyo = danyoDe(s, j);
@@ -1212,12 +1213,12 @@ export class Armas {
       const dx = e.x - j.x;
       const dy = e.y - j.y;
       // Diferencia angular normalizada a [-PI, PI]
-      let d = Math.atan2(dy, dx) - ang;
+      let d = atan2(dy, dx) - ang;
       while (d > Math.PI) d -= Math.PI * 2;
       while (d < -Math.PI) d += Math.PI * 2;
       if (Math.abs(d) > semi) continue;
 
-      const m = Math.hypot(dx, dy) || 1;
+      const m = hipot(dx, dy) || 1;
       ctx.enemigos.danyar(e, danyo, dx / m, dy / m, s.empuje, ctx.jugador);
     }
 
@@ -1227,8 +1228,8 @@ export class Armas {
     const cyj = j.y - desvio;
     this._anotarTajo(j.x, cyj, ang, semi, alcance, arma.def.color,
                      arma.def.spriteTajo || null, arma.def.duracionTajo, j, desvio);
-    Particulas.estallido(j.x + Math.cos(ang) * alcance * 0.6,
-                         cyj + Math.sin(ang) * alcance * 0.6,
+    Particulas.estallido(j.x + cos(ang) * alcance * 0.6,
+                         cyj + sen(ang) * alcance * 0.6,
                          3, 55, 0.18, 1, COLOR_CHISPA, 0.3, this._rng);
   }
 
@@ -1303,8 +1304,8 @@ export class Armas {
       // cosas acaben juntas es lo que lo lee como un aspa que gira y se va, y no
       // como un haz que da un salto al final.
       const ang = r.ang + r.giro * (1 - k);
-      const x2 = r.x + Math.cos(ang) * r.largo;
-      const y2 = r.y + Math.sin(ang) * r.largo;
+      const x2 = r.x + cos(ang) * r.largo;
+      const y2 = r.y + sen(ang) * r.largo;
 
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = k * 0.4;
