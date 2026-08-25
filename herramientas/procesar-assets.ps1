@@ -563,8 +563,19 @@ public class Procesador {
     //
     // 3. VOLTEO. El motor asume que todo mira a la DERECHA. Voltear aqui, una
     //    vez, es gratis; voltear en el juego costaria una copia espejo mas.
+    // `deCada` DIEZMA los fotogramas: 3 se queda con uno de cada tres. Vale 1
+    // para casi todos los GIF y solo hace falta cuando el arte viene a mas
+    // fotogramas por segundo de los que el juego reproduce.
+    //
+    // El juego anima TODO enemigo a 10 fps fijos (SEG_POR_FRAME en
+    // entidades/enemigo.js), asi que el numero de fotogramas no decide solo el
+    // detalle: decide LO QUE DURA LA VUELTA. La gargola llego con 155
+    // fotogramas a 33,3 fps -4,65 segundos de animacion- y a 10 fps eso son
+    // 15,5 segundos por vuelta, o sea la misma animacion a un tercio de
+    // velocidad. Quedandose uno de cada tres, las 52 restantes duran 5,2
+    // segundos: practicamente lo que se dibujo.
     public static string ProcesarGif(string entrada, string salida, int escala,
-                                     int altoLogMax, bool voltear) {
+                                     int altoLogMax, bool voltear, int deCada) {
         using (Image gif = Image.FromFile(entrada)) {
             FrameDimension fd = new FrameDimension(gif.FrameDimensionsList[0]);
             int nf = gif.GetFrameCount(fd);
@@ -586,6 +597,16 @@ public class Procesador {
                     Marshal.Copy(d.Scan0, marcos[f], 0, marcos[f].Length);
                     b.UnlockBits(d);
                 }
+            }
+
+            // Diezmado, ANTES de medir nada: lo que se tira no debe influir en
+            // la caja comun ni en el factor nativo.
+            if (deCada > 1 && nf > deCada) {
+                int m = (nf + deCada - 1) / deCada;
+                byte[][] pocos = new byte[m][];
+                for (int i = 0; i < m; i++) pocos[i] = marcos[i * deCada];
+                marcos = pocos;
+                nf = m;
             }
 
             int factor = FactorNativo(marcos, w, h, stride);
@@ -2854,7 +2875,7 @@ $CATALOGO = @(
     @{ src='enemies\serpiente.gif';         dst='enemigos\serpiente.png'; id='serpiente'; alto=12;  anchoFijo=0;  tol=0; gif=$true }
     # GIF animado de 7 fotogramas, pixel art nativo de 48x48 ampliado 8x.
     # voltear porque el original mira a la izquierda y el motor asume derecha.
-    @{ src='enemies\gargoyle.gif';         dst='enemigos\gargola.png';   id='gargola';   alto=18;  anchoFijo=0;  tol=0; gif=$true; voltear=$true }
+    @{ src='enemies\gargoyle.gif';         dst='enemigos\gargola.png';   id='gargola';   alto=18;  anchoFijo=0;  tol=0; gif=$true; voltear=$true; deCada=3 }
     # El legionario tambien pasa a GIF ANIMADO: el esqueleto de legionario.gif
     # sustituye a la ilustracion estatica. No lleva voltear porque ya mira a la
     # derecha, que es lo que asume el motor.
@@ -3228,7 +3249,8 @@ foreach ($e in $CATALOGO) {
             # de un tercio mas grande que el otro enemigo de su mismo rol, que se
             # lee como que pega mas fuerte. Vale mas un remuestreo algo blando
             # que un bestiario que miente sobre lo que tienes delante.
-            $r = [Procesador]::ProcesarGif($rutaSrc, $rutaDst, $ESCALA, $e.alto, [bool]$e.voltear)
+            $deCada = if ($null -ne $e.deCada) { [int]$e.deCada } else { 1 }
+            $r = [Procesador]::ProcesarGif($rutaSrc, $rutaDst, $ESCALA, $e.alto, [bool]$e.voltear, $deCada)
         } catch {
             $informe += [PSCustomObject]@{ Id=$e.id; Silueta='-'; Ratio='-'; Sprite='-'; Quitado='-'; Estado='ERROR GIF' }
             continue
@@ -3326,7 +3348,7 @@ foreach ($e in $CATALOGO) {
     # informe, que es donde se ve si el arte de origen se ha estropeado.
     if ($null -ne $e.gifAnim) {
         $rutaGif = Join-Path $ORIGEN $e.gifAnim
-        $rg = [Procesador]::ProcesarGif($rutaGif, $rutaDst, $ESCALA, $e.alto, [bool]$e.voltear)
+        $rg = [Procesador]::ProcesarGif($rutaGif, $rutaDst, $ESCALA, $e.alto, [bool]$e.voltear, 1)
         $pg = $rg -split '\|'
         $nAndar = [int]$pg[2]
         $nQuieto = [int]$e.nQuieto

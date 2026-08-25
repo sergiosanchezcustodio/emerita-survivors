@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260825131659",
+    "version":  "20260825165512",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -12,11 +12,11 @@
                                     },
                       "gargola":  {
                                       "archivo":  "enemigos/gargola.png",
-                                      "w":  68,
-                                      "h":  74,
-                                      "anclaX":  34,
-                                      "anclaY":  74,
-                                      "frames":  7
+                                      "w":  86,
+                                      "h":  72,
+                                      "anclaX":  43,
+                                      "anclaY":  72,
+                                      "frames":  52
                                   },
                       "legionario":  {
                                          "archivo":  "enemigos/legionario.png",
