@@ -520,7 +520,7 @@ export function crearProbador(gancho) {
     return salida;
   }
 
-  return {
+  const api = {
     // EL DETALLE: qué campo concreto difiere en un fotograma dado.
     //
     // Se corre la partida dos veces hasta ese fotograma y se comparan todos los
@@ -797,4 +797,32 @@ export function crearProbador(gancho) {
       return r;
     }
   };
+
+  // TODAS LAS PRUEBAS JUEGAN SIN TU PROGRESO, y te lo devuelven al terminar.
+  //
+  // Las mejoras compradas con denarios cambian la vida y el daño del personaje,
+  // así que dos máquinas con distinto progreso guardado no comparan la misma
+  // partida y la huella deja de significar nada. Se envuelven todos los métodos
+  // de golpe en vez de repetir el try/finally en cada uno: si mañana se añade
+  // una prueba, entra ya protegida sin que nadie tenga que acordarse.
+  //
+  // El `finally` no es adorno: si una prueba revienta a la mitad, el progreso
+  // tiene que volver a su sitio igualmente. Y mientras dura, `guardar()` está
+  // congelado, así que nada de esto puede llegar al disco.
+  if (gancho.fijarMeta) {
+    for (const nombre in api) {
+      const original = api[nombre];
+      if (typeof original !== 'function') continue;
+      api[nombre] = function (...args) {
+        const previo = gancho.fijarMeta();
+        try {
+          return original.apply(api, args);
+        } finally {
+          gancho.restaurarMeta(previo);
+        }
+      };
+    }
+  }
+
+  return api;
 }

@@ -2287,6 +2287,47 @@ async function arrancar() {
       // sembrando solo después, ese consumo habría partido de un estado distinto
       // en cada pasada y podría haber dejado rastro. Sembrando también antes,
       // todo lo que ocurre desde el vaciado es idéntico.
+      // PROGRESO META CONOCIDO, y devuelto tal cual estaba al terminar.
+      //
+      // Las mejoras compradas con denarios ENTRAN EN LA SIMULACIÓN: cambian la
+      // vida y el daño del personaje, que es justo para lo que se compran. Eso
+      // está bien en el juego y es fatal para la prueba: dos máquinas con
+      // distinto progreso guardado comparan dos partidas que no son la misma, y
+      // la huella no significa nada.
+      //
+      // Así que mientras dura la prueba se juega SIN mejoras, sin mascota y sin
+      // héroes desbloqueados, que es un punto de partida que cualquier máquina
+      // puede reproducir. Y con `_congelado` puesto, para que nada de esto
+      // llegue al disco: sin esa guarda, la primera partida de prueba
+      // sobrescribiría el hueco de verdad.
+      fijarMeta() {
+        const previo = {
+          denarios: MetaProgreso.denarios,
+          personajes: MetaProgreso.personajes,
+          potenciadores: MetaProgreso.potenciadores,
+          mascotas: MetaProgreso.mascotas,
+          mascotaEquipada: MetaProgreso.mascotaEquipada,
+          factorDenarios: MetaProgreso.factorDenarios
+        };
+        MetaProgreso._congelado = true;
+        MetaProgreso.denarios = 0;
+        MetaProgreso.personajes = {};
+        MetaProgreso.potenciadores = {};
+        MetaProgreso.mascotas = {};
+        MetaProgreso.mascotaEquipada = '';
+        MetaProgreso.factorDenarios = 1;
+        return previo;
+      },
+      restaurarMeta(previo) {
+        if (!previo) return;
+        MetaProgreso.denarios = previo.denarios;
+        MetaProgreso.personajes = previo.personajes;
+        MetaProgreso.potenciadores = previo.potenciadores;
+        MetaProgreso.mascotas = previo.mascotas;
+        MetaProgreso.mascotaEquipada = previo.mascotaEquipada;
+        MetaProgreso.factorDenarios = previo.factorDenarios;
+        MetaProgreso._congelado = false;
+      },
       reiniciar(semilla) {
         rng.sembrar(semilla);
         volverAlMenu();

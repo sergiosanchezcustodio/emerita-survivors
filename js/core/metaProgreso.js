@@ -39,7 +39,9 @@ function claveDe(hueco) { return CLAVE_HUECO + hueco; }
 // cero te dejaba sin personajes y sin poder jugar.
 function estadoPorDefecto() {
   return {
-    denarios: 0, personajes: null, potenciadores: {}, mascotas: {}, mascotaEquipada: '',
+    // Mientras vale true, `guardar()` no escribe. Ver core/determinismo.js.
+  _congelado: false,
+  denarios: 0, personajes: null, potenciadores: {}, mascotas: {}, mascotaEquipada: '',
     // La hoja de servicios del hueco, que es lo que distingue una partida de
     // otra de un vistazo. `mejorTiempo` en segundos aguantados, no en
     // "victorias": se puede morir en el minuto 28 y eso también cuenta como
@@ -202,6 +204,12 @@ export const MetaProgreso = {
   },
 
   guardar() {
+    // CONGELADO: la prueba de determinismo sustituye el progreso por uno
+    // conocido para que dos máquinas puedan comparar huellas, y mientras dura
+    // eso NADA puede llegar al disco. Sin esta guarda, la primera partida de
+    // prueba escribiría el progreso falso encima del hueco de verdad y se
+    // llevaría por delante las horas de juego de alguien.
+    if (this._congelado) return;
     if (this.hueco < 0) return;      // sin hueco elegido no hay dónde escribir
     try {
       localStorage.setItem(claveDe(this.hueco), JSON.stringify({
