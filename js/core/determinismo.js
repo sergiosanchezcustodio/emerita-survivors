@@ -220,7 +220,18 @@ function pulsacionDe(paso, jugador) {
   // Un patrón que cambia a menudo y no depende de nada externo. No pretende
   // jugar bien: pretende MOVERSE, para que el mundo evolucione y haya algo que
   // comparar.
-  const k = ((paso * 2654435761) ^ (jugador * 40503)) >>> 0;
+  //
+  // LA DIRECCIÓN SE MANTIENE UN RATO, no cambia cada fotograma. Y no es un
+  // detalle de estilo: el director sesga por dónde entra la horda según el
+  // RUMBO de la cámara, y ese rumbo es una media móvil que solo se considera
+  // válida por encima de cierto umbral. Con una dirección nueva cada fotograma
+  // el rumbo nunca despega, la rama sesgada de `puntoDeEntrada` no se ejecuta
+  // JAMÁS y una de las dos vías de aparición se quedaba sin probar.
+  //
+  // Se descubrió por las malas: un fallo que reventaba justo en esa rama pasó
+  // limpiamente por 3600 fotogramas de prueba y apareció al jugar a mano.
+  const tramo = (paso / 45) | 0;
+  const k = ((tramo * 2654435761) ^ (jugador * 40503)) >>> 0;
   return DIRECCIONES[(k >>> 9) % DIRECCIONES.length];
 }
 
@@ -321,6 +332,11 @@ export function tiradasEntre(antes, despues) {
 }
 
 export function crearProbador(gancho) {
+  // La instantánea del arranque, para compararla después de haber jugado.
+  let _instantanea = null;
+  let _instantaneaSemilla = 0;
+  let _instantaneaPasos = 600;
+
   // `gancho` lo monta main.js, que es el único que ve el estado de la partida:
   //   reiniciar(semilla)  deja una partida recién empezada con esa semilla
   //   estado()            devuelve los pools y los jugadores de ahora
@@ -461,6 +477,26 @@ export function crearProbador(gancho) {
       jug.push(fila);
     }
     foto.jugadores = jug;
+
+    // Y LAS MASCOTAS, que no son un pool y por eso se habían quedado fuera de
+    // todas las comparaciones. `Mascotas.activas` es un array preasignado de
+    // ranuras: `releer` las reconfigura al empezar partida, pero solo los
+    // campos que le interesan. Lo que no toca —una posición, un reloj— se
+    // queda con lo que dejó la partida anterior.
+    const mas = [];
+    const ranuras = (e.mascotas && e.mascotas.activas) || [];
+    for (let i = 0; i < ranuras.length; i++) {
+      const fila = {};
+      const claves = Object.keys(ranuras[i]).sort();
+      for (let k = 0; k < claves.length; k++) {
+        const v = ranuras[i][claves[k]];
+        if (typeof v === 'number') fila[claves[k]] = v;
+        else if (typeof v === 'boolean') fila[claves[k]] = v ? 1 : 0;
+        else if (typeof v === 'string') fila[claves[k]] = v;
+      }
+      mas.push(fila);
+    }
+    foto.mascotas = mas;
     return foto;
   }
 
@@ -591,6 +627,56 @@ export function crearProbador(gancho) {
         console.table(hallazgos);
       }
       return hallazgos;
+    },
+
+    // HABER JUGADO ANTES, ¿CAMBIA LA SIGUIENTE PARTIDA?
+    //
+    // Es la pregunta que ninguna otra prueba de aquí puede hacer, porque todas
+    // comparan dos pasadas seguidas y las dos arrastran lo mismo. Esta se parte
+    // en dos mitades separadas por una partida DE VERDAD, jugada a mano:
+    //
+    //   1. Recargar la página.  EMERITA.determinismo.guardarInstantanea()
+    //   2. Jugar una partida entera y volver al menú.
+    //   3.                      EMERITA.determinismo.compararInstantanea()
+    //
+    // Y ES EL CASO REAL DEL COOPERATIVO, no un caso de laboratorio: uno de los
+    // dos acaba de abrir el juego y el otro lleva tres partidas. Si el arranque
+    // no es idéntico en los dos, no hay lockstep que aguante.
+    guardarInstantanea(pasos = 600, semilla = 0xE3E21A) {
+      gancho.reiniciar(semilla);
+      // SE SIMULA UN RATO antes de la foto, no se retrata el arranque pelado.
+      // Un resto puede estar en un campo que nadie lee hasta que la partida
+      // arranca de verdad, y entonces el fotograma cero sale limpio y la
+      // divergencia aparece diez segundos después.
+      correr(pasos, 1e9);
+      _instantanea = fotoDe(gancho.estado());
+      _instantaneaSemilla = semilla;
+      _instantaneaPasos = pasos;
+      console.log('Instantánea del arranque guardada. Juega una partida entera, ' +
+                  'vuelve al menú y llama a EMERITA.determinismo.compararInstantanea().');
+      return true;
+    },
+
+    compararInstantanea() {
+      if (!_instantanea) {
+        console.error('No hay instantánea. Llama antes a guardarInstantanea(), ' +
+                      'recién recargada la página.');
+        return null;
+      }
+      gancho.reiniciar(_instantaneaSemilla);
+      correr(_instantaneaPasos, 1e9);
+      const ahora = fotoDe(gancho.estado());
+      const difs = diferencias(_instantanea, ahora, 60);
+      if (difs.length === 0) {
+        console.log(`Los ${_instantaneaPasos} primeros fotogramas son IDÉNTICOS ` +
+                    'antes y después de jugar. ' +
+                    'Nada de la partida anterior sobrevive.');
+        return [];
+      }
+      console.error(`${difs.length} campos que la partida anterior ha dejado sucios:`);
+      console.error('  (pasada1 = recién cargado, pasada2 = después de jugar)');
+      console.table(difs);
+      return difs;
     },
 
     // PRUEBA 1: la misma partida dos veces en esta pestaña.

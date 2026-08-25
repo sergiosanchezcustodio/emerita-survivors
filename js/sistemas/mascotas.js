@@ -139,6 +139,28 @@ export const Mascotas = {
       m.idAtlas = m.id ? 'mascota' + m.id.charAt(0).toUpperCase() + m.id.slice(1) : '';
       const meta = m.idAtlas ? Recursos.meta(m.idAtlas) : null;
       m.frames = meta ? (meta.frames || 1) : 1;
+      // TODA LA RANURA A ESTRENAR, no solo lo que cambia de mascota.
+      //
+      // Las ranuras se preasignan al arrancar y se reutilizan partida tras
+      // partida, así que lo que no se toque aquí sigue teniendo lo que dejó la
+      // mascota anterior: dónde estaba, por dónde iba su vuelta, qué fotograma
+      // pintaba. Con una mascota elegida se sobrescribe enseguida y no se nota;
+      // sin ella la ranura queda inerte y esos restos no molestan a nadie...
+      // salvo que dejan de ser la misma partida. Lo cazó guardarInstantanea():
+      // nueve campos sucios tras jugar una sola vez, y con ellos dos maquinas
+      // con distinto historial no pueden compartir un cooperativo por lockstep.
+      //
+      // `fase` y `relojAnim` vuelven a su valor de origen y no a cero: se
+      // reparten por ranura a propósito, para que cuatro mascotas iguales no
+      // aleteen todas a la vez.
+      m.x = 0; m.y = 0; m.yVista = 0;
+      m.despX = 0; m.despY = 0;
+      m.orbita = 0;
+      m.fase = i * 1.7;
+      m.relojAnim = i * 0.13;
+      m.frame = 0;
+      m.mirandoDerecha = true;
+      m.ordenada = false;
       m.reloj = 0;
       m.viva = false;
 

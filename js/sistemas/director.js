@@ -163,12 +163,15 @@ function puntoDeEntrada(t, rng, rumboX, rumboY) {
   // De ángulo a recorrido del perímetro: se proyecta el rayo sobre el
   // rectángulo, que es lo que evita el apelotonamiento en las esquinas del que
   // habla el comentario de `perimetro`.
-  const cos = cos(ang), sin = sen(ang);
+  // `cx`/`sy` y no `cos`/`sin`: una local llamada igual que la función
+  // importada la tapa dentro de toda la función, y `const cos = cos(ang)` se
+  // referencia a sí misma. Revienta en cuanto la horda entra con sesgo.
+  const cx = cos(ang), sy = sen(ang);
   const escala = Math.min(
-    Math.abs(cos) > 1e-6 ? SEMI_X / Math.abs(cos) : Infinity,
-    Math.abs(sin) > 1e-6 ? SEMI_Y / Math.abs(sin) : Infinity);
-  punto.x = cos * escala;
-  punto.y = sin * escala;
+    Math.abs(cx) > 1e-6 ? SEMI_X / Math.abs(cx) : Infinity,
+    Math.abs(sy) > 1e-6 ? SEMI_Y / Math.abs(sy) : Infinity);
+  punto.x = cx * escala;
+  punto.y = sy * escala;
 }
 
 function patronAnillo(enemigos, cx, cy, n, tipos, rng, eV, eD, mov, rumboX = 0, rumboY = 0) {
