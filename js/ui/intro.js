@@ -1,5 +1,5 @@
 import { ANCHO_UI, ALTO_UI, ANCHO_FISICO, ALTO_FISICO } from '../core/constantes.js';
-import { FUENTE, FUENTE_TITULO, FUENTE_RELATO, textoEspaciado } from './capa.js';
+import { FUENTE_TITULO, FUENTE_RELATO, textoEspaciado } from './capa.js';
 import { fondoTitulo } from './pantallas.js';
 import { Recursos } from '../core/recursos.js';
 
@@ -22,15 +22,17 @@ import { Recursos } from '../core/recursos.js';
 // venía cada vez más pequeño. Lo que queda es más simple y se lee mejor: entra
 // por abajo, sube a tamaño constante y sale por arriba.
 //
-// CÓMO SE SALTA. Dos gestos distintos a propósito:
+// CÓMO SE SALTA: cualquier tecla o botón, en las dos pantallas.
 //
-//   - Start, ESC o Enter: pasa a la SIGUIENTE pantalla.
-//   - Mantener A: se salta la intro ENTERA, de una vez.
+// Y NO SE ESCRIBE EN NINGUNA PARTE. Hubo un pie que anunciaba los atajos y lo
+// quitó Sergio. Tiene sentido: son pantallas de las que se sale sin hacer nada
+// —la primera a los ocho segundos, la segunda cuando acaba el relato— así que
+// el atajo no es algo que haya que saber para seguir, es un adelanto para quien
+// ya se la sabe. Y ese lo encuentra a la primera pulsación.
 //
-// Un solo gesto para las dos cosas obligaría a pulsar dos veces a quien ya se
-// la sabe, y un gesto sostenido para pasar de pantalla sería lento para quien
-// solo quiere avanzar. Los dos salen escritos en el pie: un atajo que no se ve
-// no existe.
+// El splash además lleva escrito "PULSA CUALQUIER TECLA PARA CONTINUAR" en la
+// propia ilustración, así que ahí ya está dicho, y por eso se acepta CUALQUIER
+// tecla y no una lista de tres.
 //
 // EN DOS LIENZOS, como el resto de la interfaz (ver ui/capa.js): las
 // ilustraciones van al lienzo del MUNDO y TODO el texto a la capa de interfaz,
@@ -39,11 +41,11 @@ import { Recursos } from '../core/recursos.js';
 const FASE_SPLASH = 0;
 const FASE_RELATO = 1;
 
-// Lo que dura el splash solo, si nadie toca nada. Su placa invita a pulsar, pero
-// la pantalla NO se queda esperando para siempre: un juego que se planta en el
-// arranque hasta que alguien toque una tecla es un juego que parece colgado si
-// lo dejas puesto. Trece segundos dan para leer los cinco renglones sin prisa.
-const SPLASH_DURA = 13;
+// Lo que dura el splash, si nadie toca nada. Los últimos SPLASH_FUNDIDO
+// segundos son ya el fundido a negro, así que a los ocho en punto la pantalla
+// se ha ido del todo.
+const SPLASH_DURA = 8;
+const SPLASH_FUNDIDO = 1.2;
 
 // EL RITMO DEL RELATO: cada cuántos segundos asoma un renglón nuevo por abajo.
 //
@@ -57,14 +59,17 @@ const SPLASH_DURA = 13;
 // la placa antes de salir por arriba. Tiempo para leerlo sobra.
 const SEGUNDOS_POR_LINEA = 1.4;
 
-// Fundido a negro del final, ya con el texto fuera. Un corte seco de la placa al
-// menú se ve como un fallo; un fundido se lee como que la intro ha terminado.
-const CIERRE = 2;
+// EL FINAL DEL RELATO, en dos tiempos. Cuando el último renglón sale por arriba
+// la placa se queda un rato vacía —RELATO_ESPERA— y solo después empieza el
+// fundido. Sin esa espera, el negro pisa la última frase justo cuando se acaba
+// de leer, y lo que queda es sensación de prisa.
+const RELATO_ESPERA = 2;
+const RELATO_FUNDIDO = 1.5;
 
-// Cuánto hay que mantener A para saltarse la intro entera.
-const MANTENER = 0.7;
-const BOTON_A = 0;
-const BOTON_START = 9;
+// Entrada desde el negro que deja la pantalla anterior. Es la contrapartida del
+// fundido de salida: si una se apaga y la siguiente aparece de golpe, el corte
+// se nota más que si no hubiera fundido ninguno.
+const ENTRADA = 0.6;
 
 const RUTA_SPLASH = 'assets/menus/splash.jpg';
 const RUTA_HISTORIA = 'assets/menus/intro-historia.jpg';
@@ -104,7 +109,6 @@ const GUION = [
 
 const ORO = '#e8b73a';
 const ORO_CLARO = '#f7dc9a';
-const APAGADO = '#9aa0ab';
 
 // --- El hueco de la placa ----------------------------------------------------
 //
@@ -162,7 +166,6 @@ const ESPACIADO_ANTE = 6;
 const estado = {
   fase: FASE_SPLASH,
   reloj: 0,
-  mantenido: 0,
   texto: null,        // lienzo con el guion trazado
   altoTexto: 0,       // su alto, en unidades de interfaz
   velocidad: 0,
@@ -187,7 +190,6 @@ export const Intro = {
   iniciar() {
     estado.fase = FASE_SPLASH;
     estado.reloj = 0;
-    estado.mantenido = 0;
     if (!estado.texto) prepararRelato();
   },
 
@@ -195,25 +197,8 @@ export const Intro = {
   actualizar(dt, entrada) {
     estado.reloj += dt;
 
-    // MANTENER A: salta la intro entera. Se cuenta con el paso de lógica, que
-    // es fijo a 60 Hz, así que los 0,7 s son los mismos en cualquier máquina.
-    if (entrada.botonMantenido(BOTON_A)) {
-      estado.mantenido += dt;
-      if (estado.mantenido >= MANTENER) return true;
-    } else {
-      estado.mantenido = 0;
-    }
-
-    // START / ESC / ENTER: siguiente pantalla.
-    //
-    // Y en el SPLASH, cualquier tecla o botón, porque es lo que promete su
-    // propia placa. Un cartel que dice "pulsa cualquier tecla" y luego solo
-    // acepta tres es peor que no poner cartel: el que prueba con la barra
-    // espaciadora concluye que el juego se ha colgado.
-    let pasa = entrada.consumirFlanco('Escape', BOTON_START) ||
-               entrada.consumirFlanco('Enter');
-    if (!pasa && estado.fase === FASE_SPLASH) pasa = entrada.algunFlanco();
-    if (pasa) return siguiente();
+    // Cualquier tecla, cualquier botón, en las dos pantallas.
+    if (entrada.algunFlanco()) return siguiente();
 
     if (estado.fase === FASE_SPLASH && estado.reloj >= SPLASH_DURA) return siguiente();
     if (estado.fase === FASE_RELATO && estado.reloj >= estado.duracion) return true;
@@ -223,12 +208,12 @@ export const Intro = {
   dibujar(ctxMundo, ctxUi) {
     if (estado.fase === FASE_SPLASH) {
       fondoPantalla(ctxMundo, estado.splash);
+      velo(ctxMundo, SPLASH_DURA - estado.reloj, SPLASH_FUNDIDO);
     } else {
       fondoPantalla(ctxMundo, estado.historia);
       relato(ctxUi);
-      velo(ctxMundo);
+      velo(ctxMundo, estado.duracion - estado.reloj, RELATO_FUNDIDO);
     }
-    pie(ctxUi);
   }
 };
 
@@ -374,9 +359,10 @@ function prepararRelato() {
   estado.velocidad = SALTO / SEGUNDOS_POR_LINEA;
   // Y la duración: lo que tarda el guion entero en cruzar el hueco de punta a
   // punta —su propio alto MÁS el alto del hueco, porque el primer renglón
-  // todavía tiene que subirlo entero— y el fundido final.
+  // todavía tiene que subirlo entero—, la espera con la placa ya vacía y el
+  // fundido.
   const util = (PANEL.y1 - MARGEN) - (PANEL.y0 + MARGEN);
-  estado.duracion = (y + util) / estado.velocidad + CIERRE;
+  estado.duracion = (y + util) / estado.velocidad + RELATO_ESPERA + RELATO_FUNDIDO;
 }
 
 // La fuente de un tipo de renglón a una escala dada. En un solo sitio, porque
@@ -468,44 +454,14 @@ function relato(ctx) {
   ctx.restore();
 }
 
-function velo(ctxMundo) {
-  const sobra = estado.duracion - estado.reloj;
-  if (sobra >= CIERRE) return;
-  const a = Math.min(1, (CIERRE - sobra) / CIERRE);
+// El negro que entra al principio y sale al final de cada pantalla. `sobra` es
+// lo que le queda de vida a la pantalla; `fundido`, cuánto de eso es apagarse.
+function velo(ctxMundo, sobra, fundido) {
+  let a = 0;
+  if (estado.reloj < ENTRADA) a = 1 - estado.reloj / ENTRADA;
+  if (sobra < fundido) a = Math.max(a, Math.min(1, 1 - sobra / fundido));
+  if (a <= 0.002) return;
   ctxMundo.setTransform(1, 0, 0, 1, 0, 0);
   ctxMundo.fillStyle = 'rgba(0,0,0,' + a.toFixed(3) + ')';
   ctxMundo.fillRect(0, 0, ANCHO_FISICO, ALTO_FISICO);
-}
-
-// --- El pie, en las dos pantallas -------------------------------------------
-
-function pie(ctx) {
-  ctx.save();
-  ctx.textAlign = 'center';
-
-  // EN EL SPLASH NO SE ESCRIBE EL ATAJO: la ilustración ya trae su placa de
-  // "PULSA CUALQUIER TECLA PARA CONTINUAR", y poner debajo otra línea diciendo
-  // lo mismo con otras palabras es ruido, además de tapar el dibujo.
-  if (estado.fase !== FASE_SPLASH) {
-    ctx.font = '11px ' + FUENTE;
-    ctx.fillStyle = APAGADO;
-    ctx.globalAlpha = 0.85;
-    ctx.fillText('START · ESC · ENTER   siguiente          MANTÉN A   saltar la intro',
-                 ANCHO_UI / 2, ALTO_UI - 16);
-  }
-
-  // Mientras se mantiene A, una barra que se llena. Sin ella, el gesto es fe
-  // ciega: no se sabe si el juego lo está oyendo ni cuánto falta.
-  if (estado.mantenido > 0) {
-    const u = Math.min(1, estado.mantenido / MANTENER);
-    const ancho = 130;
-    const x = ANCHO_UI / 2 - ancho / 2;
-    const y = ALTO_UI - 10;
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    ctx.fillRect(x, y, ancho, 2);
-    ctx.fillStyle = ORO;
-    ctx.fillRect(x, y, ancho * u, 2);
-  }
-  ctx.restore();
 }
