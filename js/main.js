@@ -13,7 +13,7 @@ import { sen, cos, hipot } from './core/mate.js';
 import { Jugador } from './entidades/jugador.js';
 import { Enemigos, prepararVariantes } from './entidades/enemigo.js';
 import { Proyectiles } from './entidades/proyectil.js';
-import { Armas } from './sistemas/armas.js';
+import { Armas, reiniciarSellosOrbitales } from './sistemas/armas.js';
 import { Particulas, COLOR_CHISPA } from './sistemas/particulas.js';
 import { VFX } from './sistemas/vfx.js';
 import { GestorAudio } from './sistemas/audio.js';
@@ -1152,6 +1152,11 @@ function empezarPartida() {
   // partida: se lee una vez aqui.
   Mascotas.releer(mascotasPorJugador);
   Director.reiniciar();
+  // El mapa, otra vez virgen: las antorchas y los enemigos colocados en la
+  // decoración se invocan una vez por fila y hay que olvidar las de la partida
+  // anterior. Ver Obstaculos.reiniciar.
+  Obstaculos.reiniciar();
+  reiniciarSellosOrbitales();
   enemigos.bajas = 0;
   derrotaGuardada = false;
   finalMostrado = null;
@@ -1247,6 +1252,7 @@ function volverAlMenu() {
   Mascotas.releer(null);
   Progresion.iniciar(rng);
   Director.reiniciar();
+  Obstaculos.reiniciar();
 
   finalMostrado = null;
   statsFinal = null;
@@ -2307,12 +2313,16 @@ async function arrancar() {
         tope: Director.tope,
         jugadores: jugadores.length,
         enemigos: enemigos.pool.activos,
-        mapaPintado: Recursos.mapaPintado ? 1 : 0
+        mapaPintado: Recursos.mapaPintado ? 1 : 0,
+        // El estado crudo del generador. No se compara a ojo: sirve para
+        // despejar cuántas tiradas van gastadas (ver `tiradasEntre`).
+        rngEstado: rng.estado()
       }),
       estado: () => ({
         rng, director: Director, camara, progresion: Progresion, jugadores,
         enemigos, proyectiles, zonas, disparos, recogibles, cofres,
-        mascotas: Mascotas, jefes: Jefes, particulas: Particulas, vfx: VFX
+        mascotas: Mascotas, jefes: Jefes, particulas: Particulas, vfx: VFX,
+        obstaculos: Obstaculos
       })
     })
   };

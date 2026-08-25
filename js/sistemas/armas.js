@@ -121,6 +121,16 @@ function bocaDe(j, ang) {
 const ORBITAL_CADENCIA = 0.35;
 let contadorSelloOrbital = 0;
 
+// A CERO AL EMPEZAR PARTIDA, igual que los sellos de proyectil.js y de
+// zonaDanyo.js. Es un contador de módulo: nace con la pestaña, no con la
+// partida, así que sin esto la segunda partida reparte sellos donde la primera
+// los dejó. Jugando no se nota —el sello solo sirve para que un escudo orbital
+// no golpee dos veces al mismo bicho, y para eso vale cualquier número que no
+// se repita—, pero en el cooperativo por lockstep sí importa: dos máquinas que
+// llevan distinto número de partidas jugadas tendrían el contador en sitios
+// distintos y sus mundos dejarían de ser el mismo.
+export function reiniciarSellosOrbitales() { contadorSelloOrbital = 0; }
+
 // --- Comportamientos ---------------------------------------------------------
 // Firma común: (arma, sis, ctx). `sis` es el sistema (para sus buffers), `ctx`
 // trae jugador, enemigos, proyectiles y rng.

@@ -125,7 +125,20 @@ function mezclarLista(h, lista) {
 // las tres horas de ir tapando agujeros a ciegas.
 const PARTES = ['rng', 'director', 'camara', 'progresion', 'jugadores',
                 'enemigos', 'gestorEnemigos', 'proyectiles', 'zonas', 'disparos',
-                'recogibles', 'cofres', 'mascotas', 'jefes', 'particulas', 'vfx'];
+                'recogibles', 'cofres', 'mascotas', 'jefes', 'particulas', 'vfx',
+                'obstaculos'];
+
+// De los obstáculos interesa el REPARTO, no cada columna: sobre qué fila se
+// calculó, cuántos hay puestos y cuántas filas llevan ya su tanda invocada.
+// Con esos tres números, un reinicio que no ocurre se ve al fotograma cero.
+function mezclarObstaculos(h, o) {
+  if (!o) return h;
+  h = mezclar(h, o.activos | 0);
+  // `_filaBase` arranca en NaN, que no se puede mezclar: se codifica aparte.
+  h = mezclar(h, o._filaBase === o._filaBase ? o._filaBase : 0x7FFFFFFF);
+  h = mezclar(h, o._filasConTorchas ? o._filasConTorchas.size : 0);
+  return h;
+}
 
 function firmaDe(e) {
   const H = 0x811c9dc5;
@@ -155,7 +168,15 @@ function firmaDe(e) {
     // va lleno se emiten menos partículas, y emitir consume azar de la partida.
     // O sea que sí entran en la cuenta.
     mezclarPool(H, e.particulas && e.particulas.pool) >>> 0,
-    mezclarPool(H, e.vfx && e.vfx.pool) >>> 0
+    mezclarPool(H, e.vfx && e.vfx.pool) >>> 0,
+    // LOS OBSTÁCULOS, que parecían decoración y no lo son.
+    //
+    // Estaban fuera de la firma por eso mismo: columnas y estatuas que solo se
+    // dibujan. Pero la misma plantilla coloca ENEMIGOS y antorchas destruibles,
+    // así que este sistema aparece bichos —y gasta azar— como cualquier otro.
+    // Quedarse fuera de la firma es justo lo que le permitió esconder durante
+    // semanas que no se reiniciaba entre partidas.
+    mezclarObstaculos(H, e.obstaculos) >>> 0
   ];
 }
 
@@ -277,6 +298,26 @@ export function huellaMotor(muestras = 200000) {
   }
   console.table(salida);
   return salida;
+}
+
+// CUÁNTAS TIRADAS SEPARAN DOS ESTADOS DEL GENERADOR.
+//
+// mulberry32 avanza su estado con `a = (a + 0x6D2B79F5) | 0` en cada tirada, y
+// nada más: el resto de la función revuelve una copia para producir el número,
+// pero no toca `a`. Así que el estado es una progresión aritmética y la
+// distancia entre dos estados se despeja — basta con dividir por el incremento,
+// que en aritmética de 32 bits es multiplicar por su inverso modular. Existe
+// porque 0x6D2B79F5 es impar.
+//
+// Esto vale más de lo que parece: dice EXACTAMENTE cuánto azar ha gastado cada
+// pasada, sin poner un contador en la ruta caliente. Cuando dos pasadas
+// divergen, la primera pregunta siempre es "¿ha tirado alguien de más?", y la
+// respuesta es un número en vez de una sospecha.
+const RNG_PASO = 0x6D2B79F5;
+const RNG_PASO_INV = 0xDC58AA5D;      // inverso de RNG_PASO módulo 2^32
+
+export function tiradasEntre(antes, despues) {
+  return Math.imul(((despues >>> 0) - (antes >>> 0)) | 0, RNG_PASO_INV) >>> 0;
 }
 
 export function crearProbador(gancho) {
@@ -581,6 +622,21 @@ export function crearProbador(gancho) {
         console.table({ 'pasada 1': a.recuentos[i], 'pasada 2': b.recuentos[i] });
         // Y los interruptores de fuera de la firma: si una pasada tiene el
         // mundo parado, se ve aquí y no hay que buscar más lejos.
+        // CUÁNTO AZAR HA GASTADO CADA UNA desde el principio. Si difiere, la
+        // divergencia está en QUIÉN TIRA, no en qué sale: alguien ha pedido un
+        // número de más o de menos, y a partir de ahí las dos partidas leen la
+        // misma secuencia desplazada.
+        if (a.mandos[0] && a.mandos[i] && a.mandos[0].rngEstado !== undefined) {
+          const ga = tiradasEntre(a.mandos[0].rngEstado, a.mandos[i].rngEstado);
+          const gb = tiradasEntre(b.mandos[0].rngEstado, b.mandos[i].rngEstado);
+          if (ga !== gb) {
+            console.error(`  AZAR GASTADO distinto: ${ga} tiradas en la pasada 1 ` +
+                          `y ${gb} en la pasada 2 (${ga > gb ? '+' : ''}${ga - gb}).`);
+          } else {
+            console.error(`  Azar gastado IGUAL en las dos (${ga} tiradas): ` +
+                          `no sobra ni falta ninguna tirada, difiere lo que se hace con ellas.`);
+          }
+        }
         if (a.mandos[i] && b.mandos[i]) {
           const filas = {};
           for (const campo in a.mandos[i]) {

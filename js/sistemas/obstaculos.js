@@ -106,8 +106,28 @@ export const Obstaculos = {
     this.items = new Array(capacidad);
     for (let i = 0; i < capacidad; i++) this.items[i] = crearInstancia();
     this.activos = 0;
-    this._filaBase = NaN;
     this._filasConTorchas = new Set();
+    this.reiniciar();
+  },
+
+  // DEJAR EL MAPA COMO RECIÉN CARGADO, al empezar cada partida.
+  //
+  // Sin esto, la decoración solo salía en la PRIMERA partida de cada sesión.
+  // `_filaBase` recuerda sobre qué fila de tiles se calculó el reparto: al
+  // empezar la segunda partida la cámara vuelve al mismo sitio, `filaCentro`
+  // coincide con lo que quedó apuntado y `actualizar` se va por la primera
+  // línea dando el trabajo por hecho. Y `_filasConTorchas` es peor todavía,
+  // porque su propósito es no repetir una fila NUNCA: las antorchas y los
+  // enemigos colocados en el mapa se invocaban una vez en la vida de la
+  // pestaña y no volvían a aparecer.
+  //
+  // Jugando se ve como "la segunda partida tiene el mapa pelado". Lo encontró
+  // la prueba de determinismo, no el ojo: la primera partida tras recargar
+  // soltaba 18 enemigos en el primer fotograma y la segunda ninguno.
+  reiniciar() {
+    this.activos = 0;
+    this._filaBase = NaN;              // NaN nunca es igual a nada: fuerza el recálculo
+    if (this._filasConTorchas) this._filasConTorchas.clear();
   },
 
   // Una vez por paso de lógica. Si la fila de tile bajo la cámara no ha

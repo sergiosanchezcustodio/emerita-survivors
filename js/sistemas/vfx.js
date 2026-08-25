@@ -139,6 +139,13 @@ function crearHaz() {
   return { x: 0, y: 0, largo: 0, grosor: 2, color: '#ffffff', vida: 0, vidaMax: 1, fase: 0 };
 }
 
+// La fase de cada haz sale de aquí, para que dos rayos seguidos no salgan
+// calcados. Se pone a cero al vaciar (ver `vaciar`): es un contador de MÓDULO,
+// nace con la pestaña y no con la partida, así que sin reiniciarlo la segunda
+// partida arranca donde lo dejó la primera. Solo cambia el dibujo, pero acaba
+// escrito en un campo del pool, y ese pool entra en la firma de determinismo:
+// dos maquinas con distinto historial de partidas dejarian de ser el mismo
+// mundo aunque se vieran igual.
 let contadorHaz = 0;
 
 export const VFX = {
@@ -579,6 +586,7 @@ export const VFX = {
   },
 
   vaciar() {
+    contadorHaz = 0;
     if (this.haces) this.haces.vaciar();
     if (this.anillos) this.anillos.vaciar();
     if (this.reventones) this.reventones.vaciar();
