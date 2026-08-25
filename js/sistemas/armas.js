@@ -169,7 +169,7 @@ const COMPORTAMIENTOS = {
       // se hizo. Y de paso el `largo` deja de estar clavado a 9 y sale de
       // `largoTrazo`, que las siete armas de esta familia ya declaraban y que
       // esta rama se estaba comiendo.
-      sis._rellenarProyectil(arma, s, danyoDe(s, ctx.jugador));
+      sis._rellenarProyectil(arma, s, danyoDe(s, ctx.jugador), ctx.jugador);
       sis.defProyectil.vida = s.alcance / s.velocidad;
 
       const b = bocaDe(ctx.jugador, a);
@@ -239,7 +239,7 @@ const COMPORTAMIENTOS = {
       //
       // Es el mismo fallo que tenía `proyectilDirigido` y se arregla igual. Las
       // tres armas de cono —Escopeta, Recortada y Lanzallamas— lo sufrían.
-      sis._rellenarProyectil(arma, s, danyo);
+      sis._rellenarProyectil(arma, s, danyo, ctx.jugador);
       // Y estos dos SÍ son de aquí, así que van después: el vuelo de cada
       // perdigón se sortea uno a uno (`v` ya trae su propio azar), y el trazo es
       // corto a propósito porque un cono es muchos destellos pequeños, no una
@@ -285,7 +285,7 @@ const COMPORTAMIENTOS = {
       for (let i = 0; i < s.proyectiles; i++) {
         const centrado = i - (s.proyectiles - 1) / 2;
         const a = separa > 0 ? base : base + centrado * s.dispersion * GRADOS;
-        sis._rellenarProyectil(arma, s, danyo);
+        sis._rellenarProyectil(arma, s, danyo, ctx.jugador);
         sis.defProyectil.vida = s.alcance / s.velocidad;
         const b = bocaDe(j, a);
         let ox = b.x, oy = b.y;
@@ -309,7 +309,7 @@ const COMPORTAMIENTOS = {
     const danyo = danyoDe(s, j);
     for (let i = 0; i < s.proyectiles; i++) {
       const a = ctx.rng() * Math.PI * 2;
-      sis._rellenarProyectil(arma, s, danyo);
+      sis._rellenarProyectil(arma, s, danyo, ctx.jugador);
       sis.defProyectil.vida = s.alcance / s.velocidad;
       const b = bocaDe(j, a);
       ctx.proyectiles.lanzar(b.x, b.y,
@@ -336,7 +336,7 @@ const COMPORTAMIENTOS = {
 
     for (let i = 0; i < s.proyectiles; i++) {
       const a = base + (i - (s.proyectiles - 1) / 2) * s.dispersion * GRADOS;
-      sis._rellenarProyectil(arma, s, danyo);
+      sis._rellenarProyectil(arma, s, danyo, ctx.jugador);
       sis.defProyectil.vida = s.alcance / s.velocidad;
       sis.defProyectil.radioExplosion = areaDe(s.radioExplosion, j);
       sis.defProyectil.danyoExplosion = Math.round(s.danyoExplosion * (1 + j.bonusDanyo));
@@ -372,7 +372,7 @@ const COMPORTAMIENTOS = {
       // proyectil no lleva daño de impacto— sino entero en la onda del suelo.
       // Si toca a alguien mientras baja, revienta ahí: le ha caído encima.
       if (arma.def.caida > 0) {
-        sis._rellenarProyectil(arma, s, 0);
+        sis._rellenarProyectil(arma, s, 0, ctx.jugador);
         sis.defProyectil.vida = arma.def.caida / s.velocidad;
         sis.defProyectil.radioExplosion = radio;
         sis.defProyectil.danyoExplosion = danyo;
@@ -382,6 +382,7 @@ const COMPORTAMIENTOS = {
       }
 
       ctx.zonas.crear({
+        duenyo: ctx.jugador,
         x, y, radio, radioIni: radio * 0.15, duracion: s.duracion,
         danyo, empuje: s.empuje, modo: 'onda', color: arma.def.color,
         relleno: 0.3, sprite: arma.def.spriteOnda
@@ -396,6 +397,7 @@ const COMPORTAMIENTOS = {
     const s = arma.stats;
     const j = ctx.jugador;
     ctx.zonas.crear({
+      duenyo: ctx.jugador,
       x: j.x, y: j.y - 6,
       radio: areaDe(s.radio, j), radioIni: 6,
       duracion: s.duracion,
@@ -418,6 +420,7 @@ const COMPORTAMIENTOS = {
       const a = ctx.rng() * Math.PI * 2;
       const d = i === 0 ? 0 : 20 + ctx.rng() * 45;
       ctx.zonas.crear({
+        duenyo: ctx.jugador,
         x: j.x + Math.cos(a) * d, y: j.y + Math.sin(a) * d,
         radio: areaDe(s.radio, j), duracion: s.duracion,
         danyo: danyoDe(s, j), intervalo: s.intervalo,
@@ -473,6 +476,7 @@ const COMPORTAMIENTOS = {
       const a = ctx.rng() * Math.PI * 2;
       const d = i === 0 ? 0 : 20 + ctx.rng() * apertura;
       ctx.zonas.crear({
+        duenyo: ctx.jugador,
         x: j.x + Math.cos(a) * d, y: j.y + Math.sin(a) * d,
         // `radio` es el de la EXPLOSIÓN; el gatillo es mucho más chico, para
         // que haya que pisarla de verdad y no basta con rozarla.
@@ -532,6 +536,7 @@ const COMPORTAMIENTOS = {
     // `opacidad` lo es —sale de la definición, no de las stats— y por eso vale.
     const desvio = medioAlto(j);
     arma.zona = ctx.zonas.crear({
+      duenyo: ctx.jugador,
       x: j.x, y: j.y - desvio, desvioY: desvio,
       radio: areaDe(s.radio, j), duracion: 1.0,
       danyo: danyoDe(s, j), intervalo: s.intervalo,
@@ -600,7 +605,7 @@ const COMPORTAMIENTOS = {
         if (proy < 0) continue;                       // detrás del jugador
         const perp = Math.abs(dx * uy - dy * ux);     // distancia a la recta
         if (perp > s.grosor + e.radioCuerpo) continue;
-        ctx.enemigos.danyar(e, danyo, ux, uy, s.empuje);
+        ctx.enemigos.danyar(e, danyo, ux, uy, s.empuje, ctx.jugador);
       }
       sis._anotarRayo(bx, by, a, s.alcance, s.grosor, arma.def.color, giro,
                       arma.def.duracionRayo);
@@ -735,8 +740,9 @@ export class Armas {
 
   // Rellena el descriptor de proyectil con lo común a todos los comportamientos.
   // Cada uno ajusta después lo suyo (vida, explosión).
-  _rellenarProyectil(arma, s, danyo) {
+  _rellenarProyectil(arma, s, danyo, duenyo) {
     const d = this.defProyectil;
+    d.duenyo = duenyo || null;
     // La FORMA con que se dibuja. Sale del comportamiento salvo que el arma diga
     // otra cosa: ver FORMA_POR_COMPORTAMIENTO, aquí arriba.
     d.forma = formaDe(arma);
@@ -799,6 +805,7 @@ export class Armas {
     // no se queda quemando.
     const radio = areaDe(s.radio, j);
     ctx.zonas.crear({
+      duenyo: ctx.jugador,
       x, y,
       radio, radioIni: radio * 0.18,
       duracion: 0.26, danyo: danyoDe(s, j),
@@ -883,7 +890,7 @@ export class Armas {
           e.ultimoSello = arma.selloOrbital;
           const dx = e.x - j.x, dy = e.y - j.y;
           const d = Math.hypot(dx, dy) || 1;
-          ctx.enemigos.danyar(e, danyo, dx / d, dy / d, s.empuje);
+          ctx.enemigos.danyar(e, danyo, dx / d, dy / d, s.empuje, ctx.jugador);
         }
       }
     }
@@ -1211,7 +1218,7 @@ export class Armas {
       if (Math.abs(d) > semi) continue;
 
       const m = Math.hypot(dx, dy) || 1;
-      ctx.enemigos.danyar(e, danyo, dx / m, dy / m, s.empuje);
+      ctx.enemigos.danyar(e, danyo, dx / m, dy / m, s.empuje, ctx.jugador);
     }
 
     // Centro visual del jugador, no su línea de pies: el área de un arma tiene

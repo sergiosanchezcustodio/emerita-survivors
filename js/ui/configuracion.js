@@ -139,7 +139,10 @@ function icono(ctx, id, cx, cy, r) {
   ctx.restore();
 }
 
-export function dibujarConfig(ctxMundo, ctx, opciones, cursor, confirmando) {
+// Ya no recibe `confirmando`: el aviso de borrar se mudó a la pantalla de
+// partidas cuando dejó de haber un "empezar de cero" que afectara a todo. Aquí
+// no queda nada que confirmar.
+export function dibujarConfig(ctxMundo, ctx, opciones, cursor) {
   const t = Tema.actual;
   const r = rejilla(opciones.length, ALTO_FILA);
 
@@ -178,7 +181,6 @@ export function dibujarConfig(ctxMundo, ctx, opciones, cursor, confirmando) {
   descripcion(ctx, r, (TEXTOS[opciones[cursor].id] || { larga: '' }).larga);
   ctx.restore();
 
-  if (confirmando) dibujarConfirmacion(ctx);
 }
 
 // Ventana de confirmar el borrado. Esta SÍ se queda como panel pequeño en el
@@ -193,7 +195,10 @@ const CONFIRMAR = [
   { texto: 'BORRAR', peligro: true }
 ];
 
-export function dibujarConfirmacion(ctx, cursor = 0) {
+// `aviso` es { titulo, lineas }. Lo pasa quien abre la ventana porque el texto
+// dejó de ser uno solo: borrar una de tres partidas tiene que decir CUÁL, y eso
+// no lo sabe esta función.
+export function dibujarConfirmacion(ctx, cursor = 0, aviso = null) {
   const t = Tema.actual;
   const ancho = 330, alto = 128;
   const px = (ANCHO_UI - ancho) / 2;
@@ -208,12 +213,18 @@ export function dibujarConfirmacion(ctx, cursor = 0) {
   ctx.textBaseline = 'middle';
   ctx.font = `18px ${FUENTE_TITULO}`;
   ctx.fillStyle = '#e8b0a4';
-  textoEspaciado(ctx, '¿EMPEZAR DE CERO?', ANCHO_UI / 2, py + 26, 3);
+  const titulo = (aviso && aviso.titulo) || '¿EMPEZAR DE CERO?';
+  const lineas = (aviso && aviso.lineas) || [
+    'Se pierden TODAS las monedas, las mejoras',
+    'y las mascotas. No se puede deshacer.'
+  ];
+  textoEspaciado(ctx, titulo, ANCHO_UI / 2, py + 26, 3);
 
   ctx.font = `400 11px ${FUENTE}`;
   ctx.fillStyle = t.texto;
-  ctx.fillText('Se pierden TODAS las monedas, las mejoras', ANCHO_UI / 2, py + 58);
-  ctx.fillText('y las mascotas. No se puede deshacer.', ANCHO_UI / 2, py + 74);
+  for (let i = 0; i < lineas.length; i++) {
+    ctx.fillText(lineas[i], ANCHO_UI / 2, py + 58 + i * 16);
+  }
 
   // Antes esto eran dos rótulos que decían qué tecla hacía qué. Ahora son dos
   // BOTONES que se recorren, porque la pregunta se contesta con el mando igual

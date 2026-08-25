@@ -13,8 +13,9 @@ import { dibujarIconoArma, dibujarIconoPasivo, COLOR_JUGADOR } from './hud.js';
 // A PANTALLA COMPLETA y con UNA COLUMNA POR JUGADOR, que es lo que pidió
 // Sergio. Antes era un panel de 300x188 con las cifras del jugador 1 y ya, y en
 // cooperativo eso es justo lo que no vale: cuatro personas acaban de jugar la
-// misma partida y solo una salía en el resumen. El nivel y las bajas son de
-// equipo, pero el arsenal, los golpes recibidos y quién quedó en pie son de cada
+// misma partida y solo una salía en el resumen. El reloj y las bajas TOTALES son
+// de equipo, pero el nivel, las bajas propias, el arsenal, los golpes recibidos
+// y quién quedó en pie son de cada
 // uno, y son lo que se comenta al terminar.
 //
 // Se sale de aquí AL MENÚ PRINCIPAL, no recargando la página: ver volverAlMenu()
@@ -153,7 +154,7 @@ const PASO_ICONO = 26;
 // `stats` sale de main.js, capturado UNA vez en el instante en que termina la
 // partida (ver capturarStats):
 //   { tiempo, bajas, denarios, monedero, jugadores: [...] }
-// y cada jugador trae { id, nombre, nivel, golpes, resurrecciones, enPie,
+// y cada jugador trae { id, nombre, nivel, bajas, golpes, resurrecciones, enPie,
 // mascota, armas: [{id, nivel}], pasivos: {id: nivel} }.
 export function dibujarFinal(ctx, alto, victoria, stats) {
   const color = victoria ? COLOR_VICTORIA : COLOR_DERROTA;
@@ -259,13 +260,23 @@ function dibujarFicha(ctx, f, indice, x, y, ancho, altoCarta) {
 
   const xIzq = x + relleno;
   const anchoFila = ancho - relleno * 2;
+  // CINCO filas, y el paso baja de 17 a 15 por eso. Con 17, la quinta dejaba
+  // ocho píxeles hasta el rótulo ARSENAL de abajo y las dos cosas se leían como
+  // un solo bloque apelotonado; el rótulo no se puede bajar porque los iconos
+  // del arsenal cuelgan de él y la carta tiene alto máximo.
+  const PASO_FILA = 15;
   let yFila = y + 126;
   filaEstadistica(ctx, xIzq, yFila, anchoFila, 'NIVEL', String(f.nivel));
-  yFila += 17;
+  yFila += PASO_FILA;
+  // ENEMIGOS ELIMINADOS por ESTE jugador, no por el equipo. El total de la
+  // horda sigue estando arriba, en la cabecera del resumen; esto contesta la
+  // otra pregunta, que es la que se discute al terminar: cuántos cayeron por mí.
+  filaEstadistica(ctx, xIzq, yFila, anchoFila, 'ENEMIGOS ELIMINADOS', String(f.bajas));
+  yFila += PASO_FILA;
   filaEstadistica(ctx, xIzq, yFila, anchoFila, 'GOLPES RECIBIDOS', String(f.golpes));
-  yFila += 17;
+  yFila += PASO_FILA;
   filaEstadistica(ctx, xIzq, yFila, anchoFila, 'RESURRECCIONES', String(f.resurrecciones));
-  yFila += 17;
+  yFila += PASO_FILA;
   filaEstadistica(ctx, xIzq, yFila, anchoFila, 'MASCOTA', f.mascota || '—');
 
   // --- Arsenal --------------------------------------------------------------

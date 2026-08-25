@@ -48,6 +48,7 @@ import { PERSONAJES, ORDEN_PERSONAJES } from './datos/personajes.js';
 import { ARMAS } from './datos/armas.js';
 import { POTENCIADORES } from './datos/potenciadores.js';
 import { Intro } from './ui/intro.js';
+import { dibujarHuecos, refrescarHuecos, huecoOcupado, textoBorrado } from './ui/huecos.js';
 
 
 // Capacidad del pool. El objetivo del plan son 800 entidades simultáneas; el
@@ -179,6 +180,10 @@ const PANTALLA_CONFIG = 5;
 // La INTRO: la ficha del proyecto y el rótulo, antes del menú. Es la pantalla
 // de arranque, y de ella solo se sale hacia el título — nunca se vuelve.
 const PANTALLA_INTRO = 6;
+// LAS TRES PARTIDAS. Va entre la intro y el título, y se vuelve a ella con el
+// botón de la esquina del menú (ver ui/huecos.js: la tienda y las mascotas
+// gastan de una hucha, así que la hucha hay que elegirla antes del menú).
+const PANTALLA_HUECOS = 7;
 // Sin valor de arranque: lo pone `irA` al final de este bloque, porque el
 // estado de pantalla no es solo esta variable — arrastra la clase del body, y
 // dejarlos puestos por separado es tener dos verdades que se desincronizan.
@@ -219,7 +224,7 @@ const MENU = [
   { id: 'tienda', texto: 'TIENDA' },
   { id: 'config', texto: 'CONFIGURACIÓN' },
   { id: 'salir',  texto: 'SALIR' },
-  { id: 'borrar', texto: 'EMPEZAR DE CERO', esquina: true }
+  { id: 'partidas', texto: 'CAMBIAR PARTIDA', esquina: true }
 ];
 let cursorMenu = 0;
 
@@ -244,6 +249,13 @@ let confirmarBorrado = false;
 const CONFIRMAR_CANCELAR = 0;
 const CONFIRMAR_BORRAR = 1;
 let cursorConfirmar = CONFIRMAR_CANCELAR;
+// Qué partida está señalada en la pantalla de huecos, y cuál se va a borrar si
+// se confirma. Son la misma: el aviso siempre habla de la señalada.
+let cursorHueco = 0;
+// Y si el cursor está en el botón de borrar de esa partida en vez de en la
+// partida misma. Solo puede estarlo si la partida existe: en una vacía no hay
+// botón al que ir.
+let enBorrarHueco = false;
 
 // Cambiar de pantalla en un solo sitio. Hay dos cosas que van fuera del lienzo
 // y que hay que mover con el estado: la chuleta de atajos del pie, que en las
@@ -383,6 +395,9 @@ addEventListener('gamepadconnected', () => {
 // caliente, y esto puede llamarse muchas veces por paso con un bombardeo.
 function estallar(p) {
   zonas.crear({
+    // La onda hereda el dueño del proyectil que revienta: lo que mate la
+    // explosión es del que disparó la granada.
+    duenyo: p.duenyo,
     x: p.x, y: p.y,
     radio: p.radioExplosion, radioIni: p.radioExplosion * 0.15,
     duracion: 0.32, danyo: p.danyoExplosion, empuje: p.empuje * 1.6,
@@ -610,6 +625,7 @@ function actualizarLlamarada(dt) {
     for (let k = 0; k < 3; k++) {
       const avance = 22 + k * 26;
       zonas.crear({
+        duenyo: j,
         x: j.x + ax * avance,
         y: j.y - 4 + ay * avance,
         radio: 20 + k * 6, radioIni: 6,
@@ -638,39 +654,54 @@ function tanda(cantidad, mezcla) {
 //
 // Se mueve con arriba/abajo o la cruceta, y también con el stick, porque el
 // menú es lo primero que toca alguien que acaba de enchufar un mando.
-function entradaTitulo() {
-  // La confirmación de borrar se lleva TODA la entrada mientras está abierta:
-  // desde ahí solo se puede decir sí o no.
+// LAS TRES PARTIDAS. Arriba y abajo para señalar, Enter o A para entrar con
+// ella, y Supr o X para borrarla — con su aviso delante, que es el único sitio
+// desde el que se borra desde que dejó de haber un "empezar de cero" global.
+//
+// De aquí NO SE SALE hacia atrás: es la primera pantalla con la que se topa el
+// jugador y detrás solo está la intro, que ya pasó. Sin partida elegida no hay
+// menú al que ir, porque el menú enseña denarios y la tienda los gasta.
+function entradaHuecos() {
+  const c0 = entrada.controles[0];
+  // Una sola llamada por eje y frame: `flancoEje` guarda estado y llamarlo dos
+  // veces se comería su propio flanco.
+  const ejeV = c0 ? c0.flancoEje(false) : 0;
+  const ejeH = c0 ? c0.flancoEje(true) : 0;
+
+  // TODOS los flancos se consumen ANTES de decidir nada. Encadenarlos con `||`
+  // cortocircuita —si el primero es cierto, el segundo no llega a consumirse—
+  // y esa pulsación se quedaría en la cola para la pantalla siguiente.
+  const tArriba = entrada.consumirFlanco('ArrowUp');
+  const tAbajo = entrada.consumirFlanco('ArrowDown');
+  const tIzq = entrada.consumirFlanco('ArrowLeft');
+  const tDer = entrada.consumirFlanco('ArrowRight');
+  const tEsc = entrada.consumirFlanco('Escape');
+  const tEnter = entrada.consumirFlanco('Enter');
+  const tEspacio = entrada.consumirFlanco('Space');
+  const mArriba = c0 ? c0.consumirBoton(12) : false;
+  const mAbajo = c0 ? c0.consumirBoton(13) : false;
+  const mIzq = c0 ? c0.consumirBoton(14) : false;
+  const mDer = c0 ? c0.consumirBoton(15) : false;
+  const mA = c0 ? c0.consumirBoton(0) : false;
+  const mAtras = entrada.consumirAtras();
+
+  // Con el aviso abierto, la entrada es suya entera: solo se puede decir sí o
+  // no. Se atiende con los flancos YA consumidos arriba.
   if (confirmarBorrado) {
-    const c0 = entrada.controles[0];
-    // Una sola llamada por eje y frame: `flancoEje` guarda estado y llamarlo
-    // dos veces se comería su propio flanco.
-    const ejeH = c0 ? c0.flancoEje(true) : 0;
-
-    // TODOS los flancos se consumen ANTES de decidir nada. Encadenarlos con
-    // `||` cortocircuita —si el primero es cierto, el segundo no llega a
-    // consumirse— y esa pulsación se quedaría en la cola para dispararse en la
-    // pantalla siguiente.
-    const tIzq = entrada.consumirFlanco('ArrowLeft');
-    const tDer = entrada.consumirFlanco('ArrowRight');
-    const tEsc = entrada.consumirFlanco('Escape');
-    const tEnter = entrada.consumirFlanco('Enter');
-    const tEspacio = entrada.consumirFlanco('Space');
-    const mIzq = c0 ? c0.consumirBoton(14) : false;
-    const mDer = c0 ? c0.consumirBoton(15) : false;
-    const mA = c0 ? c0.consumirBoton(0) : false;
-    const mAtras = entrada.consumirAtras();
-
     if (tIzq || mIzq || ejeH < 0) cursorConfirmar = CONFIRMAR_CANCELAR;
     if (tDer || mDer || ejeH > 0) cursorConfirmar = CONFIRMAR_BORRAR;
 
-    // Esc y B siguen cancelando de una, sin pasar por el botón: es el gesto de
-    // cerrar que vale en todas las ventanas del juego.
+    // Esc y B cancelan de una, sin pasar por el botón: es el gesto de cerrar
+    // que vale en todas las ventanas del juego.
     if (tEsc || mAtras) { confirmarBorrado = false; return; }
 
     if (tEnter || tEspacio || mA) {
       if (cursorConfirmar === CONFIRMAR_BORRAR) {
-        MetaProgreso.reiniciarTodo();
+        MetaProgreso.borrarHueco(cursorHueco);
+        refrescarHuecos();
+        // El botón que se acaba de usar ya no está dibujado —la partida está
+        // vacía— así que el cursor vuelve a la fila.
+        enBorrarHueco = false;
         Mascotas.releer(null);
         mascotasElegidas.fill('');
       }
@@ -679,6 +710,33 @@ function entradaTitulo() {
     return;
   }
 
+  const n = MetaProgreso.NUM_HUECOS;
+  if (tAbajo || mAbajo || ejeV > 0) cursorHueco = (cursorHueco + 1) % n;
+  if (tArriba || mArriba || ejeV < 0) cursorHueco = (cursorHueco + n - 1) % n;
+
+  // A la DERECHA está el botón de borrar, y solo existe si la partida existe.
+  // Al cambiar de fila hay que comprobarlo otra vez: bajando de una partida
+  // jugada a un hueco vacío, el cursor se quedaría sobre un botón que no está
+  // dibujado.
+  if (tDer || mDer || ejeH > 0) enBorrarHueco = true;
+  if (tIzq || mIzq || ejeH < 0) enBorrarHueco = false;
+  if (!huecoOcupado(cursorHueco)) enBorrarHueco = false;
+
+  if (tEnter || tEspacio || mA) {
+    if (enBorrarHueco) {
+      confirmarBorrado = true;
+      cursorConfirmar = CONFIRMAR_CANCELAR;
+      return;
+    }
+    MetaProgreso.usar(cursorHueco);
+    Mascotas.releer(null);
+    mascotasElegidas.fill('');
+    cursorMenu = 0;
+    irA(PANTALLA_TITULO);
+  }
+}
+
+function entradaTitulo() {
   const c = entrada.controles[0];
   const eje = c ? c.flancoEje(false) : 0;      // vertical
   const n = MENU.length;
@@ -716,9 +774,11 @@ function entradaTitulo() {
     case 'salir':
       salirDelJuego();
       break;
-    case 'borrar':
-      confirmarBorrado = true;
-      cursorConfirmar = CONFIRMAR_CANCELAR;
+    case 'partidas':
+      cursorHueco = MetaProgreso.hueco >= 0 ? MetaProgreso.hueco : 0;
+      refrescarHuecos();
+      enBorrarHueco = false;
+      irA(PANTALLA_HUECOS);
       break;
   }
 }
@@ -1150,6 +1210,7 @@ function capturarStats() {
       id: j.id,
       nombre: j.def.nombre,
       nivel: j.nivel,
+      bajas: j.bajas,
       golpes: j.golpesRecibidos,
       resurrecciones: j.resurreccionesUsadas,
       enPie: !j.abatido,
@@ -1258,8 +1319,16 @@ function actualizar(dt) {
   // todo lo que viene debajo da por hecho que hay al menos un jugador vivo.
   if (pantalla !== PANTALLA_JUEGO) {
     if (pantalla === PANTALLA_INTRO) {
-      if (Intro.actualizar(dt, entrada)) irA(PANTALLA_TITULO);
+      // De la intro se sale a ELEGIR PARTIDA, no al menú: el menú ya enseña
+      // los denarios de una partida concreta.
+      if (Intro.actualizar(dt, entrada)) {
+        cursorHueco = MetaProgreso.ultimoUsado();
+        refrescarHuecos();
+        enBorrarHueco = false;
+        irA(PANTALLA_HUECOS);
+      }
     }
+    else if (pantalla === PANTALLA_HUECOS) entradaHuecos();
     else if (pantalla === PANTALLA_TITULO) entradaTitulo();
     else if (pantalla === PANTALLA_TIENDA) entradaTienda();
     else if (pantalla === PANTALLA_MASCOTAS) entradaMascotas();
@@ -1538,11 +1607,17 @@ function actualizar(dt) {
     statsFinal = capturarStats();
     finalMostrado = 'victoria';
     refrescarChuleta();
-    MetaProgreso.guardar();
+    MetaProgreso.anotarPartida(Director.t);
+    // Y la fase queda superada. Solo aquí: la derrota no supera nada.
+    MetaProgreso.superarFase(NIVEL.id);
   } else if (!finalMostrado && derrota) {
     statsFinal = capturarStats();
     finalMostrado = 'derrota';
     resumenFinal = false;      // primero el cartel; el resumen se pide
+    // Cuenta igual que la victoria para la hoja de servicios del hueco:
+    // aguantar veintiocho minutos y caer es un dato tan bueno como ganar.
+    // `anotarPartida` guarda, así que releva al guardado por flanco de arriba.
+    MetaProgreso.anotarPartida(Director.t);
   }
 
   // Segundo tiempo de la derrota: cualquier tecla pasa del cartel al resumen.
@@ -1759,18 +1834,22 @@ function dibujar(alpha) {
     Capa.limpiar();
     if (despedida) { Pantallas.titulo(ctx, Capa.ctx, null, 0); dibujarDespedida(Capa.ctx); return; }
     if (pantalla === PANTALLA_INTRO) { Intro.dibujar(ctx, Capa.ctx); return; }
+    if (pantalla === PANTALLA_HUECOS) {
+      dibujarHuecos(ctx, Capa.ctx, cursorHueco, enBorrarHueco);
+      if (confirmarBorrado) {
+        dibujarConfirmacion(Capa.ctx, cursorConfirmar, textoBorrado(cursorHueco));
+      }
+      return;
+    }
     if (pantalla === PANTALLA_TITULO) {
       Pantallas.titulo(ctx, Capa.ctx, MENU, cursorMenu);
-      // El "empezar de cero" vive en el título desde que dejó de ser un ajuste,
-      // así que su ventana de confirmación también.
-      if (confirmarBorrado) dibujarConfirmacion(Capa.ctx, cursorConfirmar);
     }
     else if (pantalla === PANTALLA_TIENDA) dibujarTienda(ctx, Capa.ctx, cursorTienda, pestanyaTienda);
     else if (pantalla === PANTALLA_MASCOTAS) {
       Pantallas.mascotas(ctx, Capa.ctx, mascotasDisponibles(), cursorMascota,
                          turnoMascota, puestos, mascotasElegidas);
     } else if (pantalla === PANTALLA_CONFIG) {
-      dibujarConfig(ctx, Capa.ctx, CONFIG, cursorConfig, confirmarBorrado);
+      dibujarConfig(ctx, Capa.ctx, CONFIG, cursorConfig);
     }
     else Pantallas.seleccion(ctx, Capa.ctx, puestos);
     return;
@@ -1984,7 +2063,7 @@ function dibujar(alpha) {
   if (fichaAbierta >= 0) dibujarFicha(ctxUi, jugadores, fichaAbierta);
   else if (Progresion.cofreAbierto) dibujarCofre(ctxUi, jugadores);
   else if (Progresion.abierto) dibujarMenuNivel(ctxUi, jugadores);
-  else if (configEnPartida) dibujarConfig(null, ctxUi, CONFIG, cursorConfig, false);
+  else if (configEnPartida) dibujarConfig(null, ctxUi, CONFIG, cursorConfig);
   else if (pausado) dibujarPausa(ctxUi, ALTO_UI);
   else if (mapaAbierto) dibujarMapa(ctxUi, jugadores, enemigos, cofres, camara);
   perfil.interfaz = performance.now() - t;
@@ -2171,9 +2250,9 @@ async function arrancar() {
     get turnoMascota() { return turnoMascota; },
     get cursorMenu() { return cursorMenu; },
     get pestanyaTienda() { return pestanyaTienda; },
-    PANTALLA: { intro: PANTALLA_INTRO, titulo: PANTALLA_TITULO,
-                seleccion: PANTALLA_SELECCION, juego: PANTALLA_JUEGO,
-                tienda: PANTALLA_TIENDA },
+    PANTALLA: { intro: PANTALLA_INTRO, huecos: PANTALLA_HUECOS,
+                titulo: PANTALLA_TITULO, seleccion: PANTALLA_SELECCION,
+                juego: PANTALLA_JUEGO, tienda: PANTALLA_TIENDA },
     // Progreso META y mascotas. Se exponen para poder probar desde la consola
     // sin jugar veinte partidas para reunir denarios, y para poder mirar qué
     // hay guardado sin abrir el inspector de localStorage.

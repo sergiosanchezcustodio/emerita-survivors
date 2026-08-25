@@ -34,6 +34,12 @@ function crearProyectil() {
     vidaMax: 0,              // con los que nació; se repone al rebotar
     danyo: 0, empuje: 0,
     radio: 0,
+    // QUIÉN LO DISPARÓ. Es el objeto jugador, no un índice: el motor ya guarda
+    // referencias a jugadores en otros sitios (las auras se pegan a uno con
+    // `seguir`), y una referencia no obliga a mantener índices al ritmo de los
+    // jugadores que entran y salen de la partida. `null` = de nadie, y entonces
+    // la baja solo cuenta para el total de la horda.
+    duenyo: null,
     // Enemigos que aún puede atravesar. NEGATIVO significa "en seco": gastado
     // pero todavía volando, que es lo que le pasa a una bala con rebotes de
     // pared pendientes (ver `rebotesPared` y sistemas/colisiones.js).
@@ -140,6 +146,7 @@ export class Proyectiles {
     p.rebotesPared = def.rebotesPared || 0;
     p.aceleraRebote = def.aceleraRebote || 0;
     p.rebotesEnemigo = def.rebotesEnemigo || 0;
+    p.duenyo = def.duenyo || null;
     p.sello = contadorSello++;
     return p;
   }

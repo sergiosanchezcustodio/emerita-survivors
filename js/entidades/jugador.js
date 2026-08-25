@@ -92,6 +92,11 @@ export class Jugador {
     this._rng = rng;
     const def = PERSONAJES[idPersonaje] || PERSONAJES.eric;
     this.id = idPersonaje;
+    // Enemigos que ha matado ESTE jugador. Se lleva aquí y no en el pool de
+    // enemigos porque la pregunta es "cuántos ha matado él", y el sitio donde
+    // eso vive sin índices que mantener es el propio jugador. Lo sube
+    // `Enemigos.danyar` cuando el golpe que remata trae dueño.
+    this.bajas = 0;
     this.def = def;
     this.personaje = def.sprite;
     this.arsenal = null;          // lo enchufa quien crea al jugador

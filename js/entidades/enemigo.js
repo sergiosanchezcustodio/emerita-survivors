@@ -819,7 +819,10 @@ export class Enemigos {
   // los índices de la rejilla —que es justo lo que está recorriendo quien
   // llama— apuntando a otras entidades. La retirada va aparte, en
   // retirarMuertos(), cuando ya no hay nadie iterando.
-  danyar(e, cantidad, dirX, dirY, fuerza) {
+  // `duenyo` es el jugador que ha metido el golpe, o null si no se le puede
+  // atribuir a nadie. Solo se usa para apuntarle la baja: el daño es el mismo
+  // venga de quien venga.
+  danyar(e, cantidad, dirX, dirY, fuerza, duenyo) {
     if (e.vida <= 0) return false;          // ya muerto este paso
 
     e.vida -= cantidad;
@@ -879,6 +882,10 @@ export class Enemigos {
       }
 
       this.bajas++;
+      // Y a quien lo remató. Va DESPUÉS del descarte de `esObjeto` de arriba, a
+      // propósito: romper una antorcha no es matar un enemigo, y colarla aquí
+      // inflaría la cuenta de quien pasara rompiendo el atrezo.
+      if (duenyo) duenyo.bajas++;
       MetaProgreso.ganar(denariosPorBaja(e.def));
       GestorAudio.muerteEnemigo();
       if (e.def.cofre) this.elitesVivos--;

@@ -378,7 +378,9 @@ const HABILIDADES = {
     let dx = presa.x - m.x;
     let dy = presa.y - m.y;
     const dist = Math.hypot(dx, dy) || 1;
-    ctx.enemigos.danyar(presa, Math.round(def.danyo * m.factor), dx / dist, dy / dist, 60);
+    // La mordida se le apunta a SU jugador: la mascota es suya, y lo que
+    // mata cuenta para él.
+    ctx.enemigos.danyar(presa, Math.round(def.danyo * m.factor), dx / dist, dy / dist, 60, j);
     // Se teletransporta a la presa: es un perro lanzándose, y verlo aparecer
     // junto al bicho al que acaba de morder vende el gesto sin animarlo.
     m.x = presa.x - dx / dist * 8;
