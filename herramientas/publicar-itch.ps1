@@ -60,7 +60,7 @@ if ($LASTEXITCODE -ne 0) { throw "butler no arranca: $BUTLER" }
 # no haya sesion, asi que por si solo no distingue "no estoy identificado" de
 # "ese canal todavia no existe" -- que es justo lo que contesta antes de la
 # primera subida.
-$CREDS = Join-Path $env:USERPROFILE '.config\itchutler_creds'
+$CREDS = Join-Path $env:USERPROFILE '.config\itch\butler_creds'
 & $BUTLER status $OBJETIVO 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $CREDS)) {
     ""
