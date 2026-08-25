@@ -134,31 +134,41 @@ export function dibujarDepuracion(ctx, datos) {
 // donde estás jugando.
 const ANCHO_AVISO = 268;
 const ALTO_AVISO = 90;
+const ALTO_AVISO_SOLO = 56;   // sin la línea de atajos debajo
 
+// SIN PIE, el panel encoge. Cuando el aviso llevaba debajo la línea de atajos
+// medía 90 de alto y la cenefa separaba las dos cosas; quitado el renglón, esos
+// mismos 90 dejaban un panel medio vacío con el título flotando arriba, y la
+// cenefa se quedaba de adorno sin nada que separar. Así que el alto y la cenefa
+// dependen de si hay pie o no.
 function pantallaDeAviso(ctx, alto, borde, titulo, colorTitulo, pie, colorPie) {
+  const altoPanel = pie ? ALTO_AVISO : ALTO_AVISO_SOLO;
   const x = (ANCHO_UI - ANCHO_AVISO) / 2;
-  const y = (alto - ALTO_AVISO) / 2;
+  const y = (alto - altoPanel) / 2;
 
   ctx.save();
-  panel(ctx, x, y, ANCHO_AVISO, ALTO_AVISO, borde);
+  panel(ctx, x, y, ANCHO_AVISO, altoPanel, borde);
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
   ctx.font = `24px ${FUENTE_TITULO}`;
   ctx.fillStyle = colorTitulo;
-  textoEspaciado(ctx, titulo, ANCHO_UI / 2, y + 30, 5);
+  textoEspaciado(ctx, titulo, ANCHO_UI / 2, y + altoPanel / 2, 5);
 
-  cenefa(ctx, x + 34, y + 46, ANCHO_AVISO - 68);
-
-  ctx.font = `400 10px ${FUENTE}`;
-  ctx.fillStyle = colorPie;
-  ctx.fillText(pie, ANCHO_UI / 2, y + 68);
+  if (pie) {
+    cenefa(ctx, x + 34, y + 46, ANCHO_AVISO - 68);
+    ctx.font = `400 10px ${FUENTE}`;
+    ctx.fillStyle = colorPie;
+    ctx.fillText(pie, ANCHO_UI / 2, y + 68);
+  }
   ctx.restore();
 }
 
+// PAUSA a secas. Debajo iba "ESC o Start seguir · O o Y ajustes" y lo quitó
+// Sergio: de la pausa se sale con lo mismo que se entró, y el que la ha abierto
+// acaba de pulsarlo.
 export function dibujarPausa(ctx, alto) {
   const t = Tema.actual;
-  pantallaDeAviso(ctx, alto, t.filo, 'PAUSA', t.titulo,
-                  'ESC o Start seguir     ·     O o Y ajustes', t.texto);
+  pantallaDeAviso(ctx, alto, t.filo, 'PAUSA', t.titulo);
 }

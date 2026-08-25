@@ -238,6 +238,12 @@ let cursorConfig = 0;
 // flanco: borrar el progreso de todas las partidas jugadas no puede depender de
 // una tecla mal pulsada.
 let confirmarBorrado = false;
+// Cuál de los dos botones del aviso está señalado. Arranca SIEMPRE en cancelar
+// (ver ui/configuracion.js): el que abre por error una ventana que borra todo
+// el progreso no debe encontrarse el dedo encima del botón que lo borra.
+const CONFIRMAR_CANCELAR = 0;
+const CONFIRMAR_BORRAR = 1;
+let cursorConfirmar = CONFIRMAR_CANCELAR;
 
 // Cambiar de pantalla en un solo sitio. Hay dos cosas que van fuera del lienzo
 // y que hay que mover con el estado: la chuleta de atajos del pie, que en las
@@ -637,11 +643,37 @@ function entradaTitulo() {
   // desde ahí solo se puede decir sí o no.
   if (confirmarBorrado) {
     const c0 = entrada.controles[0];
-    if (entrada.consumirFlanco('Escape') || entrada.consumirAtras()) { confirmarBorrado = false; return; }
-    if (entrada.consumirFlanco('Enter') || (c0 && c0.consumirBoton(0))) {
-      MetaProgreso.reiniciarTodo();
-      Mascotas.releer(null);
-      mascotasElegidas.fill('');
+    // Una sola llamada por eje y frame: `flancoEje` guarda estado y llamarlo
+    // dos veces se comería su propio flanco.
+    const ejeH = c0 ? c0.flancoEje(true) : 0;
+
+    // TODOS los flancos se consumen ANTES de decidir nada. Encadenarlos con
+    // `||` cortocircuita —si el primero es cierto, el segundo no llega a
+    // consumirse— y esa pulsación se quedaría en la cola para dispararse en la
+    // pantalla siguiente.
+    const tIzq = entrada.consumirFlanco('ArrowLeft');
+    const tDer = entrada.consumirFlanco('ArrowRight');
+    const tEsc = entrada.consumirFlanco('Escape');
+    const tEnter = entrada.consumirFlanco('Enter');
+    const tEspacio = entrada.consumirFlanco('Space');
+    const mIzq = c0 ? c0.consumirBoton(14) : false;
+    const mDer = c0 ? c0.consumirBoton(15) : false;
+    const mA = c0 ? c0.consumirBoton(0) : false;
+    const mAtras = entrada.consumirAtras();
+
+    if (tIzq || mIzq || ejeH < 0) cursorConfirmar = CONFIRMAR_CANCELAR;
+    if (tDer || mDer || ejeH > 0) cursorConfirmar = CONFIRMAR_BORRAR;
+
+    // Esc y B siguen cancelando de una, sin pasar por el botón: es el gesto de
+    // cerrar que vale en todas las ventanas del juego.
+    if (tEsc || mAtras) { confirmarBorrado = false; return; }
+
+    if (tEnter || tEspacio || mA) {
+      if (cursorConfirmar === CONFIRMAR_BORRAR) {
+        MetaProgreso.reiniciarTodo();
+        Mascotas.releer(null);
+        mascotasElegidas.fill('');
+      }
       confirmarBorrado = false;
     }
     return;
@@ -686,6 +718,7 @@ function entradaTitulo() {
       break;
     case 'borrar':
       confirmarBorrado = true;
+      cursorConfirmar = CONFIRMAR_CANCELAR;
       break;
   }
 }
@@ -1730,7 +1763,7 @@ function dibujar(alpha) {
       Pantallas.titulo(ctx, Capa.ctx, MENU, cursorMenu);
       // El "empezar de cero" vive en el título desde que dejó de ser un ajuste,
       // así que su ventana de confirmación también.
-      if (confirmarBorrado) dibujarConfirmacion(Capa.ctx);
+      if (confirmarBorrado) dibujarConfirmacion(Capa.ctx, cursorConfirmar);
     }
     else if (pantalla === PANTALLA_TIENDA) dibujarTienda(ctx, Capa.ctx, cursorTienda, pestanyaTienda);
     else if (pantalla === PANTALLA_MASCOTAS) {

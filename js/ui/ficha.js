@@ -682,15 +682,15 @@ export function dibujarFicha(ctx, jugadores, indice) {
            def ? j.pasivos[id] : 0, def ? def.maxNivel : 10, false);
   }
 
-  // --- Pie: el interruptor de automático y cómo se cierra ----------------
+  // --- Pie: el interruptor de automático ---------------------------------
+  //
+  // Y NADA MÁS. Aquí iba además un "Tab/Select · ESC/B cierra" y lo quitó
+  // Sergio. La ficha se abre con la misma tecla que la cierra, así que quien
+  // llega hasta aquí ya sabe cuál es; y en una pantalla que es toda números
+  // —vida, seis estadísticas, armas y objetos— un renglón de atajos es lo único
+  // que no se está mirando.
   const yPie = py + ALTO_PANEL - RELLENO - 3;
   interruptor(ctx, xDer, yPie, j.autoNivel, Progresion.puedeAutomatizar(j), t);
-
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  ctx.font = `500 9px ${FUENTE}`;
-  ctx.fillStyle = t.apagado;
-  ctx.fillText('Tab/Select · ESC/B cierra', px + ANCHO_PANEL - RELLENO, yPie);
 
   ctx.restore();
 }

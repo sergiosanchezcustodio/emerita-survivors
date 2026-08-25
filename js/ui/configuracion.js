@@ -185,7 +185,15 @@ export function dibujarConfig(ctxMundo, ctx, opciones, cursor, confirmando) {
 // centro y con sus dos teclas escritas: es lo contrario de una lista que se
 // recorre —es una pregunta que hay que contestar— y aquí las teclas no son una
 // ayuda que sobre, son los dos botones del diálogo.
-export function dibujarConfirmacion(ctx) {
+// LOS DOS BOTONES, en el orden en que se recorren. CANCELAR primero, y por eso
+// a la izquierda: el cursor arranca ahí y para llegar a BORRAR hay que moverse
+// a propósito. Una pulsación de más no puede caer en el que no se deshace.
+const CONFIRMAR = [
+  { texto: 'CANCELAR', peligro: false },
+  { texto: 'BORRAR', peligro: true }
+];
+
+export function dibujarConfirmacion(ctx, cursor = 0) {
   const t = Tema.actual;
   const ancho = 330, alto = 128;
   const px = (ANCHO_UI - ancho) / 2;
@@ -207,10 +215,39 @@ export function dibujarConfirmacion(ctx) {
   ctx.fillText('Se pierden TODAS las monedas, las mejoras', ANCHO_UI / 2, py + 58);
   ctx.fillText('y las mascotas. No se puede deshacer.', ANCHO_UI / 2, py + 74);
 
-  ctx.font = `600 11px ${FUENTE}`;
-  ctx.fillStyle = COLOR_PELIGRO;
-  ctx.fillText('Enter · borrar', ANCHO_UI / 2 - 64, py + 104);
-  ctx.fillStyle = t.titulo;
-  ctx.fillText('Esc · cancelar', ANCHO_UI / 2 + 64, py + 104);
+  // Antes esto eran dos rótulos que decían qué tecla hacía qué. Ahora son dos
+  // BOTONES que se recorren, porque la pregunta se contesta con el mando igual
+  // que todo lo demás del menú, y porque un aviso de "no se puede deshacer"
+  // que solo entiende el teclado deja al del mando adivinando.
+  const anchoBoton = 116, altoBoton = 26, hueco = 18;
+  const x0 = (ANCHO_UI - (anchoBoton * 2 + hueco)) / 2;
+  const yBoton = py + 104 - altoBoton / 2;
+
+  for (let i = 0; i < CONFIRMAR.length; i++) {
+    const o = CONFIRMAR[i];
+    const bx = x0 + i * (anchoBoton + hueco);
+    const elegido = i === cursor;
+    const color = o.peligro ? COLOR_PELIGRO : t.titulo;
+
+    ctx.beginPath();
+    ctx.roundRect(bx, yBoton, anchoBoton, altoBoton, 5);
+    if (elegido) {
+      // Sumando luz sobre la piedra del panel, como el recuadro del menú del
+      // título: un relleno opaco sobre un panel oscuro se lee como un parche.
+      ctx.fillStyle = 'rgba(255,255,255,.10)';
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = color;
+    } else {
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(255,255,255,.14)';
+    }
+    ctx.stroke();
+
+    ctx.font = `600 12px ${FUENTE}`;
+    ctx.fillStyle = elegido ? color : t.apagado;
+    ctx.fillText(o.texto, bx + anchoBoton / 2, yBoton + altoBoton / 2 + 0.5);
+  }
+
   ctx.restore();
 }
