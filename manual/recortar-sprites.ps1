@@ -45,6 +45,29 @@ foreach ($id in $BESTIAS) {
 }
 
 
+# --- Mascotas: frame 0 de cada hoja, igual que el bestiario -------------
+#
+# El id del atlas no es el del fichero: la hoja es assets\mascotas\heladio.png
+# y en el atlas figura como `mascotaHeladio`. De ahi el par.
+$MASCOTAS = @(
+    @{ archivo='heladio';   atlas='mascotaHeladio'   }
+    @{ archivo='escipion';  atlas='mascotaEscipion'  }
+    @{ archivo='plinio';    atlas='mascotaPlinio'    }
+    @{ archivo='neron';     atlas='mascotaNeron'     }
+    @{ archivo='karim';     atlas='mascotaKarim'     }
+    @{ archivo='cleopatra'; atlas='mascotaCleopatra' }
+    @{ archivo='oreo';      atlas='mascotaOreo'      }
+    @{ archivo='pollito';   atlas='mascotaPollito'   }
+)
+
+foreach ($m in $MASCOTAS) {
+    $meta = $atlas.entidades.($m.atlas)
+    if ($null -eq $meta) { Write-Output "AVISO: $($m.atlas) no esta en el atlas"; continue }
+    $origen = Join-Path $raiz "assets\mascotas\$($m.archivo).png"
+    if (-not (Test-Path $origen)) { Write-Output "AVISO: no esta $origen"; continue }
+    Recortar $origen 0 0 ([int]$meta.w) ([int]$meta.h) "mascota-$($m.archivo).png"
+}
+
 # --- Iconos de armas: 32x32, indice*32 en X -----------------------------
 Recortar (Join-Path $raiz "assets\iconos\armas.png") (2*32)  0 32 32 "icono-pistola.png"
 Recortar (Join-Path $raiz "assets\iconos\armas.png") (16*32) 0 32 32 "icono-scutum.png"
