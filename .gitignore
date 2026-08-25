@@ -18,3 +18,8 @@ herramientas/candidatos/
 # ejecutable se genera cuando hace falta y se reparte como release.
 dist/
 herramientas/lanzador/cache/
+
+# butler, la herramienta de subida de itch.io (ver herramientas/publicar-itch.ps1).
+# Son 30 MB de binario que no son nuestros y que el script se baja solo si no
+# esta: mismo criterio que la cache de NW.js de aqui arriba.
+herramientas/butler/
