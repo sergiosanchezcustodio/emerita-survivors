@@ -325,6 +325,18 @@ export function crearProbador(gancho) {
     huellas.push(firmaDe(gancho.estado()));
     const recuentos = [recuento(gancho.estado())];
 
+    // LOS INTERRUPTORES QUE PARAN EL MUNDO, que no entran en la firma.
+    //
+    // La firma cubre los dieciséis componentes de la simulación, y por eso no
+    // puede explicar el caso peor: que una pasada no simule NADA. Subir de
+    // nivel, abrir un cofre, la pausa o el propio fin de la partida detienen el
+    // mundo entero desde fuera, así que dos pasadas pueden diferir en el número
+    // de enemigos sin que ninguno de los dieciséis haya hecho nada raro —
+    // simplemente uno estaba corriendo y el otro estaba parado.
+    //
+    // Se anotan aparte, junto a los recuentos, y solo se enseñan al divergir.
+    const mandos = [gancho.mando ? gancho.mando() : null];
+
     // FOTOS DETALLADAS, GUARDADAS SOBRE LA MARCHA.
     //
     // Hasta ahora el detalle se sacaba volviendo a correr la partida, y eso no
@@ -352,6 +364,7 @@ export function crearProbador(gancho) {
         if ((paso + 1) % cada === 0) {
           huellas.push(firmaDe(gancho.estado()));
           recuentos.push(recuento(gancho.estado()));
+          if (gancho.mando) mandos.push(gancho.mando());
           if (conFoto) fotos.push(fotoDe(gancho.estado()));
         }
       }
@@ -360,6 +373,7 @@ export function crearProbador(gancho) {
     }
     huellas.simulados = simulados;
     huellas.recuentos = recuentos;
+    huellas.mandos = mandos;
     huellas.fotos = fotos;
     return huellas;
   }
@@ -565,6 +579,16 @@ export function crearProbador(gancho) {
         console.error(`DIVERGEN ${donde}.`);
         console.error('  partes que difieren: ' + culpables.join(', '));
         console.table({ 'pasada 1': a.recuentos[i], 'pasada 2': b.recuentos[i] });
+        // Y los interruptores de fuera de la firma: si una pasada tiene el
+        // mundo parado, se ve aquí y no hay que buscar más lejos.
+        if (a.mandos[i] && b.mandos[i]) {
+          const filas = {};
+          for (const campo in a.mandos[i]) {
+            const x = a.mandos[i][campo], y = b.mandos[i][campo];
+            filas[campo] = { 'pasada 1': x, 'pasada 2': y, '': x === y ? '' : '<-- DIFIERE' };
+          }
+          console.table(filas);
+        }
         // El detalle, si se guardó: qué campo de qué entidad, sin volver a
         // correr la partida.
         if (a.fotos && b.fotos) {

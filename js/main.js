@@ -2293,6 +2293,22 @@ async function arrancar() {
       // ¿Sigue simulándose el mundo? Falso en cuanto la partida termina, y
       // entonces `actualizar` sale sin tocar nada.
       enPartida: () => pantalla === PANTALLA_JUEGO && !finalMostrado,
+      // Lo que PARA EL MUNDO sin salir en la firma. Ver `correr` en
+      // core/determinismo.js: una pasada con el menú de nivel abierto no
+      // simula nada, y sin esto eso se lee como "difieren los enemigos".
+      mando: () => ({
+        pantalla,
+        pausado: pausado ? 1 : 0,
+        subiendoNivel: Progresion.abierto ? 1 : 0,
+        cofre: Progresion.cofreAbierto ? 1 : 0,
+        final: finalMostrado || '',
+        directorActivo: Director.activo ? 1 : 0,
+        directorT: Director.t,
+        tope: Director.tope,
+        jugadores: jugadores.length,
+        enemigos: enemigos.pool.activos,
+        mapaPintado: Recursos.mapaPintado ? 1 : 0
+      }),
       estado: () => ({
         rng, director: Director, camara, progresion: Progresion, jugadores,
         enemigos, proyectiles, zonas, disparos, recogibles, cofres,
