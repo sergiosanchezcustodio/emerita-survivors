@@ -30,9 +30,11 @@ import { Recursos } from '../core/recursos.js';
 // el atajo no es algo que haya que saber para seguir, es un adelanto para quien
 // ya se la sabe. Y ese lo encuentra a la primera pulsación.
 //
-// El splash además lleva escrito "PULSA CUALQUIER TECLA PARA CONTINUAR" en la
-// propia ilustración, así que ahí ya está dicho, y por eso se acepta CUALQUIER
-// tecla y no una lista de tres.
+// Se acepta CUALQUIER tecla, y no una lista de tres, porque no hay nada escrito
+// que diga cuál. Una versión anterior del splash traía pintado un "PULSA
+// CUALQUIER TECLA PARA CONTINUAR" y ya no lo trae; da igual, porque el criterio
+// es el mismo por los dos lados: si lo dice, hay que cumplirlo al pie de la
+// letra, y si no lo dice, con más razón vale cualquiera.
 //
 // EN DOS LIENZOS, como el resto de la interfaz (ver ui/capa.js): las
 // ilustraciones van al lienzo del MUNDO y TODO el texto a la capa de interfaz,
