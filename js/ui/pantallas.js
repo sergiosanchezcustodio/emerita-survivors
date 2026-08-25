@@ -75,53 +75,53 @@ const ARCO_Y = 264;
 const ARCO_ALTO = 482;
 
 // LAS CUATRO OPCIONES DEL MENÚ, medidas sobre la ilustración (Main_menu.jpg,
-// 1264x842). Vienen pintadas en su marco —START, TIENDA, CONFIGURACIÓN y
+// 1376x768). Vienen pintadas en su marco —START, TIENDA, CONFIGURACIÓN y
 // SALIR—, así que aquí NO se vuelven a escribir: lo único que falta es decir
 // cuál está señalada, y eso se hace ILUMINANDO SU RECUADRO. Es el criterio de
 // toda esta pantalla: no competir con el arte.
 //
-// LAS MEDIDAS NO VAN A OJO, y con este dibujo hubo que afinar cómo se toman.
-// La versión anterior del menú tenía una placa de fondo OSCURO y bastaba con
-// buscar píxeles claros; esta trae un marco CALADO, con el escenario visible
-// por detrás, así que el empedrado se colaba en el recuento. Se calibró
-// midiendo la luminancia máxima por fila en la banda del menú: los renglones de
-// texto dan 120-141 y los huecos entre ellos 35-58, sin solape ninguno, así que
-// el corte en 90 los separa limpiamente.
+// LAS MEDIDAS NO VAN A OJO. Salen de barrer la imagen contando píxeles claros
+// por filas, con dos precauciones que costó descubrir:
+//
+//   - HAY QUE MEDIR DENTRO DE LOS RIELES DEL MARCO. Los rieles son más claros
+//     que el fondo, así que una ventana de medida que los pise los cuenta como
+//     texto y todos los renglones salen del mismo ancho: el del marco.
+//   - Y HAY QUE MEDIRLOS EN UN HUECO SIN TEXTO. Buscarlos a la altura de un
+//     renglón devuelve la palabra, no el riel.
+//
+// Con eso, los rieles caen en x=521 y x=856, y el interior va de 530 a 847.
 //
 // Lo medido, en píxeles de la imagen:
 //
-//     START            y 641..664   x 574..692   (119 de ancho)
-//     TIENDA           y 680..702   x 569..699   (131)
-//     CONFIGURACIÓN    y 718..740   x 498..767   (270)
-//     SALIR            y 756..778   x 583..683   (101)
+//     START            y 586..607   x 635..743   (109 de ancho)
+//     TIENDA           y 622..642   x 630..749   (120)
+//     CONFIGURACIÓN    y 657..677   x 564..812   (249)
+//     SALIR            y 692..712   x 643..735   ( 93)
 //
-// Las cuatro miden lo mismo de alto y van separadas 38-39.
+// Las cuatro miden lo mismo de alto y van separadas 35-36.
 //
-// EL CENTRO ES EL DEL TEXTO, NO EL DEL MARCO. Los rieles del marco están en
-// x=462 y x=814 —salen como dos picos de luz al perfilar la banda por columnas—
-// así que su hueco interior va de 472 a 808 y su centro cae en 640. Pero las
-// cuatro palabras están centradas en 633, siete píxeles a la izquierda. Poner
-// el recuadro en el centro del marco fue justo el fallo de la primera versión
-// de esta pantalla, y se notaba: sobraba margen por un lado.
-const OPCION_X = 633;
+// Y esta vez el texto SÍ está centrado en el marco: las palabras caen en 689 y
+// el hueco entre rieles tiene su centro en 688. En la ilustración anterior no
+// era así —las palabras iban siete píxeles a la izquierda del centro del marco—
+// y por eso este número se sigue tomando del texto y no del marco.
+const OPCION_X = 689;
 
 // Un solo ancho para las cuatro, y lo manda la más larga: CONFIGURACIÓN mide
-// 270. Con 296 quedan trece píxeles de aire a cada lado de esa palabra, y el
-// recuadro sigue holgado dentro del hueco del marco (472..808).
+// 249. Con 276 quedan trece píxeles de aire a cada lado de esa palabra, y el
+// recuadro entra holgado en el hueco del marco (530..847).
 //
-// Que a SALIR —101 de ancho— le sobre sitio es deliberado: un recuadro que
+// Que a SALIR —93 de ancho— le sobre sitio es deliberado: un recuadro que
 // cambia de tamaño según la palabra no se lee como un cursor que se mueve, sino
 // como cuatro recuadros distintos.
-const OPCION_ANCHO = 296;
+const OPCION_ANCHO = 276;
 
-// Alto: 23 de texto más 10 de aire. Con 38 de separación entre renglones, deja
-// cinco píxeles de hueco entre un recuadro y el siguiente — suficiente para que
-// se vean como cajas separadas y no como una columna continua.
+// Alto: 21 de texto más 10 de aire. Con 35 de separación entre renglones, deja
+// cuatro píxeles de hueco entre un recuadro y el siguiente.
 const OPCIONES_TITULO = [
-  { y: 652, alto: 33 },     // START
-  { y: 691, alto: 33 },     // TIENDA
-  { y: 729, alto: 33 },     // CONFIGURACIÓN
-  { y: 767, alto: 33 }      // SALIR
+  { y: 596, alto: 31 },     // START
+  { y: 632, alto: 31 },     // TIENDA
+  { y: 667, alto: 31 },     // CONFIGURACIÓN
+  { y: 702, alto: 31 }      // SALIR
 ];
 
 const Imagenes = { titulo: null, seleccion: null };

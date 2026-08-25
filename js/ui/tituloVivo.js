@@ -33,29 +33,41 @@ import { crearRng } from '../core/rng.js';
 // después cada fotograma es una copia 1:1, que es lo que el navegador hace
 // rápido. Eso sigue mereciendo la pena aunque ahora encima solo vaya el fuego.
 //
-// Y SE ENCAJA ENTERA, SIN RECORTAR. La ilustración es 3:2 y la pantalla 16:9,
-// así que sobran 130 filas de imagen. La versión anterior las quitaba —llenaba
-// el ancho y recortaba por arriba y por abajo—, y con el dibujo nuevo eso ya no
-// vale: las cuatro opciones están pintadas abajo, y recortando se perdía SALIR
-// entera y media CONFIGURACIÓN.
+// CÓMO SE ENCAJA, que depende de lo que mida la ilustración.
 //
-// Así que se encaja a lo alto, centrada, y las dos franjas de 150 píxeles que
-// quedan a los lados se rellenan con la propia imagen estirada y apagada por
-// detrás. Es lo mismo que hace la placa de la historia en ui/intro.js: ni se
-// deforma el dibujo ni salen bandas negras.
+// La de ahora es 1376x768 —proporción 1,792 contra el 1,778 de la pantalla— así
+// que LLENA de sobra: cubriendo el alto exacto sobran quince píxeles de ancho,
+// siete y medio recortados a cada lado, y ahí no hay más que escenario. Eso es
+// lo que hace `cubrir`, y es lo ideal: sin deformar y sin bandas.
+//
+// Pero eso no siempre fue verdad. Una ilustración anterior era 3:2, y cubrir
+// con ella se comía 130 filas: las cuatro opciones van pintadas abajo, y el
+// recorte dejaba SALIR fuera de la pantalla y CONFIGURACIÓN partida. Ese caso
+// se resuelve al revés, encajando la imagen ENTERA a lo alto y rellenando las
+// franjas de los lados con la propia imagen apagada por detrás.
+//
+// De ahí que estén los dos caminos y un umbral que elige. No es generalidad
+// especulativa: ya se rompió una vez, y el sintoma —una opcion del menu que no
+// se ve— no aparece hasta que alguien baja hasta ella.
 
 // Píxeles del lienzo del mundo por unidad de interfaz.
 const K = ANCHO_FISICO / ANCHO_UI;
 
+// Cuánto puede desviarse la proporción de la ilustración de la de la pantalla
+// antes de dejar de recortarla. Un 5% sobre 16:9 admite desde 1,69 hasta 1,87,
+// que cubre cualquier "casi 16:9" razonable y deja fuera un 3:2 (1,50), que es
+// justo el caso que hay que tratar de otra manera.
+const TOLERANCIA_ENCAJE = 0.05;
+
 // CENTRO DE LA LLAMA DE CADA ANTORCHA, en píxeles de la ilustración original
-// (1264x842), como el resto de medidas de pantallas.js.
+// (1376x768), como el resto de medidas de pantallas.js.
 //
 // No van a ojo: salen de barrer la imagen buscando naranja muy claro (r>215,
 // b<110) por debajo del logo y agrupar por celdas de 50 píxeles. Los dos grupos
 // salieron limpios.
 const ANTORCHAS = [
-  { x: 278, y: 604 },
-  { x: 939, y: 607 }
+  { x: 358, y: 550 },
+  { x: 970, y: 554 }
 ];
 
 // Son ANTORCHAS, no los pebeteros de la ilustración anterior: la llama es
@@ -99,18 +111,28 @@ export const TituloVivo = {
     c.imageSmoothingEnabled = true;
     c.imageSmoothingQuality = 'high';
 
-    // El telón: la misma imagen a todo lo ancho y apagada, solo para que los
-    // lados no queden vacíos.
-    c.drawImage(img, 0, 0, W, H);
-    c.fillStyle = 'rgba(5,5,12,0.72)';
-    c.fillRect(0, 0, W, H);
+    const suya = img.width / img.height;
+    const pantalla = W / H;
 
-    // Y encima la ilustración entera, encajada a lo alto y centrada.
-    const esc = H / img.height;
-    const ancho = img.width * esc;
-    const ox = (W - ancho) / 2;
-    const oy = 0;
-    c.drawImage(img, ox, oy, ancho, H);
+    let esc, ox, oy;
+    if (Math.abs(suya - pantalla) / pantalla <= TOLERANCIA_ENCAJE) {
+      // CUBRIR: llena la pantalla y lo que sobra se recorta. Con la ilustración
+      // de ahora eso son siete píxeles y medio por lado, de puro escenario.
+      esc = Math.max(W / img.width, H / img.height);
+      ox = (W - img.width * esc) / 2;
+      oy = (H - img.height * esc) / 2;
+      c.drawImage(img, ox, oy, img.width * esc, img.height * esc);
+    } else {
+      // ENCAJAR ENTERA, con telón: la imagen no se parece a la pantalla y
+      // recortarla se llevaría por delante parte del dibujo.
+      c.drawImage(img, 0, 0, W, H);
+      c.fillStyle = 'rgba(5,5,12,0.72)';
+      c.fillRect(0, 0, W, H);
+      esc = Math.min(W / img.width, H / img.height);
+      ox = (W - img.width * esc) / 2;
+      oy = (H - img.height * esc) / 2;
+      c.drawImage(img, ox, oy, img.width * esc, img.height * esc);
+    }
 
     estado.lienzo = lienzo;
     estado.esc = esc;
