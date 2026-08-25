@@ -146,7 +146,27 @@ if ($Capturas) {
     Write-Host "Normalizando capturas a 960 de ancho"
     Write-Host ""
     $antes = 0; $despues = 0
-    foreach ($f in (Get-ChildItem (Join-Path $dir '*.png'))) {
+
+    # PNG **Y JPG**. Solo mirar los .png era un agujero: la propia herramienta
+    # convierte a JPEG las capturas que no comprimen bien, asi que al reponer
+    # una de esas -Sergio dejo main_menu.jpg a 2876x1620- el fichero nuevo se
+    # ignoraba en silencio y se versionaba a tamano completo.
+    #
+    # Y se salta lo que YA esta a 960 o menos. Hace falta por lo mismo: ahora
+    # que entran los .jpg, sin esta guarda cada pasada reencodearia todas las
+    # capturas del repositorio y les quitaria un poco de calidad cada vez, sin
+    # que nadie lo pidiera.
+    $fuentes = @(Get-ChildItem (Join-Path $dir '*.png')) + @(Get-ChildItem (Join-Path $dir '*.jpg'))
+    foreach ($f in $fuentes) {
+        $medir = [System.Drawing.Image]::FromFile($f.FullName)
+        $anchoOrig = $medir.Width
+        $medir.Dispose()
+        if ($anchoOrig -le 960) {
+            Write-Host ("  {0,-34} ya esta a {1} de ancho, se deja" -f $f.Name, $anchoOrig)
+            $antes += $f.Length; $despues += $f.Length
+            continue
+        }
+
         $antes += $f.Length
         $orig = [System.Drawing.Bitmap]::FromFile($f.FullName)
         $w = 960
@@ -161,25 +181,29 @@ if ($Capturas) {
         # PNG si comprime bien, JPEG si no. Las pantallas de menu llevan detras
         # la ilustracion del titulo -miles de colores- y ahi el PNG se dispara;
         # una pantalla de juego sobre el suelo de arena comprime mucho mejor.
+        # Se escribe SIEMPRE a un temporal y se mueve encima al final. Con una
+        # entrada .jpg, el destino puede ser el mismo fichero que se acaba de
+        # leer, y guardar sobre el con GDI+ todavia abierto lo corrompe.
         $tmp = Join-Path $dir ($f.BaseName + '.tmp.png')
         $bmp.Save($tmp, [System.Drawing.Imaging.ImageFormat]::Png)
-        $final = $f.FullName
         if ((Get-Item $tmp).Length -gt 400KB) {
             Remove-Item $tmp -Force
+            $tmp = Join-Path $dir ($f.BaseName + '.tmp.jpg')
             $final = Join-Path $dir ($f.BaseName + '.jpg')
             $codec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() |
                      Where-Object { $_.MimeType -eq 'image/jpeg' }
             $par = New-Object System.Drawing.Imaging.EncoderParameters(1)
             $par.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter(
                 [System.Drawing.Imaging.Encoder]::Quality, [long]90)
-            $bmp.Save($final, $codec, $par)
+            $bmp.Save($tmp, $codec, $par)
             $par.Dispose(); $bmp.Dispose()
-            Remove-Item $f.FullName -Force
         } else {
             $bmp.Dispose()
-            Remove-Item $f.FullName -Force
-            Move-Item $tmp $final
+            $final = Join-Path $dir ($f.BaseName + '.png')
         }
+        Remove-Item $f.FullName -Force
+        if (Test-Path $final) { Remove-Item $final -Force }
+        Move-Item $tmp $final
         $kb = [int]((Get-Item $final).Length / 1024)
         $despues += (Get-Item $final).Length
         Write-Host ("  {0,-34} {1}x{2}  {3} KB" -f (Split-Path $final -Leaf), $w, $h, $kb)
