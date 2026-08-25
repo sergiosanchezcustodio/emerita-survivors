@@ -16,11 +16,24 @@ tres armas cada vez, y acaba con la Loba Capitolina.
 [![Cooperativo](https://img.shields.io/badge/cooperativo-hasta%204-e2c27a?style=flat-square)](#)
 [![Licencia: GPL v3](https://img.shields.io/badge/licencia-GPLv3-blue?style=flat-square)](LICENSE)
 
+[![Jugar en el navegador](https://img.shields.io/badge/▶%20jugar-en%20el%20navegador-2ea043?style=for-the-badge)](https://sergiosanchezcustodio.github.io/emerita-survivors/)
+[![itch.io](https://img.shields.io/badge/tambi%C3%A9n%20en-itch.io-fa5c5c?style=for-the-badge)](https://sergiosanchezcustodio.itch.io/emerita-survivors)
+
 </div>
 
 ---
 
 ## Jugar
+
+Sin instalar nada, en el navegador:
+
+- **[sergiosanchezcustodio.github.io/emerita-survivors](https://sergiosanchezcustodio.github.io/emerita-survivors/)** — servido desde este mismo repositorio
+- **[sergiosanchezcustodio.itch.io/emerita-survivors](https://sergiosanchezcustodio.itch.io/emerita-survivors)**
+
+Se recomienda mando, pero con teclado se juega igual.
+
+<details>
+<summary><b>En local, para desarrollar</b></summary>
 
 ```bash
 python -m http.server 8000
@@ -29,6 +42,12 @@ python -m http.server 8000
 Abrir `http://localhost:8000`. **No hay paso de build**: es JavaScript servido tal
 cual. Sin `npm install`, sin bundler, sin transpilar. Se edita un fichero, se
 recarga la pestaña y ya está.
+
+Hace falta un servidor —no vale abrir `index.html` a doble clic— porque los
+módulos ES6 no cargan por `file://`. `herramientas\jugar.ps1` levanta el
+servidor y abre el juego de una vez.
+
+</details>
 
 <details>
 <summary><b>Aplicación de escritorio para Windows</b></summary>
@@ -52,6 +71,25 @@ es el script; el ejecutable se genera cuando hace falta y se reparte como
 release. Con `-Zip` sale además el comprimido listo para enviar (200 MB).
 
 </details>
+
+---
+
+## Al arrancar
+
+Dos pantallas antes del menú. La primera es la ficha del proyecto —con qué está
+hecho, la licencia y el aviso de que se ha usado IA—, y la segunda cuenta de
+dónde sale la horda, con el texto subiendo por el hueco de una placa de piedra
+que lleva la bandera de Extremadura envolviéndola.
+
+Las dos se pasan sin esperar: `Start`, `Esc` o `Enter` van a la siguiente, y
+**manteniendo `A`** se salta la intro entera de una vez. Los dos atajos salen
+escritos en pantalla — un atajo que no se ve no existe.
+
+El menú principal que viene después está **quieto a propósito**: lo único que se
+mueve son las dos antorchas. Llegó a tener estrellas titilando, nubes, un
+relámpago y cuatro cosas más, y se quitaron todas. Una pantalla de menú no es una
+postal animada: es donde se elige una opción, y siete cosas moviéndose le
+disputan la atención a lo único que importa ahí, que es qué está señalado.
 
 ---
 
@@ -291,6 +329,7 @@ Todas offline, en PowerShell y sin dependencias. Ninguna forma parte del juego.
 | `montar-galeria.ps1` | Compone las láminas de este README, y con `-Capturas` normaliza las capturas de pantalla |
 | `ver-assets.ps1` | Describe imágenes sin abrirlas |
 | `empaquetar.ps1` | Genera la aplicación de escritorio |
+| `empaquetar-web.ps1` | Genera el zip para itch.io (o cualquier host estático) |
 
 ---
 
@@ -302,7 +341,12 @@ limitado, los tres jefes y presentación completa.
 
 Y por encima del plan, lo pedido después: cooperativo local con reanimación,
 mascotas con niveles, tienda de tres secciones, ruleta en los cofres, resumen
-final por jugador, música compuesta y aplicación de escritorio.
+final por jugador, música compuesta, aplicación de escritorio y las dos
+pantallas de presentación del arranque.
+
+Cómo se publica una versión —Pages va solo, itch.io va a mano, y el sello del
+atlas es lo que evita que el navegador sirva imágenes viejas— está en
+**[docs/publicar.md](docs/publicar.md)**.
 
 **Lo que viene**: recorrer la región — Cáceres, Trujillo, Monfragüe, Guadalupe,
 el puente de Alcántara — añadiendo un nivel a la vez. El contrato para escribir
