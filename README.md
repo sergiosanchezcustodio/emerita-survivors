@@ -30,7 +30,9 @@ Sin instalar nada, en el navegador:
 - **[sergiosanchezcustodio.github.io/emerita-survivors](https://sergiosanchezcustodio.github.io/emerita-survivors/)** — servido desde este mismo repositorio
 - **[sergiosanchezcustodio.itch.io/emerita-survivors](https://sergiosanchezcustodio.itch.io/emerita-survivors)**
 
-Se recomienda mando, pero con teclado se juega igual.
+Se recomienda mando, pero con teclado se juega igual. Y hay
+**[manual de jugador](https://sergiosanchezcustodio.github.io/emerita-survivors/manual/manual-jugador.html)**:
+controles, los cuatro personajes, el arsenal, el bestiario y los tres jefes.
 
 <details>
 <summary><b>En local, para desarrollar</b></summary>

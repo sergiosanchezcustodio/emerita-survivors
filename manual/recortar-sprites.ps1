@@ -1,6 +1,10 @@
 Add-Type -AssemblyName System.Drawing
 
-$raiz = "C:\Claude\emerita-survivors"
+# La raiz SALE DE DONDE ESTA EL SCRIPT. Estaba escrita a mano y apuntaba a
+# C:\Claude\emerita-survivors, que no es donde vive el repositorio: la
+# herramienta llevaba rota desde que la carpeta cambio de sitio, y como nadie la
+# ejecutaba, no se noto hasta que hubo que rehacer un sprite.
+$raiz = Split-Path -Parent $PSScriptRoot
 $salida = Join-Path $raiz "manual\sprites"
 if (-not (Test-Path $salida)) { New-Item -ItemType Directory -Path $salida | Out-Null }
 
@@ -21,18 +25,25 @@ function Recortar($origen, $x, $y, $w, $h, $destino) {
 }
 
 # --- Bestiario: frame 0 de cada hoja -----------------------------------
-Recortar (Join-Path $raiz "assets\enemigos\serpiente.png")  0 0 54  48  "serpiente.png"
-Recortar (Join-Path $raiz "assets\enemigos\gargola.png")    0 0 68  74  "gargola.png"
-Recortar (Join-Path $raiz "assets\enemigos\arpia.png")      0 0 93  76  "arpia.png"
-Recortar (Join-Path $raiz "assets\enemigos\medusa.png")     0 0 78  96  "medusa.png"
-Recortar (Join-Path $raiz "assets\enemigos\legionario.png") 0 0 105 112 "legionario.png"
-Recortar (Join-Path $raiz "assets\enemigos\gladiador.png")  0 0 103 108 "gladiador.png"
-Recortar (Join-Path $raiz "assets\enemigos\minotauro.png")  0 0 113 120 "minotauro.png"
-Recortar (Join-Path $raiz "assets\enemigos\ciclope.png")    0 0 159 140 "ciclope.png"
-Recortar (Join-Path $raiz "assets\enemigos\manticora.png")  0 0 204 172 "manticora.png"
-Recortar (Join-Path $raiz "assets\enemigos\cerbero.png")    0 0 310 280 "cerbero.png"
-Recortar (Join-Path $raiz "assets\enemigos\hidra.png")      0 0 365 320 "hidra.png"
-Recortar (Join-Path $raiz "assets\enemigos\loba.png")       0 0 320 360 "loba.png"
+#
+# LOS TAMANOS SALEN DEL ATLAS, no de una lista escrita a mano. Estaban a mano y
+# se quedaron atras en cuanto cambio un sprite: la gargola figuraba como 68x74
+# cuando su hoja pasa a 86x72, asi que recortarla por esos numeros le cortaba un
+# trozo y le dejaba un pedazo del fotograma siguiente.
+#
+# El atlas ya dice el ancho y el alto de cada fotograma, que es exactamente lo
+# que hay que recortar. Cambiando el arte, esto se ajusta solo.
+$atlas = Get-Content (Join-Path $raiz 'assets\atlas.json') -Raw | ConvertFrom-Json
+
+$BESTIAS = @('serpiente','gargola','arpia','medusa','legionario','gladiador',
+             'minotauro','ciclope','manticora','gemelo','cerbero','hidra','loba')
+
+foreach ($id in $BESTIAS) {
+    $meta = $atlas.entidades.$id
+    if ($null -eq $meta) { Write-Output "AVISO: $id no esta en el atlas"; continue }
+    Recortar (Join-Path $raiz "assets\enemigos\$id.png") 0 0 ([int]$meta.w) ([int]$meta.h) "$id.png"
+}
+
 
 # --- Iconos de armas: 32x32, indice*32 en X -----------------------------
 Recortar (Join-Path $raiz "assets\iconos\armas.png") (2*32)  0 32 32 "icono-pistola.png"
