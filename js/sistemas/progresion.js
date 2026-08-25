@@ -207,6 +207,13 @@ export const Progresion = {
     this.cofre = null;
     this.nMejoras = 0;
     this.animando = 0;
+    // El cursor de la carta señalada. NO era un fallo —`atender` lo pone a cero
+    // cada vez que abre el menú, así que siempre se escribe antes de leerse—
+    // pero se quedaba con el valor de la partida anterior, y `iniciar` tiene que
+    // dejar esto en un estado conocido. Lo destapó la prueba de determinismo,
+    // que compara el estado entero: mientras haya campos que arrastran valores
+    // viejos, no se puede distinguir el residuo inofensivo del que sí importa.
+    this.seleccion = 0;
   },
 
   get abierto() { return this.actual !== null; },

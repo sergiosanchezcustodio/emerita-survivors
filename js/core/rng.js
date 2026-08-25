@@ -4,12 +4,28 @@
 // mulberry32: rápido, sin estado externo, distribución más que suficiente.
 export function crearRng(semilla) {
   let a = semilla >>> 0;
-  return function siguiente() {
+  function siguiente() {
     a = (a + 0x6D2B79F5) | 0;
     let t = Math.imul(a ^ (a >>> 15), 1 | a);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+  }
+
+  // VOLVER A SEMBRAR, y leer por dónde va.
+  //
+  // Hacen falta las dos para el cooperativo online: en lockstep, dos máquinas
+  // tienen que EMPEZAR la partida desde el mismo estado de azar, y hasta ahora
+  // no había forma de ponerlo. El generador se creaba una vez al cargar el
+  // módulo y `empezarPartida` no lo tocaba, así que dos partidas seguidas en la
+  // misma pestaña arrancaban desde donde se hubiera quedado la anterior.
+  //
+  // Van COLGADAS de la función y no devueltas aparte a propósito: medio motor
+  // guarda ya una referencia a `siguiente` —los pools, los sistemas, el
+  // director— y cambiar la forma de lo que devuelve `crearRng` obligaría a
+  // tocarlos todos.
+  siguiente.sembrar = function (s) { a = s >>> 0; };
+  siguiente.estado = function () { return a >>> 0; };
+  return siguiente;
 }
 
 // Hash entero de dos coordenadas, SIN estado. Sirve para decidir la variante de

@@ -103,6 +103,15 @@ function crearProyectil() {
 // enemigos cambian de posición al reciclar.
 let contadorSello = 1;
 
+// SE REINICIA CON EL POOL, al empezar cada partida.
+//
+// Es un contador de módulo que solo subía, así que dos partidas seguidas
+// repartían sellos en rangos distintos. Para una sola partida da igual —lo que
+// se compara son igualdades dentro de la misma tanda— pero deja el estado
+// dependiendo de cuántas partidas lleves jugadas, y eso es justo lo que hace
+// que "misma semilla, misma partida" deje de ser cierto.
+function reiniciarSellos() { contadorSello = 1; }
+
 // Un sello nuevo. Lo necesita el rebote entre enemigos (sistemas/colisiones.js):
 // un proyectil que cambia de rumbo hacia otro blanco es un golpe nuevo y tiene
 // que poder volver a tocar a quien ya tocó. Se exporta el CONTADOR y no se
@@ -239,7 +248,7 @@ export class Proyectiles {
   // perforación.
   liberarEn(i) { this.pool.liberarEn(i); }
 
-  vaciar() { this.pool.vaciar(); }
+  vaciar() { this.pool.vaciar(); reiniciarSellos(); }
 
   // Recicla lo que ha salido de cámara. Va aparte de mover() porque necesita la
   // cámara y mover() se llama antes de que la cámara se actualice.

@@ -161,6 +161,15 @@ const OCUPACION_MAXIMA = 0.75;
 
 let contadorSello = 1;
 
+// SE REINICIA CON EL POOL, al empezar cada partida.
+//
+// Es un contador de módulo que solo subía, así que dos partidas seguidas
+// repartían sellos en rangos distintos. Para una sola partida da igual —lo que
+// se compara son igualdades dentro de la misma tanda— pero deja el estado
+// dependiendo de cuántas partidas lleves jugadas, y eso es justo lo que hace
+// que "misma semilla, misma partida" deje de ser cierto.
+function reiniciarSellos() { contadorSello = 1; }
+
 export class Zonas {
   constructor(capacidad) {
     this.pool = new Pool(crearZona, capacidad);
@@ -365,7 +374,7 @@ export class Zonas {
     }
   }
 
-  vaciar() { this.pool.vaciar(); }
+  vaciar() { this.pool.vaciar(); reiniciarSellos(); }
 
   // EL DIBUJADO VA EN DOS CAPAS, Y NO ES UNA SUTILEZA DE ORDEN.
   //

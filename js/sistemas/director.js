@@ -304,6 +304,11 @@ export const Director = {
   rumboY: 0,
   _camX: 0,
   _camY: 0,
+  // ¿Hay ya una posición de cámara anterior con la que comparar? Ver
+  // `reiniciar`: el primer paso de una partida no tiene desplazamiento que
+  // medir, y darle uno inventado es lo que hacía que dos partidas con la misma
+  // semilla no salieran iguales.
+  _rumboListo: false,
   // Objetos del suelo (entidades/cofre.js). Lo enchufa main.js: el director
   // decide CUÁNDO cae un consumible, pero no sabe cómo se dibuja ni cómo se
   // recoge.
@@ -330,6 +335,25 @@ export const Director = {
     this.t = 0;
     this.rumboX = 0;
     this.rumboY = 0;
+    // EL RUMBO DE LA CÁMARA, A CERO. Se quedaba sin reiniciar, y eso rompía la
+    // promesa de "misma semilla, misma partida": `_camX`/`_camY` se LEEN antes
+    // de escribirse —el desplazamiento del primer paso se mide contra ellos— así
+    // que una segunda partida arrancaba comparando con dónde había acabado la
+    // anterior. El cono por el que entran los enemigos apuntaba a otro sitio y
+    // la primera oleada salía distinta.
+    //
+    // Lo cazó la prueba de determinismo (core/determinismo.js): misma semilla y
+    // mismas pulsaciones daban 12 enemigos en una pasada y 2 en la otra al
+    // primer segundo. En una partida suelta es invisible —nadie nota que la
+    // oleada entra veinte grados más a la izquierda— pero para el cooperativo
+    // online, donde dos máquinas tienen que simular lo mismo, es fatal.
+    this._camX = 0;
+    this._camY = 0;
+    this._rumboListo = false;
+    // Derivado de `t`, se recalcula solo en el primer paso. Se pone a cero
+    // igualmente para que el estado del director sea comparable desde el
+    // fotograma cero.
+    this.tope = 0;
     this.relojConsumible = CONSUMIBLE_CADA * 0.6;
     this.jefeInvocado = false;
     this.terminado = false;
@@ -390,10 +414,16 @@ export const Director = {
     // Rumbo: media móvil del desplazamiento de la cámara, normalizada. Se apaga
     // sola cuando el grupo se para, y entonces la aparición vuelve a ser
     // uniforme alrededor.
-    const vx = camara.x - this._camX;
-    const vy = camara.y - this._camY;
+    // El PRIMER paso no tiene desplazamiento que medir: solo apunta dónde está
+    // la cámara y deja el rumbo a cero. Antes se restaba contra un `_camX` que
+    // valía lo que hubiera quedado de la partida anterior, y salía un tirón
+    // inventado justo en el fotograma que decide por dónde entra la primera
+    // oleada.
+    const vx = this._rumboListo ? camara.x - this._camX : 0;
+    const vy = this._rumboListo ? camara.y - this._camY : 0;
     this._camX = camara.x;
     this._camY = camara.y;
+    this._rumboListo = true;
     const k = Math.min(1, dt * 2.5);
     this.rumboX += (vx / dt * 0.012 - this.rumboX) * k;
     this.rumboY += (vy / dt * 0.012 - this.rumboY) * k;

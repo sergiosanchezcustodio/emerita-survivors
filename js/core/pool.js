@@ -16,6 +16,13 @@ export class Pool {
     this.items = new Array(capacidad);
     for (let i = 0; i < capacidad; i++) this.items[i] = fabrica();
 
+    // Un objeto RECIÉN SALIDO DE FÁBRICA que no se reparte nunca: es el patrón
+    // con el que `vaciar` devuelve los demás a su estado inicial. Se guarda uno
+    // en vez de volver a llamar a la fábrica mil veces, que sería asignar
+    // memoria justo en lo que este pool existe para evitar.
+    this._plantilla = fabrica();
+    this._claves = Object.keys(this._plantilla);
+
     this.capacidad = capacidad;
     this.activos = 0;
 
@@ -45,7 +52,33 @@ export class Pool {
     }
   }
 
-  // Los objetos siguen ahí, solo dejan de estar activos. No se libera memoria:
-  // ese es justo el punto.
-  vaciar() { this.activos = 0; }
+  // Da de baja a todos Y LOS DEVUELVE A SU ESTADO DE FÁBRICA.
+  //
+  // Lo segundo no estaba, y era un fallo de determinismo de los que no se ven
+  // jugando. Los objetos no se liberan —ese es el punto del pool— pero tampoco
+  // se limpiaban, así que al empezar una partida nueva los cuerpos seguían ahí
+  // con los valores de la anterior, y encima en otro orden, porque dar de baja
+  // intercambia posiciones. Si al reaparecer una entidad no se reescribía
+  // alguno de sus cuarenta campos, nacía con un resto de la partida pasada.
+  //
+  // Lo midió la prueba de determinismo (core/determinismo.js), comparando la
+  // misma partida con los pools recién puestos a cero contra los pools sucios
+  // de haber jugado: al primer segundo, doce enemigos en un caso y dos en el
+  // otro. Con la misma semilla y las mismas pulsaciones.
+  //
+  // Y no es una rareza de laboratorio: es la situación del COOPERATIVO ONLINE,
+  // donde uno acaba de abrir el juego y otro lleva tres partidas. Sin esto, dos
+  // jugadores no pueden simular la misma partida por bien que les llegue la red.
+  //
+  // El coste es un recorrido por la capacidad UNA VEZ POR PARTIDA, no por
+  // fotograma: ni toca el presupuesto de los 60 fps ni asigna nada.
+  vaciar() {
+    this.activos = 0;
+    const plantilla = this._plantilla;
+    const claves = this._claves;
+    for (let i = 0; i < this.items.length; i++) {
+      const o = this.items[i];
+      for (let k = 0; k < claves.length; k++) o[claves[k]] = plantilla[claves[k]];
+    }
+  }
 }

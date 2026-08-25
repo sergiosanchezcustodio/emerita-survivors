@@ -8,6 +8,7 @@ import { Camara } from './core/camara.js';
 import { Recursos } from './core/recursos.js';
 import { MetaProgreso } from './core/metaProgreso.js';
 import { crearRng, hash2 } from './core/rng.js';
+import { crearProbador, huellaMotor } from './core/determinismo.js';
 import { Jugador } from './entidades/jugador.js';
 import { Enemigos, prepararVariantes } from './entidades/enemigo.js';
 import { Proyectiles } from './entidades/proyectil.js';
@@ -2258,7 +2259,45 @@ async function arrancar() {
     // hay guardado sin abrir el inspector de localStorage.
     meta: MetaProgreso, mascotas: Mascotas, audio: GestorAudio,
     get jugador() { return jugadores[0]; },   // atajo para el caso de uno solo
-    avanzar(n) { for (let i = 0; i < n; i++) actualizar(DT); return enemigos.activos; }
+    avanzar(n) { for (let i = 0; i < n; i++) actualizar(DT); return enemigos.activos; },
+
+    // PRUEBA DE DETERMINISMO (core/determinismo.js). Es lo que decide si el
+    // cooperativo online puede ir por lockstep — solo pulsaciones por la red —
+    // o hay que mandar el estado del mundo entero.
+    //
+    //   EMERITA.determinismo.repetir()   la misma partida dos veces, aquí
+    //   EMERITA.determinismo.firmar()    huella para comparar con otro navegador
+    // Qué funciones de Math difieren entre motores: EMERITA.huellaMotor()
+    huellaMotor,
+    determinismo: crearProbador({
+      dt: DT,
+      entrada,
+      paso: actualizar,
+      // Una partida recién empezada y con el azar en un punto conocido.
+      //
+      // SE SIEMBRA DOS VECES, antes y después de vaciar, y las dos hacen falta:
+      // `volverAlMenu` consume azar por su cuenta (Progresion.iniciar), así que
+      // sembrando solo después, ese consumo habría partido de un estado distinto
+      // en cada pasada y podría haber dejado rastro. Sembrando también antes,
+      // todo lo que ocurre desde el vaciado es idéntico.
+      reiniciar(semilla) {
+        rng.sembrar(semilla);
+        volverAlMenu();
+        rng.sembrar(semilla);
+        puestos.fill(null);
+        puestos[0] = { personaje: 0, listo: true };
+        mascotasElegidas.fill('');
+        empezarPartida();
+      },
+      // ¿Sigue simulándose el mundo? Falso en cuanto la partida termina, y
+      // entonces `actualizar` sale sin tocar nada.
+      enPartida: () => pantalla === PANTALLA_JUEGO && !finalMostrado,
+      estado: () => ({
+        rng, director: Director, camara, progresion: Progresion, jugadores,
+        enemigos, proyectiles, zonas, disparos, recogibles, cofres,
+        mascotas: Mascotas, jefes: Jefes, particulas: Particulas, vfx: VFX
+      })
+    })
   };
 
   // Recuperar el foco tras un alt-tab evita que el acumulador escupa un salto.
