@@ -42,6 +42,21 @@ entero de 480 × 270).
 El zip lleva el contenido **suelto en la raíz**, no dentro de una subcarpeta:
 itch.io busca `index.html` justo ahí y si no lo encuentra, el juego no arranca.
 
+Más cómodo que el zip: **`herramientas\publicar-itch.ps1`** hace la build y la
+sube con butler de una vez, y como sube la CARPETA en vez del zip, solo manda lo
+que ha cambiado — medido, una republicación con un asset tocado son 780 KB en
+vez de 27 MB.
+
+### La ficha, en cambio, es a mano
+
+**itch.io no tiene API de escritura para la ficha de un juego.** El título, la
+descripción, los tags, la portada y el tamaño del embed solo se tocan por el
+formulario web; y la credencial que butler deja guardada está limitada a subir
+builds, así que ni siquiera puede leer el perfil (`api key does not permit`).
+
+Lo que hay que pegar ahí está escrito y listo en **[itch/ficha.md](itch/ficha.md)**,
+con la portada ya recortada a los 630x500 que pide itch en `itch/portada.jpg`.
+
 Y lleva solo lo que el juego lee —`index.html`, `css/`, `js/`, `assets/`—;
 nada de `resources/`, `herramientas/`, `manual/` ni `docs/`, que son utillaje de
 desarrollo.
