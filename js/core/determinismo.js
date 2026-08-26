@@ -48,12 +48,31 @@ function mezclar(h, x) {
 // prueba.
 const CLAVES = new Map();
 
+// CAMPOS QUE ESCRIBE EL DIBUJADO, NO LA SIMULACIÓN.
+//
+// `xVista`/`yVista` son la posición interpolada entre el paso anterior y el
+// actual, y el factor de interpolación sale de cuánto tiempo sobra en el
+// acumulador del bucle cuando toca pintar. Eso depende de los fps y del reloj
+// de CADA máquina, así que dos partidas idénticas los tienen distintos
+// siempre. `ordenada` es la marca de "ya se ha entregado al ordenado por
+// profundidad", que es puro dibujo.
+//
+// Entran en la firma normal —comparar dos pasadas en la misma máquina— porque
+// ahí no se dibuja entre pasos y tienen que coincidir. NO entran en la que se
+// compara entre dos máquinas.
+const SOLO_DIBUJO = ['xVista', 'yVista', 'ordenada'];
+const CLAVES_SIN_VISTA = new Map();
+let sinVista = false;
+
 function clavesDe(obj) {
   const marca = Object.keys(obj).join(',');
-  let lista = CLAVES.get(marca);
+  const cache = sinVista ? CLAVES_SIN_VISTA : CLAVES;
+  let lista = cache.get(marca);
   if (!lista) {
-    lista = Object.keys(obj).filter((k) => typeof obj[k] === 'number').sort();
-    CLAVES.set(marca, lista);
+    lista = Object.keys(obj).filter((k) => typeof obj[k] === 'number');
+    if (sinVista) lista = lista.filter((k) => SOLO_DIBUJO.indexOf(k) < 0);
+    lista = lista.sort();
+    cache.set(marca, lista);
   }
   return lista;
 }
@@ -86,6 +105,7 @@ function mezclarEstado(h, obj) {
   if (!obj) return h;
   const claves = Object.keys(obj).sort();
   for (let i = 0; i < claves.length; i++) {
+    if (sinVista && SOLO_DIBUJO.indexOf(claves[i]) >= 0) continue;
     const v = obj[claves[i]];
     if (typeof v === 'number') h = mezclar(h, v);
     else if (typeof v === 'boolean') h = mezclar(h, v ? 1 : 0);
@@ -871,13 +891,31 @@ export function crearProbador(gancho) {
     // El búfer sigue dentro de la firma normal, que compara dos pasadas en la
     // MISMA máquina, donde sí tiene que coincidir.
     firmaMundo() {
-      const f = firmaDe(gancho.estado());
+      const p = this.partesMundo();
       let h = 0x811c9dc5;
+      for (let i = 0; i < p.length; i++) h = mezclar(h, p[i]);
+      return h >>> 0;
+    },
+
+    // Los componentes del mundo, uno a uno, sin el búfer ni los campos de
+    // dibujo. Es lo que viaja entre las dos máquinas: comparando componente a
+    // componente, una desincronización dice EN QUÉ se han separado —el azar, el
+    // director, un pool concreto— en vez de dejar dos cifras que no se parecen.
+    partesMundo() {
+      sinVista = true;
+      let f;
+      try { f = firmaDe(gancho.estado()); } finally { sinVista = false; }
+      const fuera = [];
       for (let i = 0; i < PARTES.length; i++) {
         if (PARTES[i] === 'lockstep') continue;
-        h = mezclar(h, f[i]);
+        fuera.push(f[i] >>> 0);
       }
-      return h >>> 0;
+      return fuera;
+    },
+
+    // Los nombres, en el mismo orden que `partesMundo`.
+    nombresMundo() {
+      return PARTES.filter((n) => n !== 'lockstep');
     },
 
     // Las nueve piezas por separado, con su nombre. Para inspeccionar sin
@@ -908,7 +946,8 @@ export function crearProbador(gancho) {
   // cambiarte el progreso guardado sesenta veces por minuto en plena partida, y
   // devolvértelo justo después: un ir y venir por nada, con todas las
   // papeletas de dejarlo mal a la primera excepción.
-  const SIN_META = ['firma', 'firmaMundo', 'partes', 'camposExtra'];
+  const SIN_META = ['firma', 'firmaMundo', 'partesMundo', 'nombresMundo',
+                    'partes', 'camposExtra'];
   if (gancho.fijarMeta) {
     for (const nombre in api) {
       const original = api[nombre];

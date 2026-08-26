@@ -1209,6 +1209,8 @@ function empezarPartidaEnRed(conexion, cfg) {
     // La huella del mundo, sin tocar el progreso guardado: ver SIN_META en
     // core/determinismo.js.
     huellaDe: () => window.EMERITA.determinismo.firmaMundo(),
+    partesDe: () => window.EMERITA.determinismo.partesMundo(),
+    nombres: window.EMERITA ? window.EMERITA.determinismo.nombresMundo() : [],
     alRomperse: () => { terminarPartidaEnRed(); },
     alElegir: eleccionRemota
   });

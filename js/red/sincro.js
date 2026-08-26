@@ -46,6 +46,8 @@ export const Sincro = {
 
   _con: null,
   _huellaDe: null,          // función que devuelve la huella del mundo
+  _partesDe: null,          // los componentes por separado, para señalar el culpable
+  _nombres: null,
   _alElegir: null,          // (indice) aplicar la carta que ha elegido el otro
   _mias: null,              // Map paso -> huella
   _alRomperse: null,
@@ -62,6 +64,8 @@ export const Sincro = {
     this.jugadorLocal = opciones.jugadorLocal | 0;
     this.jugadores = Math.max(2, opciones.jugadores | 0);
     this._huellaDe = opciones.huellaDe || null;
+    this._partesDe = opciones.partesDe || null;
+    this._nombres = opciones.nombres || [];
     this._alElegir = opciones.alElegir || null;
     this._alRomperse = opciones.alRomperse || null;
     this._mias = new Map();
@@ -128,31 +132,44 @@ export const Sincro = {
     this.desdeUltimaHuella = 0;
 
     const paso = Lockstep.paso;
-    const h = this._huellaDe() >>> 0;
-    this._mias.set(paso, h);
+    // SE MANDAN LOS COMPONENTES, NO UNA CIFRA. Son diecisiete números, unos 150
+    // bytes por segundo por el canal fiable — nada al lado de las pulsaciones.
+    // Y valen la diferencia entre "las partidas se han separado" y "se han
+    // separado EN LOS ENEMIGOS", que es lo único con lo que se puede empezar a
+    // buscar.
+    const partes = this._partesDe ? this._partesDe() : [this._huellaDe() >>> 0];
+    this._mias.set(paso, partes);
     // No se guarda historia infinita: si la huella del otro no ha llegado en
     // medio minuto, la partida ya tiene un problema mayor que este.
     if (this._mias.size > HUELLAS_GUARDADAS) {
       const primera = this._mias.keys().next().value;
       this._mias.delete(primera);
     }
-    this._con.enviarControl(`h ${paso} ${h}`);
+    this._con.enviarControl(`h ${paso} ${partes.join(',')}`);
   },
 
   _recibirControl(texto) {
     if (texto.startsWith('h ')) {
       const p = texto.split(' ');
       const paso = parseInt(p[1], 10);
-      const suya = parseInt(p[2], 10) >>> 0;
-      const mia = this._mias.get(paso);
+      const suyas = p[2].split(',').map((x) => parseInt(x, 10) >>> 0);
+      const mias = this._mias.get(paso);
       // Que no esté todavía no es un problema: puede llegar antes de que esta
       // máquina alcance ese paso. Se ignora y ya la comparará la del siguiente
       // segundo, porque las dos mandan.
-      if (mia === undefined) return;
+      if (mias === undefined) return;
       this.huellasComparadas++;
-      if (mia !== suya) {
-        this._romper(`Las dos partidas se han separado en el paso ${paso} ` +
-                     `(aquí ${mia.toString(16)}, allí ${suya.toString(16)}).`);
+
+      const culpables = [];
+      for (let i = 0; i < mias.length && i < suyas.length; i++) {
+        if (mias[i] !== suyas[i]) {
+          culpables.push(`${(this._nombres[i] || i)} (aquí ${mias[i].toString(16)}, ` +
+                         `allí ${suyas[i].toString(16)})`);
+        }
+      }
+      if (culpables.length > 0) {
+        this._romper(`Las dos partidas se han separado en el paso ${paso}. ` +
+                     `Difieren: ${culpables.join(' · ')}`);
       }
       return;
     }
