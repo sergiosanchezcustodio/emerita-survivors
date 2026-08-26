@@ -72,6 +72,26 @@ export class Camara {
   }
 
   // Esquina superior izquierda del viewport en coordenadas de mundo.
-  get izquierda() { return this.xVista - ANCHO_LOGICO / 2; }
-  get arriba()    { return this.yVista - ALTO_LOGICO / 2; }
+  // LOS BORDES DE LA CÁMARA, EN DOS SABORES, Y NO ES UN CAPRICHO.
+  //
+  // `xVista` es la posición INTERPOLADA para pintar: se calcula con lo que
+  // sobra en el acumulador del bucle cuando toca dibujar, así que depende de
+  // los fotogramas de cada máquina. Vale para dibujar y no vale para nada más.
+  //
+  // `x` es la posición de la SIMULACIÓN, idéntica en las dos máquinas de un
+  // cooperativo. Cualquier cosa que decida algo del mundo tiene que salir de
+  // aquí.
+  //
+  // Los nombres cortos —`izquierda`, `arriba`— son los de simulación A
+  // PROPÓSITO: si alguien se equivoca de getter dibujando, el error es de una
+  // fracción de píxel durante un fotograma; si se equivoca simulando, dos
+  // partidas dejan de ser la misma. Que el descuido caiga del lado barato.
+  //
+  // Ya pasó: el sismo del cíclope elegía su punto al azar con `izquierda`
+  // cuando eso era la vista, y las dos máquinas lo tiraban a sitios distintos.
+  // La partida se separaba a los cinco minutos, que es cuando entra el cíclope.
+  get izquierda() { return this.x - ANCHO_LOGICO / 2; }
+  get arriba()    { return this.y - ALTO_LOGICO / 2; }
+  get izquierdaVista() { return this.xVista - ANCHO_LOGICO / 2; }
+  get arribaVista()    { return this.yVista - ALTO_LOGICO / 2; }
 }

@@ -2107,8 +2107,8 @@ function dibujar(alpha) {
   // el vecino más próximo va duplicando y saltando filas de píxeles. La
   // sacudida se suma ANTES de redondear, así que también sale en píxeles
   // enteros y no rompe la rejilla.
-  const offX = Math.round((camara.izquierda + VFX.desvioX) * ESCALA_ARTE);
-  const offY = Math.round((camara.arriba + VFX.desvioY) * ESCALA_ARTE);
+  const offX = Math.round((camara.izquierdaVista + VFX.desvioX) * ESCALA_ARTE);
+  const offY = Math.round((camara.arribaVista + VFX.desvioY) * ESCALA_ARTE);
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.imageSmoothingEnabled = false;

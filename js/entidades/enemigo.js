@@ -1158,8 +1158,9 @@ export class Enemigos {
   dibujar(ctx, camara, alpha, jugadores, obstaculos, extras = null, nExtras = 0) {
     const items = this.pool.items;
     const n = this.pool.activos;
-    const izq = camara.izquierda;
-    const arr = camara.arriba;
+    // Aquí SÍ toca la vista: esto es `dibujar`.
+    const izq = camara.izquierdaVista;
+    const arr = camara.arribaVista;
     const yBase = arr - MARGEN_ARRIBA;
 
     const conteo = this._conteo;
