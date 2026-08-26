@@ -219,6 +219,15 @@ aplican el mismo índice; quien no es su dueño lo ve y no lo toca.
 **Los atajos de prueba se apagan en red.** Todos cambian la simulación en una
 sola máquina.
 
+**Cada jugador con SUS mejoras.** El anfitrión pide el progreso del otro antes
+de empezar —y si no llega, no empieza—, los dos viajan en el saludo y cada
+máquina crea a cada jugador con el suyo. Solo viaja lo que cambia estadísticas:
+potenciadores y niveles de mascota. Ni denarios, ni héroes, ni tiempos.
+
+Que uno lleve más mejoras que el otro no rompe el lockstep; lo que lo rompía era
+que su máquina no lo supiera. Medido: 128,8 de vida máxima contra 85, y las dos
+máquinas viendo los mismos dos números.
+
 ### Cómo se comprueba, ya sin jugar a mano
 
     node herramientas\probar-lockstep.js          el búfer, con un canal que se maltrata
@@ -287,22 +296,15 @@ elegida, o sea lo más delicado del montaje. Pendiente.
 
 ## Lo que queda
 
-1. **El progreso meta de cada jugador, en el saludo.** Hoy se juega en red SIN
-   mejoras, sin mascota y sin héroes: las dos máquinas parten de cero, porque
-   las mejoras compradas cambian vida y daño y jugar con las de cada uno
-   desincronizaría. Que tú tengas más mejoras que tu hermana no rompe el
-   lockstep; lo que lo rompe es que su máquina no sepa cuáles son. La versión
-   del juego ya viaja y se comprueba antes de empezar.
-
-2. **Pantallas de crear y unirse.** Sacar la red de la consola: crear partida,
+1. **Pantallas de crear y unirse.** Sacar la red de la consola: crear partida,
    pegar el código, ver a quién esperas.
 
 3. **Desconexiones.** Qué pasa cuando a alguien se le va el wifi o cierra la
    pestaña. Hoy la partida se para y lo dice, pero no ofrece salida.
 
-4. **El arsenal en la firma** (ver el hueco conocido, más arriba).
+3. **El arsenal en la firma** (ver el hueco conocido, más arriba).
 
-5. **Probarlo entre dos casas de verdad.** `EMERITA.red.camino()` tiene que
+4. **Probarlo entre dos casas de verdad.** `EMERITA.red.camino()` tiene que
    decir `publica`. Hasta hoy solo ha dicho `local`.
 
 ## Dos cosas aprendidas que conviene no olvidar
