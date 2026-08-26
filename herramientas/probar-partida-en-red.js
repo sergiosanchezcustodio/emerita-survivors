@@ -62,6 +62,17 @@ function arrancarServidor() {
 async function abrirJuego(navegador, nombre) {
   const contexto = await navegador.newContext();
   const pagina = await contexto.newPage();
+  // `console.table` no llega aquí como texto: Playwright entrega el mensaje sin
+  // la tabla montada. Y esa tabla es justo el detalle de una desincronización,
+  // o sea lo único que se quiere leer cuando algo falla. Se guarda aparte.
+  await pagina.addInitScript(() => {
+    window.__tablas = [];
+    const original = console.table.bind(console);
+    console.table = (datos, ...resto) => {
+      try { window.__tablas.push(JSON.parse(JSON.stringify(datos))); } catch {}
+      return original(datos, ...resto);
+    };
+  });
   const errores = [];
   pagina.on('console', (m) => {
     if (m.type() === 'error') errores.push(m.text());
@@ -92,7 +103,20 @@ async function principal() {
     args: ['--autoplay-policy=no-user-gesture-required',
            // Sin esto, Chrome esconde las IP locales detrás de nombres mDNS y
            // dos contextos del mismo navegador no llegan a conectarse.
-           '--disable-features=WebRtcHideLocalIpsWithMdns']
+           '--disable-features=WebRtcHideLocalIpsWithMdns',
+           // SIN ESTO, LA PESTAÑA QUE NO ESTÁ DELANTE SE QUEDA CASI PARADA.
+           //
+           // Chromium frena a propósito lo que no se está mirando: los
+           // temporizadores y el repintado de una pestaña de fondo van a
+           // cámara lenta para no gastar batería. En un juego normal da igual;
+           // aquí significa que una de las dos puntas simula diez veces menos
+           // que la otra, y la prueba lo cuenta como si el juego se hubiera
+           // atascado. Pasó: 12331 pasos en una y 1874 en la otra, sin esperas
+           // y sin un solo error, que es justo la firma de un frenado y no la
+           // de un fallo.
+           '--disable-background-timer-throttling',
+           '--disable-backgrounding-occluded-windows',
+           '--disable-renderer-backgrounding']
   });
 
   let A, B;
@@ -152,7 +176,10 @@ async function principal() {
         paso: L.paso,
         esperas: L.esperas,
         esperaMax: L.esperaMax,
-        conectado: S ? S.estado : 'sin sesión'
+        conectado: S ? S.estado : 'sin sesión',
+        // POR QUÉ no avanza, si no avanza. Sin esto, una punta parada solo
+        // sabía decir que estaba parada.
+        mando: window.EMERITA.mando ? window.EMERITA.mando() : null
       };
     });
     const rA = await leer(A), rB = await leer(B);
@@ -160,6 +187,15 @@ async function principal() {
     console.log('\nRESULTADO');
     console.log(`  anfitrión: paso ${rA.paso}, ${rA.esperas} esperas (la mayor ${rA.esperaMax})`);
     console.log(`  invitada:  paso ${rB.paso}, ${rB.esperas} esperas (la mayor ${rB.esperaMax})`);
+    if (rA.mando && rB.mando) {
+      const filas = {};
+      for (const campo in rA.mando) {
+        const x = rA.mando[campo], y = rB.mando[campo];
+        filas[campo] = { anfitrión: x, invitada: y, '': x === y ? '' : '<-- DIFIERE' };
+      }
+      console.log('\nEN QUÉ ESTADO HA QUEDADO CADA UNA');
+      console.table(filas);
+    }
 
     const esperados = SEGUNDOS * 60 * 0.5;   // la mitad ya sería un problema gordo
     comprobar(rA.paso > esperados,
@@ -187,8 +223,21 @@ async function principal() {
     });
     comprobar(!!vivo.enemigos, 'hay horda (el componente de enemigos no está vacío)');
 
+    // El detalle de la separación, si lo hubo. Es lo que dice qué campo de qué
+    // entidad se ha ido, y sin esto la prueba solo sabría decir "se separaron".
+    for (const p of [A, B]) {
+      const tablas = await p.pagina.evaluate(() => window.__tablas || []);
+      const detalle = tablas.find((t) => Array.isArray(t) && t.length > 0 && t[0].campo);
+      if (detalle) {
+        console.log(`
+  DETALLE (${p.nombre}):`);
+        console.table(detalle);
+      }
+    }
+
     for (const p of [A, B]) {
       const otros = p.errores.filter((t) => !/se han separado/.test(t) &&
+                                            !/diferencia\(s\) concreta/.test(t) &&
                                             !/AudioContext/.test(t) &&
                                             !/favicon/.test(t));
       comprobar(otros.length === 0,

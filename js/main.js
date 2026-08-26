@@ -1191,6 +1191,35 @@ function restaurarMeta(previo) {
 // aquí: la semilla del azar y qué personaje lleva cada puesto. Si cada máquina
 // eligiera lo suyo, serían dos partidas distintas desde el primer fotograma.
 let metaDeRed = null;
+// LO QUE PARA EL MUNDO SIN SALIR EN NINGUNA FIRMA: la pantalla en la que se
+// está, la pausa, el menú de nivel, el cofre, el fin de partida.
+//
+// Lo usa la prueba de determinismo —una pasada con el menú abierto no simula
+// nada, y sin esto eso se lee como "difieren los enemigos"— y ahora también la
+// prueba de partida en red, que necesita poder decir POR QUÉ una de las dos
+// puntas se ha quedado quieta. Sin esto solo sabía decir que se había quedado.
+function mandoActual() {
+  return {
+    pantalla,
+    pausado: pausado ? 1 : 0,
+    subiendoNivel: Progresion.abierto ? 1 : 0,
+    cofre: Progresion.cofreAbierto ? 1 : 0,
+    final: finalMostrado || '',
+    directorActivo: Director.activo ? 1 : 0,
+    directorT: Director.t,
+    tope: Director.tope,
+    jugadores: jugadores.length,
+    enemigos: enemigos.pool.activos,
+    mapaPintado: Recursos.mapaPintado ? 1 : 0,
+    rngEstado: rng.estado(),
+    // Y lo de la red, para la prueba de partida.
+    redActiva: Sincro.activo ? 1 : 0,
+    redRota: Sincro.roto || '',
+    esperados: Lockstep.esperados,
+    faltan: Lockstep.faltan().join(',')
+  };
+}
+
 function empezarPartidaEnRed(conexion, cfg) {
   metaDeRed = fijarMetaNeutra();
   rng.sembrar(cfg.semilla >>> 0);
@@ -2486,6 +2515,8 @@ async function arrancar() {
     // El búfer de pulsaciones, a mano desde la consola: `EMERITA.lockstep.retardo`
     // dice con cuánto se está jugando ahora mismo.
     lockstep: Lockstep,
+    // Por qué el mundo no avanza, si no avanza. Ver `mandoActual`.
+    mando: mandoActual,
     // La red, mientras no tenga pantallas propias. El anfitrión hace
     // `EMERITA.red.invitar()`, manda el código, y quien se une responde con
     // `EMERITA.red.responder('...')`. Ver js/red/consola.js.
@@ -2525,28 +2556,11 @@ async function arrancar() {
         mascotasElegidas.fill('');
         empezarPartida();
       },
+      // Lo que para el mundo sin salir en la firma. Ver `mandoActual`.
+      mando: mandoActual,
       // ¿Sigue simulándose el mundo? Falso en cuanto la partida termina, y
       // entonces `actualizar` sale sin tocar nada.
       enPartida: () => pantalla === PANTALLA_JUEGO && !finalMostrado,
-      // Lo que PARA EL MUNDO sin salir en la firma. Ver `correr` en
-      // core/determinismo.js: una pasada con el menú de nivel abierto no
-      // simula nada, y sin esto eso se lee como "difieren los enemigos".
-      mando: () => ({
-        pantalla,
-        pausado: pausado ? 1 : 0,
-        subiendoNivel: Progresion.abierto ? 1 : 0,
-        cofre: Progresion.cofreAbierto ? 1 : 0,
-        final: finalMostrado || '',
-        directorActivo: Director.activo ? 1 : 0,
-        directorT: Director.t,
-        tope: Director.tope,
-        jugadores: jugadores.length,
-        enemigos: enemigos.pool.activos,
-        mapaPintado: Recursos.mapaPintado ? 1 : 0,
-        // El estado crudo del generador. No se compara a ojo: sirve para
-        // despejar cuántas tiradas van gastadas (ver `tiradasEntre`).
-        rngEstado: rng.estado()
-      }),
       estado: () => ({
         rng, director: Director, camara, progresion: Progresion, jugadores,
         enemigos, proyectiles, zonas, disparos, recogibles, cofres,
