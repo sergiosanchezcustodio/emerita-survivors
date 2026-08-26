@@ -108,6 +108,7 @@ export function crearSincro(L) {
   _fotos: null,
   _nombres: null,
   _alElegir: null,          // (indice) aplicar la carta que ha elegido el otro
+  _alCofre: null,           // (accion) lo que ha hecho el otro con su cofre
   _mias: null,              // Map paso -> huella
   _alRomperse: null,
 
@@ -131,6 +132,7 @@ export function crearSincro(L) {
     this._fotos = new Map();
     this._nombres = opciones.nombres || [];
     this._alElegir = opciones.alElegir || null;
+    this._alCofre = opciones.alCofre || null;
     this._alRomperse = opciones.alRomperse || null;
     this._mias = new Map();
     this.roto = '';
@@ -239,6 +241,16 @@ export function crearSincro(L) {
     this._difundirControl(`e ${indice | 0}`);
   },
 
+  // Lo que ha hecho con SU cofre quien lo ha cogido: 0 = terminar el giro de las
+  // ruletas, 1 = cerrarlo.
+  //
+  // Va por el mismo camino que la carta y por la misma razón: el cofre para el
+  // mundo, así que mientras está abierto el búfer de pulsaciones no fluye.
+  avisarCofre(accion) {
+    if (!this.activo || this.roto) return;
+    this._difundirControl(`c ${accion | 0}`);
+  },
+
   // Se llama DESPUÉS de que el mundo haya dado el paso.
   despuesDelPaso() {
     // Cada dos segundos, quién es el camino de verdad. Es una consulta a las
@@ -311,7 +323,8 @@ export function crearSincro(L) {
     //
     // Las huellas y las peticiones de detalle NO se reenvían: esas son
     // conversaciones de dos, cada invitado con el anfitrión.
-    if (this.esAnfitrion && (texto.startsWith('e ') || texto === 'adios')) {
+    if (this.esAnfitrion && (texto.startsWith('e ') || texto.startsWith('c ') ||
+                             texto === 'adios')) {
       for (let i = 0; i < this._enlaces.length; i++) {
         if (this._enlaces[i] === enlace) continue;
         this._enlaces[i].enviarControl(texto);
@@ -398,6 +411,10 @@ export function crearSincro(L) {
     if (texto.startsWith('e ')) {
       const indice = parseInt(texto.slice(2), 10) | 0;
       if (this._alElegir) this._alElegir(indice);
+      return;
+    }
+    if (texto.startsWith('c ')) {
+      if (this._alCofre) this._alCofre(parseInt(texto.slice(2), 10) | 0);
       return;
     }
     if (texto === 'adios') { this._romper('El otro jugador ha salido.'); return; }

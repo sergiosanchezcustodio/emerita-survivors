@@ -1465,7 +1465,8 @@ function empezarPartidaEnRed(conexion, cfg) {
         cursorCaida = 0;
       }
     },
-    alElegir: eleccionRemota
+    alElegir: eleccionRemota,
+    alCofre: cofreRemoto
   });
   return true;
 }
@@ -1741,10 +1742,25 @@ function actualizar(dt) {
     // al mismo ritmo aunque el navegador pierda fotogramas, y con la misma
     // semilla el cofre se ve exactamente igual dos partidas seguidas.
     const girando = Progresion.girarCofre(dt);
-    if (entrada.algunFlanco()) {
+
+    // EL COFRE ES DE QUIEN LO COGE, y solo él lo cierra.
+    //
+    // Todos lo ven —es parte de la gracia, se enseña lo que le ha tocado a tu
+    // hermana— pero si cada uno tuviera que cerrarlo por su cuenta, en una
+    // partida de cuatro habría que pulsar cuatro veces para seguir jugando. Lo
+    // dijo Sergio jugando: "el resto de jugadores ha tenido que cerrarlo
+    // también, eso no debe ocurrir".
+    //
+    // Es el mismo caso que la carta de subir de nivel y viaja por el mismo
+    // camino: el canal fiable, porque el cofre para el mundo y el búfer de
+    // pulsaciones deja de fluir mientras está abierto.
+    const mio = !Sincro.activo ||
+                jugadores.indexOf(Progresion.cofre) === Sincro.jugadorLocal;
+    if (mio && entrada.algunFlanco()) {
       // La primera pulsación mientras giran NO cierra: las termina. Quien ya ha
       // visto veinte cofres no tiene por qué esperar tres segundos, y quien lo
       // ve por primera vez no se lo salta sin querer al ir a cerrar.
+      if (Sincro.activo) Sincro.avisarCofre(girando ? 0 : 1);
       if (girando) Progresion.saltarGiro();
       else Progresion.cerrarCofre();
     }
@@ -2140,6 +2156,14 @@ function alternarAutomatico(j) {
 // índice de carta. Quien no es dueño del menú lo ve pero no lo toca: si pudiera
 // elegir, cada máquina se quedaría una carta distinta y a partir de ahí serían
 // dos partidas.
+// Lo que ha hecho con su cofre quien lo cogió. Se aplica igual aquí, para que
+// las dos pantallas cierren a la vez.
+function cofreRemoto(accion) {
+  if (!Progresion.cofreAbierto) return;
+  if (accion === 0) Progresion.saltarGiro();
+  else Progresion.cerrarCofre();
+}
+
 function eleccionRemota(indice) {
   if (!Progresion.abierto) return;
   Progresion.seleccion = indice;
