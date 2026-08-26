@@ -29,15 +29,27 @@ import { dirname, join } from 'node:path';
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PUERTO = 8123;
 const SEGUNDOS = Number(process.argv[2]) || 60;
-// MODO MARATÓN: los dos jugadores no mueren.
+// MODO MARATÓN: los jugadores aguantan muchísimo.
 //
 //   node herramientas\probar-partida-en-red.js 330 maraton
 //
 // Moviéndose al tuntún, el equipo suele caer entre los dos y los cinco minutos,
-// y hay fallos que solo aparecen pasado ese rato -- uno de ellos vive sobre el
-// paso 18000. La inmortalidad se pone IGUAL en las dos máquinas y es un
-// booleano, así que no desincroniza nada: simplemente deja llegar más lejos.
+// y hay fallos que solo aparecen pasado ese rato.
+//
+// SE HACE CON UNA MEJORA ENORME DE VIDA, NO PONIENDO `inmortal` A MANO, y la
+// diferencia importa. La primera versión recorría las pestañas poniéndoles el
+// booleano una detrás de otra: eso es cambiar el estado de la simulación en
+// momentos distintos en cada máquina, así que durante unos fotogramas unas
+// jugaban con jugadores inmortales y otras no. Con dos pestañas la ventana era
+// tan corta que casi nunca se notaba; con cuatro se abrió y la partida se
+// separó a los veintitrés segundos. Parecía un fallo del juego y era del banco
+// de pruebas.
+//
+// La mejora, en cambio, viaja en el saludo: las cuatro máquinas la reciben
+// antes de empezar y la aplican al crear a los jugadores. Idéntica por
+// construcción, sin ventana que se pueda abrir.
 const MARATON = process.argv[3] === 'maraton';
+const VIDA_MARATON = 2000;   // +4% por nivel: unas ochenta veces la vida normal
 // MODO CORTE: a mitad de partida, el anfitrión se va de golpe.
 //
 //   node herramientas\probar-partida-en-red.js 20 corte
@@ -214,16 +226,12 @@ async function principal() {
     // —que es lo normal entre dos personas— y así, si cada máquina no simula al
     // otro con LAS SUYAS, la partida se separa en cuanto alguien recibe un
     // golpe.
-    await A.pagina.evaluate(() => {
-      window.EMERITA.meta.potenciadores = { vitalidad: 3, furia: 2 };
-    });
-    await B.pagina.evaluate(() => {
-      window.EMERITA.meta.potenciadores = { premura: 4, coraza: 1 };
-    });
-    const EXTRA = [{ codicia: 2 }, { vitalidad: 5 }];
-    for (let i = 0; i < otras.length; i++) {
-      await otras[i].pagina.evaluate((m) => { window.EMERITA.meta.potenciadores = m; },
-                                     EXTRA[i % EXTRA.length]);
+    const MEJORAS = [{ vitalidad: 3, furia: 2 }, { premura: 4, coraza: 1 },
+                     { codicia: 2, furia: 1 }, { coraza: 3, premura: 1 }];
+    for (let i = 0; i < todas.length; i++) {
+      const suyas = { ...MEJORAS[i % MEJORAS.length] };
+      if (MARATON) suyas.vitalidad = VIDA_MARATON;
+      await todas[i].pagina.evaluate((m) => { window.EMERITA.meta.potenciadores = m; }, suyas);
     }
     comprobar(true, `cada punta con mejoras distintas (${todas.length} juegos distintos)`);
 
@@ -279,15 +287,9 @@ async function principal() {
               'y TODAS las máquinas ven las mismas: el progreso de cada uno ha viajado');
 
     if (MARATON) {
-      for (const p of [A, B]) {
-        await p.pagina.evaluate(() => {
-          // Se hace en las dos por igual y con el mismo valor: es un booleano
-          // por jugador, no toca el azar y no cambia nada más.
-          const js = window.EMERITA.jugadores ? window.EMERITA.jugadores() : null;
-          if (js) for (const j of js) j.inmortal = true;
-        });
-      }
-      console.log('  ..  modo maratón: los jugadores no mueren');
+      const vidas = await A.pagina.evaluate(
+        () => window.EMERITA.jugadores().map((j) => Math.round(j.vidaMaxima)));
+      console.log(`  ..  modo maratón: vida ${vidas.join(' / ')}`);
     }
 
     if (CORTE) { await probarCorte(A, B); return; }
@@ -364,7 +366,21 @@ async function principal() {
     // QUE LA PARTIDA SE ACABE NO ES UN FALLO. Es un juego: el equipo muere.
     // Lo que se comprueba entonces es que llegó a jugarse de verdad y que las
     // dos puntas terminaron en el mismo sitio.
-    const minimo = terminada ? 600 : SEGUNDOS * 60 * 0.5;
+    //
+    // Y CON TRES O CUATRO, EL LISTÓN BAJA MUCHO, porque esta prueba mide una
+    // máquina y no la partida. Cada pestaña simula el mundo entero para todos
+    // los jugadores y además lo dibuja; cuatro de esas en un solo ordenador se
+    // pisan por la CPU y bajan a un puñado de pasos por segundo. En una partida
+    // de verdad cada persona pone su propio ordenador, así que ese atasco no
+    // existe. Lo que esta prueba SÍ dice con cuatro es lo que importa: que las
+    // cuatro simulan lo mismo.
+    const porPestanya = CUANTOS >= 3 ? 0.08 : 0.5;
+    const minimo = terminada ? 600 : SEGUNDOS * 60 * porPestanya;
+    const ritmo = rA.paso / SEGUNDOS;
+    if (CUANTOS >= 3) {
+      console.log(`  ..  ${ritmo.toFixed(1)} pasos por segundo con ${CUANTOS} ` +
+                  'pestañas en esta máquina (60 sería tiempo real)');
+    }
     comprobar(rA.paso > minimo,
               `el mundo AVANZA en el anfitrión (${rA.paso} pasos` +
               (terminada ? ', partida terminada' : ` de ~${SEGUNDOS * 60}`) + ')');

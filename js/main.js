@@ -26,6 +26,7 @@ import { Lockstep } from './core/lockstep.js';
 import { RedConsola } from './red/consola.js';
 import { Sincro } from './red/sincro.js';
 import { dibujarRed, OPCIONES_RED, dibujarCaida, OPCIONES_CAIDA } from './ui/red.js';
+import { ocultarCodigoRed } from './ui/codigoRed.js';
 import { Recogibles } from './entidades/recogible.js';
 import { Cofres, COFRE, LLAMARADA, IMAN, COMIDA, RELOJ, MONEDAS } from './entidades/cofre.js';
 import { Disparos } from './entidades/disparo.js';
@@ -2333,6 +2334,10 @@ function dibujar(alpha) {
     if (despedida) { Pantallas.titulo(ctx, Capa.ctx, null, 0); dibujarDespedida(Capa.ctx); return; }
     if (pantalla === PANTALLA_INTRO) { Intro.dibujar(ctx, Capa.ctx); return; }
     if (pantalla === PANTALLA_RED) { dibujarRed(ctx, Capa.ctx, red); return; }
+    // Fuera de esa pantalla, la caja del código no puede quedarse flotando: es
+    // un elemento de verdad encima del lienzo, no un dibujo que se borre solo
+    // al limpiar el fotograma.
+    ocultarCodigoRed();
     if (pantalla === PANTALLA_HUECOS) {
       dibujarHuecos(ctx, Capa.ctx, cursorHueco, enBorrarHueco);
       if (confirmarBorrado) {

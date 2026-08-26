@@ -2,6 +2,7 @@ import { ANCHO_UI, ALTO_UI, ANCHO_FISICO, ALTO_FISICO } from '../core/constantes
 import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
 import { Tema, panel } from './tema.js';
 import { fondoTitulo } from './pantallas.js';
+import { actualizarCodigoRed, ocultarCodigoRed } from './codigoRed.js';
 
 // LA PANTALLA DEL COOPERATIVO ONLINE.
 //
@@ -50,7 +51,7 @@ function fondo(ctxMundo) {
   // Con el velo de allí se leían por debajo las opciones del menú del título
   // —START, TIENDA, CONFIGURACIÓN— y eso en una pantalla que no es esa no es
   // ambiente, es ruido: parece que se puedan pulsar.
-  ctxMundo.fillStyle = 'rgba(6,6,12,.965)';
+  ctxMundo.fillStyle = 'rgba(6,6,12,.985)';
   ctxMundo.fillRect(0, 0, ANCHO_FISICO, ALTO_FISICO);
 }
 
@@ -112,6 +113,8 @@ function dibujarCodigo(ctx, estado, y) {
 export function dibujarRed(ctxMundo, ctx, estado) {
   fondo(ctxMundo);
   const t = Tema.actual;
+  // La caja del código solo existe cuando hay un código que enseñar.
+  actualizarCodigoRed(estado.fase === 'esperando' ? estado.codigo : '');
 
   ctx.save();
   ctx.textAlign = 'center';
@@ -137,18 +140,17 @@ export function dibujarRed(ctxMundo, ctx, estado) {
 
   if (estado.fase === 'esperando') {
     titulo(ctx, estado.esAnfitrion ? 'MANDA TU CÓDIGO' : 'DEVUELVE TU CÓDIGO');
-    // El bloque arranca por debajo del tercio: con todo pegado arriba, la mitad
-    // inferior quedaba vacía y la pantalla se leía como si le faltara algo.
-    let y = 150;
-    y = parrafo(ctx, estado.copiado
-      ? ['Tu código está COPIADO: pégalo donde habléis.']
-      : ['Copia el código de abajo y mándaselo.'], y, t.texto, 16) + 6;
-    y = dibujarCodigo(ctx, estado, y);
+    parrafo(ctx, estado.copiado
+      ? ['Tu código ya está copiado: pégalo donde habléis.']
+      : ['Cópialo con el botón, o selecciónalo y Ctrl+C.'], 104, t.texto, 16);
+    // AQUÍ NO SE DIBUJA EL CÓDIGO: lo pone un `<textarea>` de verdad encima del
+    // lienzo, para que se pueda seleccionar y copiar. Ver ui/codigoRed.js. Este
+    // hueco entre el 150 y el 290 es el suyo.
     parrafo(ctx, estado.esAnfitrion
       ? ['Cuando te devuelva el suyo, pulsa  V  para pegarlo.',
          'ESC para volver.']
       : ['En cuanto lo pegue, entráis a la partida.',
-         'ESC para volver.'], y, t.apagado, 15);
+         'ESC para volver.'], 320, t.apagado, 15);
     ctx.restore();
     return;
   }

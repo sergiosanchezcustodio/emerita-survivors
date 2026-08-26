@@ -113,3 +113,62 @@ body {
    depuración por encima las convierten en una pantalla de pruebas. main.js
    pone y quita esta clase al cambiar de pantalla. */
 body.enMenu #pie { display: none; }
+
+/* --- El código de invitación del cooperativo --------------------------------
+   HTML de verdad encima del lienzo, no dibujo. Un texto pintado en un canvas
+   no se puede seleccionar ni copiar, y un código de trescientos caracteres que
+   no se puede copiar no sirve de nada.
+   La posición la pone js/ui/codigoRed.js midiendo el lienzo: la pantalla se
+   escala a cualquier tamaño y esto tiene que caer justo donde el resto del
+   dibujo deja el hueco. */
+#codigoRed {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  /* Sí recibe eventos, al revés que la capa de interfaz: aquí es donde se
+     selecciona y se pulsa. */
+  pointer-events: auto;
+}
+
+/* EL `hidden` TIENE QUE GANARLE AL `display: flex` DE ARRIBA.
+   El navegador oculta un elemento con `[hidden]` poniéndole `display: none` en
+   su hoja por defecto, y esa hoja PIERDE contra cualquier regla propia con un
+   selector de id. O sea que la caja se quedaba pintada encima del menú con el
+   atributo puesto y todo.
+   Y no lo cazó la prueba, porque preguntaba por el atributo -que sí estaba- en
+   vez de por lo que se veía. Se descubrió mirando una captura. */
+#codigoRed[hidden] { display: none; }
+
+#codigoRedTexto {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  border: 1px solid #6b5a33;
+  border-radius: 3px;
+  background: rgba(14, 13, 20, .92);
+  color: #b9bec6;
+  /* Monoespaciada: es un código, y en una proporcional los grupos de letras
+     iguales bailan y cuesta ver si se ha copiado entero. */
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  line-height: 1.35;
+  padding: 8px 10px;
+  overflow: hidden;
+}
+
+#codigoRedTexto:focus { outline: 1px solid #c9a227; }
+
+#codigoRedCopiar {
+  border: 1px solid #6b5a33;
+  border-radius: 3px;
+  background: rgba(30, 26, 18, .95);
+  color: #e8e2d2;
+  font-family: "Segoe UI", "Noto Sans", system-ui, sans-serif;
+  cursor: pointer;
+  padding: 6px 18px;
+}
+
+#codigoRedCopiar:hover,
+#codigoRedCopiar:focus-visible { background: rgba(60, 50, 28, .95); border-color: #c9a227; }
+#codigoRedCopiar.hecho { color: #9fd48a; border-color: #9fd48a; }

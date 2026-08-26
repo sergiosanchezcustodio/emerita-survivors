@@ -21,6 +21,18 @@
   <div id="marco">
     <canvas id="juego"></canvas>
     <canvas id="interfaz"></canvas>
+    <!-- EL CÓDIGO DE INVITACIÓN, EN HTML DE VERDAD Y NO DIBUJADO.
+         El texto pintado en un lienzo no se puede seleccionar ni copiar: para
+         el ratón es un dibujo. Y un código de trescientos caracteres que no se
+         puede copiar no sirve de nada — nadie lo va a teclear.
+         Va dentro del marco para que se coloque encima del lienzo, y se
+         posiciona desde js/ui/codigoRed.js, que es quien sabe dónde lo está
+         esperando el dibujo del resto de la pantalla. -->
+    <div id="codigoRed" hidden>
+      <textarea id="codigoRedTexto" readonly spellcheck="false"
+                aria-label="Código de invitación"></textarea>
+      <button id="codigoRedCopiar" type="button">Copiar</button>
+    </div>
   </div>
   <!-- Botón real de HTML, no dibujado en el lienzo: la interfaz del juego
        tiene pointer-events desactivado a propósito (ver css/estilos.css), así
