@@ -1,6 +1,7 @@
 import { crearConexion, autoprueba, ESTADOS, SERVIDORES_POR_DEFECTO } from './conexion.js';
 import { tipoDe } from './codigo.js';
 import { vigilarCada } from './sincro.js';
+import { MetaProgreso } from '../core/metaProgreso.js';
 
 // LA RED DESDE LA CONSOLA, mientras no haya pantallas.
 //
@@ -63,27 +64,47 @@ function nueva(servidores) {
     // El saludo se atiende AQUÍ y no en sincro.js: cuando llega, la partida
     // todavía no existe y no hay nadie a quien dárselo.
     if (t.startsWith('inicio ')) { empezarPorInvitacion(t); return; }
+    // El anfitrión pide el progreso de esta máquina para poder simularla igual.
+    if (t === 'dameMeta') {
+      sesion.enviarControl('meta ' + JSON.stringify(MetaProgreso.aCompartir()));
+      return;
+    }
+    if (t.startsWith('meta ')) {
+      if (pendienteMeta) {
+        const r = pendienteMeta;
+        pendienteMeta = null;
+        try { r(JSON.parse(t.slice(5))); } catch { r(null); }
+      }
+      return;
+    }
     console.log(`RED[${yo}] (control): ` + t);
   };
   return sesion;
 }
 
+// Quien está esperando el progreso del otro, si hay alguien.
+let pendienteMeta = null;
+
 // Lo recibe quien se ha unido: el anfitrión ha dado el pistoletazo.
 function empezarPorInvitacion(texto) {
-  const p = texto.split(' ');
-  const version = p[1];
-  if (version !== VERSION_JUEGO) {
+  let cfg;
+  try { cfg = JSON.parse(texto.slice('inicio '.length)); }
+  catch { console.error('El saludo del anfitrión no se ha podido leer.'); return; }
+
+  if (cfg.version !== VERSION_JUEGO) {
     console.error(`No podéis jugar juntos: el anfitrión tiene la versión ` +
-                  `${version} y tú la ${VERSION_JUEGO}. Actualizad los dos.`);
+                  `${cfg.version} y tú la ${VERSION_JUEGO}. Actualizad los dos.`);
     return;
   }
   if (!juego) { console.error('El juego todavía no está listo.'); return; }
-  const semilla = parseInt(p[2], 10) >>> 0;
-  const personajes = p[3].split(',').map((n) => parseInt(n, 10) | 0);
   juego.empezar(sesion, {
-    esAnfitrion: false, jugadorLocal: 1, personajes, semilla
+    esAnfitrion: false,
+    jugadorLocal: 1,
+    personajes: cfg.personajes,
+    semilla: cfg.semilla >>> 0,
+    metas: cfg.metas
   });
-  console.log(`Partida en red empezada (semilla ${semilla.toString(16)}). ` +
+  console.log(`Partida en red empezada (semilla ${(cfg.semilla >>> 0).toString(16)}). ` +
               'Eres el jugador 2.');
 }
 
@@ -279,7 +300,7 @@ export const RedConsola = {
   // Todo lo que decide cómo va a ser la partida se manda desde aquí: la semilla
   // del azar y qué personaje lleva cada puesto. Si cada máquina eligiera lo
   // suyo, serían dos partidas distintas desde el primer fotograma.
-  jugar(personajes) {
+  async jugar(personajes) {
     if (!sesion || sesion.estado !== ESTADOS.CONECTADO) {
       console.error('No hay conexión abierta.');
       return false;
@@ -290,11 +311,36 @@ export const RedConsola = {
     }
     const pers = personajes && personajes.length >= 2 ? personajes : [0, 1];
     const semilla = (Math.random() * 0xffffffff) >>> 0;
+
+    // PRIMERO SE PIDE EL PROGRESO DEL OTRO, y hasta que llega no se empieza.
+    //
+    // Las mejoras compradas cambian la vida y el daño de un personaje, y cada
+    // máquina simula a los DOS jugadores. Sin saber las del otro, tu máquina le
+    // daría a él tus mejoras y la suya te daría a ti las de él: dos mundos
+    // distintos desde el primer fotograma.
+    //
+    // Va por el canal fiable y se espera de verdad, porque empezar sin esto es
+    // empezar mal.
+    console.log('Pidiendo el progreso del otro jugador…');
+    const suyo = await new Promise((resolver) => {
+      pendienteMeta = resolver;
+      sesion.enviarControl('dameMeta');
+      setTimeout(() => { if (pendienteMeta) { pendienteMeta = null; resolver(null); } }, 5000);
+    });
+    if (!suyo) {
+      console.error('No ha contestado con su progreso. ¿Tiene la misma versión?');
+      return false;
+    }
+
+    const mio = MetaProgreso.aCompartir();
+    const metas = [mio, suyo];
     // El saludo va por el canal de control, que es el fiable: si esto se
     // perdiera, una máquina empezaría la partida y la otra no.
-    sesion.enviarControl(`inicio ${VERSION_JUEGO} ${semilla} ${pers.join(',')}`);
+    sesion.enviarControl('inicio ' + JSON.stringify({
+      version: VERSION_JUEGO, semilla, personajes: pers, metas
+    }));
     juego.empezar(sesion, {
-      esAnfitrion: true, jugadorLocal: 0, personajes: pers, semilla
+      esAnfitrion: true, jugadorLocal: 0, personajes: pers, semilla, metas
     });
     console.log(`Partida en red empezada (semilla ${semilla.toString(16)}). ` +
                 'Eres el jugador 1.');

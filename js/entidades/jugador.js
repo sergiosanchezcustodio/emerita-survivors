@@ -85,7 +85,18 @@ export class Jugador {
   // Se usa SOLO para el adorno de recibir golpes; se acepta que falte porque
   // nada de lo que decide se juega con él, y así el jugador sigue construyéndose
   // en las pantallas de selección, donde no hay partida ni azar que valga.
-  constructor(idPersonaje = 'eric', idMascota = '', rng = null) {
+  // `meta` es el PROGRESO COMPRADO de quien lleva a este personaje: sus
+  // potenciadores y el nivel de su mascota. Por defecto es el de esta máquina,
+  // que es lo correcto jugando solo o en el sofá.
+  //
+  // EN RED NO PUEDE SER GLOBAL. Cada máquina simula a los DOS jugadores, y cada
+  // uno trae las mejoras que se ha comprado en su propio hueco de partida.
+  // Leyendo el progreso local para los dos, tu máquina daría a tu hermana tus
+  // mejoras y la suya te daría las de ella: dos mundos distintos desde el
+  // primer fotograma. Por eso el progreso de cada uno viaja en el saludo y
+  // entra por aquí.
+  constructor(idPersonaje = 'eric', idMascota = '', rng = null, meta = MetaProgreso) {
+    this._meta = meta || MetaProgreso;
     // Qué mascota lleva ESTE jugador. Se fija al crearlo, con lo elegido en la
     // pantalla de mascotas, y no cambia durante la partida. Va antes que nada
     // porque recalcularStats() la lee ya en este constructor.
@@ -225,7 +236,7 @@ export class Jugador {
     // el doble que recién comprada.
     const mascota = MASCOTAS[this.mascotaId];
     if (mascota && mascota.campo) {
-      const factor = factorMascota(MetaProgreso.nivelMascota(this.mascotaId));
+      const factor = factorMascota(this._meta.nivelMascota(this.mascotaId));
       if (mascota.tipo === 'suma') this[mascota.campo] += mascota.valor * factor;
       else this[mascota.campo] *= (1 + mascota.valor * factor);
     }
@@ -234,10 +245,10 @@ export class Jugador {
     // de la que arranca CUALQUIER personaje en CUALQUIER partida, así que se
     // aplican antes que los pasivos —los de esta partida— con el mismo
     // mecanismo exacto ('suma'/'factor' sobre `campo`).
-    for (const id in MetaProgreso.potenciadores) {
+    for (const id in this._meta.potenciadores) {
       const def = POTENCIADORES[id];
       if (!def) continue;
-      const nivel = MetaProgreso.potenciadores[id];
+      const nivel = this._meta.potenciadores[id];
       if (def.tipo === 'suma') this[def.campo] += def.valor * nivel;
       else this[def.campo] *= (1 + def.valor * nivel);
     }

@@ -6,7 +6,7 @@ import { Bucle } from './core/bucle.js';
 import { Entrada } from './core/entrada.js';
 import { Camara } from './core/camara.js';
 import { Recursos } from './core/recursos.js';
-import { MetaProgreso } from './core/metaProgreso.js';
+import { MetaProgreso, metaAjena } from './core/metaProgreso.js';
 import { crearRng, hash2 } from './core/rng.js';
 import { crearProbador, huellaMotor } from './core/determinismo.js';
 import { sen, cos, hipot } from './core/mate.js';
@@ -352,11 +352,14 @@ const activo = { suelo: true, particulas: true, numeros: true, efectos: true, de
 // `idPersonaje` lo trae la pantalla de selección. Sin él —al sumarse a mitad de
 // partida con J o al enchufar un mando— se reparte por orden, que es lo que se
 // hacía antes de que hubiera pantalla donde elegir.
-function anyadirJugador(idPersonaje, idMascota) {
+// `meta` es el progreso comprado de quien lleva a este personaje. Sin él, el de
+// esta máquina: lo correcto jugando solo o en el sofá. En red llega el del otro
+// por el saludo — ver `metasDeRed`.
+function anyadirJugador(idPersonaje, idMascota, meta) {
   if (jugadores.length >= MAX_JUGADORES) return null;
   const i = jugadores.length;
   const j = new Jugador(idPersonaje || ORDEN_PERSONAJES[i % ORDEN_PERSONAJES.length],
-                        idMascota || '', rng);
+                        idMascota || '', rng, meta || MetaProgreso);
 
   // En abanico alrededor del primero, para que no nazcan uno dentro de otro.
   const ang = (i / MAX_JUGADORES) * Math.PI * 2;
@@ -1190,7 +1193,10 @@ function restaurarMeta(previo) {
 // Todo lo que decide cómo va a ser la partida viaja en el saludo y NO se decide
 // aquí: la semilla del azar y qué personaje lleva cada puesto. Si cada máquina
 // eligiera lo suyo, serían dos partidas distintas desde el primer fotograma.
-let metaDeRed = null;
+// El progreso comprado de cada puesto, mientras dura una partida en red. Null
+// fuera de ella: entonces cada jugador usa el de esta máquina, que es el suyo.
+let metasDeRed = null;
+
 // LO QUE PARA EL MUNDO SIN SALIR EN NINGUNA FIRMA: la pantalla en la que se
 // está, la pausa, el menú de nivel, el cofre, el fin de partida.
 //
@@ -1221,7 +1227,21 @@ function mandoActual() {
 }
 
 function empezarPartidaEnRed(conexion, cfg) {
-  metaDeRed = fijarMetaNeutra();
+  // CADA JUGADOR CON SUS PROPIAS MEJORAS, las suyas de verdad.
+  //
+  // Antes se jugaba con el progreso a cero en las dos máquinas. Era la forma
+  // rápida de que no desincronizara, y funcionaba, pero convertía el
+  // cooperativo en otra cosa: entrabas a jugar con alguien y te habían quitado
+  // todo lo que habías comprado.
+  //
+  // Ahora el progreso de cada uno viaja en el saludo y CADA MÁQUINA SIMULA A
+  // LOS DOS con lo que cada uno tiene. Que tú lleves más mejoras que tu hermana
+  // no rompe el lockstep; lo que lo rompía era que su máquina no lo supiera.
+  metasDeRed = [];
+  const metas = cfg.metas || [];
+  for (let i = 0; i < cfg.personajes.length; i++) {
+    metasDeRed[i] = i === cfg.jugadorLocal ? MetaProgreso : metaAjena(metas[i]);
+  }
   rng.sembrar(cfg.semilla >>> 0);
   volverAlMenu();
   rng.sembrar(cfg.semilla >>> 0);
@@ -1257,8 +1277,7 @@ function empezarPartidaEnRed(conexion, cfg) {
 // los números del otro que dicen qué se ha separado.
 function terminarPartidaEnRed(colgar) {
   if (colgar) Sincro.desconectar(); else Sincro.parar();
-  restaurarMeta(metaDeRed);
-  metaDeRed = null;
+  metasDeRed = null;
 }
 
 function empezarPartida() {
@@ -1270,7 +1289,8 @@ function empezarPartida() {
   for (let i = 0; i < puestos.length; i++) {
     if (!puestos[i]) continue;
     mascotasPorJugador.push(mascotasElegidas[i] || '');
-    anyadirJugador(ORDEN_PERSONAJES[puestos[i].personaje], mascotasElegidas[i] || '');
+    anyadirJugador(ORDEN_PERSONAJES[puestos[i].personaje], mascotasElegidas[i] || '',
+                   metasDeRed ? metasDeRed[jugadores.length] : null);
   }
   camara.situar(jugadores[0].x, jugadores[0].y);
   // Que mascota lleva cada uno se decide en su pantalla y no cambia en toda la
@@ -2517,6 +2537,9 @@ async function arrancar() {
     lockstep: Lockstep,
     // Por qué el mundo no avanza, si no avanza. Ver `mandoActual`.
     mando: mandoActual,
+    // El progreso guardado, para que la prueba de partida pueda dar mejoras
+    // DISTINTAS a cada punta: es el caso que de verdad hay que comprobar.
+    meta: MetaProgreso,
     // Los jugadores vivos, para las pruebas. Solo lectura de referencias: no
     // hay nada que copiar ni asignar.
     jugadores: () => jugadores,

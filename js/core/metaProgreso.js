@@ -113,6 +113,18 @@ function ocupado(hueco) {
   try { return localStorage.getItem(claveDe(hueco)) !== null; } catch { return false; }
 }
 
+// El progreso de OTRO jugador, con la misma forma que necesita entidades/
+// jugador.js: sus potenciadores y de qué nivel lleva la mascota. Es un objeto
+// tonto, sin nada que guardar ni comprar — el progreso ajeno no se toca.
+export function metaAjena(datos) {
+  const potenciadores = (datos && datos.potenciadores) || {};
+  const mascotas = (datos && datos.mascotas) || {};
+  return {
+    potenciadores,
+    nivelMascota(id) { return mascotas[id] || 0; }
+  };
+}
+
 export const MetaProgreso = {
   denarios: 0,
   personajes: {},        // id -> true si está desbloqueado
@@ -201,6 +213,14 @@ export const MetaProgreso = {
   borrarHueco(hueco) {
     try { localStorage.removeItem(claveDe(hueco)); } catch { /* nada que hacer */ }
     if (this.hueco === hueco) this.usar(hueco);
+  },
+
+  // LO QUE VIAJA AL OTRO JUGADOR: solo lo que cambia sus estadísticas.
+  //
+  // Ni denarios, ni héroes desbloqueados, ni tiempos: nada de eso toca la
+  // simulación, así que no tiene por qué salir de esta máquina.
+  aCompartir() {
+    return { potenciadores: { ...this.potenciadores }, mascotas: { ...this.mascotas } };
   },
 
   guardar() {

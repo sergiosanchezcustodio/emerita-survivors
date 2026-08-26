@@ -134,6 +134,23 @@ async function principal() {
     B = await abrirJuego(navegador, 'invitada');
     comprobar(true, 'las dos pestañas cargan el juego');
 
+    // MEJORAS DISTINTAS EN CADA PUNTA, y esto es lo que de verdad hay que
+    // comprobar.
+    //
+    // Con las dos pestañas recién abiertas, el progreso guardado está vacío en
+    // las dos y son iguales por accidente: una prueba así pasaría aunque el
+    // progreso no viajara en el saludo. Se le dan mejoras diferentes a cada una
+    // —que es lo normal entre dos personas— y así, si cada máquina no simula al
+    // otro con LAS SUYAS, la partida se separa en cuanto alguien recibe un
+    // golpe.
+    await A.pagina.evaluate(() => {
+      window.EMERITA.meta.potenciadores = { vitalidad: 3, furia: 2 };
+    });
+    await B.pagina.evaluate(() => {
+      window.EMERITA.meta.potenciadores = { premura: 4, coraza: 1 };
+    });
+    comprobar(true, 'cada punta con mejoras distintas (vitalidad+furia / premura+coraza)');
+
     // --- El baile de códigos, igual que lo harían dos personas ---------------
     const invitacion = await A.pagina.evaluate(() => window.EMERITA.red.invitar());
     comprobar(typeof invitacion === 'string' && invitacion.length > 100,
@@ -155,6 +172,17 @@ async function principal() {
 
     const enPartida = await B.pagina.evaluate(() => !!window.EMERITA.lockstep);
     comprobar(enPartida, 'la invitada entra en la partida sola');
+
+    // ¿Ha llegado el progreso del otro? Se mira en la vida máxima: el jugador 1
+    // lleva vitalidad 3 y el 2 no, así que TIENEN que ser distintas — y las dos
+    // máquinas tienen que ver los mismos dos números.
+    const vidas = (p) => p.pagina.evaluate(
+      () => window.EMERITA.jugadores().map((j) => j.vidaMaxima));
+    const vA = await vidas(A), vB = await vidas(B);
+    comprobar(vA.length === 2 && vA[0] !== vA[1],
+              `los dos jugadores tienen estadísticas distintas (${vA.join(' y ')})`);
+    comprobar(JSON.stringify(vA) === JSON.stringify(vB),
+              'y las dos máquinas ven las MISMAS dos: el progreso ha viajado');
 
     if (MARATON) {
       for (const p of [A, B]) {
