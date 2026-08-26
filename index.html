@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>Emerita Survivors</title>
 <link rel="stylesheet" href="css/estilos.css">
+<!-- Icono de pestaña: la cara de Eric, recortada de assets/personajes/eric-cara.png.
+     Sin declararlo, el navegador pide /favicon.ico por su cuenta y se lleva un 404
+     en cada carga. El `?v=` es a mano —esto no pasa por core/recursos.js, que es
+     quien sella las imágenes del juego con la versión del atlas—: si algún día se
+     cambia el dibujo, hay que subir el número o las pestañas seguirán con el viejo. -->
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=1">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png?v=1">
 </head>
 <body>
   <!-- Dos lienzos superpuestos. El de abajo es el juego, pixel art ampliado por
