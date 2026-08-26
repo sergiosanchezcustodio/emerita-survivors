@@ -299,7 +299,7 @@ elegida, o sea lo más delicado del montaje. Pendiente.
 1. **Pantallas de crear y unirse.** Sacar la red de la consola: crear partida,
    pegar el código, ver a quién esperas.
 
-3. **Desconexiones.** Qué pasa cuando a alguien se le va el wifi o cierra la
+2. **Desconexiones.** Qué pasa cuando a alguien se le va el wifi o cierra la
    pestaña. Hoy la partida se para y lo dice, pero no ofrece salida.
 
 3. **El arsenal en la firma** (ver el hueco conocido, más arriba).
