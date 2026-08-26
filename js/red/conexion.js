@@ -41,6 +41,9 @@ import { comprimir, descomprimir, comprobarCodec, contarCandidatos } from './cod
 
 const ESPERA_ICE = 2500;        // ms como mucho recogiendo candidatos
 const ESPERA_CONEXION = 20000;  // ms como mucho hasta que se abre el canal
+// Cuánto se espera antes de creerse un `failed`. Ver el manejador de estado: los
+// candidatos mDNS de Chrome hacen que ese aviso salte y se cure solo.
+const MARGEN_FALLO = 4000;
 
 export const ESTADOS = {
   SUELTO: 'suelto',
@@ -83,6 +86,13 @@ export function crearConexion(opciones) {
   const servidores = (opciones && opciones.servidores) || [];
 
   const con = {
+    // Un nombre corto para esta conexión, que sale en todos sus mensajes.
+    //
+    // Hace falta porque en esta pantalla puede haber varias a la vez —la que
+    // acaba de fracasar y la que está funcionando— y sin distinguirlas, un aviso
+    // de la muerta se lee como un fallo de la viva. Ya pasó: "la conexión no
+    // llegó a establecerse" justo antes de "conectado".
+    id: Math.random().toString(36).slice(2, 6),
     estado: ESTADOS.SUELTO,
     esAnfitrion: false,
     error: '',
@@ -98,6 +108,8 @@ export function crearConexion(opciones) {
     alControl: null,      // (texto)
     alJuego: null,        // (ArrayBuffer)
 
+    _cerrado: false,
+    _relojFallo: 0,
     _pc: null,
     _control: null,
     _juego: null,
@@ -107,6 +119,10 @@ export function crearConexion(opciones) {
   };
 
   function cambiar(estado, error) {
+    // Una conexión cerrada ya no opina. ICE sigue trabajando un rato después de
+    // `close()` y sus avisos llegaban tarde, cuando el usuario ya estaba mirando
+    // otra conexión.
+    if (con._cerrado) return;
     con.estado = estado;
     con.error = error || '';
     if (con.alEstado) con.alEstado(estado, con.error);
@@ -119,9 +135,38 @@ export function crearConexion(opciones) {
     const pc = new RTCPeerConnection({ iceServers: servidores });
     pc.addEventListener('connectionstatechange', () => {
       const e = pc.connectionState;
-      if (e === 'failed' || e === 'closed') {
-        cambiar(e === 'failed' ? ESTADOS.ERROR : ESTADOS.CERRADO,
-                e === 'failed' ? 'La conexión no llegó a establecerse.' : '');
+      // 'failed' NO ES DEFINITIVO, y darlo por definitivo era el fallo.
+      //
+      // Medido: Chrome anuncia `failed` y a los pocos cientos de milisegundos
+      // conecta igual. Pasa con los candidatos mDNS —los nombres `.local` con
+      // los que Chrome esconde la IP de tu casa— porque el primer par de
+      // direcciones se descarta mientras el nombre todavía se está resolviendo,
+      // y el estado global se pinta de rojo antes de que el que sirve termine de
+      // probarse. En la consola de Sergio salió "la conexión no llegó a
+      // establecerse" y justo después "conectado", que es lo peor de los dos
+      // mundos: te alarma y encima miente.
+      //
+      // Así que se le da un margen. Si pasado ese tiempo el canal sigue sin
+      // abrirse, entonces sí es un fracaso y se dice. Si se abre, nadie se entera
+      // de que hubo un sobresalto, que es exactamente lo que hay que hacer con
+      // los sobresaltos que se curan solos.
+      if (e === 'failed') {
+        if (con.estado === ESTADOS.CONECTADO) return;
+        if (con._relojFallo) return;                 // ya hay un margen corriendo
+        con._relojFallo = setTimeout(() => {
+          con._relojFallo = 0;
+          if (con.estado === ESTADOS.CONECTADO || con._cerrado) return;
+          cambiar(ESTADOS.ERROR, 'La conexión no llegó a establecerse.');
+          if (con.alCerrar) con.alCerrar();
+        }, MARGEN_FALLO);
+        return;
+      }
+      if (e === 'connected' && con._relojFallo) {
+        clearTimeout(con._relojFallo);
+        con._relojFallo = 0;
+      }
+      if (e === 'closed') {
+        cambiar(ESTADOS.CERRADO, '');
         if (con.alCerrar) con.alCerrar();
       } else if (e === 'disconnected') {
         // 'disconnected' no es definitivo: ICE reintenta y a menudo vuelve.
@@ -288,6 +333,8 @@ export function crearConexion(opciones) {
   };
 
   con.cerrar = function () {
+    con._cerrado = true;
+    if (con._relojFallo) { clearTimeout(con._relojFallo); con._relojFallo = 0; }
     if (con._control) { try { con._control.close(); } catch {} }
     if (con._juego) { try { con._juego.close(); } catch {} }
     if (con._pc) { try { con._pc.close(); } catch {} }

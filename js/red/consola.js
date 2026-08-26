@@ -36,12 +36,15 @@ function nueva(servidores) {
     sesion.cerrar();
   }
   sesion = crearConexion({ servidores });
+  // El identificador va en todos los mensajes: si alguna vez vuelve a hablar una
+  // conexión que no es la que estás mirando, se ve en el acto de cuál es.
+  const yo = sesion.id;
   sesion.alEstado = (estado, error) => {
-    if (estado === ESTADOS.CONECTADO) console.log('RED: conectado.');
-    else if (estado === ESTADOS.ERROR) console.error('RED: ' + (error || 'error'));
-    else if (estado === ESTADOS.CERRADO) console.log('RED: conexión cerrada.');
+    if (estado === ESTADOS.CONECTADO) console.log(`RED[${yo}]: conectado.`);
+    else if (estado === ESTADOS.ERROR) console.error(`RED[${yo}]: ` + (error || 'error'));
+    else if (estado === ESTADOS.CERRADO) console.log(`RED[${yo}]: conexión cerrada.`);
   };
-  sesion.alControl = (t) => console.log('RED (control): ' + t);
+  sesion.alControl = (t) => console.log(`RED[${yo}] (control): ` + t);
   return sesion;
 }
 
