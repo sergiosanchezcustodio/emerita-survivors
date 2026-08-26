@@ -303,7 +303,7 @@ export const RedConsola = {
 
   salir() {
     if (sesion) sesion.enviarControl('adios');
-    if (juego) juego.terminar();
+    if (juego) juego.terminar(true);       // true = colgar de verdad
     console.log('Fuera de la partida en red.');
   },
 

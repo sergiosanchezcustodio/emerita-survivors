@@ -127,7 +127,19 @@ export function crearSincro(L) {
     };
   },
 
+  // PARAR LA SIMULACIÓN NO ES COLGAR EL TELÉFONO.
+  //
+  // Al detectarse una desincronización hay que dejar de simular en el acto,
+  // pero la conversación tiene que seguir viva unos instantes: es entonces
+  // cuando llegan los números del otro con los que se averigua qué se ha
+  // separado. Cerrando el canal aquí, ese detalle no llegaba nunca.
   parar() {
+    this.activo = false;
+    if (this._con) this._con.alJuego = null;
+  },
+
+  // Esto sí cuelga: se usa al salir de la partida a propósito.
+  desconectar() {
     this.activo = false;
     if (this._con) {
       this._con.alJuego = null;
@@ -246,14 +258,14 @@ export function crearSincro(L) {
         }
       }
       if (culpables.length > 0) {
+        // EL DETALLE SE PIDE ANTES DE ROMPER, y el orden importa: `_romper`
+        // avisa al juego, el juego termina la partida en red y eso cierra la
+        // conexión. Pidiéndolo después, la petición salía por un canal que ya
+        // no existía y reventaba justo en el momento en que iba a servir.
+        this._pedirFoto(paso, nombresQueDifieren);
         this._romper(`Las dos partidas se han separado entre el paso ` +
                      `${this.ultimoBueno} y el ${paso}. ` +
                      `Difieren: ${culpables.join(' · ')}`);
-        // Y ahora el detalle: se le piden al otro sus números de ESOS
-        // componentes en ESE paso, y se comparan campo a campo. Es una sola
-        // petición, ya rota la partida, y es la diferencia entre "difieren los
-        // disparos" y "el disparo 3 tiene vida 1 aquí y 0 allí".
-        this._pedirFoto(paso, nombresQueDifieren);
       } else {
         this.ultimoBueno = paso;
       }
@@ -305,6 +317,7 @@ export function crearSincro(L) {
   },
 
   _pedirFoto(paso, grupos) {
+    if (!this._con) return;
     if (!this._fotos.has(paso) || !grupos || grupos.length === 0) return;
     this._con.enviarControl(`dame ${paso} ${grupos.join(',')}`);
   },

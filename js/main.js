@@ -1219,8 +1219,11 @@ function empezarPartidaEnRed(conexion, cfg) {
   return true;
 }
 
-function terminarPartidaEnRed() {
-  Sincro.parar();
+// `colgar` solo al salir a propósito. Al romperse por desincronización se para
+// la simulación pero se deja el canal abierto: es justo entonces cuando llegan
+// los números del otro que dicen qué se ha separado.
+function terminarPartidaEnRed(colgar) {
+  if (colgar) Sincro.desconectar(); else Sincro.parar();
   restaurarMeta(metaDeRed);
   metaDeRed = null;
 }
