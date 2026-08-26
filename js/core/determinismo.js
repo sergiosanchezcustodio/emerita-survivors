@@ -486,6 +486,7 @@ export function crearProbador(gancho) {
         const fila = {};
         const claves = Object.keys(o).sort();
         for (let k = 0; k < claves.length; k++) {
+          if (sinVista && SOLO_DIBUJO.indexOf(claves[k]) >= 0) continue;
           const v = o[claves[k]];
           if (typeof v === 'number') fila[claves[k]] = v;
           else if (typeof v === 'boolean') fila[claves[k]] = v ? 1 : 0;
@@ -913,6 +914,29 @@ export function crearProbador(gancho) {
       return fuera;
     },
 
+    // UNA FOTO DE TODOS LOS NÚMEROS DEL MUNDO, para mandársela al otro.
+    //
+    // Cuando dos máquinas dicen que difieren "los disparos", eso todavía no se
+    // puede arreglar: hay que saber QUÉ disparo y QUÉ campo. Esto es lo que
+    // viaja en ese momento, una sola vez, y `comparaFotos` lo convierte en una
+    // línea del estilo "el disparo 3 tiene `vida` a 1 aquí y a 0 allí".
+    //
+    // Se toma sin los campos de dibujo, igual que la firma que se compara: si
+    // no, la tabla saldría llena de diferencias legítimas de interpolación.
+    foto(grupos) {
+      sinVista = true;
+      let f;
+      try { f = fotoDe(gancho.estado()); } finally { sinVista = false; }
+      if (!grupos || grupos.length === 0) return f;
+      const recorte = {};
+      for (let i = 0; i < grupos.length; i++) {
+        if (f[grupos[i]]) recorte[grupos[i]] = f[grupos[i]];
+      }
+      return recorte;
+    },
+
+    comparaFotos(mia, suya, tope = 40) { return diferencias(mia, suya, tope); },
+
     // Los nombres, en el mismo orden que `partesMundo`.
     nombresMundo() {
       return PARTES.filter((n) => n !== 'lockstep');
@@ -947,7 +971,7 @@ export function crearProbador(gancho) {
   // devolvértelo justo después: un ir y venir por nada, con todas las
   // papeletas de dejarlo mal a la primera excepción.
   const SIN_META = ['firma', 'firmaMundo', 'partesMundo', 'nombresMundo',
-                    'partes', 'camposExtra'];
+                    'foto', 'comparaFotos', 'partes', 'camposExtra'];
   if (gancho.fijarMeta) {
     for (const nombre in api) {
       const original = api[nombre];

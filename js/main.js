@@ -1211,6 +1211,8 @@ function empezarPartidaEnRed(conexion, cfg) {
     huellaDe: () => window.EMERITA.determinismo.firmaMundo(),
     partesDe: () => window.EMERITA.determinismo.partesMundo(),
     nombres: window.EMERITA ? window.EMERITA.determinismo.nombresMundo() : [],
+    fotoDe: () => window.EMERITA.determinismo.foto(),
+    comparaFotos: (a, b, t) => window.EMERITA.determinismo.comparaFotos(a, b, t),
     alRomperse: () => { terminarPartidaEnRed(); },
     alElegir: eleccionRemota
   });

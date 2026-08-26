@@ -63,6 +63,11 @@ export const Sincro = {
   _con: null,
   _huellaDe: null,          // función que devuelve la huella del mundo
   _partesDe: null,          // los componentes por separado, para señalar el culpable
+  // Fotos recientes del mundo, guardadas para poder comparar campo a campo
+  // cuando algo se separa. Ver `_pedirFoto`.
+  _fotoDe: null,
+  _comparaFotos: null,
+  _fotos: null,
   _nombres: null,
   _alElegir: null,          // (indice) aplicar la carta que ha elegido el otro
   _mias: null,              // Map paso -> huella
@@ -81,6 +86,9 @@ export const Sincro = {
     this.jugadores = Math.max(2, opciones.jugadores | 0);
     this._huellaDe = opciones.huellaDe || null;
     this._partesDe = opciones.partesDe || null;
+    this._fotoDe = opciones.fotoDe || null;
+    this._comparaFotos = opciones.comparaFotos || null;
+    this._fotos = new Map();
     this._nombres = opciones.nombres || [];
     this._alElegir = opciones.alElegir || null;
     this._alRomperse = opciones.alRomperse || null;
@@ -155,6 +163,14 @@ export const Sincro = {
     // buscar.
     const partes = this._partesDe ? this._partesDe() : [this._huellaDe() >>> 0];
     this._mias.set(paso, partes);
+    // Y la foto del mundo en ese mismo paso. Solo se guardan unas pocas: sirven
+    // para el instante en que algo se separa, no para llevar un historial.
+    if (this._fotoDe) {
+      this._fotos.set(paso, this._fotoDe());
+      if (this._fotos.size > 4) {
+        this._fotos.delete(this._fotos.keys().next().value);
+      }
+    }
     // No se guarda historia infinita: si la huella del otro no ha llegado en
     // medio minuto, la partida ya tiene un problema mayor que este.
     if (this._mias.size > HUELLAS_GUARDADAS) {
@@ -177,8 +193,10 @@ export const Sincro = {
       this.huellasComparadas++;
 
       const culpables = [];
+      const nombresQueDifieren = [];
       for (let i = 0; i < mias.length && i < suyas.length; i++) {
         if (mias[i] !== suyas[i]) {
+          nombresQueDifieren.push(this._nombres[i] || String(i));
           culpables.push(`${(this._nombres[i] || i)} (aquí ${mias[i].toString(16)}, ` +
                          `allí ${suyas[i].toString(16)})`);
         }
@@ -187,9 +205,51 @@ export const Sincro = {
         this._romper(`Las dos partidas se han separado entre el paso ` +
                      `${this.ultimoBueno} y el ${paso}. ` +
                      `Difieren: ${culpables.join(' · ')}`);
+        // Y ahora el detalle: se le piden al otro sus números de ESOS
+        // componentes en ESE paso, y se comparan campo a campo. Es una sola
+        // petición, ya rota la partida, y es la diferencia entre "difieren los
+        // disparos" y "el disparo 3 tiene vida 1 aquí y 0 allí".
+        this._pedirFoto(paso, nombresQueDifieren);
       } else {
         this.ultimoBueno = paso;
       }
+      return;
+    }
+    if (texto.startsWith('dame ')) {
+      // El otro se ha dado cuenta de que difieren y pide sus números.
+      const p = texto.split(' ');
+      const paso = parseInt(p[1], 10);
+      const foto = this._fotos.get(paso);
+      if (!foto) { this._con.enviarControl(`nofoto ${paso}`); return; }
+      const grupos = (p[2] || '').split(',');
+      const recorte = {};
+      for (let i = 0; i < grupos.length; i++) {
+        if (foto[grupos[i]]) recorte[grupos[i]] = foto[grupos[i]];
+      }
+      this._con.enviarControl('foto ' + paso + ' ' + JSON.stringify(recorte));
+      return;
+    }
+    if (texto.startsWith('foto ')) {
+      const corte = texto.indexOf(' ', 5);
+      const paso = parseInt(texto.slice(5, corte), 10);
+      const mia = this._fotos.get(paso);
+      if (!mia) { console.error('RED: no guardo la foto de ese paso.'); return; }
+      let suya;
+      try { suya = JSON.parse(texto.slice(corte + 1)); }
+      catch { console.error('RED: la foto del otro no se ha podido leer.'); return; }
+      const difs = this._comparaFotos ? this._comparaFotos(mia, suya, 40) : [];
+      if (difs.length === 0) {
+        console.warn('RED: los números coinciden campo a campo. Lo que difiere ' +
+                     'está en un campo que la foto no recoge.');
+      } else {
+        console.error(`RED: ${difs.length} diferencia(s) concreta(s) ` +
+                      '(pasada1 = aquí, pasada2 = allí):');
+        console.table(difs);
+      }
+      return;
+    }
+    if (texto.startsWith('nofoto ')) {
+      console.warn('RED: el otro ya no guardaba la foto de ese paso.');
       return;
     }
     if (texto.startsWith('e ')) {
@@ -198,6 +258,11 @@ export const Sincro = {
       return;
     }
     if (texto === 'adios') { this._romper('El otro jugador ha salido.'); return; }
+  },
+
+  _pedirFoto(paso, grupos) {
+    if (!this._fotos.has(paso) || !grupos || grupos.length === 0) return;
+    this._con.enviarControl(`dame ${paso} ${grupos.join(',')}`);
   },
 
   _romper(motivo) {
