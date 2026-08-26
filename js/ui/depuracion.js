@@ -100,6 +100,13 @@ export function dibujarDepuracion(ctx, datos) {
                 `${r.huellas} huella(s) comparada(s)`);
     LINEAS.push(`  esperas  ${r.esperas} paso(s), la más larga ${r.esperaMax}` +
                 (r.roto ? `  ROTO: ${r.roto}` : ''));
+    // EL CAMINO ES LO QUE DICE SI ESTO FUNCIONA ENTRE DOS CASAS. `local` = los
+    // dos en la misma red, no prueba nada de internet. `publica` = se ha
+    // atravesado un router, y esa es la prueba de verdad.
+    if (r.camino) {
+      LINEAS.push(`  camino   ${r.camino}` +
+                  (r.rttMs ? ` · ${r.rttMs.toFixed(0)} ms de ida y vuelta` : ''));
+    }
   }
   LINEAS.push(`escala     ${ESCALA_ARTE}x arte · ${datos.zoom}x pantalla`);
   if (datos.sustituidos > 0) {

@@ -76,6 +76,15 @@ export function crearSincro(L) {
   // El último paso que se comprobó y salió bien. Al romperse, acota la
   // divergencia a la ventana entre ese paso y el que falla.
   ultimoBueno: -1,
+  // POR DÓNDE VA LA CONEXIÓN Y CUÁNTO TARDA, refrescado solo.
+  //
+  // Vive aquí y sale en el panel F3 porque el día que esto se pruebe entre dos
+  // sitios de verdad, quien juega necesita ver si el camino es `publica` —o sea
+  // que se ha atravesado un router— sin tener que abrir la consola y escribir
+  // nada. Y las esperas, al lado, dicen si el retardo se ha quedado corto.
+  camino: '',
+  rttMs: 0,
+  _relojCamino: 0,
 
   _con: null,
   _huellaDe: null,          // función que devuelve la huella del mundo
@@ -194,6 +203,20 @@ export function crearSincro(L) {
 
   // Se llama DESPUÉS de que el mundo haya dado el paso.
   despuesDelPaso() {
+    // Cada dos segundos, quién es el camino de verdad. Es una consulta a las
+    // estadísticas de WebRTC y devuelve una promesa: se pide y se recoge cuando
+    // llegue, sin que el paso espere por ella.
+    if (this.activo && !this.roto && ++this._relojCamino >= 120) {
+      this._relojCamino = 0;
+      if (this._con && this._con.camino) {
+        this._con.camino().then((c) => {
+          if (!c) return;
+          this.camino = c.clase;
+          if (c.ms != null) this.rttMs = c.ms;
+        }).catch(() => {});
+      }
+    }
+
     // Vale con cualquiera de las dos formas de firmar. Antes exigía `_huellaDe`
     // aunque luego usara `_partesDe`, así que montarlo solo con la segunda
     // dejaba la comprobación apagada EN SILENCIO — y una comprobación apagada
@@ -344,6 +367,8 @@ export function crearSincro(L) {
       esperas: L.esperas,
       esperaMax: L.esperaMax,
       huellas: this.huellasComparadas,
+      camino: this.camino,
+      rttMs: this.rttMs,
       roto: this.roto
     };
   }
