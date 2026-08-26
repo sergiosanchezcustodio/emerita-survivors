@@ -361,6 +361,19 @@ export const RedConsola = {
     return n;
   },
 
+  // Lo que necesita la pantalla de cooperativo (ui/red.js), que no puede
+  // depender de que alguien lea la consola.
+  copiar: alPortapapeles,
+
+  // Avisar cuando el canal se abra. Lo usa quien se ha unido: despues de
+  // devolver su codigo no tiene nada que hacer salvo esperar, y la pantalla
+  // tiene que enterarse sola de que ya estan dentro.
+  alConectar(fn) {
+    if (!sesion) return;
+    sesion.alAbrir = fn;
+    if (sesion.estado === ESTADOS.CONECTADO) fn();
+  },
+
   estado() {
     if (!sesion) { console.log('Sin conexión.'); return 'suelto'; }
     console.log(`estado: ${sesion.estado}` +

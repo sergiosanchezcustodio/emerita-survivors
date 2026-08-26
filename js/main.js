@@ -25,6 +25,7 @@ import { Obstaculos } from './sistemas/obstaculos.js';
 import { Lockstep } from './core/lockstep.js';
 import { RedConsola } from './red/consola.js';
 import { Sincro } from './red/sincro.js';
+import { dibujarRed, OPCIONES_RED } from './ui/red.js';
 import { Recogibles } from './entidades/recogible.js';
 import { Cofres, COFRE, LLAMARADA, IMAN, COMIDA, RELOJ, MONEDAS } from './entidades/cofre.js';
 import { Disparos } from './entidades/disparo.js';
@@ -189,6 +190,11 @@ const PANTALLA_INTRO = 6;
 // botón de la esquina del menú (ver ui/huecos.js: la tienda y las mascotas
 // gastan de una hucha, así que la hucha hay que elegirla antes del menú).
 const PANTALLA_HUECOS = 7;
+// El cooperativo online. Se llega desde la pantalla de elegir personajes, que
+// es donde ya se decide quién juega. Del menú del título todavía no, porque sus
+// cuatro opciones vienen pintadas en la ilustración y añadir una quinta es
+// repintar la lápida.
+const PANTALLA_RED = 8;
 // Sin valor de arranque: lo pone `irA` al final de este bloque, porque el
 // estado de pantalla no es solo esta variable — arrastra la clase del body, y
 // dejarlos puestos por separado es tener dos verdades que se desincronizan.
@@ -1120,6 +1126,12 @@ function entradaSeleccion() {
     }
   }
 
+  // AL COOPERATIVO ONLINE. Aquí y no en el título porque las cuatro opciones de
+  // la lápida vienen pintadas en la ilustración; esta pantalla se dibuja por
+  // código y admite una más sin repintar nada. Y encaja: es donde ya se decide
+  // quién juega.
+  if (entrada.consumirFlanco('KeyO')) { irARed(); return; }
+
   // --- Salida ---------------------------------------------------------------
   const presentes = puestos.filter(Boolean);
   if (presentes.length > 0 && presentes.every((p) => p.listo)) {
@@ -1196,6 +1208,139 @@ function restaurarMeta(previo) {
 // El progreso comprado de cada puesto, mientras dura una partida en red. Null
 // fuera de ella: entonces cada jugador usa el de esta máquina, que es el suyo.
 let metasDeRed = null;
+
+// LA PANTALLA DE COOPERATIVO, en un solo sitio.
+//
+// `fase` dice qué se está enseñando y qué se puede hacer: 'menu', 'creando',
+// 'uniendo', 'esperando' (ya hay código propio que mandar), 'pegar' (falta el
+// del otro), 'conectado' y 'error'.
+const red = {
+  fase: 'menu', cursor: 0, codigo: '', copiado: false,
+  aviso: '', esAnfitrion: false
+};
+
+function irARed() {
+  red.fase = 'menu';
+  red.cursor = 0;
+  red.codigo = '';
+  red.aviso = '';
+  red.copiado = false;
+  irA(PANTALLA_RED);
+}
+
+// PEGAR NO PUEDE HACERLO EL JUEGO POR SU CUENTA.
+//
+// El navegador no deja leer el portapapeles sin un gesto de la persona por
+// delante — y hace bien: cualquier página podría leerte lo que tengas copiado.
+// Por eso hay una tecla para pegar en vez de mirarlo solo.
+async function pegarDelPortapapeles() {
+  try {
+    const t = await navigator.clipboard.readText();
+    return (t || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+async function crearPartidaEnRed() {
+  red.fase = 'creando';
+  red.aviso = 'Buscando por dónde te pueden encontrar…';
+  const codigo = await RedConsola.invitar();
+  if (!codigo) { red.fase = 'error'; red.aviso = 'No se ha podido crear la partida.'; return; }
+  red.codigo = codigo;
+  red.copiado = await RedConsola.copiar(codigo);
+  red.esAnfitrion = true;
+  red.fase = 'esperando';
+}
+
+async function unirseAPartidaEnRed() {
+  const codigo = await pegarDelPortapapeles();
+  if (!codigo) {
+    red.fase = 'error';
+    red.aviso = 'No he podido leer el portapapeles. Copia el código otra vez y ' +
+                'dale permiso al navegador si te lo pide.';
+    return;
+  }
+  red.fase = 'uniendo';
+  red.aviso = 'Contestando…';
+  const respuesta = await RedConsola.responder(codigo);
+  if (!respuesta) {
+    red.fase = 'error';
+    red.aviso = 'Ese código no vale. ¿Está entero y es el de quien te invita?';
+    return;
+  }
+  red.codigo = respuesta;
+  red.copiado = await RedConsola.copiar(respuesta);
+  red.esAnfitrion = false;
+  red.fase = 'esperando';
+  // Y en cuanto el otro lo pegue, quedamos conectados sin hacer nada más.
+  RedConsola.alConectar(() => { red.fase = 'conectado'; });
+}
+
+async function aceptarRespuestaEnRed() {
+  const codigo = await pegarDelPortapapeles();
+  if (!codigo) {
+    red.aviso = 'No he podido leer el portapapeles.';
+    return;
+  }
+  red.fase = 'uniendo';
+  red.aviso = 'Conectando…';
+  const ok = await RedConsola.aceptar(codigo);
+  if (!ok) {
+    red.fase = 'error';
+    red.aviso = 'No se ha podido conectar con ese código.';
+    return;
+  }
+  red.fase = 'conectado';
+}
+
+function entradaRed() {
+  const c = entrada.controles[0];
+  const atras = entrada.consumirFlanco('Escape') || entrada.consumirAtras();
+
+  if (red.fase === 'menu') {
+    const eje = c ? c.flancoEje(false) : 0;
+    const n = OPCIONES_RED.length;
+    if (entrada.consumirFlanco('ArrowDown') || (c && c.consumirBoton(13)) || eje > 0) {
+      red.cursor = (red.cursor + 1) % n;
+    }
+    if (entrada.consumirFlanco('ArrowUp') || (c && c.consumirBoton(12)) || eje < 0) {
+      red.cursor = (red.cursor + n - 1) % n;
+    }
+    const acepta = entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space') ||
+                   (c && c.consumirBoton(0));
+    if (atras || (acepta && red.cursor === 2)) { irA(PANTALLA_SELECCION); return; }
+    if (acepta && red.cursor === 0) crearPartidaEnRed();
+    if (acepta && red.cursor === 1) { red.fase = 'pegar'; red.esAnfitrion = false; }
+    return;
+  }
+
+  if (red.fase === 'pegar') {
+    if (atras) { irARed(); return; }
+    if (entrada.consumirFlanco('KeyV')) unirseAPartidaEnRed();
+    return;
+  }
+
+  if (red.fase === 'esperando') {
+    if (atras) { RedConsola.cerrar(); irARed(); return; }
+    // Solo el anfitrión pega una respuesta: quien se ha unido ya no tiene nada
+    // que pegar, solo esperar.
+    if (red.esAnfitrion && entrada.consumirFlanco('KeyV')) aceptarRespuestaEnRed();
+    return;
+  }
+
+  if (red.fase === 'conectado') {
+    if (atras) { RedConsola.salir(); irARed(); return; }
+    if (red.esAnfitrion &&
+        (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space') ||
+         (c && c.consumirBoton(0)))) {
+      RedConsola.jugar();
+    }
+    return;
+  }
+
+  if (red.fase === 'error' && atras) { RedConsola.cerrar(); irARed(); }
+}
 
 // LO QUE PARA EL MUNDO SIN SALIR EN NINGUNA FIRMA: la pantalla en la que se
 // está, la pausa, el menú de nivel, el cofre, el fin de partida.
@@ -1483,6 +1628,7 @@ function actualizar(dt) {
       }
     }
     else if (pantalla === PANTALLA_HUECOS) entradaHuecos();
+    else if (pantalla === PANTALLA_RED) entradaRed();
     else if (pantalla === PANTALLA_TITULO) entradaTitulo();
     else if (pantalla === PANTALLA_TIENDA) entradaTienda();
     else if (pantalla === PANTALLA_MASCOTAS) entradaMascotas();
@@ -2086,6 +2232,7 @@ function dibujar(alpha) {
     Capa.limpiar();
     if (despedida) { Pantallas.titulo(ctx, Capa.ctx, null, 0); dibujarDespedida(Capa.ctx); return; }
     if (pantalla === PANTALLA_INTRO) { Intro.dibujar(ctx, Capa.ctx); return; }
+    if (pantalla === PANTALLA_RED) { dibujarRed(ctx, Capa.ctx, red); return; }
     if (pantalla === PANTALLA_HUECOS) {
       dibujarHuecos(ctx, Capa.ctx, cursorHueco, enBorrarHueco);
       if (confirmarBorrado) {
