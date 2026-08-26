@@ -24,6 +24,7 @@ import {
 import { Obstaculos } from './sistemas/obstaculos.js';
 import { Lockstep } from './core/lockstep.js';
 import { RedConsola } from './red/consola.js';
+import { Sincro } from './red/sincro.js';
 import { Recogibles } from './entidades/recogible.js';
 import { Cofres, COFRE, LLAMARADA, IMAN, COMIDA, RELOJ, MONEDAS } from './entidades/cofre.js';
 import { Disparos } from './entidades/disparo.js';
@@ -1138,6 +1139,88 @@ function entradaSeleccion() {
 // uno solo: los pools y el director ya estaban montados desde `arrancar`, pero
 // `jugadores` estaba vacío a propósito, porque un jugador en pie durante el
 // título es un jugador al que ya le está corriendo el reloj.
+// PROGRESO META NEUTRO, y devuelto tal cual estaba.
+//
+// Lo usan dos cosas que parecen distintas y tienen el mismo problema: la prueba
+// de determinismo y LA PARTIDA EN RED. Las mejoras compradas con denarios
+// cambian la vida y el daño del personaje, así que dos máquinas con distinto
+// progreso guardado simulan mundos distintos aunque todo lo demás sea correcto.
+//
+// Mientras dura, `MetaProgreso.guardar()` está congelado y no escribe: sin esa
+// guarda, una partida en red sobrescribiría el hueco de verdad con el progreso
+// falso.
+//
+// ES TEMPORAL PARA LA RED. Lo que toca al final no es jugar sin mejoras, sino
+// que cada máquina conozca las del otro y las aplique a su personaje: que tú
+// tengas más mejoras que tu hermana no rompe el lockstep, lo que lo rompe es que
+// su máquina no sepa cuáles son. Eso viaja en el saludo, y el saludo es la fase
+// siguiente.
+function fijarMetaNeutra() {
+  const previo = {
+    denarios: MetaProgreso.denarios,
+    personajes: MetaProgreso.personajes,
+    potenciadores: MetaProgreso.potenciadores,
+    mascotas: MetaProgreso.mascotas,
+    mascotaEquipada: MetaProgreso.mascotaEquipada,
+    factorDenarios: MetaProgreso.factorDenarios
+  };
+  MetaProgreso._congelado = true;
+  MetaProgreso.denarios = 0;
+  MetaProgreso.personajes = {};
+  MetaProgreso.potenciadores = {};
+  MetaProgreso.mascotas = {};
+  MetaProgreso.mascotaEquipada = '';
+  MetaProgreso.factorDenarios = 1;
+  return previo;
+}
+
+function restaurarMeta(previo) {
+  if (!previo) return;
+  MetaProgreso.denarios = previo.denarios;
+  MetaProgreso.personajes = previo.personajes;
+  MetaProgreso.potenciadores = previo.potenciadores;
+  MetaProgreso.mascotas = previo.mascotas;
+  MetaProgreso.mascotaEquipada = previo.mascotaEquipada;
+  MetaProgreso.factorDenarios = previo.factorDenarios;
+  MetaProgreso._congelado = false;
+}
+
+// EMPEZAR UNA PARTIDA EN RED, las dos máquinas con lo mismo.
+//
+// Todo lo que decide cómo va a ser la partida viaja en el saludo y NO se decide
+// aquí: la semilla del azar y qué personaje lleva cada puesto. Si cada máquina
+// eligiera lo suyo, serían dos partidas distintas desde el primer fotograma.
+let metaDeRed = null;
+function empezarPartidaEnRed(conexion, cfg) {
+  metaDeRed = fijarMetaNeutra();
+  rng.sembrar(cfg.semilla >>> 0);
+  volverAlMenu();
+  rng.sembrar(cfg.semilla >>> 0);
+  puestos.fill(null);
+  mascotasElegidas.fill('');
+  for (let i = 0; i < cfg.personajes.length; i++) {
+    puestos[i] = { personaje: cfg.personajes[i] | 0, listo: true };
+  }
+  empezarPartida();
+  Sincro.empezar(conexion, {
+    esAnfitrion: cfg.esAnfitrion,
+    jugadorLocal: cfg.jugadorLocal,
+    jugadores: cfg.personajes.length,
+    // La huella del mundo, sin tocar el progreso guardado: ver SIN_META en
+    // core/determinismo.js.
+    huellaDe: () => window.EMERITA.determinismo.firma(),
+    alRomperse: () => { terminarPartidaEnRed(); },
+    alElegir: eleccionRemota
+  });
+  return true;
+}
+
+function terminarPartidaEnRed() {
+  Sincro.parar();
+  restaurarMeta(metaDeRed);
+  metaDeRed = null;
+}
+
 function empezarPartida() {
   // Las mascotas van EN PARALELO a los jugadores, no por indice de puesto: si
   // juega el puesto 0 y el 2, los jugadores son 0 y 1, y sus mascotas tienen
@@ -1521,11 +1604,23 @@ function actualizar(dt) {
   //
   // Cada jugador con SU control: el jugador 1 lleva teclado y mando 0; los
   // demás, su mando.
-  Lockstep.registrar(entrada);
+  // EN RED, EL PASO NO SIEMPRE SE PUEDE DAR.
+  //
+  // `antesDelPaso` manda lo que se está pulsando aquí —siempre, aunque el mundo
+  // esté parado— y contesta si ya se conocen las pulsaciones de todos. Si no,
+  // el mundo se queda quieto este fotograma. Eso es lo que se ve como "lag" en
+  // un juego así: no es lentitud, es la partida esperando a saber qué hizo el
+  // otro. Inventarse su pulsación sería jugar otra partida distinta.
+  if (Sincro.activo) {
+    if (!Sincro.antesDelPaso(entrada)) { entrada.limpiarFlanco(); return; }
+  } else {
+    Lockstep.registrar(entrada);
+  }
   for (let i = 0; i < jugadores.length; i++) {
     jugadores[i].actualizar(dt, Lockstep.marcoDe(i));
   }
   Lockstep.avanzar();
+  if (Sincro.activo) Sincro.despuesDelPaso();
   reanimar(dt);
   Mascotas.actualizar(dt, jugadores, ctxArmas);
   for (let i = 0; i < jugadores.length; i++) clamparXNivel(jugadores[i]);
@@ -1687,10 +1782,33 @@ function alternarAutomatico(j) {
 // Entrada del menú de nivel. Elige el jugador al que le toca —con su propio
 // mando— pero el teclado vale siempre: si el que sube es el jugador 3 y no
 // tiene mando a mano, la partida no puede quedarse bloqueada.
+// LA CARTA QUE SE ELIGE AL SUBIR DE NIVEL TAMBIÉN ES SIMULACIÓN.
+//
+// Y no puede viajar por el búfer de pulsaciones, porque el menú PARA EL MUNDO:
+// mientras está abierto, el reloj de pasos no avanza y el búfer no fluye. Así
+// que la elección va por el canal de control, que es el fiable, atada al puesto
+// que la hace.
+//
+// Las dos máquinas abren el menú en el mismo paso —la experiencia es
+// determinista, así que suben de nivel a la vez— y las dos aplican el MISMO
+// índice de carta. Quien no es dueño del menú lo ve pero no lo toca: si pudiera
+// elegir, cada máquina se quedaría una carta distinta y a partir de ahí serían
+// dos partidas.
+function eleccionRemota(indice) {
+  if (!Progresion.abierto) return;
+  Progresion.seleccion = indice;
+  Progresion.elegir(indice);
+  Progresion.atender(jugadores);
+}
+
 function menuNivelEntrada() {
   const j = Progresion.actual;
-  const c = entrada.controles[jugadores.indexOf(j)] || entrada.controles[0];
+  const puesto = jugadores.indexOf(j);
+  const c = entrada.controles[puesto] || entrada.controles[0];
   const n = Progresion.nOpciones;
+
+  // En red, el menú de otro no se toca: su dueño elegirá y lo dirá.
+  if (Sincro.activo && puesto !== Sincro.jugadorLocal) return;
 
   // El stick se lee UNA vez por paso: flancoEje consume estado, así que
   // llamarlo dos veces devolvería 0 la segunda.
@@ -1712,7 +1830,12 @@ function menuNivelEntrada() {
   // Botón 0 = A en el mapeo estándar.
   if (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space') ||
       c.consumirBoton(0)) {
-    Progresion.elegir(Progresion.seleccion);
+    const elegida = Progresion.seleccion;
+    // Se avisa ANTES de aplicarla: si `elegir` encadenara otro menú y el aviso
+    // saliera después, los dos mensajes irían en otro orden y el de allí se
+    // aplicaría sobre el menú equivocado.
+    if (Sincro.activo) Sincro.avisarEleccion(elegida);
+    Progresion.elegir(elegida);
     Progresion.atender(jugadores);      // encadena si hay más en cola
   }
 }
@@ -2060,6 +2183,7 @@ function dibujar(alpha) {
       tiles: tilesDibujados,
       cx: camara.x, cy: camara.y,
       retardo: Lockstep.retardo,
+      red: Sincro.resumen(),
       fuente: entrada.controles[0].fuente,
       mandos: entrada.mandosConectados,
       zoom: zoomPantalla,
@@ -2265,6 +2389,14 @@ async function arrancar() {
   // verdad se podrían perder.
   addEventListener('beforeunload', () => MetaProgreso.guardar());
 
+  // La consola de red necesita poder empezar y terminar una partida, y no puede
+  // importarlo de aquí sin cerrar un círculo entre los dos módulos. Se le pasa.
+  RedConsola.enganchar({
+    empezar: empezarPartidaEnRed,
+    terminar: terminarPartidaEnRed,
+    enPartida: () => Sincro.activo
+  });
+
   window.EMERITA = {
     jugadores, arsenales, enemigos, proyectiles, recogibles, cofres, disparos, zonas, camara, entrada, bucle,
     particulas: Particulas, vfx: VFX, progresion: Progresion, director: Director, jefes: Jefes,
@@ -2319,6 +2451,8 @@ async function arrancar() {
       // sembrando solo después, ese consumo habría partido de un estado distinto
       // en cada pasada y podría haber dejado rastro. Sembrando también antes,
       // todo lo que ocurre desde el vaciado es idéntico.
+      fijarMeta: fijarMetaNeutra,
+      restaurarMeta,
       // PROGRESO META CONOCIDO, y devuelto tal cual estaba al terminar.
       //
       // Las mejoras compradas con denarios ENTRAN EN LA SIMULACIÓN: cambian la
@@ -2332,34 +2466,6 @@ async function arrancar() {
       // puede reproducir. Y con `_congelado` puesto, para que nada de esto
       // llegue al disco: sin esa guarda, la primera partida de prueba
       // sobrescribiría el hueco de verdad.
-      fijarMeta() {
-        const previo = {
-          denarios: MetaProgreso.denarios,
-          personajes: MetaProgreso.personajes,
-          potenciadores: MetaProgreso.potenciadores,
-          mascotas: MetaProgreso.mascotas,
-          mascotaEquipada: MetaProgreso.mascotaEquipada,
-          factorDenarios: MetaProgreso.factorDenarios
-        };
-        MetaProgreso._congelado = true;
-        MetaProgreso.denarios = 0;
-        MetaProgreso.personajes = {};
-        MetaProgreso.potenciadores = {};
-        MetaProgreso.mascotas = {};
-        MetaProgreso.mascotaEquipada = '';
-        MetaProgreso.factorDenarios = 1;
-        return previo;
-      },
-      restaurarMeta(previo) {
-        if (!previo) return;
-        MetaProgreso.denarios = previo.denarios;
-        MetaProgreso.personajes = previo.personajes;
-        MetaProgreso.potenciadores = previo.potenciadores;
-        MetaProgreso.mascotas = previo.mascotas;
-        MetaProgreso.mascotaEquipada = previo.mascotaEquipada;
-        MetaProgreso.factorDenarios = previo.factorDenarios;
-        MetaProgreso._congelado = false;
-      },
       reiniciar(semilla) {
         rng.sembrar(semilla);
         volverAlMenu();

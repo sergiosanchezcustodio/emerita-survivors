@@ -91,6 +91,16 @@ export function dibujarDepuracion(ctx, datos) {
   // sentido de la tecla es poder comparar el tacto de uno con el de otro.
   LINEAS.push(`retardo    ${datos.retardo} fotogramas (${(datos.retardo * 16.67).toFixed(0)} ms) ` +
               `· , / . para cambiarlo`);
+  // En red, lo que de verdad hay que mirar: cuánto se ha esperado y si las dos
+  // partidas siguen siendo la misma. Las esperas son la medida honesta de cómo
+  // va la conexión — si suben, el retardo se ha quedado corto.
+  if (datos.red) {
+    const r = datos.red;
+    LINEAS.push(`red        paso ${r.paso} · soy el jugador ${r.jugadorLocal + 1} · ` +
+                `${r.huellas} huella(s) comparada(s)`);
+    LINEAS.push(`  esperas  ${r.esperas} paso(s), la más larga ${r.esperaMax}` +
+                (r.roto ? `  ROTO: ${r.roto}` : ''));
+  }
   LINEAS.push(`escala     ${ESCALA_ARTE}x arte · ${datos.zoom}x pantalla`);
   if (datos.sustituidos > 0) {
     LINEAS.push(`sustituidos ${datos.sustituidos} placeholder(s)`);

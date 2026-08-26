@@ -879,10 +879,19 @@ export function crearProbador(gancho) {
   // El `finally` no es adorno: si una prueba revienta a la mitad, el progreso
   // tiene que volver a su sitio igualmente. Y mientras dura, `guardar()` está
   // congelado, así que nada de esto puede llegar al disco.
+  //
+  // MENOS LAS QUE NO EMPIEZAN PARTIDA. `firma()` y `partes()` solo miran el
+  // mundo tal como está, y la partida EN RED las llama una vez por segundo para
+  // comparar con el otro jugador (ver red/sincro.js). Envolverlas ahí sería
+  // cambiarte el progreso guardado sesenta veces por minuto en plena partida, y
+  // devolvértelo justo después: un ir y venir por nada, con todas las
+  // papeletas de dejarlo mal a la primera excepción.
+  const SIN_META = ['firma', 'partes', 'camposExtra'];
   if (gancho.fijarMeta) {
     for (const nombre in api) {
       const original = api[nombre];
       if (typeof original !== 'function') continue;
+      if (SIN_META.indexOf(nombre) >= 0) continue;
       api[nombre] = function (...args) {
         const previo = gancho.fijarMeta();
         try {

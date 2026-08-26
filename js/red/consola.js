@@ -18,6 +18,20 @@ import { tipoDe } from './codigo.js';
 // pueda seleccionar de una pasada sin arrastrar adornos.
 
 let sesion = null;
+// Lo enchufa main.js: empezar y terminar una partida en red. Aquí no se puede
+// importar de main.js sin cerrar un círculo entre los dos módulos.
+let juego = null;
+
+// LA VERSIÓN DEL JUEGO VIAJA EN EL SALUDO, y no es burocracia.
+//
+// Dos máquinas con distinta versión simulan mundos distintos: basta un ajuste de
+// balance para que la misma semilla produzca otra partida. Y va a pasar — el día
+// que se publique una actualización con alguien jugando. Sin esta comprobación,
+// el síntoma sería una desincronización a los diez segundos y nadie sabría por
+// qué. Con ella, se dice antes de empezar.
+//
+// Se sube A MANO cada vez que cambie algo que afecte a la simulación.
+const VERSION_JUEGO = '2026-08-26';
 
 function nueva(servidores) {
   // AL INTENTO ANTERIOR SE LE QUITA LA VOZ ANTES DE CERRARLO.
@@ -44,8 +58,32 @@ function nueva(servidores) {
     else if (estado === ESTADOS.ERROR) console.error(`RED[${yo}]: ` + (error || 'error'));
     else if (estado === ESTADOS.CERRADO) console.log(`RED[${yo}]: conexión cerrada.`);
   };
-  sesion.alControl = (t) => console.log(`RED[${yo}] (control): ` + t);
+  sesion.alControl = (t) => {
+    // El saludo se atiende AQUÍ y no en sincro.js: cuando llega, la partida
+    // todavía no existe y no hay nadie a quien dárselo.
+    if (t.startsWith('inicio ')) { empezarPorInvitacion(t); return; }
+    console.log(`RED[${yo}] (control): ` + t);
+  };
   return sesion;
+}
+
+// Lo recibe quien se ha unido: el anfitrión ha dado el pistoletazo.
+function empezarPorInvitacion(texto) {
+  const p = texto.split(' ');
+  const version = p[1];
+  if (version !== VERSION_JUEGO) {
+    console.error(`No podéis jugar juntos: el anfitrión tiene la versión ` +
+                  `${version} y tú la ${VERSION_JUEGO}. Actualizad los dos.`);
+    return;
+  }
+  if (!juego) { console.error('El juego todavía no está listo.'); return; }
+  const semilla = parseInt(p[2], 10) >>> 0;
+  const personajes = p[3].split(',').map((n) => parseInt(n, 10) | 0);
+  juego.empezar(sesion, {
+    esAnfitrion: false, jugadorLocal: 1, personajes, semilla
+  });
+  console.log(`Partida en red empezada (semilla ${semilla.toString(16)}). ` +
+              'Eres el jugador 2.');
 }
 
 async function alPortapapeles(texto) {
@@ -78,6 +116,8 @@ function comentarCandidatos(c) {
 }
 
 export const RedConsola = {
+  enganchar(api) { juego = api; },
+
   // Servidores ICE. Ver SERVIDORES_POR_DEFECTO en conexion.js y el apartado
   // correspondiente de docs/cooperativo-online.md. Ponerlo a [] vuelve al
   // comportamiento de "solo la misma casa", sin hablar con nadie de fuera.
@@ -231,6 +271,39 @@ export const RedConsola = {
                 (c.ms != null ? ` · ${c.ms.toFixed(1)} ms medidos por WebRTC` : ''));
     console.log('  ' + explica[c.clase]);
     return c;
+  },
+
+  // EMPEZAR LA PARTIDA. Lo hace el anfitrión; la otra máquina se entera sola.
+  //
+  // Todo lo que decide cómo va a ser la partida se manda desde aquí: la semilla
+  // del azar y qué personaje lleva cada puesto. Si cada máquina eligiera lo
+  // suyo, serían dos partidas distintas desde el primer fotograma.
+  jugar(personajes) {
+    if (!sesion || sesion.estado !== ESTADOS.CONECTADO) {
+      console.error('No hay conexión abierta.');
+      return false;
+    }
+    if (!sesion.esAnfitrion) {
+      console.error('La partida la empieza quien invitó. Espera a que lo haga.');
+      return false;
+    }
+    const pers = personajes && personajes.length >= 2 ? personajes : [0, 1];
+    const semilla = (Math.random() * 0xffffffff) >>> 0;
+    // El saludo va por el canal de control, que es el fiable: si esto se
+    // perdiera, una máquina empezaría la partida y la otra no.
+    sesion.enviarControl(`inicio ${VERSION_JUEGO} ${semilla} ${pers.join(',')}`);
+    juego.empezar(sesion, {
+      esAnfitrion: true, jugadorLocal: 0, personajes: pers, semilla
+    });
+    console.log(`Partida en red empezada (semilla ${semilla.toString(16)}). ` +
+                'Eres el jugador 1.');
+    return true;
+  },
+
+  salir() {
+    if (sesion) sesion.enviarControl('adios');
+    if (juego) juego.terminar();
+    console.log('Fuera de la partida en red.');
   },
 
   estado() {
