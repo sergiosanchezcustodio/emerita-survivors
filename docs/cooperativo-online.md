@@ -120,6 +120,26 @@ llegara ese paso ya se habría jugado. Lo que se hará en su lugar es meter las
     EMERITA.red.autoprueba()   monta las dos puntas en esta misma página
     EMERITA.red.latencia()     ida y vuelta, y cuántos fotogramas pide
 
+**Comprobado entre Edge y Firefox**, dos ventanas de la misma máquina: código de
+298 caracteres, dos mensajes, canales abiertos, 1,4 ms de ida y vuelta. Ese 1,4
+es el suelo del sistema y no una medida de red — no sirve para elegir el retardo,
+solo para saber que el canal responde.
+
+### Dos cosas que ya costaron tiempo, para no volver a pagarlas
+
+**Confundir los dos códigos es EL error de este flujo**, y el síntoma era mudo:
+la conexión no se abre y no hay pista. El tipo va dentro del propio código y se
+lee sin conectar nada —quien invita pone rol DTLS `actpass`, quien responde ya
+elige—, así que ahora `responder()` y `aceptar()` lo comprueban antes de tocar
+WebRTC y dicen qué código es y quién tiene que pegarlo.
+
+**Un `failed` de WebRTC no es definitivo.** Chrome lo anuncia y se recupera unos
+cientos de milisegundos después: pasa con los candidatos mDNS —los nombres
+`.local` con los que esconde la IP de casa— porque el primer par de direcciones
+se descarta mientras el nombre todavía se resuelve. Se le da un margen de cuatro
+segundos antes de creérselo. Si algún día alguien "arregla" esto quitando el
+margen, volverá el mensaje de fracaso justo antes del de conexión.
+
 ### DÓNDE LLEGA ESTO HOY: la misma casa
 
 Sin servidores ICE configurados, los candidatos son solo direcciones locales, y
