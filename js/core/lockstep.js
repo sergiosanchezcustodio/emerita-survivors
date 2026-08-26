@@ -66,7 +66,21 @@ export const Lockstep = {
   // El paso de simulación en curso. NO es el fotograma de pantalla: solo avanza
   // cuando el mundo avanza, así que la pausa y el menú de nivel no lo mueven.
   paso: 0,
-  retardo: 2,
+  // CUATRO, Y NO DOS, PORQUE MEDIDO NO SE NOTA.
+  //
+  // Sergio jugó con 0, con 2 y con 6 sin distinguir uno de otro, y `medirRetardo`
+  // confirmó que el desfase se estaba aplicando de verdad en los tres casos. El
+  // género perdona: no hay saltos que cronometrar ni disparos que apuntar, solo
+  // conduces un personaje en continuo y las armas van solas. 100 ms ahí se
+  // sienten mucho menos que en un plataformas.
+  //
+  // Y cada fotograma que no molesta es margen de red REGALADO: 4 son 67 ms para
+  // que el paquete del otro jugador cruce, que da para jugar con alguien de otra
+  // ciudad sin recurrir a prediccion ni rebobinado -- que es la parte cara de
+  // esta arquitectura y la que introduce los fallos raros. Se sube a 4 en vez de
+  // apurar a 6 para dejar sitio a que la medida del tacto se haga con mas gente
+  // antes de gastarse el resto.
+  retardo: 4,
 
   iniciar(maxJugadores) {
     this._jugadores = maxJugadores;

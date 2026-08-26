@@ -61,13 +61,34 @@ héroes— y lo devuelven al terminar. Sin eso, dos máquinas comparan partidas 
 no son la misma, porque las mejoras compradas con denarios cambian la vida y el
 daño. Mientras dura una prueba, `MetaProgreso.guardar()` no escribe.
 
+## El búfer de pulsaciones (hecho)
+
+`js/core/lockstep.js`. Las pulsaciones ya no entran directas en la simulación:
+lo que se pulsa en el paso N se consume en el paso N+retardo. Esos fotogramas
+son, cuando haya red, el tiempo que tiene el paquete del otro jugador para
+cruzar. El stick se cuantiza a un byte por eje **antes** de entrar en la
+simulación, porque por la red viaja un byte y no un flotante de 17 cifras: si
+cada máquina redondeara al recibirlo, volveríamos al problema que resolvió
+`mate.js`.
+
+**El retardo por defecto es 4 (67 ms), y sale de una medición.** Sergio jugó con
+0, con 2 y con 6 sin distinguir uno de otro. El género perdona: no hay saltos
+que cronometrar ni disparos que apuntar. Cada fotograma que no se nota es margen
+de red regalado, y 67 ms dan para jugar con alguien de otra ciudad sin
+predicción ni rebobinado, que es la parte cara de esta arquitectura.
+
+Se cambia en caliente con las teclas `,` y `.`, y el panel F3 dice en cuál está.
+Con 0 se juega exactamente como antes de que existiera el búfer.
+
+    EMERITA.determinismo.medirRetardo()   ¿el desfase real es el configurado?
+
+Esa prueba existe porque "no noto diferencia" tiene dos explicaciones, y una es
+que el búfer no esté haciendo nada. Cuenta en qué paso se mueve el personaje con
+el stick a tope y lo compara con lo configurado.
+
 ## Lo que queda
 
-1. **Bucle de lockstep local.** Separar pulsaciones de simulación y meter un
-   retardo de entrada de 2-3 fotogramas. Sin red todavía: si esto no se siente
-   bien con un jugador, con dos tampoco. Es el paso que decide si el enfoque
-   vale, porque el retardo es lo único que el jugador nota.
-2. **WebRTC y el código de conexión.** Intercambio manual de SDP, sin nada
+1. **WebRTC y el código de conexión.** Intercambio manual de SDP, sin nada
    externo (decisión de Sergio). En el saludo tienen que viajar dos cosas:
    - **La versión del juego.** Dos máquinas con distinta versión divergen. En
      cuanto se publique una actualización con alguien jugando, pasa.

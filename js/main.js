@@ -2300,6 +2300,9 @@ async function arrancar() {
     //   EMERITA.determinismo.firmar()    huella para comparar con otro navegador
     // Qué funciones de Math difieren entre motores: EMERITA.huellaMotor()
     huellaMotor,
+    // El búfer de pulsaciones, a mano desde la consola: `EMERITA.lockstep.retardo`
+    // dice con cuánto se está jugando ahora mismo.
+    lockstep: Lockstep,
     determinismo: crearProbador({
       dt: DT,
       entrada,

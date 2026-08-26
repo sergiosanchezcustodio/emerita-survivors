@@ -695,6 +695,60 @@ export function crearProbador(gancho) {
       return difs;
     },
 
+    // ¿DE VERDAD SE ESTÁ APLICANDO EL RETARDO? Se cuenta, no se opina.
+    //
+    // "No noto diferencia entre 0 y 6" tiene dos explicaciones, y una es que el
+    // búfer no esté haciendo nada. Esto las separa: se empuja el stick a tope
+    // desde el primer paso y se mira EN QUÉ PASO empieza a moverse el
+    // personaje. Con retardo 2 tiene que ser el tercero, ni antes ni después.
+    //
+    // Vale también como red de seguridad para cuando llegue la red: si algún
+    // día el desfase real deja de coincidir con el configurado, el fallo está
+    // en el búfer y no en la conexión.
+    medirRetardo() {
+      const L = gancho.estado().lockstep;
+      if (!L) { console.error('No hay búfer de pulsaciones.'); return null; }
+      const esperado = L.retardo;
+      const pasos = esperado + 6;
+      const original = gancho.entrada.actualizar;
+      let primero = -1;
+
+      gancho.reiniciar(0xE3E21A);
+      // El stick a tope a la derecha, todos los pasos y sin tocar botones: no
+      // queremos que salte el menú de subida de nivel a mitad de la medición.
+      gancho.entrada.actualizar = function () {
+        for (let i = 0; i < this.controles.length; i++) {
+          const c = this.controles[i];
+          c.ejeX = 1; c.ejeY = 0;
+          c._flancoBotones = 0; c._botonesPrev = 0;
+        }
+        this._flanco.clear();
+      };
+      try {
+        const j = gancho.estado().jugadores[0];
+        let x = j.x;
+        for (let p = 0; p < pasos; p++) {
+          gancho.paso(gancho.dt);
+          if (primero < 0 && j.x !== x) primero = p;
+          x = j.x;
+        }
+      } finally {
+        gancho.entrada.actualizar = original;
+      }
+
+      if (primero < 0) {
+        console.error(`El personaje NO se ha movido en ${pasos} pasos con el stick a tope. ` +
+                      'El búfer no está entregando nada.');
+        return { esperado, medido: -1, correcto: false };
+      }
+      const correcto = primero === esperado;
+      const msg = `Retardo configurado ${esperado}, medido ${primero} ` +
+                  `(el personaje se mueve por primera vez en el paso ${primero}).`;
+      if (correcto) console.log(msg + ' CORRECTO.');
+      else console.error(msg + ' NO CUADRAN: el búfer no desfasa lo que dice.');
+      return { esperado, medido: primero, correcto };
+    },
+
     // PRUEBA 1: la misma partida dos veces en esta pestaña.
     repetir(pasos = 3600, cada = 60, semilla = 0xE3E21A, aFondo = false) {
       gancho.reiniciar(semilla);
