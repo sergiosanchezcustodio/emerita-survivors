@@ -37,6 +37,16 @@ const VERSION_PROTOCOLO = 1;
 // EMERITA.red.vigilancia(60).
 let CADA_HUELLA = 20;
 
+// De qué pools se guarda el detalle mientras se juega. Los enemigos y los
+// cosméticos NO: son demasiados como para retratarlos en caliente.
+const GRUPOS_VIGILADOS = ['jugadores', 'disparos', 'proyectiles', 'zonas',
+                          'cofres', 'recogibles', 'mascotas'];
+
+// A partir de cuántos pasos parado se avisa. Dos segundos: por debajo de eso es
+// un tirón de red y no hay nada que decir; por encima, el jugador está mirando
+// una pantalla congelada y merece saber por qué.
+const ESPERA_AVISO = 120;
+
 export function vigilarCada(pasos) {
   CADA_HUELLA = Math.max(1, pasos | 0);
   return CADA_HUELLA;
@@ -56,6 +66,7 @@ export const Sincro = {
   // Cuántas huellas se han comparado y en cuántos pasos ha habido que esperar.
   huellasComparadas: 0,
   desdeUltimaHuella: 0,
+  _pasosParado: 0,
   // El último paso que se comprobó y salió bien. Al romperse, acota la
   // divergencia a la ventana entre ese paso y el que falla.
   ultimoBueno: -1,
@@ -96,6 +107,7 @@ export const Sincro = {
     this.roto = '';
     this.huellasComparadas = 0;
     this.desdeUltimaHuella = 0;
+    this._pasosParado = 0;
     this.activo = true;
 
     // El búfer, con los puestos repartidos: el mío es local, el resto viene por
@@ -135,8 +147,22 @@ export const Sincro = {
 
     if (!Lockstep.listo()) {
       Lockstep.anotarEspera();
+      // UNA PANTALLA CONGELADA SIN EXPLICACIÓN ES UN FALLO EN SÍ MISMO.
+      //
+      // Esperar es el comportamiento correcto —mejor parar que inventarse lo
+      // que pulsó el otro— pero callárselo no lo es: a Sergio se le quedó la
+      // imagen quieta y no había nada en la consola que lo explicara. Se avisa
+      // a los dos segundos y luego cada cinco, sin llenar la consola.
+      this._pasosParado++;
+      if (this._pasosParado === ESPERA_AVISO ||
+          (this._pasosParado > ESPERA_AVISO && this._pasosParado % 300 === 0)) {
+        const faltan = Lockstep.faltan().map((i) => `jugador ${i + 1}`).join(', ');
+        console.warn(`RED: esperando a ${faltan} desde hace ` +
+                     `${(this._pasosParado / 60).toFixed(1)} s (paso ${Lockstep.paso}).`);
+      }
       return false;
     }
+    this._pasosParado = 0;
     return true;
   },
 
@@ -163,11 +189,18 @@ export const Sincro = {
     // buscar.
     const partes = this._partesDe ? this._partesDe() : [this._huellaDe() >>> 0];
     this._mias.set(paso, partes);
-    // Y la foto del mundo en ese mismo paso. Solo se guardan unas pocas: sirven
-    // para el instante en que algo se separa, no para llevar un historial.
+    // Y la foto del mundo en ese mismo paso, SOLO DE LOS POOLS PEQUEÑOS.
+    //
+    // Los enemigos quedan fuera a propósito: al minuto cinco hay cientos, y un
+    // objeto por cada uno tres veces por segundo colgó el navegador de Sergio
+    // sin dar un solo error. Para los pools pequeños son unas pocas decenas de
+    // objetos y se puede permitir.
+    //
+    // Si algún día lo que diverge son los enemigos, esto no lo va a poder
+    // detallar y habrá que pedir la foto A MANO con la partida ya parada.
     if (this._fotoDe) {
-      this._fotos.set(paso, this._fotoDe());
-      if (this._fotos.size > 4) {
+      this._fotos.set(paso, this._fotoDe(GRUPOS_VIGILADOS));
+      if (this._fotos.size > 2) {
         this._fotos.delete(this._fotos.keys().next().value);
       }
     }

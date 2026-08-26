@@ -475,9 +475,11 @@ export function crearProbador(gancho) {
   // comparar DOS pasadas y decir exactamente qué se ha movido: cuando la firma
   // dice "difieren los enemigos" con el mismo recuento y el mismo azar, lo que
   // queda es un campo concreto de un bicho concreto, y hay que nombrarlo.
-  function fotoDe(e) {
+  function fotoDe(e, soloGrupos) {
     const foto = {};
+    const quiere = (n) => !soloGrupos || soloGrupos.indexOf(n) >= 0;
     const dePool = (nombre, gestor) => {
+      if (!quiere(nombre)) return;
       const pool = gestor && gestor.pool;
       if (!pool) return;
       const filas = [];
@@ -513,7 +515,7 @@ export function crearProbador(gancho) {
       }
       jug.push(fila);
     }
-    foto.jugadores = jug;
+    if (quiere('jugadores')) foto.jugadores = jug;
 
     // Y LAS MASCOTAS, que no son un pool y por eso se habían quedado fuera de
     // todas las comparaciones. `Mascotas.activas` es un array preasignado de
@@ -533,7 +535,7 @@ export function crearProbador(gancho) {
       }
       mas.push(fila);
     }
-    foto.mascotas = mas;
+    if (quiere('mascotas')) foto.mascotas = mas;
     return foto;
   }
 
@@ -923,10 +925,21 @@ export function crearProbador(gancho) {
     //
     // Se toma sin los campos de dibujo, igual que la firma que se compara: si
     // no, la tabla saldría llena de diferencias legítimas de interpolación.
+    // `grupos` NO ES OPCIONAL EN PARTIDA, y esto costó un cuelgue.
+    //
+    // Tomarla entera crea un objeto por entidad viva con todos sus campos. Al
+    // minuto cinco hay cientos de enemigos, y la partida en red la pedía tres
+    // veces por segundo: eso es basura en caliente, justo lo que este motor
+    // evita en todas partes. A Sergio se le congeló el navegador entero, sin un
+    // error en la consola, porque no había ningún error — había un recolector
+    // ahogado.
+    //
+    // Desde la consola, a mano y con la partida parada, pedirla entera está
+    // bien. Desde el bucle, JAMÁS sin acotar los grupos.
     foto(grupos) {
       sinVista = true;
       let f;
-      try { f = fotoDe(gancho.estado()); } finally { sinVista = false; }
+      try { f = fotoDe(gancho.estado(), grupos); } finally { sinVista = false; }
       if (!grupos || grupos.length === 0) return f;
       const recorte = {};
       for (let i = 0; i < grupos.length; i++) {
