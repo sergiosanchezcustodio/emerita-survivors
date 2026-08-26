@@ -1507,6 +1507,49 @@ function actualizar(dt) {
     entrada.limpiarFlanco();
     return;
   }
+  // EL RETARDO DE ENTRADA SÍ SIGUE FUNCIONANDO EN RED, y va antes del corte de
+  // los atajos a propósito: es precisamente jugando con alguien cuando hace
+  // falta poder subirlo o bajarlo sobre la marcha. No toca la simulación —cada
+  // máquina puede llevar el suyo— así que no desincroniza nada.
+  //
+  // Coma y punto porque están juntas y se tantean sin mirar el teclado.
+  if (entrada.consumirFlanco('Comma')) {
+    AVISO_ARMA.texto = `Retardo de entrada: ${Lockstep.ajustarRetardo(-1)} fotogramas`;
+    AVISO_ARMA.restante = 2;
+  }
+  if (entrada.consumirFlanco('Period')) {
+    AVISO_ARMA.texto = `Retardo de entrada: ${Lockstep.ajustarRetardo(1)} fotogramas`;
+    AVISO_ARMA.restante = 2;
+  }
+
+  // LOS ATAJOS DE PRUEBA NO EXISTEN EN RED, y hay que decirlo alto.
+  //
+  // Todos cambian la simulación en UNA SOLA máquina: subir las armas, soltar
+  // cien enemigos, saltar un minuto, volverse inmortal, cambiar de personaje.
+  // El otro no se entera, así que a partir de esa tecla ya son dos partidas
+  // distintas. Sergio pulsó la L —subir el nivel de las armas— y la
+  // desincronización salió unos segundos después: una máquina había matado un
+  // enemigo más que la otra (787 bajas contra 786) y la gema de ese enemigo
+  // estaba en otro sitio.
+  //
+  // No se sincronizan, se apagan: son herramientas de probar el juego a solas,
+  // no cosas que deban pasarle a nadie por sorpresa desde la otra punta.
+  if (Sincro.activo) {
+    if (entrada.consumirFlanco('KeyL') || entrada.consumirFlanco('KeyC') ||
+        entrada.consumirFlanco('KeyJ') || entrada.consumirFlanco('KeyH') ||
+        entrada.consumirFlanco('KeyG') || entrada.consumirFlanco('KeyK') ||
+        entrada.consumirFlanco('KeyM') || entrada.consumirFlanco('KeyR') ||
+        entrada.consumirFlanco('Digit1') || entrada.consumirFlanco('Digit2') ||
+        entrada.consumirFlanco('Digit3') || entrada.consumirFlanco('Digit4') ||
+        entrada.consumirFlanco('Digit5') || entrada.consumirFlanco('Digit6') ||
+        entrada.consumirFlanco('Digit7') || entrada.consumirFlanco('Digit8') ||
+        entrada.consumirFlanco('KeyX')) {
+      AVISO_ARMA.texto = 'Los atajos de prueba están apagados en red';
+      AVISO_ARMA.restante = 2.5;
+    }
+    return;
+  }
+
   if (entrada.consumirFlanco('KeyC')) {
     // Cambia el personaje del jugador 1; los demás llevan el suyo.
     indicePersonaje = (indicePersonaje + 1) % ORDEN_PERSONAJES.length;
@@ -1529,17 +1572,6 @@ function actualizar(dt) {
     if (Director.alternar()) {
       enemigos.vaciar(); proyectiles.vaciar(); zonas.vaciar(); disparos.vaciar(); Jefes.vaciar();
     }
-  }
-  // El retardo de entrada, a mano y en caliente. Es la única forma de decidir
-  // cuánto se aguanta: hay que jugarlo, no razonarlo. Coma y punto porque están
-  // juntas y se tantean sin mirar el teclado.
-  if (entrada.consumirFlanco('Comma')) {
-    AVISO_ARMA.texto = `Retardo de entrada: ${Lockstep.ajustarRetardo(-1)} fotogramas`;
-    AVISO_ARMA.restante = 2;
-  }
-  if (entrada.consumirFlanco('Period')) {
-    AVISO_ARMA.texto = `Retardo de entrada: ${Lockstep.ajustarRetardo(1)} fotogramas`;
-    AVISO_ARMA.restante = 2;
   }
   if (entrada.consumirFlanco('Digit6')) Director.saltar(60);
   if (entrada.consumirFlanco('Digit7')) Director.saltar(-60);
