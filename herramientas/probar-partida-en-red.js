@@ -38,6 +38,19 @@ const SEGUNDOS = Number(process.argv[2]) || 60;
 // paso 18000. La inmortalidad se pone IGUAL en las dos máquinas y es un
 // booleano, así que no desincroniza nada: simplemente deja llegar más lejos.
 const MARATON = process.argv[3] === 'maraton';
+// MODO CORTE: a mitad de partida, el anfitrión se va de golpe.
+//
+//   node herramientas\probar-partida-en-red.js 20 corte
+//
+// Comprueba lo que pasa cuando se cae la red, que es lo que NO se puede
+// ensayar jugando de verdad sin desenchufar algo: que salga el cartel, que el
+// mundo se quede quieto esperando decisión, y que al elegir seguir en solitario
+// la partida continúe donde estaba y quien queda pueda moverse.
+//
+// Se corta al ANFITRIÓN a propósito: quien sobrevive es entonces quien se
+// unió, que llevaba el puesto 1. Ese es el caso delicado — si el búfer de
+// pulsaciones no cambia de puesto, se queda sin poder moverse.
+const CORTE = process.argv[3] === 'corte';
 
 let fallos = 0;
 function comprobar(condicion, texto) {
@@ -101,6 +114,54 @@ async function teclear(p, tecla, ms) {
   await p.pagina.keyboard.down(tecla);
   await p.pagina.waitForTimeout(ms);
   await p.pagina.keyboard.up(tecla);
+}
+
+// El corte, con el juego ya en marcha.
+async function probarCorte(A, B) {
+  const estado = (p) => p.pagina.evaluate(() => ({
+    paso: window.EMERITA.lockstep.paso,
+    jugadores: window.EMERITA.jugadores().length,
+    red: window.EMERITA.mando().redActiva
+  }));
+
+  await A.pagina.waitForTimeout(2500);
+  const antes = await estado(B);
+  comprobar(antes.red === 1 && antes.jugadores === 2,
+            `en marcha: ${antes.jugadores} jugadores, paso ${antes.paso}`);
+
+  // El anfitrión se va. Sobrevive quien se unió, que lleva el puesto 1.
+  await A.pagina.evaluate(() => window.EMERITA.red.salir());
+  await B.pagina.waitForTimeout(1200);
+  const cortado = await estado(B);
+  comprobar(cortado.red === 0, 'la partida en red se da por terminada');
+
+  await B.pagina.waitForTimeout(1200);
+  const quieto = await estado(B);
+  comprobar(quieto.paso === cortado.paso,
+            `el mundo se queda quieto esperando decisión (paso ${quieto.paso})`);
+
+  // SEGUIR EN SOLITARIO.
+  await B.pagina.keyboard.press('Enter');
+  await B.pagina.waitForTimeout(1500);
+  const solo = await estado(B);
+  comprobar(solo.jugadores === 1, 'queda un solo jugador');
+  comprobar(solo.paso > quieto.paso,
+            `y la partida sigue DONDE ESTABA, no desde cero ` +
+            `(${quieto.paso} -> ${solo.paso})`);
+
+  const antesX = await B.pagina.evaluate(() => window.EMERITA.jugadores()[0].x);
+  await teclear(B, 'KeyD', 900);
+  const despuesX = await B.pagina.evaluate(() => window.EMERITA.jugadores()[0].x);
+  comprobar(Math.abs(despuesX - antesX) > 5,
+            'y quien queda PUEDE MOVERSE, aunque llevara el puesto 2');
+
+  for (const p of [A, B]) {
+    const otros = p.errores.filter((t) => !/AudioContext/.test(t) && !/favicon/.test(t) &&
+                                          !/ha salido/.test(t));
+    comprobar(otros.length === 0,
+              otros.length === 0 ? `sin errores (${p.nombre})`
+                                 : `errores en ${p.nombre}: ${otros.slice(0, 2).join(' | ')}`);
+  }
 }
 
 async function principal() {
@@ -195,6 +256,8 @@ async function principal() {
       }
       console.log('  ..  modo maratón: los jugadores no mueren');
     }
+
+    if (CORTE) { await probarCorte(A, B); return; }
 
     // Moverse de verdad, en las dos, en direcciones distintas. Quedarse quieto
     // probaría mucho menos: sin movimiento no hay rumbo de cámara, y sin rumbo

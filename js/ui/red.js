@@ -181,3 +181,68 @@ export function dibujarRed(ctxMundo, ctx, estado) {
   parrafo(ctx, ['ESC para volver.'], ALTO_UI / 2 + 60, t.apagado, 15);
   ctx.restore();
 }
+
+// --- Cuando se cae la red ----------------------------------------------------
+//
+// Hasta ahora la partida se paraba y lo decía por la consola, que es como no
+// decirlo: quien está jugando ve el mundo congelado y no sabe si ha sido su
+// wifi, el del otro o un fallo del juego.
+//
+// Dos salidas y ninguna más, porque no hay más: seguir tú solo con la partida
+// donde está, o volver al menú. Reconectar y ponerse al día es otra cosa
+// —habría que reenviar los pasos perdidos— y no está hecha.
+export const OPCIONES_CAIDA = ['SEGUIR EN SOLITARIO', 'VOLVER AL MENÚ'];
+
+export function dibujarCaida(ctx, motivo, cursor) {
+  const t = Tema.actual;
+  const ancho = 460, alto = 190;
+  const px = (ANCHO_UI - ancho) / 2;
+  const py = (ALTO_UI - alto) / 2;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(6,5,10,.82)';
+  ctx.fillRect(0, 0, ANCHO_UI, ALTO_UI);
+  panel(ctx, px, py, ancho, alto, true);
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `18px ${FUENTE_TITULO}`;
+  ctx.fillStyle = t.titulo;
+  textoEspaciado(ctx, 'SE HA CORTADO', ANCHO_UI / 2, py + 32, 3);
+
+  // El motivo, en pequeño y con sus palabras. Da igual que sea largo: lo que
+  // importa es que quien lo lee sepa si tiene que llamar a su hermana o mirarse
+  // el router.
+  ctx.font = `13px ${FUENTE}`;
+  ctx.fillStyle = t.apagado;
+  const trozos = envolverEn(ctx, motivo || 'Se ha perdido la conexión.', ancho - 48);
+  for (let i = 0; i < trozos.length && i < 3; i++) {
+    ctx.fillText(trozos[i], ANCHO_UI / 2, py + 62 + i * 18);
+  }
+
+  const ALTO_OP = 32;
+  let y = py + alto - 24 - OPCIONES_CAIDA.length * (ALTO_OP + 8);
+  for (let i = 0; i < OPCIONES_CAIDA.length; i++) {
+    const elegida = i === cursor;
+    ctx.font = `15px ${FUENTE}`;
+    ctx.fillStyle = elegida ? t.titulo : t.texto;
+    ctx.fillText((elegida ? '> ' : '') + OPCIONES_CAIDA[i], ANCHO_UI / 2, y + ALTO_OP / 2);
+    y += ALTO_OP + 8;
+  }
+  ctx.restore();
+}
+
+// Partir un texto por palabras para que quepa. No usa `envolverTexto` de capa.js
+// porque aquí hace falta a lo ancho de un panel concreto, no del lienzo.
+function envolverEn(ctx, texto, anchoMax) {
+  const palabras = String(texto).split(' ');
+  const fuera = [];
+  let linea = '';
+  for (let i = 0; i < palabras.length; i++) {
+    const prueba = linea ? linea + ' ' + palabras[i] : palabras[i];
+    if (ctx.measureText(prueba).width > anchoMax && linea) { fuera.push(linea); linea = palabras[i]; }
+    else linea = prueba;
+  }
+  if (linea) fuera.push(linea);
+  return fuera;
+}

@@ -25,7 +25,7 @@ import { Obstaculos } from './sistemas/obstaculos.js';
 import { Lockstep } from './core/lockstep.js';
 import { RedConsola } from './red/consola.js';
 import { Sincro } from './red/sincro.js';
-import { dibujarRed, OPCIONES_RED } from './ui/red.js';
+import { dibujarRed, OPCIONES_RED, dibujarCaida, OPCIONES_CAIDA } from './ui/red.js';
 import { Recogibles } from './entidades/recogible.js';
 import { Cofres, COFRE, LLAMARADA, IMAN, COMIDA, RELOJ, MONEDAS } from './entidades/cofre.js';
 import { Disparos } from './entidades/disparo.js';
@@ -1235,6 +1235,22 @@ const red = {
   aviso: '', esAnfitrion: false
 };
 
+// SE HA CAÍDO LA RED EN PLENA PARTIDA.
+//
+// Hasta ahora esto se decía por la consola, que es como no decirlo: quien está
+// jugando ve el mundo congelado y no sabe si ha sido su wifi, el del otro o un
+// fallo del juego. Ahora sale un cartel con el motivo y dos salidas.
+//
+// El mundo se queda quieto mientras el cartel está puesto, igual que con la
+// pausa: no tendría sentido seguir jugando una partida que ya no es de dos
+// mientras decides si quieres seguir jugándola.
+let caidaRed = '';
+let cursorCaida = 0;
+// Qué puesto llevaba esta máquina, para poder quedarse con ese jugador si se
+// decide seguir en solitario. Se apunta al empezar porque `Sincro` lo olvida al
+// pararse.
+let puestoLocalRed = 0;
+
 function irARed() {
   red.fase = 'menu';
   red.cursor = 0;
@@ -1398,6 +1414,8 @@ function empezarPartidaEnRed(conexion, cfg) {
   // Ahora el progreso de cada uno viaja en el saludo y CADA MÁQUINA SIMULA A
   // LOS DOS con lo que cada uno tiene. Que tú lleves más mejoras que tu hermana
   // no rompe el lockstep; lo que lo rompía era que su máquina no lo supiera.
+  caidaRed = '';
+  puestoLocalRed = cfg.jugadorLocal | 0;
   metasDeRed = [];
   const metas = cfg.metas || [];
   for (let i = 0; i < cfg.personajes.length; i++) {
@@ -1427,7 +1445,15 @@ function empezarPartidaEnRed(conexion, cfg) {
     // quedó a medias: este enganche se los comía.
     fotoDe: (grupos) => window.EMERITA.determinismo.foto(grupos),
     comparaFotos: (a, b, t) => window.EMERITA.determinismo.comparaFotos(a, b, t),
-    alRomperse: () => { terminarPartidaEnRed(); },
+    alRomperse: (motivo) => {
+      terminarPartidaEnRed();
+      // Solo si seguimos dentro: si la partida ya había terminado, el aviso
+      // sobra y encima taparía el resumen.
+      if (pantalla === PANTALLA_JUEGO && !finalMostrado) {
+        caidaRed = motivo || 'Se ha perdido la conexión.';
+        cursorCaida = 0;
+      }
+    },
     alElegir: eleccionRemota
   });
   return true;
@@ -1436,6 +1462,48 @@ function empezarPartidaEnRed(conexion, cfg) {
 // `colgar` solo al salir a propósito. Al romperse por desincronización se para
 // la simulación pero se deja el canal abierto: es justo entonces cuando llegan
 // los números del otro que dicen qué se ha separado.
+// SEGUIR TÚ SOLO con la partida donde está.
+//
+// Se queda solo el jugador de esta máquina. Al otro no se le puede dejar ahí
+// plantado: sin nadie que lo mueva sería un muñeco recibiendo golpes, y la
+// cámara seguiría intentando encuadrar a los dos.
+//
+// Y hay que reiniciar el búfer de pulsaciones: durante la partida en red decía
+// que el puesto propio era el 0 o el 1 según quién fueras, y ahora solo queda un
+// jugador que lee el primer mando. Sin esto, quien se hubiera unido —puesto 1—
+// se quedaba sin poder moverse.
+function seguirEnSolitarioTrasCaida() {
+  const j = jugadores[puestoLocalRed] || jugadores[0];
+  const a = arsenales[puestoLocalRed] || arsenales[0];
+  jugadores.length = 0;
+  arsenales.length = 0;
+  if (j) { jugadores.push(j); j.id = 0; }
+  if (a) arsenales.push(a);
+  Progresion.resincronizarEquipo(jugadores);
+  Mascotas.releer(['']);
+  // Sin reiniciar el búfer: la partida sigue donde estaba y su contador de pasos
+  // también. Ver Lockstep.aSolitario.
+  Lockstep.aSolitario();
+  caidaRed = '';
+}
+
+function entradaCaidaRed() {
+  const c = entrada.controles[0];
+  const eje = c ? c.flancoEje(false) : 0;
+  const n = OPCIONES_CAIDA.length;
+  if (entrada.consumirFlanco('ArrowDown') || (c && c.consumirBoton(13)) || eje > 0) {
+    cursorCaida = (cursorCaida + 1) % n;
+  }
+  if (entrada.consumirFlanco('ArrowUp') || (c && c.consumirBoton(12)) || eje < 0) {
+    cursorCaida = (cursorCaida + n - 1) % n;
+  }
+  if (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space') ||
+      (c && c.consumirBoton(0))) {
+    if (cursorCaida === 0) seguirEnSolitarioTrasCaida();
+    else { caidaRed = ''; volverAlMenu(); }
+  }
+}
+
 function terminarPartidaEnRed(colgar) {
   if (colgar) Sincro.desconectar(); else Sincro.parar();
   metasDeRed = null;
@@ -1704,6 +1772,12 @@ function actualizar(dt) {
     entrada.limpiarFlanco();
     return;
   }
+
+  // EL CARTEL DE RED CAÍDA CONGELA EL MUNDO, igual que la pausa. No tendría
+  // sentido seguir jugando una partida que ya no es de dos mientras decides si
+  // quieres seguir jugándola. Va lo primero: mientras esté puesto no se atiende
+  // ninguna otra tecla de la partida.
+  if (caidaRed) { entradaCaidaRed(); entrada.limpiarFlanco(); return; }
 
   if (entrada.consumirFlanco('Escape', 9)) pausado = !pausado;
   // B en el mando SOLO cierra la pausa, nunca la abre: "atrás" no es un botón
@@ -2420,6 +2494,8 @@ function dibujar(alpha) {
   }
   perfil.texto = performance.now() - tNum;
 
+  if (caidaRed) dibujarCaida(Capa.ctx, caidaRed, cursorCaida);
+
   if (verDepuracion) {
     dibujarDepuracion(ctxUi, {
       fps: bucle.fps,
@@ -2754,7 +2830,7 @@ async function arrancar() {
         rng, director: Director, camara, progresion: Progresion, jugadores,
         enemigos, proyectiles, zonas, disparos, recogibles, cofres,
         mascotas: Mascotas, jefes: Jefes, particulas: Particulas, vfx: VFX,
-        obstaculos: Obstaculos, lockstep: Lockstep
+        obstaculos: Obstaculos, arsenales, lockstep: Lockstep
       })
     })
   };

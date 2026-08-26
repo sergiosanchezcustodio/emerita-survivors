@@ -187,6 +187,41 @@ export function crearBufer() {
     if (this._pasoDe) this._pasoDe.fill(0);
   },
 
+  // VOLVER A JUGAR SOLO SIN PERDER LA PARTIDA, cuando se cae la red.
+  //
+  // No vale con `reiniciar()`: eso pone el contador de pasos a cero y borra el
+  // anillo, y la partida sigue donde estaba — el reloj del director, los
+  // enemigos y todo lo demás van por el minuto siete. Un contador que vuelve a
+  // cero solo sirve para confundir a quien mire el panel.
+  //
+  // Lo que sí hay que arreglar son dos cosas. Que ya no se espere a nadie, y
+  // que el único jugador que queda lea el PRIMER mando: durante la partida en
+  // red, quien se hubiera unido tenía el puesto 1, y sin esto se quedaba sin
+  // poder moverse justo después de quedarse solo.
+  //
+  // Y los pasos que vienen se dan por sabidos y a cero, como al empezar: sus
+  // casillas todavía no están registradas —`registrar` escribe con `retardo`
+  // pasos de adelanto— y sin esto el mundo se quedaría esperando un paquete que
+  // ya no va a mandar nadie.
+  aSolitario() {
+    this.esperados = 1;
+    for (let i = 0; i < this._jugadores; i++) {
+      this._esLocal[i] = 1;
+      this._mando[i] = i;
+    }
+    for (let k = 0; k <= this.retardo; k++) {
+      const ranura = (this.paso + k) & MASCARA;
+      const e = ranura * this._jugadores * 2;
+      for (let i = 0; i < this._jugadores; i++) {
+        this._ejes[e + i * 2] = 0;
+        this._ejes[e + i * 2 + 1] = 0;
+        this._botones[ranura * this._jugadores + i] = 0;
+        this._conocido[ranura * this._jugadores + i] = 1;
+      }
+    }
+    this._ultimo.fill(this.paso + this.retardo);
+  },
+
   ajustarRetardo(delta) {
     let r = this.retardo + delta;
     if (r < 0) r = 0;

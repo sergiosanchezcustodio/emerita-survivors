@@ -157,7 +157,7 @@ function mezclarLista(h, lista) {
 const PARTES = ['rng', 'director', 'camara', 'progresion', 'jugadores',
                 'enemigos', 'gestorEnemigos', 'proyectiles', 'zonas', 'disparos',
                 'recogibles', 'cofres', 'mascotas', 'jefes', 'particulas', 'vfx',
-                'obstaculos', 'lockstep'];
+                'obstaculos', 'arsenales', 'lockstep'];
 
 // De los obstáculos interesa el REPARTO, no cada columna: sobre qué fila se
 // calculó, cuántos hay puestos y cuántas filas llevan ya su tanda invocada.
@@ -178,6 +178,39 @@ function mezclarLockstep(h, L) {
   const ejes = L._ejes, bot = L._botones;
   if (ejes) for (let i = 0; i < ejes.length; i++) h = mezclar(h, ejes[i]);
   if (bot) for (let i = 0; i < bot.length; i++) h = mezclar(h, bot[i]);
+  return h;
+}
+
+// EL ARSENAL DE CADA JUGADOR: qué armas lleva y de qué nivel.
+//
+// Estaba fuera de la firma sin querer, y era el hueco más incómodo que quedaba.
+// `mezclarLista` solo mezcla los campos NUMÉRICOS de un objeto, y un arsenal es
+// un objeto con una lista dentro: se caía por el borde sin que nadie lo
+// decidiera.
+//
+// Importa más que otros: el arma que se elige al subir de nivel es lo ÚNICO de
+// la partida en red que viaja por un camino aparte —el canal fiable, porque el
+// menú para el mundo y el búfer de pulsaciones no fluye—, así que es donde más
+// fácil es que las dos máquinas acaben con cosas distintas. Y sin esto, dos
+// arsenales distintos solo se notaban de rebote, cuando los proyectiles ya
+// llevaban un rato divergiendo.
+//
+// El identificador es texto, así que se mezcla carácter a carácter: no hace
+// falta que sea bonito, hace falta que dos armas distintas den números
+// distintos.
+function mezclarArsenales(h, lista) {
+  if (!lista) return h;
+  h = mezclar(h, lista.length);
+  for (let i = 0; i < lista.length; i++) {
+    const eq = lista[i] && lista[i].equipadas;
+    if (!eq) { h = mezclar(h, -1); continue; }
+    h = mezclar(h, eq.length);
+    for (let k = 0; k < eq.length; k++) {
+      const id = eq[k].id || '';
+      for (let c = 0; c < id.length; c++) h = mezclar(h, id.charCodeAt(c));
+      h = mezclar(h, eq[k].nivel | 0);
+    }
+  }
   return h;
 }
 
@@ -218,6 +251,7 @@ function firmaDe(e) {
     // Quedarse fuera de la firma es justo lo que le permitió esconder durante
     // semanas que no se reiniciaba entre partidas.
     mezclarObstaculos(H, e.obstaculos) >>> 0,
+    mezclarArsenales(H, e.arsenales) >>> 0,
     // EL BÚFER DE PULSACIONES. Entra en la firma por la misma razón por la que
     // acabaron entrando los obstáculos: es estado que vive en un módulo, y
     // todo lo que vive en un módulo se ha quedado sin reiniciar alguna vez.
