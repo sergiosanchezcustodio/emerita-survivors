@@ -1211,7 +1211,11 @@ function empezarPartidaEnRed(conexion, cfg) {
     huellaDe: () => window.EMERITA.determinismo.firmaMundo(),
     partesDe: () => window.EMERITA.determinismo.partesMundo(),
     nombres: window.EMERITA ? window.EMERITA.determinismo.nombresMundo() : [],
-    fotoDe: () => window.EMERITA.determinismo.foto(),
+    // LOS GRUPOS SE PASAN. Sin ellos, `foto()` retrata el mundo ENTERO -- cientos
+    // de enemigos, tres veces por segundo- y vuelve el cuelgue que ya tumbó un
+    // navegador. El arreglo de aquel día acotó los grupos en red/sincro.js y se
+    // quedó a medias: este enganche se los comía.
+    fotoDe: (grupos) => window.EMERITA.determinismo.foto(grupos),
     comparaFotos: (a, b, t) => window.EMERITA.determinismo.comparaFotos(a, b, t),
     alRomperse: () => { terminarPartidaEnRed(); },
     alElegir: eleccionRemota

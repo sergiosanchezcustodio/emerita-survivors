@@ -293,7 +293,13 @@ export function crearSincro(L) {
       let suya;
       try { suya = JSON.parse(texto.slice(corte + 1)); }
       catch { console.error('RED: la foto del otro no se ha podido leer.'); return; }
-      const difs = this._comparaFotos ? this._comparaFotos(mia, suya, 40) : [];
+      // SOLO SE COMPARA LO QUE HA VENIDO. El otro manda únicamente los grupos
+      // que se le pidieron; comparando contra la foto entera, todos los demás
+      // salían como "aquí 87 y allí 0" y la tabla se llenaba de diferencias
+      // inventadas que tapaban la de verdad.
+      const recorte = {};
+      for (const grupo in suya) if (mia[grupo]) recorte[grupo] = mia[grupo];
+      const difs = this._comparaFotos ? this._comparaFotos(recorte, suya, 40) : [];
       if (difs.length === 0) {
         console.warn('RED: los números coinciden campo a campo. Lo que difiere ' +
                      'está en un campo que la foto no recoge.');
