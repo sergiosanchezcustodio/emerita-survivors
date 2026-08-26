@@ -190,19 +190,96 @@ O sea que **el camino entre dos casas sigue sin probarse**. Que el código traig
 una dirección pública solo demuestra que el STUN contestó. La prueba de verdad es
 esa orden diciendo `publica`, con los dos jugadores en sitios distintos.
 
+## Las pulsaciones por la red (hecho)
+
+`js/core/lockstep.js` guarda y transporta; `js/red/sincro.js` junta la conexión
+con el búfer y vigila que los dos mundos sigan siendo el mismo.
+
+**El paquete son 42 bytes** —2,5 KB/s a 60 Hz— y lleva las SEIS últimas
+pulsaciones, no solo la del paso en curso. Eso sustituye a reintentar, que en
+tiempo real no sirve: cuando llegara el reenvío, ese paso ya habría que haberlo
+jugado. Medido perdiendo uno de cada tres paquetes: las dos puntas consumen lo
+mismo y nadie espera.
+
+**Si falta la pulsación de alguien, el mundo se para.** Eso es lo que se ve como
+"lag" en un juego así: no es lentitud, es la partida esperando a saber qué hizo
+el otro. Inventársela sería jugar otra partida.
+
+**Cada paquete dice además por dónde va quien lo manda**, y el otro repite desde
+ahí. Sin eso, bastaba que una punta se parase más de seis pasos —un tirón de
+red, una pausa del recolector, cambiar de pestaña— para que los dos se
+bloquearan PARA SIEMPRE, con las pulsaciones existiendo en la memoria de
+enfrente y sin forma de pedirlas.
+
+**La carta que se elige al subir de nivel va por el canal fiable**, no por el
+búfer: el menú para el mundo, así que mientras está abierto el reloj de pasos no
+avanza y el búfer no fluye. Las dos máquinas abren el menú en el mismo paso y
+aplican el mismo índice; quien no es su dueño lo ve y no lo toca.
+
+**Los atajos de prueba se apagan en red.** Todos cambian la simulación en una
+sola máquina.
+
+### Cómo se comprueba, ya sin jugar a mano
+
+    node herramientas\probar-lockstep.js          el búfer, con un canal que se maltrata
+    node herramientas\probar-sincro.js            las dos puntas, sin WebRTC
+    node herramientas\probar-partida-en-red.js 60 el juego entero, dos pestañas de verdad
+
+La última abre dos pestañas en un Chromium, las conecta con el mismo baile de
+códigos que harían dos personas y juega. Con `maraton` de segundo argumento, los
+jugadores no mueren y se llega más lejos.
+
+**Última medida: 19.112 pasos —cinco minutos y cuarto— con las dos puntas en el
+mismo paso exacto, cero esperas y cero desincronización.**
+
+### Las cinco "desincronizaciones" que no lo eran
+
+De las seis que se persiguieron, cinco no eran el motor separándose sino cosas
+que se estaban comparando y no debían. Conviene tenerlas escritas porque todas
+volverán a parecer un fallo del juego:
+
+1. **El búfer de pulsaciones.** Los dos nunca coinciden: cada máquina lleva su
+   futuro local y ha recibido del otro lo que le haya llegado.
+2. **`xVista` / `yVista`.** Posición interpolada para dibujar; el factor sale de
+   los fps de cada máquina.
+3. **`relojGiro`, `giroTotal`, `animando`, `seleccion`.** La animación del menú
+   de nivel, que avanza mientras el mundo está parado — justo el rato en que las
+   dos máquinas dejan de ir a la vez.
+4. **Los atajos de prueba.** La tecla L subía las armas en un solo lado.
+5. **El banco de pruebas.** Pulsaba Enter a ciegas, así que al morir el equipo
+   navegaba los menús y arrancaba partidas NUEVAS: lo medido después era de otra
+   partida, con otro personaje.
+
+Todas se parecían a un fallo del motor. Ninguna lo era. La pregunta útil ante
+una desincronización es "¿esto que comparo es de verdad la simulación?".
+
+### Un hueco conocido
+
+**El arsenal no entra en la firma.** `jugadores` solo mezcla campos numéricos y
+las armas son un objeto, así que si dos máquinas acabaran con armas distintas la
+comparación no lo vería directamente — solo de rebote, cuando los proyectiles
+empezaran a diferir. Y es justo el estado que sincroniza el mensaje de la carta
+elegida, o sea lo más delicado del montaje. Pendiente.
+
 ## Lo que queda
 
-1. **Integrar la red con el búfer de pulsaciones.** Mandar las pulsaciones de
-   cada paso por el canal `juego`, con redundancia, y hacer que la simulación
-   espere a tenerlas todas antes de dar el paso.
-2. **Pantallas de crear y unirse**, y el saludo con la versión y el progreso
-   meta de cada jugador. Intercambio manual de SDP, sin nada
-   externo (decisión de Sergio). En el saludo tienen que viajar dos cosas:
-   - **La versión del juego.** Dos máquinas con distinta versión divergen. En
-     cuanto se publique una actualización con alguien jugando, pasa.
-   - **El progreso meta de cada jugador.** Que uno tenga más mejoras que otro no
-     rompe el lockstep; lo que lo rompe es que su máquina no sepa cuáles son.
-3. **Reconciliación y desconexiones.**
+1. **El progreso meta de cada jugador, en el saludo.** Hoy se juega en red SIN
+   mejoras, sin mascota y sin héroes: las dos máquinas parten de cero, porque
+   las mejoras compradas cambian vida y daño y jugar con las de cada uno
+   desincronizaría. Que tú tengas más mejoras que tu hermana no rompe el
+   lockstep; lo que lo rompe es que su máquina no sepa cuáles son. La versión
+   del juego ya viaja y se comprueba antes de empezar.
+
+2. **Pantallas de crear y unirse.** Sacar la red de la consola: crear partida,
+   pegar el código, ver a quién esperas.
+
+3. **Desconexiones.** Qué pasa cuando a alguien se le va el wifi o cierra la
+   pestaña. Hoy la partida se para y lo dice, pero no ofrece salida.
+
+4. **El arsenal en la firma** (ver el hueco conocido, más arriba).
+
+5. **Probarlo entre dos casas de verdad.** `EMERITA.red.camino()` tiene que
+   decir `publica`. Hasta hoy solo ha dicho `local`.
 
 ## Dos cosas aprendidas que conviene no olvidar
 
