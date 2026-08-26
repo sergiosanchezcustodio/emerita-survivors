@@ -60,10 +60,17 @@ const ESCALONES = 127;
 // en 42. A sesenta por segundo, 2,5 KB/s.
 const REDUNDANCIA = 6;
 
-// Formato del paquete. Cabecera de 6 bytes y luego los marcos, 6 bytes cada uno.
+// Formato del paquete: cabecera y luego los marcos, 6 bytes cada uno.
+//
+// La cabecera lleva ADEMÁS POR DÓNDE VA QUIEN MANDA, y eso no es adorno: es lo
+// que permite salir de un atasco. Ver `empaquetar`.
 const TIPO_PULSACIONES = 1;
-const CABECERA = 6;
+const CABECERA = 10;
 const POR_MARCO = 6;
+
+// Tope de marcos en un paquete de recuperación. 40 son 250 bytes, y solo se
+// mandan cuando el otro se ha quedado atrás; en marcha normal van 6.
+const MARCOS_MAX = 40;
 
 function cuantizar(v) {
   if (!(v === v)) return 0;                      // NaN de un mando raro
@@ -130,7 +137,10 @@ export function crearBufer() {
     for (let i = 0; i < maxJugadores; i++) this._marcos[i] = { ejeX: 0, ejeY: 0, botones: 0 };
     // El paquete se crea UNA vez y se reutiliza en cada envío: sesenta veces por
     // segundo, un array nuevo por envío sería basura constante para el recolector.
-    this._paquete = new Uint8Array(CABECERA + REDUNDANCIA * POR_MARCO);
+    this._paquete = new Uint8Array(CABECERA + MARCOS_MAX * POR_MARCO);
+    // Por dónde va cada puesto remoto, según lo que él mismo cuenta. Sirve para
+    // saber desde dónde hay que repetirle las pulsaciones.
+    this._pasoDe = new Int32Array(maxJugadores);
     this._vista = new DataView(this._paquete.buffer);
     this.reiniciar();
   },
@@ -174,6 +184,7 @@ export function crearBufer() {
     // Y esos ceros de salida ya son contables: entran en el paquete como
     // cualquier otra pulsación.
     if (this._ultimo) this._ultimo.fill(this.retardo - 1);
+    if (this._pasoDe) this._pasoDe.fill(0);
   },
 
   ajustarRetardo(delta) {
@@ -295,13 +306,39 @@ export function crearBufer() {
     const ultimo = this._ultimo[jugador];
     if (ultimo < 0) return null;            // todavía no hay nada que contar
 
-    const primero = Math.max(0, ultimo - REDUNDANCIA + 1);
+    // DESDE DÓNDE SE REPITE: lo normal son las seis últimas, pero si el otro se
+    // ha quedado atrás, desde donde él esté.
+    //
+    // SIN ESTO SE BLOQUEAN LOS DOS PARA SIEMPRE, y no es un caso raro. Basta
+    // que una punta se pare más de seis pasos —un tirón de red, una pausa del
+    // recolector, cambiar de pestaña— para que el paquete del otro deje de
+    // contener los pasos que le faltan. Y como esa punta parada tampoco avanza,
+    // deja de registrar los suyos, así que el otro se para también. Los dos
+    // esperándose, con las pulsaciones existiendo en la memoria de enfrente y
+    // sin forma de pedirlas.
+    //
+    // Lo cazó herramientas/probar-sincro.js cortando la conexión dos segundos y
+    // volviéndola a abrir: no se recuperaban jamás.
+    let primero = Math.max(0, ultimo - REDUNDANCIA + 1);
+    // Por dónde va EL QUE ESCUCHA, no el que manda: lo que hay que repetir son
+    // las pulsaciones que a ÉL le faltan. Con varios, manda el más rezagado.
+    let masAtrasado = -1;
+    for (let i = 0; i < this._jugadores; i++) {
+      if (this._esLocal[i]) continue;
+      const suyo = this._pasoDe[i] | 0;
+      if (suyo <= 0) continue;
+      if (masAtrasado < 0 || suyo < masAtrasado) masAtrasado = suyo;
+    }
+    if (masAtrasado >= 0 && masAtrasado < primero) primero = masAtrasado;
+    if (ultimo - primero + 1 > MARCOS_MAX) primero = ultimo - MARCOS_MAX + 1;
     const cuantos = ultimo - primero + 1;
 
     const v = this._vista;
     v.setUint8(0, TIPO_PULSACIONES);
     v.setUint8(1, jugador);
     v.setUint32(2, primero, true);
+    // Por dónde voy yo, para que el otro sepa desde dónde repetirme a mí.
+    v.setUint32(6, this.paso, true);
 
     for (let k = 0; k < cuantos; k++) {
       const s = (primero + k) & MASCARA;
@@ -312,9 +349,7 @@ export function crearBufer() {
       v.setUint32(o + 2, this._botones[s * this._jugadores + jugador] >>> 0, true);
     }
     // Si todavía no hay `REDUNDANCIA` pasos de historia, se manda menos.
-    return cuantos === REDUNDANCIA
-      ? this._paquete
-      : this._paquete.subarray(0, CABECERA + cuantos * POR_MARCO);
+    return this._paquete.subarray(0, CABECERA + cuantos * POR_MARCO);
   },
 
   // Mete en el anillo lo que ha llegado. Devuelve cuántas casillas ha rellenado
@@ -339,6 +374,10 @@ export function crearBufer() {
     if (this._esLocal[jugador]) return 0;
 
     const primero = v.getUint32(2, true);
+    // Por dónde va el otro. Se guarda para poder repetirle desde ahí si se ha
+    // quedado atrás.
+    const suPaso = v.getUint32(6, true);
+    if (suPaso > this._pasoDe[jugador]) this._pasoDe[jugador] = suPaso;
     const cuantos = Math.floor((datos.length - CABECERA) / POR_MARCO);
     let nuevas = 0;
 
@@ -364,4 +403,5 @@ export function crearBufer() {
 
 export const Lockstep = crearBufer();
 
-export const FORMATO = { CABECERA, POR_MARCO, REDUNDANCIA, CAPACIDAD, ESCALONES, TIPO_PULSACIONES };
+export const FORMATO = { CABECERA, POR_MARCO, REDUNDANCIA, CAPACIDAD, ESCALONES,
+                         TIPO_PULSACIONES, MARCOS_MAX };

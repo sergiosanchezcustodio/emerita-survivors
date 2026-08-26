@@ -56,7 +56,13 @@ export function vigilarCada(pasos) {
 // tarde. Treinta son medio minuto.
 const HUELLAS_GUARDADAS = 30;
 
-export const Sincro = {
+// Se fabrica, como el búfer, para poder tener DOS en la misma memoria: la
+// prueba de Node monta las dos puntas de una partida y las hace hablar entre
+// ellas. Todo lo de aquí —comparar firmas, pedir el detalle, decidir si el
+// mundo avanza— es logica pura y no necesita WebRTC; solo el transporte lo
+// necesita. Mis tres ultimos fallos vivian justo en esta capa, sin probar.
+export function crearSincro(L) {
+ return {
   activo: false,
   esAnfitrion: false,
   jugadorLocal: 0,
@@ -112,9 +118,9 @@ export const Sincro = {
 
     // El búfer, con los puestos repartidos: el mío es local, el resto viene por
     // la red.
-    Lockstep.reiniciar(this.jugadores, [this.jugadorLocal]);
+    L.reiniciar(this.jugadores, [this.jugadorLocal]);
 
-    conexion.alJuego = (datos) => { Lockstep.aplicar(datos); };
+    conexion.alJuego = (datos) => { L.aplicar(datos); };
     conexion.alControl = (texto) => this._recibirControl(texto);
     conexion.alCerrar = () => {
       if (this.activo) this._romper('Se ha cortado la conexión.');
@@ -140,13 +146,13 @@ export const Sincro = {
     // búfer apunta al paso EN CURSO más el retardo, y si el paso no se da, ese
     // destino no cambia. Registrar de nuevo lo mismo no hace daño, pero mandar
     // sí hace falta siempre.
-    if (Lockstep.listo()) Lockstep.registrar(entrada);
+    if (L.listo()) L.registrar(entrada);
 
-    const bytes = Lockstep.empaquetar(this.jugadorLocal);
+    const bytes = L.empaquetar(this.jugadorLocal);
     if (bytes) this._con.enviarJuego(bytes);
 
-    if (!Lockstep.listo()) {
-      Lockstep.anotarEspera();
+    if (!L.listo()) {
+      L.anotarEspera();
       // UNA PANTALLA CONGELADA SIN EXPLICACIÓN ES UN FALLO EN SÍ MISMO.
       //
       // Esperar es el comportamiento correcto —mejor parar que inventarse lo
@@ -156,9 +162,9 @@ export const Sincro = {
       this._pasosParado++;
       if (this._pasosParado === ESPERA_AVISO ||
           (this._pasosParado > ESPERA_AVISO && this._pasosParado % 300 === 0)) {
-        const faltan = Lockstep.faltan().map((i) => `jugador ${i + 1}`).join(', ');
+        const faltan = L.faltan().map((i) => `jugador ${i + 1}`).join(', ');
         console.warn(`RED: esperando a ${faltan} desde hace ` +
-                     `${(this._pasosParado / 60).toFixed(1)} s (paso ${Lockstep.paso}).`);
+                     `${(this._pasosParado / 60).toFixed(1)} s (paso ${L.paso}).`);
       }
       return false;
     }
@@ -176,12 +182,17 @@ export const Sincro = {
 
   // Se llama DESPUÉS de que el mundo haya dado el paso.
   despuesDelPaso() {
-    if (!this.activo || this.roto || !this._huellaDe) return;
+    // Vale con cualquiera de las dos formas de firmar. Antes exigía `_huellaDe`
+    // aunque luego usara `_partesDe`, así que montarlo solo con la segunda
+    // dejaba la comprobación apagada EN SILENCIO — y una comprobación apagada
+    // en silencio es peor que no tenerla.
+    if (!this.activo || this.roto) return;
+    if (!this._partesDe && !this._huellaDe) return;
     this.desdeUltimaHuella++;
     if (this.desdeUltimaHuella < CADA_HUELLA) return;
     this.desdeUltimaHuella = 0;
 
-    const paso = Lockstep.paso;
+    const paso = L.paso;
     // SE MANDAN LOS COMPONENTES, NO UNA CIFRA. Son diecisiete números, unos 150
     // bytes por segundo por el canal fiable — nada al lado de las pulsaciones.
     // Y valen la diferencia entre "las partidas se han separado" y "se han
@@ -309,14 +320,17 @@ export const Sincro = {
   resumen() {
     if (!this.activo) return null;
     return {
-      paso: Lockstep.paso,
+      paso: L.paso,
       jugadorLocal: this.jugadorLocal,
-      esperas: Lockstep.esperas,
-      esperaMax: Lockstep.esperaMax,
+      esperas: L.esperas,
+      esperaMax: L.esperaMax,
       huellas: this.huellasComparadas,
       roto: this.roto
     };
   }
-};
+ };
+}
+
+export const Sincro = crearSincro(Lockstep);
 
 export const PROTOCOLO = { VERSION: VERSION_PROTOCOLO, CADA_HUELLA };
