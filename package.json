@@ -6,7 +6,8 @@
   "scripts": {
     "probar": "node herramientas/probar-mate.js && node herramientas/probar-codigo.js && node herramientas/probar-lockstep.js && node herramientas/probar-sincro.js",
     "probar-partida": "node herramientas/probar-partida-en-red.js",
-    "probar-menus": "node herramientas/probar-navegacion.js"
+    "probar-menus": "node herramientas/probar-navegacion.js",
+    "jugar-en-red": "node herramientas/jugar-en-red.js"
   },
   "devDependencies": {
     "playwright": "^1.49.0"
