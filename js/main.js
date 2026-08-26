@@ -22,6 +22,7 @@ import {
   colisionarObstaculos, colisionarAtaudes, ajustes
 } from './sistemas/colisiones.js';
 import { Obstaculos } from './sistemas/obstaculos.js';
+import { Lockstep } from './core/lockstep.js';
 import { Recogibles } from './entidades/recogible.js';
 import { Cofres, COFRE, LLAMARADA, IMAN, COMIDA, RELOJ, MONEDAS } from './entidades/cofre.js';
 import { Disparos } from './entidades/disparo.js';
@@ -1156,6 +1157,7 @@ function empezarPartida() {
   // decoración se invocan una vez por fila y hay que olvidar las de la partida
   // anterior. Ver Obstaculos.reiniciar.
   Obstaculos.reiniciar();
+  Lockstep.reiniciar();
   reiniciarSellosOrbitales();
   enemigos.bajas = 0;
   derrotaGuardada = false;
@@ -1433,6 +1435,17 @@ function actualizar(dt) {
       enemigos.vaciar(); proyectiles.vaciar(); zonas.vaciar(); disparos.vaciar(); Jefes.vaciar();
     }
   }
+  // El retardo de entrada, a mano y en caliente. Es la única forma de decidir
+  // cuánto se aguanta: hay que jugarlo, no razonarlo. Coma y punto porque están
+  // juntas y se tantean sin mirar el teclado.
+  if (entrada.consumirFlanco('Comma')) {
+    AVISO_ARMA.texto = `Retardo de entrada: ${Lockstep.ajustarRetardo(-1)} fotogramas`;
+    AVISO_ARMA.restante = 2;
+  }
+  if (entrada.consumirFlanco('Period')) {
+    AVISO_ARMA.texto = `Retardo de entrada: ${Lockstep.ajustarRetardo(1)} fotogramas`;
+    AVISO_ARMA.restante = 2;
+  }
   if (entrada.consumirFlanco('Digit6')) Director.saltar(60);
   if (entrada.consumirFlanco('Digit7')) Director.saltar(-60);
   // Cofre a los pies del jugador 1. Esperar a que caiga una mantícora para
@@ -1499,11 +1512,19 @@ function actualizar(dt) {
     return;
   }
 
-  // Cada jugador con SU control. El jugador 1 lleva teclado y mando 0; los
+  // LAS PULSACIONES NO ENTRAN DIRECTAS EN LA SIMULACIÓN, pasan por el búfer.
+  //
+  // `registrar` apunta lo que se está pulsando ahora para dentro de unos pasos;
+  // `marcoDe` devuelve lo que toca consumir en ESTE. Con retardo 0 las dos
+  // cosas son la misma y se juega como siempre. Ver core/lockstep.js.
+  //
+  // Cada jugador con SU control: el jugador 1 lleva teclado y mando 0; los
   // demás, su mando.
+  Lockstep.registrar(entrada);
   for (let i = 0; i < jugadores.length; i++) {
-    jugadores[i].actualizar(dt, entrada.controles[i]);
+    jugadores[i].actualizar(dt, Lockstep.marcoDe(i));
   }
+  Lockstep.avanzar();
   reanimar(dt);
   Mascotas.actualizar(dt, jugadores, ctxArmas);
   for (let i = 0; i < jugadores.length; i++) clamparXNivel(jugadores[i]);
@@ -2029,7 +2050,7 @@ function dibujar(alpha) {
       numeros: VFX.numerosActivos,
       jugadores,
       arsenales,
-      // Por dónde va el ciclador de armas (teclas M y coma). -1 = sin usar.
+      // Por dónde va el ciclador de armas (tecla M). -1 = sin usar.
       cicloArma: indiceCatalogo,
       cicloTotal: ORDEN_CATALOGO.length,
       perfil,
@@ -2037,6 +2058,7 @@ function dibujar(alpha) {
       celdas: enemigos.rejilla.numCeldas,
       tiles: tilesDibujados,
       cx: camara.x, cy: camara.y,
+      retardo: Lockstep.retardo,
       fuente: entrada.controles[0].fuente,
       mandos: entrada.mandosConectados,
       zoom: zoomPantalla,
@@ -2175,6 +2197,8 @@ async function arrancar() {
   enemigos.cofres = cofres;
   enemigos.disparos = disparos;
   Progresion.iniciar(rng);
+  // El búfer de pulsaciones, con su anillo preasignado. Ver core/lockstep.js.
+  Lockstep.iniciar(MAX_JUGADORES);
 
   // Quién abre el cofre y qué pasa entonces se decide aquí, no en la entidad:
   // así el cofre no sabe nada de la progresión y la progresión no sabe nada de
@@ -2363,7 +2387,7 @@ async function arrancar() {
         rng, director: Director, camara, progresion: Progresion, jugadores,
         enemigos, proyectiles, zonas, disparos, recogibles, cofres,
         mascotas: Mascotas, jefes: Jefes, particulas: Particulas, vfx: VFX,
-        obstaculos: Obstaculos
+        obstaculos: Obstaculos, lockstep: Lockstep
       })
     })
   };

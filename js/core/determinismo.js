@@ -126,7 +126,7 @@ function mezclarLista(h, lista) {
 const PARTES = ['rng', 'director', 'camara', 'progresion', 'jugadores',
                 'enemigos', 'gestorEnemigos', 'proyectiles', 'zonas', 'disparos',
                 'recogibles', 'cofres', 'mascotas', 'jefes', 'particulas', 'vfx',
-                'obstaculos'];
+                'obstaculos', 'lockstep'];
 
 // De los obstáculos interesa el REPARTO, no cada columna: sobre qué fila se
 // calculó, cuántos hay puestos y cuántas filas llevan ya su tanda invocada.
@@ -137,6 +137,16 @@ function mezclarObstaculos(h, o) {
   // `_filaBase` arranca en NaN, que no se puede mezclar: se codifica aparte.
   h = mezclar(h, o._filaBase === o._filaBase ? o._filaBase : 0x7FFFFFFF);
   h = mezclar(h, o._filasConTorchas ? o._filasConTorchas.size : 0);
+  return h;
+}
+
+function mezclarLockstep(h, L) {
+  if (!L) return h;
+  h = mezclar(h, L.paso | 0);
+  h = mezclar(h, L.retardo | 0);
+  const ejes = L._ejes, bot = L._botones;
+  if (ejes) for (let i = 0; i < ejes.length; i++) h = mezclar(h, ejes[i]);
+  if (bot) for (let i = 0; i < bot.length; i++) h = mezclar(h, bot[i]);
   return h;
 }
 
@@ -176,7 +186,13 @@ function firmaDe(e) {
     // así que este sistema aparece bichos —y gasta azar— como cualquier otro.
     // Quedarse fuera de la firma es justo lo que le permitió esconder durante
     // semanas que no se reiniciaba entre partidas.
-    mezclarObstaculos(H, e.obstaculos) >>> 0
+    mezclarObstaculos(H, e.obstaculos) >>> 0,
+    // EL BÚFER DE PULSACIONES. Entra en la firma por la misma razón por la que
+    // acabaron entrando los obstáculos: es estado que vive en un módulo, y
+    // todo lo que vive en un módulo se ha quedado sin reiniciar alguna vez.
+    // Además, cuando haya red, un desajuste de un paso entre las dos máquinas
+    // se verá aquí antes que en ninguna otra parte.
+    mezclarLockstep(H, e.lockstep) >>> 0
   ];
 }
 

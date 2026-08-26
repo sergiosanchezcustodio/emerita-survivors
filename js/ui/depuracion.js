@@ -80,12 +80,17 @@ export function dibujarDepuracion(ctx, datos) {
     }
     // Solo en el jugador 1, que es el que cicla, y solo si se ha usado.
     if (i === 0 && datos.cicloArma >= 0) {
-      LINEAS.push(`   catalogo ${datos.cicloArma + 1}/${datos.cicloTotal} (M / , para cambiar)`);
+      LINEAS.push(`   catalogo ${datos.cicloArma + 1}/${datos.cicloTotal} (M para cambiar)`);
     }
   }
 
   LINEAS.push(`camara     ${datos.cx.toFixed(0)}, ${datos.cy.toFixed(0)}`);
   LINEAS.push(`entrada    ${datos.fuente} · ${datos.mandos} mando(s)`);
+  // El retardo del búfer de pulsaciones. Se enseña siempre, también en 0: si
+  // no se ve, no hay forma de saber con cuál se está jugando, y todo el
+  // sentido de la tecla es poder comparar el tacto de uno con el de otro.
+  LINEAS.push(`retardo    ${datos.retardo} fotogramas (${(datos.retardo * 16.67).toFixed(0)} ms) ` +
+              `· , / . para cambiarlo`);
   LINEAS.push(`escala     ${ESCALA_ARTE}x arte · ${datos.zoom}x pantalla`);
   if (datos.sustituidos > 0) {
     LINEAS.push(`sustituidos ${datos.sustituidos} placeholder(s)`);
