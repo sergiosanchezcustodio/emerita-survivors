@@ -92,6 +92,16 @@ export function crearBufer() {
   // El paso más alto que esta máquina tiene registrado para cada puesto suyo.
   // Es lo que decide hasta dónde llega el paquete; ver `empaquetar`.
   _ultimo: null,
+  // QUÉ MANDO LEE CADA PUESTO PROPIO.
+  //
+  // No es la identidad, y ahí estaba el fallo: en red, quien se une lleva el
+  // PUESTO 1, pero juega con su teclado y su primer mando, que son el CONTROL 0
+  // de su máquina. Leyendo el control 1 se le buscaba un segundo mando que no
+  // existe, y no se movía.
+  //
+  // En el sofá sí es la identidad: cuatro jugadores, cuatro mandos, cada uno el
+  // suyo.
+  _mando: null,
   _marcos: null,           // objetos preasignados que ve la simulación
   _jugadores: 0,           // capacidad, no los que juegan
 
@@ -115,6 +125,7 @@ export function crearBufer() {
     this._conocido = new Uint8Array(CAPACIDAD * maxJugadores);
     this._esLocal = new Uint8Array(maxJugadores);
     this._ultimo = new Int32Array(maxJugadores);
+    this._mando = new Int32Array(maxJugadores);
     this._marcos = new Array(maxJugadores);
     for (let i = 0; i < maxJugadores; i++) this._marcos[i] = { ejeX: 0, ejeY: 0, botones: 0 };
     // El paquete se crea UNA vez y se reutiliza en cada envío: sesenta veces por
@@ -140,7 +151,10 @@ export function crearBufer() {
     if (this._conocido) this._conocido.fill(0);
     if (this._esLocal) {
       for (let i = 0; i < this._jugadores; i++) {
-        this._esLocal[i] = localesDe ? (localesDe.indexOf(i) >= 0 ? 1 : 0) : 1;
+        const k = localesDe ? localesDe.indexOf(i) : i;
+        this._esLocal[i] = localesDe ? (k >= 0 ? 1 : 0) : 1;
+        // El primer puesto propio lee el mando 0, el segundo el 1, etc.
+        this._mando[i] = k >= 0 ? k : 0;
       }
     }
     for (let i = 0; i < this._jugadores; i++) {
@@ -176,7 +190,7 @@ export function crearBufer() {
     const destino = (this.paso + this.retardo) & MASCARA;
     for (let i = 0; i < this._jugadores; i++) {
       if (!this._esLocal[i]) continue;
-      const c = entrada.controles[i];
+      const c = entrada.controles[this._mando[i]];
       const e = destino * this._jugadores * 2 + i * 2;
       this._ejes[e] = c ? cuantizar(c.ejeX) : 0;
       this._ejes[e + 1] = c ? cuantizar(c.ejeY) : 0;

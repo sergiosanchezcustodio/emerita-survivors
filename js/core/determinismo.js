@@ -858,6 +858,28 @@ export function crearProbador(gancho) {
     // La firma de AHORA MISMO, sin tocar nada. Para mirar a mano.
     firma() { return fundir(firmaDe(gancho.estado())) >>> 0; },
 
+    // LA HUELLA DEL MUNDO, SIN EL BÚFER DE PULSACIONES.
+    //
+    // Es la que se compara ENTRE DOS MÁQUINAS, y tiene que dejar fuera el
+    // búfer porque los dos búferes nunca son iguales aunque la partida sea la
+    // misma: cada máquina lleva registrado su propio futuro local -lo que se
+    // está pulsando aquí, apuntado para dentro de `retardo` pasos- y ha
+    // recibido del otro hasta donde le haya llegado, que depende de la red.
+    //
+    // Compararlo delataba una desincronización en el primer segundo de la
+    // primera partida en red, y no había ninguna: lo que difería era la medida.
+    // El búfer sigue dentro de la firma normal, que compara dos pasadas en la
+    // MISMA máquina, donde sí tiene que coincidir.
+    firmaMundo() {
+      const f = firmaDe(gancho.estado());
+      let h = 0x811c9dc5;
+      for (let i = 0; i < PARTES.length; i++) {
+        if (PARTES[i] === 'lockstep') continue;
+        h = mezclar(h, f[i]);
+      }
+      return h >>> 0;
+    },
+
     // Las nueve piezas por separado, con su nombre. Para inspeccionar sin
     // ejecutar ninguna prueba.
     partes() {
@@ -886,7 +908,7 @@ export function crearProbador(gancho) {
   // cambiarte el progreso guardado sesenta veces por minuto en plena partida, y
   // devolvértelo justo después: un ir y venir por nada, con todas las
   // papeletas de dejarlo mal a la primera excepción.
-  const SIN_META = ['firma', 'partes', 'camposExtra'];
+  const SIN_META = ['firma', 'firmaMundo', 'partes', 'camposExtra'];
   if (gancho.fijarMeta) {
     for (const nombre in api) {
       const original = api[nombre];

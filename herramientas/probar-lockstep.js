@@ -32,9 +32,13 @@ function entradaFalsa(paso, puesto) {
   const controles = [];
   for (let i = 0; i < JUGADORES; i++) {
     controles.push({
-      ejeX: i === puesto ? ((k % 201) - 100) / 100 : 0,
-      ejeY: i === puesto ? (((k >>> 8) % 201) - 100) / 100 : 0,
-      _flancoBotones: (k >>> 16) & 0xff
+      // EL VALOR VA EN EL CONTROL 0, no en el del puesto, porque es lo que pasa
+      // de verdad: quien se une lleva el puesto 1 de la partida pero juega con
+      // SU teclado, que es el control 0 de su máquina. Poniéndolo en el control
+      // 1, el jugador 2 registraba ceros y todo salía verde sin comprobar nada.
+      ejeX: i === 0 ? ((k % 201) - 100) / 100 : 0,
+      ejeY: i === 0 ? (((k >>> 8) % 201) - 100) / 100 : 0,
+      _flancoBotones: i === 0 ? ((k >>> 16) & 0xff) : 0
     });
   }
   return { controles };
@@ -214,6 +218,20 @@ console.log('\nCASOS QUE TIENEN QUE RECHAZARSE');
   puestoRaro[0] = FORMATO.TIPO_PULSACIONES;
   puestoRaro[1] = 99;
   comprobar(b.aplicar(puestoRaro) === 0, 'un puesto que no existe se descarta');
+}
+
+console.log('\nCADA PUESTO PROPIO LEE SU MANDO');
+{
+  // Quien se une lleva el puesto 1 pero juega con el control 0 de su maquina.
+  const b = crearBufer();
+  b.iniciar(JUGADORES);
+  b.reiniciar(2, [1]);
+  b.registrar(entradaFalsa(0, 1));
+  const ranura = (b.paso + b.retardo) & (FORMATO.CAPACIDAD - 1);
+  const leido = b._ejes[ranura * JUGADORES * 2 + 1 * 2];
+  comprobar(leido !== 0,
+            'el puesto 1 de quien se une lee el control 0, no un segundo mando ' +
+            `que no existe (leido ${leido})`);
 }
 
 console.log('\nEL PRIMER PASO NO ESPERA A NADIE');
