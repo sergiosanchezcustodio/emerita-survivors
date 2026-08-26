@@ -229,8 +229,32 @@ La última abre dos pestañas en un Chromium, las conecta con el mismo baile de
 códigos que harían dos personas y juega. Con `maraton` de segundo argumento, los
 jugadores no mueren y se llega más lejos.
 
-**Última medida: 19.112 pasos —cinco minutos y cuarto— con las dos puntas en el
-mismo paso exacto, cero esperas y cero desincronización.**
+**Última medida: 33.329 pasos —nueve minutos y cuarto— con las dos puntas a dos
+pasos una de otra, cero esperas y cero desincronización.** Pasado el minuto
+cinco, que es cuando entra el cíclope y donde se rompía siempre.
+
+### LA desincronización de verdad: el sismo del cíclope
+
+`camara.izquierda` y `camara.arriba` salían de `xVista`/`yVista`, la posición
+interpolada para **pintar**, que se calcula con lo que sobra en el acumulador
+del bucle y por tanto depende de los fotogramas de cada máquina. Y el sismo del
+cíclope elegía ahí el punto donde cae cuando le toca caer al azar:
+
+    tx = camara.izquierda + rng() * ANCHO_LOGICO;
+
+Las dos máquinas lo tiraban a sitios distintos. Como el cíclope aparece pasado
+el minuto cinco, la partida aguantaba siempre lo mismo y se separaba siempre en
+el mismo sitio.
+
+**Los nombres cortos son ahora los de SIMULACIÓN**, y el dibujado usa
+`izquierdaVista` / `arribaVista`. Es a propósito: si alguien se equivoca de
+getter pintando, el error es de una fracción de píxel durante un fotograma; si
+se equivoca simulando, dos partidas dejan de ser la misma. Que el descuido caiga
+del lado barato.
+
+Lo delató la tabla del detalle: un disparo QUIETO —`x` igual a `xPrev`, o sea
+sin velocidad— cuya posición difería en la séptima cifra. Eso no es un fallo de
+lógica, es un punto calculado de otra forma.
 
 ### Las cinco "desincronizaciones" que no lo eran
 
