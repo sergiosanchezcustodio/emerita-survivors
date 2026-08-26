@@ -388,6 +388,45 @@ export function crearConexion(opciones) {
     });
   };
 
+  // POR DÓNDE VA LA CONEXIÓN DE VERDAD.
+  //
+  // Que el código traiga una dirección pública solo demuestra que el STUN
+  // contestó, no que se esté usando: entre dos ventanas de la misma máquina ICE
+  // elige el camino local y la pública no se toca. Sin esto no hay forma de
+  // distinguir "funciona entre dos casas" de "funciona porque están al lado".
+  //
+  //   local     los dos extremos en la misma red. No prueba nada de internet.
+  //   publica   se ha atravesado un router. ESTA es la prueba de verdad.
+  //   relevada  a través de un TURN, que aquí no hay ninguno configurado.
+  con.camino = async function () {
+    if (!con._pc || !con._pc.getStats) return null;
+    const stats = await con._pc.getStats();
+    let par = null;
+    stats.forEach((s) => {
+      if (s.type === 'candidate-pair' && (s.selected || s.state === 'succeeded')) {
+        if (!par || s.selected) par = s;
+      }
+    });
+    if (!par) return null;
+    const local = stats.get(par.localCandidateId);
+    const remoto = stats.get(par.remoteCandidateId);
+    const tipo = (c) => (c ? c.candidateType : '?');
+    const clase = (a, b) => {
+      if (a === 'relay' || b === 'relay') return 'relevada';
+      if (a === 'host' && b === 'host') return 'local';
+      return 'publica';
+    };
+    return {
+      clase: clase(tipo(local), tipo(remoto)),
+      local: tipo(local),
+      remoto: tipo(remoto),
+      // El viaje medido por el propio WebRTC, que es más fiable que el ping de
+      // ida y vuelta por el canal: no incluye el tiempo que tarda el juego en
+      // atender el mensaje.
+      ms: par.currentRoundTripTime != null ? par.currentRoundTripTime * 1000 : null
+    };
+  };
+
   con.cerrar = function () {
     con._cerrado = true;
     if (con._relojFallo) { clearTimeout(con._relojFallo); con._relojFallo = 0; }

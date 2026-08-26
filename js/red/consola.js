@@ -214,6 +214,25 @@ export const RedConsola = {
     return { ...r, fotogramas };
   },
 
+  // Por dónde va la conexión: la única prueba de que se ha atravesado un router.
+  async camino() {
+    if (!sesion) { console.error('Sin conexión.'); return null; }
+    const c = await sesion.camino();
+    if (!c) { console.error('Todavía no hay un camino elegido.'); return null; }
+    const explica = {
+      local: 'los dos extremos están en la misma red. Esto NO prueba que ' +
+             'funcione entre dos casas.',
+      publica: 'se ha atravesado un router: esta es la prueba de que el ' +
+               'cooperativo entre dos casas funciona.',
+      relevada: 'a través de un servidor TURN. No debería pasar: aquí no hay ' +
+                'ninguno configurado.'
+    };
+    console.log(`Camino: ${c.clase} (${c.local} <-> ${c.remoto})` +
+                (c.ms != null ? ` · ${c.ms.toFixed(1)} ms medidos por WebRTC` : ''));
+    console.log('  ' + explica[c.clase]);
+    return c;
+  },
+
   estado() {
     if (!sesion) { console.log('Sin conexión.'); return 'suelto'; }
     console.log(`estado: ${sesion.estado}` +
