@@ -23,6 +23,7 @@ import {
 } from './sistemas/colisiones.js';
 import { Obstaculos } from './sistemas/obstaculos.js';
 import { Lockstep } from './core/lockstep.js';
+import { RedConsola } from './red/consola.js';
 import { Recogibles } from './entidades/recogible.js';
 import { Cofres, COFRE, LLAMARADA, IMAN, COMIDA, RELOJ, MONEDAS } from './entidades/cofre.js';
 import { Disparos } from './entidades/disparo.js';
@@ -2303,6 +2304,10 @@ async function arrancar() {
     // El búfer de pulsaciones, a mano desde la consola: `EMERITA.lockstep.retardo`
     // dice con cuánto se está jugando ahora mismo.
     lockstep: Lockstep,
+    // La red, mientras no tenga pantallas propias. El anfitrión hace
+    // `EMERITA.red.invitar()`, manda el código, y quien se une responde con
+    // `EMERITA.red.responder('...')`. Ver js/red/consola.js.
+    red: RedConsola,
     determinismo: crearProbador({
       dt: DT,
       entrada,

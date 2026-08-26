@@ -86,9 +86,66 @@ Esa prueba existe porque "no noto diferencia" tiene dos explicaciones, y una es
 que el búfer no esté haciendo nada. Cuenta en qué paso se mueve el personaje con
 el stick a tope y lo compara con lo configurado.
 
+## La conexión (hecha, sin integrar todavía)
+
+`js/red/`. Tres piezas: `codigo.js` comprime la descripción de conexión,
+`conexion.js` maneja WebRTC y `consola.js` es el mando a distancia mientras no
+haya pantallas.
+
+**La señalización sois vosotros.** WebRTC tiene un problema de huevo y gallina:
+para hablarse, los dos navegadores tienen que intercambiar antes una descripción
+de cómo encontrarse, y todavía no pueden hablarse. Normalmente lo resuelve un
+servidor intermediario. Aquí el intermediario es el chat que ya usáis: el
+anfitrión genera un código, lo manda por WhatsApp o Discord, el otro responde
+con el suyo. Dos mensajes.
+
+    ANFITRIÓN                          INVITADA
+    EMERITA.red.invitar()
+    (manda el código)          --->    EMERITA.red.responder('...')
+                               <---    (devuelve el suyo)
+    EMERITA.red.aceptar('...')
+
+El código va comprimido a propósito. Un SDP crudo son entre 1000 y 3000
+caracteres; comprimido se queda en 200-300, que cabe en un mensaje. Se
+conservan solo ufrag, contraseña, huella del certificado, rol DTLS y candidatos
+—el resto es siempre igual y se reconstruye en el otro lado—. Se comprueba con
+`node herramientas\probar-codigo.js`, sobre SDPs reales de Chrome y de Firefox.
+
+**Dos canales.** `control` es fiable y ordenado: el saludo, la versión, el
+progreso meta, "empezamos". `juego` no es ni fiable ni ordenado, y así tiene que
+ser: reintentar la pulsación de hace 200 ms no sirve de nada, porque cuando
+llegara ese paso ya se habría jugado. Lo que se hará en su lugar es meter las
+últimas N pulsaciones en cada paquete, de modo que perder uno no se note.
+
+    EMERITA.red.autoprueba()   monta las dos puntas en esta misma página
+    EMERITA.red.latencia()     ida y vuelta, y cuántos fotogramas pide
+
+### DÓNDE LLEGA ESTO HOY: la misma casa
+
+Sin servidores ICE configurados, los candidatos son solo direcciones locales, y
+eso conecta dos navegadores del mismo ordenador o de la misma red. **Entre dos
+casas no funciona todavía**, y no es un fallo: cada extremo está detrás de un
+router que le esconde, y para averiguar su propia dirección pública hace falta
+preguntárselo a alguien de fuera. Eso es un servidor STUN.
+
+Un STUN público no es infraestructura propia —no hay nada que montar ni que
+mantener, solo se le pregunta "¿desde dónde te llego?"— pero SÍ es un servicio
+de terceros, y Sergio pidió no depender de nada externo. Por eso viene apagado.
+Encenderlo es una línea:
+
+    EMERITA.red.servidores = [{ urls: 'stun:stun.l.google.com:19302' }]
+
+Y hay un caso que ni con STUN se arregla: los NAT simétricos, típicos de algunas
+operadoras móviles, donde hace falta un servidor que RELE todo el tráfico (TURN).
+Eso ya es infraestructura de verdad, con su coste. Queda fuera del alcance.
+
 ## Lo que queda
 
-1. **WebRTC y el código de conexión.** Intercambio manual de SDP, sin nada
+1. **Integrar la red con el búfer de pulsaciones.** Mandar las pulsaciones de
+   cada paso por el canal `juego`, con redundancia, y hacer que la simulación
+   espere a tenerlas todas antes de dar el paso.
+2. **Pantallas de crear y unirse**, y el saludo con la versión y el progreso
+   meta de cada jugador. Intercambio manual de SDP, sin nada
    externo (decisión de Sergio). En el saludo tienen que viajar dos cosas:
    - **La versión del juego.** Dos máquinas con distinta versión divergen. En
      cuanto se publique una actualización con alguien jugando, pasa.
