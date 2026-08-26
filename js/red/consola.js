@@ -1,5 +1,6 @@
 import { crearConexion, autoprueba, ESTADOS, SERVIDORES_POR_DEFECTO } from './conexion.js';
 import { tipoDe } from './codigo.js';
+import { vigilarCada } from './sincro.js';
 
 // LA RED DESDE LA CONSOLA, mientras no haya pantallas.
 //
@@ -304,6 +305,14 @@ export const RedConsola = {
     if (sesion) sesion.enviarControl('adios');
     if (juego) juego.terminar();
     console.log('Fuera de la partida en red.');
+  },
+
+  // Cada cuántos pasos se compara el mundo con el del otro. Menos es antes y
+  // más preciso; más es menos tráfico. Ver CADA_HUELLA en red/sincro.js.
+  vigilancia(pasos) {
+    const n = vigilarCada(pasos);
+    console.log(`El mundo se compara cada ${n} pasos (${(n / 60).toFixed(2)} s).`);
+    return n;
   },
 
   estado() {

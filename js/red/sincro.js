@@ -24,10 +24,23 @@ import { Lockstep } from '../core/lockstep.js';
 
 const VERSION_PROTOCOLO = 1;
 
-// Cada cuántos pasos se compara la huella del mundo. Uno por segundo: mandar
-// cuatro bytes por segundo no se nota, y si algo se ha torcido conviene saberlo
-// antes de que la partida lleve diez minutos.
-const CADA_HUELLA = 60;
+// CADA CUÁNTOS PASOS SE COMPARA EL MUNDO.
+//
+// Empezó en 60 —una vez por segundo— y era demasiado espaciado para lo que hace
+// falta ahora. Con un segundo entre medidas, cuando salta el aviso ya difieren
+// siete componentes: la divergencia nació en algún punto de esos sesenta pasos y
+// se ha propagado a todo lo que toca. Con la ventana corta, el primer aviso
+// suele traer UN solo componente, y ese sí señala el origen.
+//
+// Cuesta unos 450 B/s por el canal fiable. Nada al lado de los 2,5 KB/s de las
+// pulsaciones, y se puede aflojar cuando el cooperativo esté rodado:
+// EMERITA.red.vigilancia(60).
+let CADA_HUELLA = 20;
+
+export function vigilarCada(pasos) {
+  CADA_HUELLA = Math.max(1, pasos | 0);
+  return CADA_HUELLA;
+}
 
 // Cuántas huellas propias se recuerdan, para poder comparar una que llegue
 // tarde. Treinta son medio minuto.
@@ -43,6 +56,9 @@ export const Sincro = {
   // Cuántas huellas se han comparado y en cuántos pasos ha habido que esperar.
   huellasComparadas: 0,
   desdeUltimaHuella: 0,
+  // El último paso que se comprobó y salió bien. Al romperse, acota la
+  // divergencia a la ventana entre ese paso y el que falla.
+  ultimoBueno: -1,
 
   _con: null,
   _huellaDe: null,          // función que devuelve la huella del mundo
@@ -168,8 +184,11 @@ export const Sincro = {
         }
       }
       if (culpables.length > 0) {
-        this._romper(`Las dos partidas se han separado en el paso ${paso}. ` +
+        this._romper(`Las dos partidas se han separado entre el paso ` +
+                     `${this.ultimoBueno} y el ${paso}. ` +
                      `Difieren: ${culpables.join(' · ')}`);
+      } else {
+        this.ultimoBueno = paso;
       }
       return;
     }
