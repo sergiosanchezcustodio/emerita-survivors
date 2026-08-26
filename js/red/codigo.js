@@ -92,6 +92,26 @@ function leerCandidatos(sdp) {
 
 export function contarCandidatos(sdp) { return leerCandidatos(sdp).length; }
 
+// ¿ESTO ES UNA INVITACIÓN O UNA RESPUESTA? Se sabe mirando el rol DTLS, que va
+// dentro del propio código: quien invita no sabe todavía quién hará de cliente
+// y quién de servidor, así que pone `actpass` -"lo que haga falta"-, y quien
+// responde ya elige, normalmente `active`.
+//
+// Existe porque confundir los dos códigos es EL error de este flujo, y sin esto
+// el síntoma es que la conexión no se abre y no hay forma de saber por qué. Con
+// esto, el juego lo dice antes de intentarlo.
+export function tipoDe(codigo) {
+  try {
+    const p = deBase64(String(codigo).trim()).split('|');
+    if (!/^E\d+$/.test(p[0])) return 'desconocido';
+    if (p[4] === '0') return 'invitacion';
+    if (p[4] === '1' || p[4] === '2') return 'respuesta';
+    return 'desconocido';
+  } catch {
+    return 'desconocido';
+  }
+}
+
 // De un SDP completo al código corto.
 export function comprimir(sdp) {
   const ufrag = primeraCoincidencia(sdp, /a=ice-ufrag:(\S+)/);

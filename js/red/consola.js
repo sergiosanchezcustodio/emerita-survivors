@@ -1,4 +1,5 @@
 import { crearConexion, autoprueba, ESTADOS } from './conexion.js';
+import { tipoDe } from './codigo.js';
 
 // LA RED DESDE LA CONSOLA, mientras no haya pantallas.
 //
@@ -57,14 +58,30 @@ export const RedConsola = {
       console.warn('Sin candidatos: este navegador no ha encontrado ninguna dirección. ' +
                    'La conexión no va a llegar a establecerse.');
     }
-    console.log('Mándaselo a quien se une. Cuando te devuelva el suyo: ' +
-                "EMERITA.red.aceptar('el-codigo-que-te-han-dado')");
+    console.log('Mándaselo a quien se une. Cuando te devuelva el suyo, pégalo ' +
+                'EN ESTA MISMA VENTANA:');
+    console.log("  EMERITA.red.aceptar('el-codigo-que-te-han-dado')");
+    // Esto hay que decirlo: la conexión a medio negociar vive en esta pestaña y
+    // en ninguna parte más. Recargar es empezar de cero.
+    console.log('No recargues esta ventana mientras tanto: la invitación se pierde.');
     return codigo;
   },
 
   async responder(codigo) {
     if (!codigo || typeof codigo !== 'string') {
       console.error("Hace falta el código de quien invita: EMERITA.red.responder('...')");
+      return null;
+    }
+    const tipo = tipoDe(codigo);
+    if (tipo === 'respuesta') {
+      console.error('Eso es un código de RESPUESTA, y aquí hay que pegar una ' +
+                    'INVITACIÓN. Si el código lo has generado tú, quien tiene que ' +
+                    'pegarlo es la otra persona.');
+      return null;
+    }
+    if (tipo === 'desconocido') {
+      console.error('Eso no parece un código de Emerita. ¿Se ha copiado entero, ' +
+                    'y entre comillas?');
       return null;
     }
     const c = nueva(this.servidores);
@@ -87,8 +104,33 @@ export const RedConsola = {
   },
 
   async aceptar(codigo) {
+    // LOS TRES ERRORES DE ESTE PASO, cada uno con lo que hay que hacer.
+    //
+    // Se comprueban antes de tocar WebRTC porque si no, el sintoma de los tres
+    // es el mismo -la conexion no se abre- y no hay forma de distinguirlos.
+    const tipo = tipoDe(codigo);
+    if (tipo === 'invitacion') {
+      console.error('Eso es una INVITACIÓN, no una respuesta. Lo que hay que pegar ' +
+                    'aquí es el código que te ha devuelto la otra persona después ' +
+                    "de hacer EMERITA.red.responder('tu-invitación').");
+      return false;
+    }
+    if (tipo === 'desconocido') {
+      console.error('Eso no parece un código de Emerita. ¿Se ha copiado entero, ' +
+                    'y entre comillas?');
+      return false;
+    }
     if (!sesion) {
-      console.error('Primero hay que invitar: EMERITA.red.invitar()');
+      console.error('Esta ventana no tiene ninguna invitación pendiente. ' +
+                    'El código de respuesta hay que pegarlo en la MISMA ventana ' +
+                    'donde se hizo EMERITA.red.invitar(), y sin recargarla por el ' +
+                    'camino. Si la has recargado, hay que empezar de nuevo.');
+      return false;
+    }
+    if (!sesion.esAnfitrion) {
+      console.error('Esta ventana es la que se ha UNIDO, no la que invitó. ' +
+                    'Aquí no hay que aceptar nada: en cuanto la otra persona pegue ' +
+                    'tu respuesta, quedáis conectados solos.');
       return false;
     }
     try {
