@@ -299,6 +299,25 @@ export function crearSincro(L) {
   },
 
   _recibirControl(texto, enlace) {
+    // EL ANFITRIÓN REENVÍA TAMBIÉN POR EL CANAL FIABLE, y no todo: solo lo que
+    // TIENE que saber todo el mundo.
+    //
+    // Sin esto, con tres o cuatro jugadores la partida se bloqueaba entera. La
+    // carta que elige un invitado se manda por aquí —no puede ir por el búfer
+    // de pulsaciones, porque el menú de nivel para el mundo y el búfer deja de
+    // fluir— y solo llegaba al anfitrión. Los demás invitados nunca se
+    // enteraban, su menú no se cerraba nunca, y como el mundo espera a todos,
+    // se paraba todo. Con dos jugadores no pasa: el anfitrión ES el otro.
+    //
+    // Las huellas y las peticiones de detalle NO se reenvían: esas son
+    // conversaciones de dos, cada invitado con el anfitrión.
+    if (this.esAnfitrion && (texto.startsWith('e ') || texto === 'adios')) {
+      for (let i = 0; i < this._enlaces.length; i++) {
+        if (this._enlaces[i] === enlace) continue;
+        this._enlaces[i].enviarControl(texto);
+      }
+    }
+
     if (texto.startsWith('h ')) {
       const p = texto.split(' ');
       const paso = parseInt(p[1], 10);

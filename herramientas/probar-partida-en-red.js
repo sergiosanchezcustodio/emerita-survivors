@@ -346,6 +346,23 @@ async function principal() {
         mando: window.EMERITA.mando ? window.EMERITA.mando() : null
       };
     });
+    // ¿SIGUE VIVA AL FINAL? Esto es distinto de "ha avanzado", y la diferencia
+    // importa: una partida que se bloquea a la mitad ha avanzado mucho y está
+    // muerta. Pasó con cuatro jugadores —el anfitrión no reenviaba la carta
+    // elegida a los demás invitados, sus menús no se cerraban nunca y todo se
+    // paraba— y esta prueba lo dio por bueno, porque miraba el total.
+    const antesDelPulso = [];
+    for (const p of todas) antesDelPulso.push((await leer(p)).paso);
+    await A.pagina.waitForTimeout(2000);
+    let vivas = 0;
+    for (let i = 0; i < todas.length; i++) {
+      if ((await leer(todas[i])).paso > antesDelPulso[i]) vivas++;
+    }
+    comprobar(vivas === todas.length,
+              vivas === todas.length
+                ? 'las partidas SIGUEN avanzando al final, no solo han avanzado'
+                : `SE HAN QUEDADO BLOQUEADAS: solo ${vivas} de ${todas.length} avanzan`);
+
     const rA = await leer(A), rB = await leer(B);
     const rTodas = [];
     for (const p of todas) rTodas.push(await leer(p));
@@ -367,19 +384,18 @@ async function principal() {
     // Lo que se comprueba entonces es que llegó a jugarse de verdad y que las
     // dos puntas terminaron en el mismo sitio.
     //
-    // Y CON TRES O CUATRO, EL LISTÓN BAJA MUCHO, porque esta prueba mide una
-    // máquina y no la partida. Cada pestaña simula el mundo entero para todos
-    // los jugadores y además lo dibuja; cuatro de esas en un solo ordenador se
-    // pisan por la CPU y bajan a un puñado de pasos por segundo. En una partida
-    // de verdad cada persona pone su propio ordenador, así que ese atasco no
-    // existe. Lo que esta prueba SÍ dice con cuatro es lo que importa: que las
-    // cuatro simulan lo mismo.
-    const porPestanya = CUANTOS >= 3 ? 0.08 : 0.5;
-    const minimo = terminada ? 600 : SEGUNDOS * 60 * porPestanya;
+    // EL LISTÓN ES EL MISMO CON DOS QUE CON CUATRO. Hubo un rato en que estaba
+    // rebajado para tres o más, porque una tanda de cuatro dio siete pasos por
+    // segundo y lo achaqué a que cuatro copias del juego se pisan por la CPU.
+    // Era mentira: estaban BLOQUEADAS. Con el bloqueo arreglado, cuatro
+    // pestañas en esta misma máquina van a sesenta pasos por segundo, o sea a
+    // tiempo real. Rebajar el listón habría tapado el siguiente bloqueo igual
+    // que tapó aquel.
+    const minimo = terminada ? 600 : SEGUNDOS * 60 * 0.5;
     const ritmo = rA.paso / SEGUNDOS;
     if (CUANTOS >= 3) {
       console.log(`  ..  ${ritmo.toFixed(1)} pasos por segundo con ${CUANTOS} ` +
-                  'pestañas en esta máquina (60 sería tiempo real)');
+                  'pestañas en esta máquina (60 es tiempo real)');
     }
     comprobar(rA.paso > minimo,
               `el mundo AVANZA en el anfitrión (${rA.paso} pasos` +
