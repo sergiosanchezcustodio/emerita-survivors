@@ -238,9 +238,10 @@ La última abre dos pestañas en un Chromium, las conecta con el mismo baile de
 códigos que harían dos personas y juega. Con `maraton` de segundo argumento, los
 jugadores no mueren y se llega más lejos.
 
-**Última medida: 33.329 pasos —nueve minutos y cuarto— con las dos puntas a dos
-pasos una de otra, cero esperas y cero desincronización.** Pasado el minuto
-cinco, que es cuando entra el cíclope y donde se rompía siempre.
+**Última medida: 68.567 pasos —diecinueve minutos, una partida entera— con las
+dos puntas terminando en el MISMO paso, cero desincronización y esperas de 4
+fotogramas como mucho.** Con el cíclope, los jefes intermedios y la llegada del
+jefe final por el camino.
 
 ### LA desincronización de verdad: el sismo del cíclope
 
