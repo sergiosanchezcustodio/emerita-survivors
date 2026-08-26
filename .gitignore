@@ -1,25 +1,7 @@
-# Ajustes locales de Claude Code: permisos de esta máquina, no del proyecto.
-.claude/settings.local.json
+node_modules/
 
-# Basura del sistema
-Thumbs.db
-desktop.ini
-.DS_Store
-
-# Candidatos de IA para elegir arte (comparador.html + generaciones): sirven
-# para decidir en el momento, no para el historial del juego. Varios MB de
-# PNG/JPG por intento, muchos descartados.
-herramientas/candidatos/
-
-# Aplicación de escritorio empaquetada (herramientas/empaquetar.ps1). Son 530 MB
-# de Chromium, y una sola de sus DLL pesa 297: GitHub rechaza cualquier fichero
-# de más de 100 MB, y un binario metido en el historial se queda ahí para
-# siempre aunque después se borre. Lo que se versiona es el SCRIPT; el
-# ejecutable se genera cuando hace falta y se reparte como release.
+# Salidas de compilación y descargas del lanzador. Son cientos de megas de
+# ejecutables y de runtime de NW.js que se regeneran con las herramientas:
+# no tienen por qué vivir en el repositorio.
 dist/
 herramientas/lanzador/cache/
-
-# butler, la herramienta de subida de itch.io (ver herramientas/publicar-itch.ps1).
-# Son 30 MB de binario que no son nuestros y que el script se baja solo si no
-# esta: mismo criterio que la cache de NW.js de aqui arriba.
-herramientas/butler/
