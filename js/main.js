@@ -2517,6 +2517,9 @@ async function arrancar() {
     lockstep: Lockstep,
     // Por qué el mundo no avanza, si no avanza. Ver `mandoActual`.
     mando: mandoActual,
+    // Los jugadores vivos, para las pruebas. Solo lectura de referencias: no
+    // hay nada que copiar ni asignar.
+    jugadores: () => jugadores,
     // La red, mientras no tenga pantallas propias. El anfitrión hace
     // `EMERITA.red.invitar()`, manda el código, y quien se une responde con
     // `EMERITA.red.responder('...')`. Ver js/red/consola.js.

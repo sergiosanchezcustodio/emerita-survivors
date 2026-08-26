@@ -48,19 +48,30 @@ function mezclar(h, x) {
 // prueba.
 const CLAVES = new Map();
 
-// CAMPOS QUE ESCRIBE EL DIBUJADO, NO LA SIMULACIÓN.
+// CAMPOS QUE NO SON LA SIMULACIÓN, aunque vivan al lado.
 //
-// `xVista`/`yVista` son la posición interpolada entre el paso anterior y el
-// actual, y el factor de interpolación sale de cuánto tiempo sobra en el
-// acumulador del bucle cuando toca pintar. Eso depende de los fps y del reloj
-// de CADA máquina, así que dos partidas idénticas los tienen distintos
-// siempre. `ordenada` es la marca de "ya se ha entregado al ordenado por
-// profundidad", que es puro dibujo.
+// Entran en la firma normal —comparar dos pasadas en la MISMA máquina— porque
+// ahí tienen que coincidir. NO entran en la que se compara entre dos máquinas,
+// donde difieren legítimamente y decir lo contrario es una falsa alarma.
 //
-// Entran en la firma normal —comparar dos pasadas en la misma máquina— porque
-// ahí no se dibuja entre pasos y tienen que coincidir. NO entran en la que se
-// compara entre dos máquinas.
-const SOLO_DIBUJO = ['xVista', 'yVista', 'ordenada'];
+// DE DIBUJO. `xVista`/`yVista` son la posición interpolada entre el paso
+// anterior y el actual, y el factor de interpolación sale de cuánto tiempo
+// sobra en el acumulador del bucle cuando toca pintar: depende de los fps y del
+// reloj de cada máquina. `ordenada` es la marca de "ya se ha entregado al
+// ordenado por profundidad".
+//
+// DEL MENÚ DE SUBIDA DE NIVEL. `relojGiro`, `giroTotal` y `animando` son la
+// animación de las ruletas, y `seleccion` es dónde está el cursor. Todos
+// avanzan MIENTRAS EL MUNDO ESTÁ PARADO, que es justo cuando las dos máquinas
+// dejan de ir a la vez: el menú se abre en el mismo paso en las dos, pero se
+// cierra cuando a cada jugador le da la gana, y la elección del otro llega por
+// la red cuando llega. Ese rato dura un número distinto de fotogramas en cada
+// una.
+//
+// Lo que SÍ tiene que coincidir de una subida de nivel es la carta elegida, y
+// eso viaja por el canal fiable y se ve luego en el arsenal.
+const SOLO_DIBUJO = ['xVista', 'yVista', 'ordenada',
+                     'relojGiro', 'giroTotal', 'animando', 'seleccion'];
 const CLAVES_SIN_VISTA = new Map();
 let sinVista = false;
 

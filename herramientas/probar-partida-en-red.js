@@ -29,6 +29,15 @@ import { dirname, join } from 'node:path';
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PUERTO = 8123;
 const SEGUNDOS = Number(process.argv[2]) || 60;
+// MODO MARATÓN: los dos jugadores no mueren.
+//
+//   node herramientas\probar-partida-en-red.js 330 maraton
+//
+// Moviéndose al tuntún, el equipo suele caer entre los dos y los cinco minutos,
+// y hay fallos que solo aparecen pasado ese rato -- uno de ellos vive sobre el
+// paso 18000. La inmortalidad se pone IGUAL en las dos máquinas y es un
+// booleano, así que no desincroniza nada: simplemente deja llegar más lejos.
+const MARATON = process.argv[3] === 'maraton';
 
 let fallos = 0;
 function comprobar(condicion, texto) {
@@ -147,25 +156,57 @@ async function principal() {
     const enPartida = await B.pagina.evaluate(() => !!window.EMERITA.lockstep);
     comprobar(enPartida, 'la invitada entra en la partida sola');
 
+    if (MARATON) {
+      for (const p of [A, B]) {
+        await p.pagina.evaluate(() => {
+          // Se hace en las dos por igual y con el mismo valor: es un booleano
+          // por jugador, no toca el azar y no cambia nada más.
+          const js = window.EMERITA.jugadores ? window.EMERITA.jugadores() : null;
+          if (js) for (const j of js) j.inmortal = true;
+        });
+      }
+      console.log('  ..  modo maratón: los jugadores no mueren');
+    }
+
     // Moverse de verdad, en las dos, en direcciones distintas. Quedarse quieto
     // probaría mucho menos: sin movimiento no hay rumbo de cámara, y sin rumbo
     // no se ejecuta la mitad de la lógica de aparición de la horda.
     const teclas = ['KeyD', 'KeyS', 'KeyA', 'KeyW'];
     const hasta = Date.now() + SEGUNDOS * 1000;
     let vuelta = 0;
+    let terminada = '';
     while (Date.now() < hasta) {
       await Promise.all([
         teclear(A, teclas[vuelta % 4], 700),
         teclear(B, teclas[(vuelta + 2) % 4], 700)
       ]);
-      // Confirmar de vez en cuando: subir de nivel PARA EL MUNDO hasta que
-      // alguien elige carta. Sin esto, la partida se congela en la primera
-      // subida y la prueba diría que todo va bien sin haber simulado nada.
-      await Promise.all([
-        A.pagina.keyboard.press('Enter'),
-        B.pagina.keyboard.press('Enter')
-      ]);
+
+      // CONFIRMAR SOLO SI HAY UN MENÚ DE NIVEL ABIERTO.
+      //
+      // Antes se pulsaba Enter a ciegas cada vuelta, y eso convertía la prueba
+      // en basura en cuanto la partida se acababa: el equipo muere, sale el
+      // resumen, y los Enter siguientes navegan los menús y arrancan PARTIDAS
+      // NUEVAS sueltas. Todo lo medido a partir de ahí es de otra partida. Se
+      // vio porque los dos jugadores acabaron con distinta vida máxima y
+      // distinta velocidad: ya no eran ni el mismo personaje.
+      for (const p of [A, B]) {
+        const m = await p.pagina.evaluate(() => window.EMERITA.mando());
+        if (m.subiendoNivel || m.cofre) await p.pagina.keyboard.press('Enter');
+      }
+
+      // Y SI LA PARTIDA SE HA ACABADO, se para aquí. Que el equipo muera no es
+      // un fallo -- es un juego- pero seguir midiendo después sí lo es.
+      const fin = await A.pagina.evaluate(() => {
+        const m = window.EMERITA.mando();
+        return m.final || (m.pantalla !== 2 ? 'fuera de la partida' : '');
+      });
+      if (fin) { terminada = fin; break; }
       vuelta++;
+    }
+    if (terminada) {
+      console.log(`
+  La partida se acabó por su cuenta (${terminada}). ` +
+                  'Lo medido hasta ahí vale; lo de después no se mide.');
     }
 
     // --- El veredicto --------------------------------------------------------
@@ -197,10 +238,14 @@ async function principal() {
       console.table(filas);
     }
 
-    const esperados = SEGUNDOS * 60 * 0.5;   // la mitad ya sería un problema gordo
-    comprobar(rA.paso > esperados,
-              `el mundo AVANZA en el anfitrión (${rA.paso} pasos de ~${SEGUNDOS * 60})`);
-    comprobar(rB.paso > esperados,
+    // QUE LA PARTIDA SE ACABE NO ES UN FALLO. Es un juego: el equipo muere.
+    // Lo que se comprueba entonces es que llegó a jugarse de verdad y que las
+    // dos puntas terminaron en el mismo sitio.
+    const minimo = terminada ? 600 : SEGUNDOS * 60 * 0.5;
+    comprobar(rA.paso > minimo,
+              `el mundo AVANZA en el anfitrión (${rA.paso} pasos` +
+              (terminada ? ', partida terminada' : ` de ~${SEGUNDOS * 60}`) + ')');
+    comprobar(rB.paso > minimo,
               `el mundo AVANZA en la invitada (${rB.paso} pasos)`);
     comprobar(Math.abs(rA.paso - rB.paso) < 300,
               `las dos van a la par (se llevan ${Math.abs(rA.paso - rB.paso)} pasos)`);
