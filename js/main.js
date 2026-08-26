@@ -849,6 +849,22 @@ function entradaMascotas() {
       mascotasElegidas[turnoMascota] = '';
       cursorMascota = 0;
     } else {
+      // VOLVER A PERSONAJES ES DESCONFIRMARLOS, y sin esto no se volvía.
+      //
+      // La pantalla de personajes sale sola en cuanto TODOS están listos —esa
+      // es su condición de salida— y al llegar aquí todos lo estaban. Así que
+      // se volvía a personajes y en el mismo fotograma la salida disparaba otra
+      // vez hacia aquí: ESC parecía no hacer nada, cuando lo que pasaba era que
+      // ibas y volvías sin llegar a ver nada.
+      //
+      // Se desconfirman todos y no solo el primero porque eso es lo que
+      // significa salir de aquí: volver a elegir héroes. Para cambiar solo el
+      // tuyo sin tocar el de nadie ya está el atrás de dentro de esta pantalla,
+      // que va al jugador anterior.
+      for (let i = 0; i < puestos.length; i++) {
+        if (puestos[i]) puestos[i].listo = false;
+      }
+      mascotasElegidas.fill('');
       irA(PANTALLA_SELECCION);
     }
     return;
