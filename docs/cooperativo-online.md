@@ -170,6 +170,26 @@ conectar.
 
 Se apagan poniendo `EMERITA.red.servidores = []`.
 
+**Comprobado el 26 de agosto de 2026**: el código pasa de 298 a 355 caracteres y
+trae 1 dirección pública y 2 locales. Sigue cabiendo en un mensaje.
+
+Y un aviso para quien lo use: **el código lleva dentro tu IP pública en claro**.
+El base64 no es cifrado. Es inherente a WebRTC —para que alguien te llame
+directamente tiene que saber tu dirección—, no de esta implementación. Mandárselo
+a alguien por un chat es como darle tu teléfono; publicarlo en un foro, no.
+
+### Lo que TODAVÍA no está probado
+
+    EMERITA.red.camino()
+
+Dice por dónde va la conexión de verdad: `local`, `publica` o `relevada`. Hasta
+hoy solo ha dicho **local**, porque las pruebas han sido entre dos ventanas de la
+misma máquina y ahí ICE ni toca la dirección pública.
+
+O sea que **el camino entre dos casas sigue sin probarse**. Que el código traiga
+una dirección pública solo demuestra que el STUN contestó. La prueba de verdad es
+esa orden diciendo `publica`, con los dos jugadores en sitios distintos.
+
 ## Lo que queda
 
 1. **Integrar la red con el búfer de pulsaciones.** Mandar las pulsaciones de
