@@ -1534,6 +1534,12 @@ function actualizar(dt) {
   //
   // No se sincronizan, se apagan: son herramientas de probar el juego a solas,
   // no cosas que deban pasarle a nadie por sorpresa desde la otra punta.
+  // OJO CON EL ALCANCE: esto va dentro de `actualizar`, así que aquí NO se
+  // puede devolver. La primera versión lo hacía y dejaba el mundo entero sin
+  // simular en cuanto había red: los dos jugadores aparecían quietos, sin
+  // enemigos y sin decoración, con la música sonando y la consola limpia. Un
+  // bloque etiquetado se salta los atajos sin abandonar el paso.
+  atajos: {
   if (Sincro.activo) {
     if (entrada.consumirFlanco('KeyL') || entrada.consumirFlanco('KeyC') ||
         entrada.consumirFlanco('KeyJ') || entrada.consumirFlanco('KeyH') ||
@@ -1547,7 +1553,7 @@ function actualizar(dt) {
       AVISO_ARMA.texto = 'Los atajos de prueba están apagados en red';
       AVISO_ARMA.restante = 2.5;
     }
-    return;
+    break atajos;
   }
 
   if (entrada.consumirFlanco('KeyC')) {
@@ -1614,6 +1620,7 @@ function actualizar(dt) {
     Enemigos.destelloActivo = !Enemigos.destelloActivo;
     activo.destello = Enemigos.destelloActivo;
   }
+  }   // fin del bloque `atajos`
 
   // Menú de subida de nivel: congela el mundo entero. Es el único momento en que
   // el juego se detiene solo, y tiene prioridad sobre todo lo demás.
