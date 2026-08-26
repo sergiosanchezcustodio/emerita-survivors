@@ -1,4 +1,5 @@
-import { comprimir, descomprimir, comprobarCodec, contarCandidatos } from './codigo.js';
+import { comprimir, descomprimir, comprobarCodec, contarCandidatos,
+         resumenCandidatos } from './codigo.js';
 
 // LA CONEXIÓN ENTRE DOS JUGADORES, sin servidor de por medio.
 //
@@ -39,7 +40,34 @@ import { comprimir, descomprimir, comprobarCodec, contarCandidatos } from './cod
 // externo—. Se deja apagado por defecto y se enciende poniendo `Red.servidores`.
 // Está explicado en docs/cooperativo-online.md.
 
-const ESPERA_ICE = 2500;        // ms como mucho recogiendo candidatos
+// SERVIDORES STUN. Decisión de Sergio: se usan.
+//
+// Un STUN no es un servidor de partida ni ve el juego: se le pregunta una sola
+// cosa, "¿con qué dirección me ves?", y contesta. Nada del cooperativo pasa por
+// él — las pulsaciones van de casa a casa directamente— y solo se le habla
+// durante los segundos en que se genera el código.
+//
+// Es lo que convierte esto de "dos ordenadores de la misma casa" a "dos casas
+// cualesquiera": detrás de un router, tu ordenador no conoce su propia dirección
+// pública, y sin ella el otro extremo no tiene adónde llamar.
+//
+// Lo que sí implica, y hay que decirlo: tu IP queda vista por ese servidor. Es
+// inherente a preguntar, no de esta implementación en concreto.
+//
+// DOS Y DE DUEÑOS DISTINTOS, a propósito: si uno no contesta, el otro responde y
+// la partida sigue pudiéndose crear. Y si no contestara ninguno, no se rompe
+// nada — se acaba con candidatos solo locales, que es exactamente lo que había
+// antes de esta decisión: se puede jugar en la misma casa y no fuera.
+export const SERVIDORES_POR_DEFECTO = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' }
+];
+
+// Con STUN hay que darle tiempo a la ida y vuelta hasta el servidor. 2,5
+// segundos bastaban de sobra para las direcciones locales, que no salen de la
+// máquina; para una pregunta que cruza internet se queda corto y el código
+// saldría sin dirección pública justo cuando más falta hace.
+const ESPERA_ICE = 6000;        // ms como mucho recogiendo candidatos
 const ESPERA_CONEXION = 20000;  // ms como mucho hasta que se abre el canal
 // Cuánto se espera antes de creerse un `failed`. Ver el manejador de estado: los
 // candidatos mDNS de Chrome hacen que ese aviso salte y se cure solo.
@@ -73,17 +101,35 @@ function esperarCandidatos(pc) {
       if (hecho) return;
       hecho = true;
       pc.removeEventListener('icegatheringstatechange', mirar);
+      pc.removeEventListener('icecandidate', porCandidato);
       clearTimeout(reloj);
+      clearTimeout(relojPublico);
       resolver();
     };
     const mirar = () => { if (pc.iceGatheringState === 'complete') terminar(); };
+
+    // EN CUANTO HAY DIRECCIÓN PÚBLICA, SE ESPERA POCO MÁS.
+    //
+    // El segundo servidor STUN suele contestar bastante después del primero, y
+    // esperar a que terminen los dos son segundos mirando una pantalla quieta
+    // para conseguir un candidato de repuesto que casi nunca hace falta. Con el
+    // primero público ya se puede jugar entre casas, así que se le da un margen
+    // corto al resto y se cierra.
+    let relojPublico = 0;
+    const porCandidato = (ev) => {
+      if (!ev.candidate || relojPublico) return;
+      if (ev.candidate.type === 'srflx' || / typ srflx /.test(ev.candidate.candidate)) {
+        relojPublico = setTimeout(terminar, 600);
+      }
+    };
+    pc.addEventListener('icecandidate', porCandidato);
     pc.addEventListener('icegatheringstatechange', mirar);
     const reloj = setTimeout(terminar, ESPERA_ICE);
   });
 }
 
 export function crearConexion(opciones) {
-  const servidores = (opciones && opciones.servidores) || [];
+  const servidores = (opciones && opciones.servidores) || SERVIDORES_POR_DEFECTO;
 
   const con = {
     // Un nombre corto para esta conexión, que sale en todos sus mensajes.
@@ -96,9 +142,13 @@ export function crearConexion(opciones) {
     estado: ESTADOS.SUELTO,
     esAnfitrion: false,
     error: '',
-    // Cuántos candidatos llevaba el código propio: si es 0, no hay por dónde
-    // conectar y conviene decirlo antes de que el otro pegue el código.
+    // Cuántos candidatos llevaba el código propio, y de qué clase. Sin ninguno
+    // no hay por dónde conectar; sin ninguno PÚBLICO se puede jugar en la misma
+    // casa pero no entre dos. Las dos cosas conviene decirlas antes de que el
+    // otro pegue el código, no después.
     candidatos: 0,
+    locales: 0,
+    publicos: 0,
     ultimoCodigo: '',
 
     // Enganches. Los pone quien use esto; por defecto no hacen nada.
@@ -232,7 +282,10 @@ export function crearConexion(opciones) {
     await esperarCandidatos(pc);
 
     const sdp = pc.localDescription.sdp;
-    con.candidatos = contarCandidatos(sdp);
+    const resumen = resumenCandidatos(sdp);
+    con.candidatos = resumen.total;
+    con.locales = resumen.locales;
+    con.publicos = resumen.publicos;
     con.ultimoCodigo = comprimir(sdp);
     cambiar(ESTADOS.ESPERANDO);
     return con.ultimoCodigo;
@@ -263,7 +316,10 @@ export function crearConexion(opciones) {
     await esperarCandidatos(pc);
 
     const sdp = pc.localDescription.sdp;
-    con.candidatos = contarCandidatos(sdp);
+    const resumen = resumenCandidatos(sdp);
+    con.candidatos = resumen.total;
+    con.locales = resumen.locales;
+    con.publicos = resumen.publicos;
     con.ultimoCodigo = comprimir(sdp);
     cambiar(ESTADOS.CONECTANDO);
     return con.ultimoCodigo;

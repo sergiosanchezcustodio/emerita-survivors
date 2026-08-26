@@ -140,24 +140,35 @@ se descarta mientras el nombre todavía se resuelve. Se le da un margen de cuatr
 segundos antes de creérselo. Si algún día alguien "arregla" esto quitando el
 margen, volverá el mensaje de fracaso justo antes del de conexión.
 
-### DÓNDE LLEGA ESTO HOY: la misma casa
+### Servidores STUN: encendidos
 
-Sin servidores ICE configurados, los candidatos son solo direcciones locales, y
-eso conecta dos navegadores del mismo ordenador o de la misma red. **Entre dos
-casas no funciona todavía**, y no es un fallo: cada extremo está detrás de un
-router que le esconde, y para averiguar su propia dirección pública hace falta
-preguntárselo a alguien de fuera. Eso es un servidor STUN.
+Detrás de un router, tu ordenador **no conoce su propia dirección pública**, y
+sin ella el otro extremo no tiene adónde llamar. Un servidor STUN resuelve eso:
+se le pregunta una sola cosa, "¿con qué dirección me ves?", y contesta.
 
-Un STUN público no es infraestructura propia —no hay nada que montar ni que
-mantener, solo se le pregunta "¿desde dónde te llego?"— pero SÍ es un servicio
-de terceros, y Sergio pidió no depender de nada externo. Por eso viene apagado.
-Encenderlo es una línea:
+Decisión de Sergio, tomada el 26 de agosto de 2026: **se usan**. Es lo que
+convierte esto de "dos ordenadores de la misma casa" a "dos casas cualesquiera".
 
-    EMERITA.red.servidores = [{ urls: 'stun:stun.l.google.com:19302' }]
+Lo que conviene tener claro sobre ese trato:
 
-Y hay un caso que ni con STUN se arregla: los NAT simétricos, típicos de algunas
-operadoras móviles, donde hace falta un servidor que RELE todo el tráfico (TURN).
-Eso ya es infraestructura de verdad, con su coste. Queda fuera del alcance.
+- **Nada del juego pasa por ahí.** No es un servidor de partida: las pulsaciones
+  van de casa a casa directamente. Solo se le habla durante los segundos en que
+  se genera el código.
+- **Tu IP queda vista por ese servidor.** Es inherente a preguntar, no de esta
+  implementación.
+- **Hay dos, de dueños distintos** (Google y Cloudflare). Si uno no contesta, el
+  otro responde. Si no contestara ninguno, no se rompe nada: se acaba con
+  direcciones solo locales, o sea con lo que había antes de esta decisión.
+- **Los NAT simétricos siguen sin funcionar.** Son típicos de algunas conexiones
+  móviles. Ahí hace falta un servidor que RELE todo el tráfico (TURN), y eso ya
+  es infraestructura de verdad con su coste mensual. Queda fuera del alcance.
+
+El código dice ahora cuántas direcciones ha conseguido y de qué clase, y avisa
+si no hay ninguna pública — porque el síntoma de quedarse sin ella no aparece
+hasta que el otro lleva un minuto esperando a que conecte algo que no va a
+conectar.
+
+Se apagan poniendo `EMERITA.red.servidores = []`.
 
 ## Lo que queda
 

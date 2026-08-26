@@ -1,4 +1,4 @@
-import { crearConexion, autoprueba, ESTADOS } from './conexion.js';
+import { crearConexion, autoprueba, ESTADOS, SERVIDORES_POR_DEFECTO } from './conexion.js';
 import { tipoDe } from './codigo.js';
 
 // LA RED DESDE LA CONSOLA, mientras no haya pantallas.
@@ -59,22 +59,38 @@ async function alPortapapeles(texto) {
   }
 }
 
+// Un aviso honesto sobre lo que se ha conseguido, según lo que traiga el código.
+//
+// Es la diferencia entre "ya podéis jugar" y "va a fallar dentro de un minuto y
+// no vais a saber por qué", y solo cuesta mirar un número.
+function comentarCandidatos(c) {
+  if (c.candidatos === 0) {
+    console.error('SIN CANDIDATOS: este navegador no ha encontrado ninguna ' +
+                  'dirección. La conexión no se va a establecer.');
+  } else if (c.publicos === 0) {
+    console.warn(`Solo direcciones locales (${c.locales}). Esto vale para dos ` +
+                 'ordenadores de la misma casa, pero NO entre dos casas: no ha ' +
+                 'contestado ningún servidor STUN. ¿Hay internet?');
+  } else {
+    console.log(`${c.publicos} dirección(es) pública(s) y ${c.locales} local(es): ` +
+                'vale para jugar entre dos casas.');
+  }
+}
+
 export const RedConsola = {
-  // Servidores ICE. Vacío = nada externo, y entonces esto conecta solo dentro
-  // de la misma casa. Ver docs/cooperativo-online.md antes de tocarlo.
-  servidores: [],
+  // Servidores ICE. Ver SERVIDORES_POR_DEFECTO en conexion.js y el apartado
+  // correspondiente de docs/cooperativo-online.md. Ponerlo a [] vuelve al
+  // comportamiento de "solo la misma casa", sin hablar con nadie de fuera.
+  servidores: SERVIDORES_POR_DEFECTO,
 
   async invitar() {
     const c = nueva(this.servidores);
     const codigo = await c.invitar();
     const copiado = await alPortapapeles(codigo);
-    console.log(`Código de invitación (${codigo.length} caracteres, ` +
-                `${c.candidatos} candidato(s))` + (copiado ? ' — copiado al portapapeles:' : ':'));
+    console.log(`Código de invitación (${codigo.length} caracteres):` +
+                (copiado ? ' — copiado al portapapeles' : ''));
     console.log(codigo);
-    if (c.candidatos === 0) {
-      console.warn('Sin candidatos: este navegador no ha encontrado ninguna dirección. ' +
-                   'La conexión no va a llegar a establecerse.');
-    }
+    comentarCandidatos(c);
     console.log('Mándaselo a quien se une. Cuando te devuelva el suyo, pégalo ' +
                 'EN ESTA MISMA VENTANA:');
     console.log("  EMERITA.red.aceptar('el-codigo-que-te-han-dado')");
@@ -110,9 +126,10 @@ export const RedConsola = {
       return null;
     }
     const copiado = await alPortapapeles(respuesta);
-    console.log(`Tu código de respuesta (${respuesta.length} caracteres)` +
-                (copiado ? ' — copiado al portapapeles:' : ':'));
+    console.log(`Tu código de respuesta (${respuesta.length} caracteres):` +
+                (copiado ? ' — copiado al portapapeles' : ''));
     console.log(respuesta);
+    comentarCandidatos(c);
     console.log('Devuélveselo a quien te invitó. En cuanto lo pegue, quedáis conectados.');
     c.esperarAbierto().then((ok) => {
       if (!ok) console.warn('RED: sigue sin abrirse el canal. ¿Ha pegado el código?');
@@ -202,7 +219,7 @@ export const RedConsola = {
     console.log(`estado: ${sesion.estado}` +
                 (sesion.error ? ` (${sesion.error})` : '') +
                 ` · ${sesion.esAnfitrion ? 'anfitrión' : 'invitada'}` +
-                ` · ${sesion.candidatos} candidato(s)`);
+                ` · ${sesion.publicos} pública(s) y ${sesion.locales} local(es)`);
     return sesion.estado;
   },
 

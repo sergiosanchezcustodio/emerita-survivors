@@ -92,6 +92,24 @@ function leerCandidatos(sdp) {
 
 export function contarCandidatos(sdp) { return leerCandidatos(sdp).length; }
 
+// Cuántos candidatos hay DE CADA CLASE, que es lo que de verdad quiere saber
+// quien va a jugar:
+//
+//   locales   direcciones de tu casa. Sirven entre dos ordenadores de la misma
+//             red y no sirven para nada fuera de ella.
+//   publicos  la dirección con la que te ve internet, averiguada preguntándosela
+//             a un servidor STUN. SIN AL MENOS UNO DE ESTOS NO SE PUEDE JUGAR
+//             ENTRE DOS CASAS, y conviene decirlo antes de mandar el código, no
+//             después de que el otro se pase un minuto esperando.
+export function resumenCandidatos(sdp) {
+  const lista = leerCandidatos(sdp);
+  let locales = 0, publicos = 0;
+  for (let i = 0; i < lista.length; i++) {
+    if (lista[i].split(',')[3] === 's') publicos++; else locales++;
+  }
+  return { total: lista.length, locales, publicos };
+}
+
 // ¿ESTO ES UNA INVITACIÓN O UNA RESPUESTA? Se sabe mirando el rol DTLS, que va
 // dentro del propio código: quien invita no sabe todavía quién hará de cliente
 // y quién de servidor, así que pone `actpass` -"lo que haga falta"-, y quien

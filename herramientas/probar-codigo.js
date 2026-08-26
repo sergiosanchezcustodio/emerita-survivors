@@ -10,7 +10,8 @@
 // La prueba de que dos navegadores se conectan de verdad es otra y vive en el
 // juego: EMERITA.red.autoprueba().
 
-import { comprimir, descomprimir, comprobarCodec, contarCandidatos } from '../js/red/codigo.js';
+import { comprimir, descomprimir, comprobarCodec, contarCandidatos,
+         resumenCandidatos } from '../js/red/codigo.js';
 
 // Oferta de Chrome. Trae candidato mDNS (Chrome esconde la IP local detrás de un
 // nombre .local por privacidad), candidatos TCP que hay que tirar y un srflx.
@@ -92,6 +93,16 @@ function probar(nombre, sdp, candidatosEsperados) {
 console.log('CÓDEC DEL CÓDIGO DE INVITACIÓN');
 probar('Oferta de Chrome (mDNS + srflx + TCP)', CHROME, 2);
 probar('Respuesta de Firefox (IP local + IPv6)', FIREFOX, 1);
+
+// El desglose por tipo, que es lo que decide si se puede jugar entre dos casas.
+console.log('\nDIRECCIONES, POR CLASE');
+const rC = resumenCandidatos(CHROME);
+const rF = resumenCandidatos(FIREFOX);
+console.log(`  Chrome:   ${rC.publicos} publica(s), ${rC.locales} local(es)`);
+console.log(`  Firefox:  ${rF.publicos} publica(s), ${rF.locales} local(es)`);
+if (rC.publicos !== 1 || rC.locales !== 1) { console.log('  MAL  el desglose de Chrome no cuadra'); fallos++; }
+else if (rF.publicos !== 0 || rF.locales !== 1) { console.log('  MAL  el desglose de Firefox no cuadra'); fallos++; }
+else console.log('  OK   se distingue la direccion publica de las locales');
 
 console.log('\nCASOS DE BORDE');
 const casos = [
