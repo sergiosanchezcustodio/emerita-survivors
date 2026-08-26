@@ -1232,7 +1232,7 @@ let metasDeRed = null;
 // del otro), 'conectado' y 'error'.
 const red = {
   fase: 'menu', cursor: 0, codigo: '', copiado: false,
-  aviso: '', esAnfitrion: false
+  aviso: '', esAnfitrion: false, conectados: 0
 };
 
 // SE HA CAÍDO LA RED EN PLENA PARTIDA.
@@ -1257,6 +1257,7 @@ function irARed() {
   red.codigo = '';
   red.aviso = '';
   red.copiado = false;
+  red.conectados = 0;
   irA(PANTALLA_RED);
 }
 
@@ -1323,6 +1324,7 @@ async function aceptarRespuestaEnRed() {
     red.aviso = 'No se ha podido conectar con ese código.';
     return;
   }
+  red.conectados = RedConsola.conectados;
   red.fase = 'conectado';
 }
 
@@ -1363,6 +1365,14 @@ function entradaRed() {
 
   if (red.fase === 'conectado') {
     if (atras) { RedConsola.salir(); irARed(); return; }
+    red.conectados = RedConsola.conectados;
+    // INVITAR A OTRO MÁS. Cada invitado necesita su propio par de códigos
+    // —cada conexión trae sus credenciales— así que se repite el baile una vez
+    // por persona. Las que ya estaban conectadas siguen estándolo.
+    if (red.esAnfitrion && red.conectados < 3 && entrada.consumirFlanco('KeyI')) {
+      crearPartidaEnRed();
+      return;
+    }
     if (red.esAnfitrion &&
         (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space') ||
          (c && c.consumirBoton(0)))) {

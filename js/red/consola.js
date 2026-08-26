@@ -19,7 +19,14 @@ import { MetaProgreso } from '../core/metaProgreso.js';
 // Todo lo que imprime va en un solo bloque y con el código a pelo, para que se
 // pueda seleccionar de una pasada sin arrastrar adornos.
 
+// LA CONEXIÓN EN CURSO —la última que se ha creado— y TODAS las abiertas.
+//
+// Quien se une tiene una sola, con el anfitrión. El anfitrión tiene una por
+// invitado: invita, pega la respuesta, y vuelve a invitar para el siguiente.
+// Cada invitado necesita su propio par de códigos, porque cada conexión trae
+// sus propias credenciales.
 let sesion = null;
+const enlaces = [];
 // Lo enchufa main.js: empezar y terminar una partida en red. Aquí no se puede
 // importar de main.js sin cerrar un círculo entre los dos módulos.
 let juego = null;
@@ -35,6 +42,12 @@ let juego = null;
 // Se sube A MANO cada vez que cambie algo que afecte a la simulación.
 const VERSION_JUEGO = '2026-08-26';
 
+// Una conexión más.
+//
+// OJO CON CERRAR LA ANTERIOR: cuando el anfitrión invita al tercer jugador, la
+// conexión con el segundo TIENE que seguir viva. Solo se cierra la anterior si
+// no llegó a conectarse — un intento a medias que se queda por ahí solo sirve
+// para hablar tarde y confundir (ver el comentario de más abajo).
 function nueva(servidores) {
   // AL INTENTO ANTERIOR SE LE QUITA LA VOZ ANTES DE CERRARLO.
   //
@@ -44,14 +57,17 @@ function nueva(servidores) {
   // segundo intento, y se leía como si la conexión buena se hubiera caído. Le
   // pasó a Sergio: "La conexión no llegó a establecerse" justo antes de
   // "conectado".
-  if (sesion) {
+  if (sesion && sesion.estado !== ESTADOS.CONECTADO) {
     sesion.alEstado = null;
     sesion.alCerrar = null;
     sesion.alControl = null;
     sesion.alJuego = null;
     sesion.cerrar();
+    const i = enlaces.indexOf(sesion);
+    if (i >= 0) enlaces.splice(i, 1);
   }
   sesion = crearConexion({ servidores });
+  enlaces.push(sesion);
   // El identificador va en todos los mensajes: si alguna vez vuelve a hablar una
   // conexión que no es la que estás mirando, se ve en el acto de cuál es.
   const yo = sesion.id;
@@ -97,15 +113,17 @@ function empezarPorInvitacion(texto) {
     return;
   }
   if (!juego) { console.error('El juego todavía no está listo.'); return; }
-  juego.empezar(sesion, {
+  const puesto = cfg.tuPuesto | 0 || 1;
+  juego.empezar([sesion], {
     esAnfitrion: false,
-    jugadorLocal: 1,
+    jugadorLocal: puesto,
     personajes: cfg.personajes,
     semilla: cfg.semilla >>> 0,
     metas: cfg.metas
   });
-  console.log(`Partida en red empezada (semilla ${(cfg.semilla >>> 0).toString(16)}). ` +
-              'Eres el jugador 2.');
+  console.log(`Partida en red empezada con ${cfg.personajes.length} jugadores ` +
+              `(semilla ${(cfg.semilla >>> 0).toString(16)}). ` +
+              `Eres el jugador ${puesto + 1}.`);
 }
 
 async function alPortapapeles(texto) {
@@ -144,6 +162,15 @@ export const RedConsola = {
   // correspondiente de docs/cooperativo-online.md. Ponerlo a [] vuelve al
   // comportamiento de "solo la misma casa", sin hablar con nadie de fuera.
   servidores: SERVIDORES_POR_DEFECTO,
+
+  // Cuántos hay conectados ahora mismo, sin contarte a ti.
+  get conectados() {
+    let n = 0;
+    for (let i = 0; i < enlaces.length; i++) {
+      if (enlaces[i].estado === ESTADOS.CONECTADO) n++;
+    }
+    return n;
+  },
 
   async invitar() {
     const c = nueva(this.servidores);
@@ -309,10 +336,19 @@ export const RedConsola = {
       console.error('La partida la empieza quien invitó. Espera a que lo haga.');
       return false;
     }
-    const pers = personajes && personajes.length >= 2 ? personajes : [0, 1];
+    const cuantos = 1 + enlaces.filter((e) => e.estado === ESTADOS.CONECTADO).length;
+    const pers = personajes && personajes.length >= cuantos
+      ? personajes.slice(0, cuantos)
+      : Array.from({ length: cuantos }, (_, i) => i % 4);
     const semilla = (Math.random() * 0xffffffff) >>> 0;
 
-    // PRIMERO SE PIDE EL PROGRESO DEL OTRO, y hasta que llega no se empieza.
+    const invitados = enlaces.filter((e) => e.estado === ESTADOS.CONECTADO);
+    if (invitados.length === 0) {
+      console.error('No hay nadie conectado todavía.');
+      return false;
+    }
+
+    // PRIMERO SE PIDE EL PROGRESO DE TODOS, y hasta que llega no se empieza.
     //
     // Las mejoras compradas cambian la vida y el daño de un personaje, y cada
     // máquina simula a los DOS jugadores. Sin saber las del otro, tu máquina le
@@ -321,29 +357,41 @@ export const RedConsola = {
     //
     // Va por el canal fiable y se espera de verdad, porque empezar sin esto es
     // empezar mal.
-    console.log('Pidiendo el progreso del otro jugador…');
-    const suyo = await new Promise((resolver) => {
-      pendienteMeta = resolver;
-      sesion.enviarControl('dameMeta');
-      setTimeout(() => { if (pendienteMeta) { pendienteMeta = null; resolver(null); } }, 5000);
-    });
-    if (!suyo) {
-      console.error('No ha contestado con su progreso. ¿Tiene la misma versión?');
-      return false;
+    console.log(`Pidiendo el progreso a ${invitados.length} jugador(es)…`);
+    const suyos = [];
+    for (let i = 0; i < invitados.length; i++) {
+      const enlace = invitados[i];
+      const suyo = await new Promise((resolver) => {
+        pendienteMeta = resolver;
+        enlace.enviarControl('dameMeta');
+        setTimeout(() => { if (pendienteMeta) { pendienteMeta = null; resolver(null); } }, 5000);
+      });
+      if (!suyo) {
+        console.error(`El jugador ${i + 2} no ha contestado con su progreso. ` +
+                      '¿Tiene la misma versión?');
+        return false;
+      }
+      suyos.push(suyo);
     }
 
-    const mio = MetaProgreso.aCompartir();
-    const metas = [mio, suyo];
+    // LOS PUESTOS SE REPARTEN AQUÍ Y SE MANDAN. El anfitrión es siempre el 0 y
+    // los invitados van en el orden en que se conectaron. Si cada máquina
+    // decidiera el suyo, dos podrían creerse el mismo jugador.
+    const metas = [MetaProgreso.aCompartir()].concat(suyos);
     // El saludo va por el canal de control, que es el fiable: si esto se
     // perdiera, una máquina empezaría la partida y la otra no.
-    sesion.enviarControl('inicio ' + JSON.stringify({
-      version: VERSION_JUEGO, semilla, personajes: pers, metas
-    }));
-    juego.empezar(sesion, {
+    // A cada invitado se le dice ADEMÁS qué puesto le toca: el mismo saludo
+    // para todos salvo ese número.
+    for (let i = 0; i < invitados.length; i++) {
+      invitados[i].enviarControl('inicio ' + JSON.stringify({
+        version: VERSION_JUEGO, semilla, personajes: pers, metas, tuPuesto: i + 1
+      }));
+    }
+    juego.empezar(invitados, {
       esAnfitrion: true, jugadorLocal: 0, personajes: pers, semilla, metas
     });
-    console.log(`Partida en red empezada (semilla ${semilla.toString(16)}). ` +
-                'Eres el jugador 1.');
+    console.log(`Partida en red empezada con ${pers.length} jugadores ` +
+                `(semilla ${semilla.toString(16)}). Eres el jugador 1.`);
     return true;
   },
 
@@ -391,7 +439,8 @@ export const RedConsola = {
   },
 
   cerrar() {
-    if (sesion) sesion.cerrar();
+    for (let i = 0; i < enlaces.length; i++) enlaces[i].cerrar();
+    enlaces.length = 0;
     sesion = null;
   },
 

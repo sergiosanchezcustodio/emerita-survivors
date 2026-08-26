@@ -86,7 +86,19 @@ export function crearSincro(L) {
   rttMs: 0,
   _relojCamino: 0,
 
-  _con: null,
+  // LOS ENLACES. Uno solo si te has unido —con el anfitrión— y uno por cada
+  // invitado si eres tú quien invita.
+  //
+  // ESTRELLA Y NO MALLA, y la razón es la señalización a mano: en una malla
+  // todos se conectan con todos, y para cuatro jugadores eso son SEIS
+  // intercambios de código pegados uno a uno. Nadie hace eso. En estrella cada
+  // invitado solo habla con el anfitrión —tres intercambios para cuatro— y el
+  // anfitrión reenvía lo que recibe a los demás.
+  //
+  // El precio es un salto de más: lo que pulsa un invitado llega a otro
+  // invitado pasando por el anfitrión. Con el retardo de entrada dando margen,
+  // ese salto cabe.
+  _enlaces: null,
   _huellaDe: null,          // función que devuelve la huella del mundo
   _partesDe: null,          // los componentes por separado, para señalar el culpable
   // Fotos recientes del mundo, guardadas para poder comparar campo a campo
@@ -105,8 +117,10 @@ export function crearSincro(L) {
   //   jugadores      cuántos juegan en total
   //   huellaDe()     devuelve un entero con el estado del mundo (determinismo.js)
   //   alRomperse(t)  se llama si las dos partidas se separan
-  empezar(conexion, opciones) {
-    this._con = conexion;
+  empezar(conexiones, opciones) {
+    // Uno o varios: quien se une trae solo el del anfitrión.
+    this._enlaces = Array.isArray(conexiones) ? conexiones.slice() : [conexiones];
+
     this.esAnfitrion = !!opciones.esAnfitrion;
     this.jugadorLocal = opciones.jugadorLocal | 0;
     this.jugadores = Math.max(2, opciones.jugadores | 0);
@@ -129,11 +143,33 @@ export function crearSincro(L) {
     // la red.
     L.reiniciar(this.jugadores, [this.jugadorLocal]);
 
-    conexion.alJuego = (datos) => { L.aplicar(datos); };
-    conexion.alControl = (texto) => this._recibirControl(texto);
-    conexion.alCerrar = () => {
-      if (this.activo) this._romper('Se ha cortado la conexión.');
-    };
+    for (let i = 0; i < this._enlaces.length; i++) {
+      const enlace = this._enlaces[i];
+      enlace.alJuego = (datos) => {
+        L.aplicar(datos);
+        // EL ANFITRIÓN REENVÍA. Los invitados no se ven entre ellos, así que lo
+        // que pulsa uno solo llega a los demás si él lo pasa. Se reenvían los
+        // mismos bytes tal cual: quien no sea el destinatario los descarta solo
+        // —`aplicar` rechaza lo que va dirigido a un puesto propio— y así el
+        // reenvío no tiene que entender nada de lo que reenvía.
+        if (this.esAnfitrion) this._difundirJuego(datos, enlace);
+      };
+      enlace.alControl = (texto) => this._recibirControl(texto, enlace);
+      enlace.alCerrar = () => {
+        if (this.activo) this._romper('Se ha cortado la conexión.');
+      };
+    }
+  },
+
+  _difundirJuego(datos, excepto) {
+    for (let i = 0; i < this._enlaces.length; i++) {
+      if (this._enlaces[i] === excepto) continue;
+      this._enlaces[i].enviarJuego(datos);
+    }
+  },
+
+  _difundirControl(texto) {
+    for (let i = 0; i < this._enlaces.length; i++) this._enlaces[i].enviarControl(texto);
   },
 
   // PARAR LA SIMULACIÓN NO ES COLGAR EL TELÉFONO.
@@ -144,17 +180,19 @@ export function crearSincro(L) {
   // separado. Cerrando el canal aquí, ese detalle no llegaba nunca.
   parar() {
     this.activo = false;
-    if (this._con) this._con.alJuego = null;
+    for (let i = 0; this._enlaces && i < this._enlaces.length; i++) {
+      this._enlaces[i].alJuego = null;
+    }
   },
 
   // Esto sí cuelga: se usa al salir de la partida a propósito.
   desconectar() {
     this.activo = false;
-    if (this._con) {
-      this._con.alJuego = null;
-      this._con.alControl = null;
+    for (let i = 0; this._enlaces && i < this._enlaces.length; i++) {
+      this._enlaces[i].alJuego = null;
+      this._enlaces[i].alControl = null;
     }
-    this._con = null;
+    this._enlaces = null;
   },
 
   // Se llama UNA vez por paso de lógica, antes de decidir si el mundo avanza.
@@ -170,7 +208,7 @@ export function crearSincro(L) {
     if (L.listo()) L.registrar(entrada);
 
     const bytes = L.empaquetar(this.jugadorLocal);
-    if (bytes) this._con.enviarJuego(bytes);
+    if (bytes) this._difundirJuego(bytes, null);
 
     if (!L.listo()) {
       L.anotarEspera();
@@ -198,7 +236,7 @@ export function crearSincro(L) {
   // no lo tapa ninguna redundancia.
   avisarEleccion(indice) {
     if (!this.activo || this.roto) return;
-    this._con.enviarControl(`e ${indice | 0}`);
+    this._difundirControl(`e ${indice | 0}`);
   },
 
   // Se llama DESPUÉS de que el mundo haya dado el paso.
@@ -208,8 +246,9 @@ export function crearSincro(L) {
     // llegue, sin que el paso espere por ella.
     if (this.activo && !this.roto && ++this._relojCamino >= 120) {
       this._relojCamino = 0;
-      if (this._con && this._con.camino) {
-        this._con.camino().then((c) => {
+      const primero = this._enlaces && this._enlaces[0];
+      if (primero && primero.camino) {
+        primero.camino().then((c) => {
           if (!c) return;
           this.camino = c.clase;
           if (c.ms != null) this.rttMs = c.ms;
@@ -256,10 +295,10 @@ export function crearSincro(L) {
       const primera = this._mias.keys().next().value;
       this._mias.delete(primera);
     }
-    this._con.enviarControl(`h ${paso} ${partes.join(',')}`);
+    this._difundirControl(`h ${paso} ${partes.join(',')}`);
   },
 
-  _recibirControl(texto) {
+  _recibirControl(texto, enlace) {
     if (texto.startsWith('h ')) {
       const p = texto.split(' ');
       const paso = parseInt(p[1], 10);
@@ -299,13 +338,13 @@ export function crearSincro(L) {
       const p = texto.split(' ');
       const paso = parseInt(p[1], 10);
       const foto = this._fotos.get(paso);
-      if (!foto) { this._con.enviarControl(`nofoto ${paso}`); return; }
+      if (!foto) { enlace.enviarControl(`nofoto ${paso}`); return; }
       const grupos = (p[2] || '').split(',');
       const recorte = {};
       for (let i = 0; i < grupos.length; i++) {
         if (foto[grupos[i]]) recorte[grupos[i]] = foto[grupos[i]];
       }
-      this._con.enviarControl('foto ' + paso + ' ' + JSON.stringify(recorte));
+      enlace.enviarControl('foto ' + paso + ' ' + JSON.stringify(recorte));
       return;
     }
     if (texto.startsWith('foto ')) {
@@ -346,9 +385,9 @@ export function crearSincro(L) {
   },
 
   _pedirFoto(paso, grupos) {
-    if (!this._con) return;
+    if (!this._enlaces || this._enlaces.length === 0) return;
     if (!this._fotos.has(paso) || !grupos || grupos.length === 0) return;
-    this._con.enviarControl(`dame ${paso} ${grupos.join(',')}`);
+    this._difundirControl(`dame ${paso} ${grupos.join(',')}`);
   },
 
   _romper(motivo) {

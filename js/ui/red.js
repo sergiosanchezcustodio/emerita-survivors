@@ -165,11 +165,16 @@ export function dibujarRed(ctxMundo, ctx, estado) {
   }
 
   if (estado.fase === 'conectado') {
+    const cuantos = 1 + (estado.conectados || 1);
     titulo(ctx, 'CONECTADOS');
+    parrafo(ctx, [`Sois ${cuantos} jugadores.`], 110, t.titulo, 18);
     parrafo(ctx, estado.esAnfitrion
-      ? ['Ya estáis conectados.', '', 'ENTER para empezar la partida.']
-      : ['Ya estáis conectados.', '', 'Esperando a que empiece el anfitrión…'],
-      ALTO_UI / 2 - 24, t.texto, 17);
+      ? cuantos < 4
+        ? ['ENTER para empezar la partida.', '',
+           'O pulsa  I  para invitar a alguien más (hasta cuatro).']
+        : ['Ya sois cuatro, que es el máximo.', '', 'ENTER para empezar la partida.']
+      : ['Esperando a que empiece el anfitrión…'],
+      ALTO_UI / 2, t.texto, 16);
     ctx.restore();
     return;
   }

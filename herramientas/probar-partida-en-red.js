@@ -51,6 +51,10 @@ const MARATON = process.argv[3] === 'maraton';
 // unió, que llevaba el puesto 1. Ese es el caso delicado — si el búfer de
 // pulsaciones no cambia de puesto, se queda sin poder moverse.
 const CORTE = process.argv[3] === 'corte';
+// CUÁNTOS JUGADORES. Dos por defecto; con `3` o `4` se prueba la estrella, que
+// es donde el anfitrión tiene que REENVIAR lo que pulsa cada invitado a los
+// demás — los invitados no se ven entre ellos.
+const CUANTOS = Math.max(2, Math.min(4, Number(process.argv[4]) || 2));
 
 let fallos = 0;
 function comprobar(condicion, texto) {
@@ -190,10 +194,16 @@ async function principal() {
   });
 
   let A, B;
+  const otras = [];
+  let todas = [];
   try {
     A = await abrirJuego(navegador, 'anfitrión');
     B = await abrirJuego(navegador, 'invitada');
-    comprobar(true, 'las dos pestañas cargan el juego');
+    for (let i = 2; i < CUANTOS; i++) {
+      otras.push(await abrirJuego(navegador, `invitada ${i + 1}`));
+    }
+    todas = [A, B].concat(otras);
+    comprobar(true, `${todas.length} pestañas cargan el juego`);
 
     // MEJORAS DISTINTAS EN CADA PUNTA, y esto es lo que de verdad hay que
     // comprobar.
@@ -210,7 +220,12 @@ async function principal() {
     await B.pagina.evaluate(() => {
       window.EMERITA.meta.potenciadores = { premura: 4, coraza: 1 };
     });
-    comprobar(true, 'cada punta con mejoras distintas (vitalidad+furia / premura+coraza)');
+    const EXTRA = [{ codicia: 2 }, { vitalidad: 5 }];
+    for (let i = 0; i < otras.length; i++) {
+      await otras[i].pagina.evaluate((m) => { window.EMERITA.meta.potenciadores = m; },
+                                     EXTRA[i % EXTRA.length]);
+    }
+    comprobar(true, `cada punta con mejoras distintas (${todas.length} juegos distintos)`);
 
     // --- El baile de códigos, igual que lo harían dos personas ---------------
     const invitacion = await A.pagina.evaluate(() => window.EMERITA.red.invitar());
@@ -227,6 +242,20 @@ async function principal() {
     comprobar(conectado === true, 'se conectan');
     if (!conectado) return;
 
+    // UNA INVITACIÓN MÁS POR CADA JUGADOR EXTRA. Cada conexión trae sus propias
+    // credenciales, así que el baile se repite entero: no vale reenviar el
+    // mismo código a dos personas.
+    for (let i = 0; i < otras.length; i++) {
+      const inv = await A.pagina.evaluate(() => window.EMERITA.red.invitar());
+      const res = await otras[i].pagina.evaluate((c) => window.EMERITA.red.responder(c), inv);
+      const ok = await A.pagina.evaluate((c) => window.EMERITA.red.aceptar(c), res);
+      comprobar(ok === true, `se conecta el jugador ${i + 3}`);
+      if (!ok) return;
+    }
+    const cuantosVe = await A.pagina.evaluate(() => window.EMERITA.red.conectados);
+    comprobar(cuantosVe === todas.length - 1,
+              `el anfitrión ve ${cuantosVe} invitado(s)`);
+
     // --- La partida ----------------------------------------------------------
     await A.pagina.evaluate(() => window.EMERITA.red.jugar());
     await A.pagina.waitForTimeout(500);
@@ -239,11 +268,15 @@ async function principal() {
     // máquinas tienen que ver los mismos dos números.
     const vidas = (p) => p.pagina.evaluate(
       () => window.EMERITA.jugadores().map((j) => j.vidaMaxima));
-    const vA = await vidas(A), vB = await vidas(B);
-    comprobar(vA.length === 2 && vA[0] !== vA[1],
-              `los dos jugadores tienen estadísticas distintas (${vA.join(' y ')})`);
-    comprobar(JSON.stringify(vA) === JSON.stringify(vB),
-              'y las dos máquinas ven las MISMAS dos: el progreso ha viajado');
+    const vA = await vidas(A);
+    comprobar(vA.length === todas.length && new Set(vA).size === vA.length,
+              `los ${vA.length} jugadores tienen estadísticas distintas (${vA.join(' · ')})`);
+    let coinciden = true;
+    for (const p of todas) {
+      if (JSON.stringify(await vidas(p)) !== JSON.stringify(vA)) coinciden = false;
+    }
+    comprobar(coinciden,
+              'y TODAS las máquinas ven las mismas: el progreso de cada uno ha viajado');
 
     if (MARATON) {
       for (const p of [A, B]) {
@@ -267,10 +300,7 @@ async function principal() {
     let vuelta = 0;
     let terminada = '';
     while (Date.now() < hasta) {
-      await Promise.all([
-        teclear(A, teclas[vuelta % 4], 700),
-        teclear(B, teclas[(vuelta + 2) % 4], 700)
-      ]);
+      await Promise.all(todas.map((p, i) => teclear(p, teclas[(vuelta + i * 2) % 4], 700)));
 
       // CONFIRMAR SOLO SI HAY UN MENÚ DE NIVEL ABIERTO.
       //
@@ -280,7 +310,7 @@ async function principal() {
       // NUEVAS sueltas. Todo lo medido a partir de ahí es de otra partida. Se
       // vio porque los dos jugadores acabaron con distinta vida máxima y
       // distinta velocidad: ya no eran ni el mismo personaje.
-      for (const p of [A, B]) {
+      for (const p of todas) {
         const m = await p.pagina.evaluate(() => window.EMERITA.mando());
         if (m.subiendoNivel || m.cofre) await p.pagina.keyboard.press('Enter');
       }
@@ -315,6 +345,8 @@ async function principal() {
       };
     });
     const rA = await leer(A), rB = await leer(B);
+    const rTodas = [];
+    for (const p of todas) rTodas.push(await leer(p));
 
     console.log('\nRESULTADO');
     console.log(`  anfitrión: paso ${rA.paso}, ${rA.esperas} esperas (la mayor ${rA.esperaMax})`);
@@ -338,12 +370,14 @@ async function principal() {
               (terminada ? ', partida terminada' : ` de ~${SEGUNDOS * 60}`) + ')');
     comprobar(rB.paso > minimo,
               `el mundo AVANZA en la invitada (${rB.paso} pasos)`);
-    comprobar(Math.abs(rA.paso - rB.paso) < 300,
-              `las dos van a la par (se llevan ${Math.abs(rA.paso - rB.paso)} pasos)`);
+    let masLejos = 0;
+    for (const r of rTodas) masLejos = Math.max(masLejos, Math.abs(r.paso - rA.paso));
+    comprobar(masLejos < 300,
+              `las ${todas.length} van a la par (la que más, ${masLejos} pasos)`);
 
     // Lo que de verdad importa: que nadie haya cantado desincronización.
     const rotos = [];
-    for (const p of [A, B]) {
+    for (const p of todas) {
       const separadas = p.errores.filter((t) => /se han separado/.test(t));
       if (separadas.length > 0) rotos.push(`${p.nombre}: ${separadas[0]}`);
     }
@@ -361,7 +395,7 @@ async function principal() {
 
     // El detalle de la separación, si lo hubo. Es lo que dice qué campo de qué
     // entidad se ha ido, y sin esto la prueba solo sabría decir "se separaron".
-    for (const p of [A, B]) {
+    for (const p of todas) {
       const tablas = await p.pagina.evaluate(() => window.__tablas || []);
       const detalle = tablas.find((t) => Array.isArray(t) && t.length > 0 && t[0].campo);
       if (detalle) {
@@ -371,7 +405,7 @@ async function principal() {
       }
     }
 
-    for (const p of [A, B]) {
+    for (const p of todas) {
       const otros = p.errores.filter((t) => !/se han separado/.test(t) &&
                                             !/diferencia\(s\) concreta/.test(t) &&
                                             !/AudioContext/.test(t) &&
@@ -381,8 +415,9 @@ async function principal() {
                                    : `errores en ${p.nombre}: ${otros.slice(0, 3).join(' | ')}`);
     }
   } finally {
-    if (A) await A.contexto.close().catch(() => {});
-    if (B) await B.contexto.close().catch(() => {});
+    for (const p of [A, B].concat(otras)) {
+      if (p) await p.contexto.close().catch(() => {});
+    }
     await navegador.close().catch(() => {});
     servidor.kill();
   }
