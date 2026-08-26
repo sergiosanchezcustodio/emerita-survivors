@@ -20,7 +20,21 @@ import { tipoDe } from './codigo.js';
 let sesion = null;
 
 function nueva(servidores) {
-  if (sesion) sesion.cerrar();
+  // AL INTENTO ANTERIOR SE LE QUITA LA VOZ ANTES DE CERRARLO.
+  //
+  // Una conexión que no llegó a cuajar no muere en el momento: ICE sigue
+  // probando por su cuenta y avisa de que ha fracasado medio minuto después. Sin
+  // esto, ese aviso aparecía en la consola CUANDO YA ESTABAS CONECTADO por el
+  // segundo intento, y se leía como si la conexión buena se hubiera caído. Le
+  // pasó a Sergio: "La conexión no llegó a establecerse" justo antes de
+  // "conectado".
+  if (sesion) {
+    sesion.alEstado = null;
+    sesion.alCerrar = null;
+    sesion.alControl = null;
+    sesion.alJuego = null;
+    sesion.cerrar();
+  }
   sesion = crearConexion({ servidores });
   sesion.alEstado = (estado, error) => {
     if (estado === ESTADOS.CONECTADO) console.log('RED: conectado.');
@@ -140,16 +154,32 @@ export const RedConsola = {
       return false;
     }
     const ok = await sesion.esperarAbierto();
-    console.log(ok ? 'Conectados.' : 'No se ha abierto el canal. Ver estado con EMERITA.red.estado()');
+    if (ok) {
+      console.log('Conectados. Mide el viaje con: EMERITA.red.latencia()');
+    } else {
+      console.error('No se ha abierto el canal. Ver estado con EMERITA.red.estado()');
+    }
     return ok;
   },
 
   // Cuánto tarda un mensaje en ir y volver, y cuántos fotogramas de retardo
   // pide eso. Es la medida que decide el ajuste de core/lockstep.js.
   async latencia(veces = 20) {
-    if (!sesion || sesion.estado !== ESTADOS.CONECTADO) {
-      console.error('No hay conexión abierta.');
+    if (!sesion) {
+      console.error('No hay conexión.');
       return null;
+    }
+    // SI TODAVÍA SE ESTÁ ABRIENDO, SE ESPERA. `aceptar()` devuelve una promesa,
+    // así que pegar las dos líneas seguidas en la consola ejecuta esto antes de
+    // que la conexión exista. Fallar ahí era técnicamente correcto e inútil: lo
+    // que quiere quien lo escribe es la medida, no una regañina por el orden.
+    if (sesion.estado !== ESTADOS.CONECTADO) {
+      console.log('Esperando a que se abra el canal…');
+      const ok = await sesion.esperarAbierto(10000);
+      if (!ok) {
+        console.error('No se ha abierto el canal. Estado: ' + sesion.estado);
+        return null;
+      }
     }
     const r = await sesion.medirLatencia(veces);
     if (!r) { console.error('No ha vuelto ningún ping.'); return null; }
