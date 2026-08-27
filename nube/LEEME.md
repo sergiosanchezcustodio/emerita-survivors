@@ -121,11 +121,21 @@ silencio, que es exactamente para lo que se diseñó así.
 
 Un extremo público que escribe recibe visitas de robots el primer día. El Worker
 ya rechaza lo que no tiene forma de partida —código mal formado, cuerpo de más de
-2 KB, cualquier cosa que no empiece por `P1`—, pero **el límite por IP se pone en
-el panel**, no en el código:
+2 KB, cualquier cosa que no empiece por `P1`— y **lleva su propio freno por IP**:
+60 lecturas y 30 escrituras por minuto, y a partir de ahí un 429.
 
-*Security → WAF → Rate limiting rules*: algo como 60 peticiones por minuto y por
-IP sobre la ruta `/p/*`. Un jugador de verdad hace dos o tres cada partida.
+**EL FRENO VA DENTRO DEL WORKER Y NO EN EL PANEL**, y esto costó una vuelta: las
+reglas de *rate limiting* del panel son POR ZONA, o sea por un dominio añadido a
+tu cuenta. Un subdominio `workers.dev` no es una zona tuya, es de Cloudflare, así
+que en *Security → WAF* no hay dónde ponerlas. El día que esto viva en un dominio
+propio, se puede subir ahí y quitarlo del código, que es mejor sitio.
+
+Es un límite **blando**, y conviene saberlo: Cloudflare reparte el Worker entre
+muchos isolates, cada uno con su memoria, así que las cuentas no son globales.
+Para al que le da sin parar desde una máquina —que es el caso real— y no a quien
+se lo monte con mil direcciones. No usa D1 a propósito: llevar el contador en la
+base convertiría cada visita de un robot en una ESCRITURA, que es justo el
+recurso escaso del plan gratuito. El ataque saldría gratis y la defensa cara.
 
 ## Cuánto aguanta el plan gratuito
 

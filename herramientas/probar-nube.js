@@ -16,7 +16,7 @@
 //   3. Que un cuerpo enorme se rechace: un extremo público y anónimo sin tope
 //      es el disco duro gratis de otro.
 
-import gestor, { validar } from '../nube/worker.js';
+import gestor, { validar, _ajustarFreno } from '../nube/worker.js';
 
 let fallos = 0;
 function comprobar(condicion, texto) {
@@ -156,6 +156,49 @@ console.log('\nLa validación, por su cuenta');
   comprobar(validar({ cuerpo: 'P1x', tiempo: 1.5, partidas: 1.5, sello: 1 }) !== '',
             'las partidas tienen que ser un entero');
 }
+
+console.log('\nEl freno por IP');
+{
+  const db = baseFalsa();
+  // Topes pequeños para no tener que hacer sesenta peticiones. Ver `_ajustarFreno`.
+  _ajustarFreno(3, 2);
+  const desde = (ip, metodo, cuerpo) => gestor.fetch(
+    new Request(RAIZ + CODIGO, {
+      method: metodo,
+      headers: { 'CF-Connecting-IP': ip, 'Content-Type': 'application/json' },
+      body: cuerpo ? JSON.stringify(cuerpo) : undefined
+    }), { DB: db });
+
+  const l = [];
+  for (let i = 0; i < 4; i++) l.push((await desde('1.2.3.4', 'GET')).status);
+  comprobar(l.slice(0, 3).every((e) => e !== 429) && l[3] === 429,
+            'a la cuarta lectura seguida se le contesta 429: ' + l.join(', '));
+
+  const otra = await desde('9.9.9.9', 'GET');
+  comprobar(otra.status !== 429, 'y a OTRA dirección no le afecta: ' + otra.status);
+
+  _ajustarFreno(3, 2);
+  const e = [];
+  for (let i = 0; i < 3; i++) e.push((await desde('1.2.3.4', 'PUT', PARTIDA(10 + i, 1))).status);
+  comprobar(e[0] !== 429 && e[1] !== 429 && e[2] === 429,
+            'las escrituras tienen menos margen que las lecturas: ' + e.join(', '));
+
+  const freno = await desde('1.2.3.4', 'PUT', PARTIDA(99, 9));
+  comprobar(freno.headers.get('Retry-After') === '60', 'y se dice cuándo volver: Retry-After 60');
+  comprobar(freno.headers.get('Access-Control-Allow-Origin') === '*',
+            'con CORS, o el navegador ni llegaría a leer el motivo');
+
+  // SIN CABECERA DE IP NO SE FRENA. `CF-Connecting-IP` la pone el borde de
+  // Cloudflare y no se puede falsear desde fuera; si no está, esto no viene por
+  // ahí. Es lo que permite que el resto de esta prueba no se atasque a la cuarta
+  // petición, y la razón de que el orden de los bloques de aquí no importe.
+  _ajustarFreno(2, 1);
+  const sinIp = [];
+  for (let i = 0; i < 5; i++) sinIp.push((await pedir(db, 'GET', CODIGO)).estado);
+  comprobar(sinIp.every((x) => x !== 429), 'sin CF-Connecting-IP no se limita nada');
+  _ajustarFreno(60, 30);
+}
+
 
 console.log(fallos === 0 ? '\nTODO CORRECTO.\n' : `\n${fallos} FALLO(S).\n`);
 process.exit(fallos === 0 ? 0 : 1);

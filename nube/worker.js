@@ -51,6 +51,62 @@ const CABECERAS = {
   'Access-Control-Max-Age': '86400'
 };
 
+// --- EL FRENO POR IP ---------------------------------------------------------
+//
+// POR QUÉ ESTÁ AQUÍ Y NO EN EL PANEL DE CLOUDFLARE. Las reglas de *rate
+// limiting* del panel son POR ZONA, o sea por un dominio que hayas añadido a tu
+// cuenta; un subdominio `workers.dev` no es una zona tuya, es de Cloudflare, así
+// que ahí no hay dónde ponerlas. El día que esto viva en un dominio propio, se
+// puede quitar de aquí y hacerlo arriba, que es mejor sitio.
+//
+// ES UN LÍMITE BLANDO, y hay que decirlo claro: Cloudflare reparte el Worker
+// entre muchos isolates repartidos por el mundo, cada uno con su memoria, así
+// que estas cuentas no son globales. Alguien decidido a saltárselo lo consigue.
+// Lo que sí para —que es el caso real— es a quien le da sin parar desde una
+// máquina: sus peticiones caen casi siempre en el mismo sitio, y ahí se le
+// cuenta.
+//
+// No usa D1 a propósito. Llevar el contador en la base convertiría cada visita
+// de un robot en una ESCRITURA, que es justo el recurso escaso del plan
+// gratuito: el ataque saldría gratis y la defensa cara.
+const VENTANA_MS = 60000;
+// El PUT tiene menos margen que el GET porque es el que escribe. Un jugador de
+// verdad hace un GET al entrar y un PUT cada varias partidas; el cliente además
+// agrupa las subidas y no manda más de una cada cuatro segundos.
+let TOPE_LECTURA = 60;
+let TOPE_ESCRITURA = 30;
+const visitas = new Map();
+
+// Si la memoria crece, se tiran las entradas caducadas. Sin esto, un barrido de
+// direcciones deja el Map creciendo hasta que el isolate muera.
+const MAX_VIGILADAS = 5000;
+
+function pasaElFreno(ip, escribe, ahora) {
+  // SIN IP NO SE LIMITA. `CF-Connecting-IP` la pone el borde de Cloudflare y no
+  // se puede falsear desde fuera; si no está, es que esto no viene por ahí —una
+  // prueba en local— y contarlas todas juntas sería frenar el banco de pruebas.
+  if (!ip) return true;
+  if (visitas.size > MAX_VIGILADAS) {
+    for (const [k, v] of visitas) if (v.hasta <= ahora) visitas.delete(k);
+  }
+  const v = visitas.get(ip);
+  if (!v || v.hasta <= ahora) {
+    visitas.set(ip, { hasta: ahora + VENTANA_MS, lecturas: 0, escrituras: 0 });
+    return pasaElFreno(ip, escribe, ahora);
+  }
+  if (escribe) { v.escrituras++; return v.escrituras <= TOPE_ESCRITURA; }
+  v.lecturas++;
+  return v.lecturas <= TOPE_LECTURA;
+}
+
+// Costura para las pruebas: bajar los topes y vaciar la cuenta sin esperar un
+// minuto de reloj. No la usa el Worker.
+export function _ajustarFreno(topeLectura, topeEscritura) {
+  TOPE_LECTURA = topeLectura;
+  TOPE_ESCRITURA = topeEscritura;
+  visitas.clear();
+}
+
 function respuesta(objeto, estado = 200) {
   return new Response(JSON.stringify(objeto), {
     status: estado,
@@ -108,6 +164,18 @@ const GUARDAR_FORZADO = `
 export default {
   async fetch(peticion, entorno) {
     if (peticion.method === 'OPTIONS') return new Response(null, { headers: CABECERAS });
+
+    // EL FRENO VA ANTES QUE NADA, y antes de mirar siquiera la ruta: quien está
+    // martilleando no merece que se le analice la petición, y comprobar la ruta
+    // primero sería trabajo hecho para tirarlo después.
+    const ip = peticion.headers.get('CF-Connecting-IP');
+    if (!pasaElFreno(ip, peticion.method === 'PUT', Date.now())) {
+      return new Response(
+        JSON.stringify({ error: 'Demasiadas peticiones. Prueba dentro de un minuto.' }),
+        { status: 429,
+          headers: { 'Content-Type': 'application/json; charset=utf-8',
+                     'Retry-After': '60', ...CABECERAS } });
+    }
 
     const url = new URL(peticion.url);
     const trozos = url.pathname.split('/').filter(Boolean);
