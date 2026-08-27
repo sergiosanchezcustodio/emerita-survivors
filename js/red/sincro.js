@@ -39,8 +39,13 @@ let CADA_HUELLA = 20;
 
 // De qué pools se guarda el detalle mientras se juega. Los enemigos y los
 // cosméticos NO: son demasiados como para retratarlos en caliente.
+//
+// LOS ARSENALES ENTRAN aunque no sean un pool: son cuatro jugadores por seis
+// armas como mucho, y es el grupo que más falta hace tener retratado — el arma
+// elegida al subir de nivel es lo único que viaja por el canal fiable, o sea lo
+// que más fácil acaba distinto en las dos máquinas.
 const GRUPOS_VIGILADOS = ['jugadores', 'disparos', 'proyectiles', 'zonas',
-                          'cofres', 'recogibles', 'mascotas'];
+                          'cofres', 'recogibles', 'mascotas', 'arsenales'];
 
 // A partir de cuántos pasos parado se avisa. Dos segundos: por debajo de eso es
 // un tirón de red y no hay nada que decir; por encima, el jugador está mirando

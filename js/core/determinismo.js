@@ -181,7 +181,7 @@ function mezclarLockstep(h, L) {
   return h;
 }
 
-// EL ARSENAL DE CADA JUGADOR: qué armas lleva y de qué nivel.
+// EL ARSENAL DE CADA JUGADOR: qué armas lleva, de qué nivel y POR DÓNDE VAN.
 //
 // Estaba fuera de la firma sin querer, y era el hueco más incómodo que quedaba.
 // `mezclarLista` solo mezcla los campos NUMÉRICOS de un objeto, y un arsenal es
@@ -195,21 +195,78 @@ function mezclarLockstep(h, L) {
 // arsenales distintos solo se notaban de rebote, cuando los proyectiles ya
 // llevaban un rato divergiendo.
 //
+// SE MEZCLA EL OBJETO ENTERO, no una lista de campos elegidos. La primera
+// versión firmaba solo `id` y `nivel`, y eso deja fuera lo que de verdad se
+// mueve: el `temporizador` que decide EN QUÉ PASO dispara cada arma, los golpes
+// encadenados que quedan pendientes y el ángulo de los orbitales. Dos máquinas
+// con el mismo arsenal y un temporizador desfasado disparan en pasos distintos,
+// que es una partida distinta — y con la versión corta la firma decía que los
+// arsenales coincidían. Recorrer todas las claves también significa que un
+// campo nuevo entra en la firma el día que alguien lo añada, sin acordarse de
+// esto.
+//
 // El identificador es texto, así que se mezcla carácter a carácter: no hace
 // falta que sea bonito, hace falta que dos armas distintas den números
 // distintos.
+//
+// `def`, `stats`, `zona` y `repetir` no son números: quedan fuera del bucle.
+// `stats` entra aparte porque es donde vive el daño, y es lo que separa un arma
+// de nivel 3 de la misma arma evolucionada.
+function mezclarTexto(h, s) {
+  if (typeof s !== 'string') return mezclar(h, 0);
+  h = mezclar(h, s.length);
+  for (let c = 0; c < s.length; c++) h = mezclar(h, s.charCodeAt(c));
+  return h;
+}
+
+// Números y booleanos de un objeto, por orden alfabético de clave. No usa
+// `clavesDe` porque esa cachea qué claves eran numéricas la primera vez que vio
+// la forma, y aquí hay campos que nacen `null` —`zona`, `repetir`— y otros que
+// son booleanos de principio a fin.
+function mezclarSueltos(h, obj) {
+  if (!obj) return mezclar(h, 0);
+  const claves = Object.keys(obj).sort();
+  for (let i = 0; i < claves.length; i++) {
+    const v = obj[claves[i]];
+    if (typeof v === 'number') h = mezclar(h, v);
+    else if (typeof v === 'boolean') h = mezclar(h, v ? 1 : 0);
+  }
+  return h;
+}
+
+// Los tajos y los rayos SON SIMULACIÓN, aunque se llamen como se llaman y el
+// arsenal los guarde para dibujarlos: `disparos.barrer` los lee para decidir si
+// una púa de medusa se deshace al cruzarlos (ver entidades/disparo.js). O sea
+// que un tajo que en una máquina sigue vivo y en la otra no es un proyectil
+// enemigo que allí sobrevive y aquí no.
+//
+// Se recorre el búfer ENTERO y no solo los vivos: son doce ranuras fijas, el
+// orden en que se reutilizan forma parte del estado, y una ranura muerta con
+// números distintos ya es una divergencia de hace un momento.
+function mezclarBuffer(h, lista, n) {
+  h = mezclar(h, n | 0);
+  if (!lista) return h;
+  h = mezclar(h, lista.length);
+  for (let i = 0; i < lista.length; i++) h = mezclarSueltos(h, lista[i]);
+  return h;
+}
+
 function mezclarArsenales(h, lista) {
   if (!lista) return h;
   h = mezclar(h, lista.length);
   for (let i = 0; i < lista.length; i++) {
-    const eq = lista[i] && lista[i].equipadas;
+    const ars = lista[i];
+    if (!ars) { h = mezclar(h, -1); continue; }
+    const eq = ars.equipadas;
     if (!eq) { h = mezclar(h, -1); continue; }
     h = mezclar(h, eq.length);
     for (let k = 0; k < eq.length; k++) {
-      const id = eq[k].id || '';
-      for (let c = 0; c < id.length; c++) h = mezclar(h, id.charCodeAt(c));
-      h = mezclar(h, eq[k].nivel | 0);
+      h = mezclarTexto(h, eq[k].id);
+      h = mezclarSueltos(h, eq[k]);
+      h = mezclarSueltos(h, eq[k].stats);
     }
+    h = mezclarBuffer(h, ars.tajos, ars.nTajos);
+    h = mezclarBuffer(h, ars.rayos, ars.nRayos);
   }
   return h;
 }
@@ -581,6 +638,38 @@ export function crearProbador(gancho) {
       mas.push(fila);
     }
     if (quiere('mascotas')) foto.mascotas = mas;
+
+    // Y LOS ARSENALES, una fila por arma equipada.
+    //
+    // Sin esto, el detalle no tenía nada que decir justo en la parte más
+    // delicada del montaje: cuando la firma señala `arsenales`, `pedirFoto`
+    // pedía un grupo que la foto no producía y la respuesta llegaba vacía. La
+    // pista se quedaba en "difieren las armas" sin decir cuál ni en qué.
+    //
+    // `stats` se aplana con prefijo en vez de anidarse: `diferencias` compara
+    // campo a campo un nivel de profundidad, así que un objeto dentro de la
+    // fila se compararía por identidad y nunca diría nada.
+    const ars = [];
+    const arsenales = e.arsenales || [];
+    for (let i = 0; i < arsenales.length; i++) {
+      const eq = (arsenales[i] && arsenales[i].equipadas) || [];
+      for (let k = 0; k < eq.length; k++) {
+        const fila = { _de: i, id: eq[k].id };
+        const claves = Object.keys(eq[k]).sort();
+        for (let c = 0; c < claves.length; c++) {
+          const v = eq[k][claves[c]];
+          if (typeof v === 'number') fila[claves[c]] = v;
+          else if (typeof v === 'boolean') fila[claves[c]] = v ? 1 : 0;
+        }
+        const s = eq[k].stats || {};
+        const sc = Object.keys(s).sort();
+        for (let c = 0; c < sc.length; c++) {
+          if (typeof s[sc[c]] === 'number') fila['s_' + sc[c]] = s[sc[c]];
+        }
+        ars.push(fila);
+      }
+    }
+    if (quiere('arsenales')) foto.arsenales = ars;
     return foto;
   }
 

@@ -1,6 +1,6 @@
 # Cooperativo online: dónde estamos
 
-Última actualización: 26 de agosto de 2026.
+Última actualización: 27 de agosto de 2026.
 
 El plan es **lockstep**: por la red viajan solo las pulsaciones, y cada máquina
 simula la partida entera por su cuenta. Es lo que permite jugar sin servidor y
@@ -233,6 +233,7 @@ máquinas viendo los mismos dos números.
     node herramientas\probar-lockstep.js          el búfer, con un canal que se maltrata
     node herramientas\probar-sincro.js            las dos puntas, sin WebRTC
     node herramientas\probar-partida-en-red.js 60 el juego entero, dos pestañas de verdad
+    node herramientas\probar-firma-arsenal.js       ¿la firma ve el arsenal, campo a campo?
 
 La última abre dos pestañas en un Chromium, las conecta con el mismo baile de
 códigos que harían dos personas y juega. Con `maraton` de segundo argumento, los
@@ -287,13 +288,52 @@ volverán a parecer un fallo del juego:
 Todas se parecían a un fallo del motor. Ninguna lo era. La pregunta útil ante
 una desincronización es "¿esto que comparo es de verdad la simulación?".
 
-### Un hueco conocido
+### El hueco del arsenal, cerrado
 
-**El arsenal no entra en la firma.** `jugadores` solo mezcla campos numéricos y
-las armas son un objeto, así que si dos máquinas acabaran con armas distintas la
-comparación no lo vería directamente — solo de rebote, cuando los proyectiles
-empezaran a diferir. Y es justo el estado que sincroniza el mensaje de la carta
-elegida, o sea lo más delicado del montaje. Pendiente.
+**El arsenal no entraba en la firma**, y era el hueco más incómodo que quedaba.
+`mezclarLista` solo mezcla los campos numéricos de un objeto y un arsenal es un
+objeto con una lista dentro: se caía por el borde sin que nadie lo decidiera.
+Dos máquinas con armas distintas no se veían directamente, solo de rebote —
+cuando los proyectiles ya llevaban un rato divergiendo. Y es justo el estado que
+sincroniza el mensaje de la carta elegida, o sea lo más delicado del montaje.
+
+Ahora entra, y entra **entero**: no `id` y `nivel`, que era la versión corta y
+seguía dejando fuera lo único que se mueve de verdad.
+
+- **El estado vivo de cada arma.** El `temporizador` decide EN QUÉ PASO dispara;
+  dos máquinas con el mismo arsenal y un temporizador desfasado disparan en
+  pasos distintos, que ya es otra partida. Con él van los golpes encadenados
+  pendientes, el ángulo y el reloj de los orbitales y la fase del giro.
+- **Las `stats`**, que es donde vive el daño y lo que separa un arma de nivel 3
+  de la misma arma evolucionada.
+- **Los tajos y los rayos.** Parecen dibujo y no lo son: `disparos.barrer` los
+  lee para decidir si una púa de medusa se deshace al cruzarlos, así que un tajo
+  vivo aquí y muerto allí es un proyectil enemigo que allí sobrevive y aquí no.
+  Se firma el búfer entero, doce ranuras, porque el orden en que se reutilizan
+  también es estado.
+
+Se mezclan **todas las claves** del objeto en vez de una lista escrita a mano.
+Es a propósito: la lista escrita a mano es exactamente cómo se abrió este hueco,
+y así un campo nuevo entra en la firma el día que alguien lo añada, sin acordarse
+de esto.
+
+**Y la foto también lo trae**, que es la otra mitad. Cuando la firma señalaba a
+los arsenales, `_pedirFoto` pedía por la red un grupo que la foto no producía: la
+respuesta llegaba vacía y el rastro se perdía justo cuando iba a servir. Ahora
+`arsenales` es un grupo como los demás —una fila por arma, con las `stats`
+aplanadas con prefijo `s_` porque la tabla de diferencias compara un solo nivel
+de profundidad— y está en los grupos que se vigilan mientras se juega. Cabe: son
+cuatro jugadores por seis armas como mucho, nada que ver con los cientos de
+enemigos que dejaron a los enemigos fuera.
+
+    node herramientas\probar-firma-arsenal.js
+
+Esa prueba no comprueba que dos partidas coincidan —de eso ya va la de red— sino
+lo contrario: toca un campo a mano, vuelve a firmar y exige que el componente
+`arsenales` cambie **y que ningún otro se mueva**. Veinte campos, uno a uno.
+Porque una firma que no mira un campo no avisa de nada y no avisa en silencio:
+la partida se separa media hora después por otro sitio y ya no hay de dónde
+tirar.
 
 ## Hasta cuatro jugadores, en estrella
 
