@@ -4037,6 +4037,56 @@ foreach ($m in $MENUS) {
 $informeMenus | Format-Table -AutoSize
 
 # ---------------------------------------------------------------------------
+# ICONO DE PESTANA
+#
+# De `resources/menus/favicon.png` salen los dos tamanos que declara
+# index.html: 32 para la pestana y 180 para "anadir a la pantalla de inicio"
+# de iOS.
+#
+# SE REDUCE AQUI Y NO EN EL NAVEGADOR. Dandole el original de 1254x1254 al
+# `<link rel="icon">`, cada pestana se descarga 1,5 MB para pintar 32 pixeles
+# y ademas lo reduce con el filtro que le parezca. Reducido offline con
+# bicubica de calidad, el de 32 pesa 2 KB.
+#
+# PNG Y NO JPEG, que es la excepcion a lo que se hace con los menus: un icono
+# de pestana necesita FONDO TRANSPARENTE -se pinta sobre la barra del
+# navegador, que es clara en un tema y oscura en otro- y JPEG no tiene canal
+# alfa. Por eso este bloque no usa `Guardar`, que hornea JPEG.
+#
+# OJO AL CAMBIAR EL DIBUJO: hay que subir a mano el `?v=` de index.html. Un
+# favicon es de lo que mas se agarra el navegador, porque lo pide una vez y lo
+# reutiliza en todas las pestanas; sin subir ese numero, el icono viejo puede
+# quedarse semanas.
+$FAVICON_SRC = Join-Path $ORIGEN 'menus\favicon.png'
+$informeIconos = @()
+if (Test-Path $FAVICON_SRC) {
+    $origenIcono = [System.Drawing.Bitmap]::FromFile($FAVICON_SRC)
+    foreach ($lado in 32, 180) {
+        $destinoIcono = Join-Path $DESTINO "favicon-$lado.png"
+        $chico = New-Object System.Drawing.Bitmap $lado, $lado, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+        $g = [System.Drawing.Graphics]::FromImage($chico)
+        $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+        $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+        $g.Clear([System.Drawing.Color]::Transparent)
+        $g.DrawImage($origenIcono, 0, 0, $lado, $lado)
+        $g.Dispose()
+        $chico.Save($destinoIcono, [System.Drawing.Imaging.ImageFormat]::Png)
+        $chico.Dispose()
+        $informeIconos += [PSCustomObject]@{
+            Icono  = "favicon-$lado.png"
+            Tamano = "${lado}x${lado}"
+            KB     = "{0:N1}" -f ((Get-Item $destinoIcono).Length / 1KB)
+        }
+    }
+    $origenIcono.Dispose()
+} else {
+    $informeIconos += [PSCustomObject]@{ Icono='favicon.png'; Tamano='-'; KB='NO EXISTE' }
+}
+$informeIconos | Format-Table -AutoSize
+
+
+# ---------------------------------------------------------------------------
 # RULETA DEL COFRE
 # ---------------------------------------------------------------------------
 #
