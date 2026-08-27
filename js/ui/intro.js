@@ -3,7 +3,7 @@ import { FUENTE_TITULO, FUENTE_RELATO, textoEspaciado } from './capa.js';
 import { fondoTitulo } from './pantallas.js';
 import { Recursos } from '../core/recursos.js';
 
-// LA INTRO: dos pantallas antes del menú.
+// LA INTRO: tres pantallas antes de elegir partida.
 //
 //   1. EL SPLASH. Una ilustración de Sergio que YA TRAE TODO ESCRITO: las
 //      tecnologías, el crédito de IA, la licencia y su propio "pulsa cualquier
@@ -13,6 +13,10 @@ import { Recursos } from '../core/recursos.js';
 //      información, se leían como una pegatina.
 //   2. EL RELATO. La historia subiendo por el hueco de una placa de piedra que
 //      dibujó Sergio, con la tricolor extremeña envolviéndola.
+//   3. LA PORTADA. El logo sobre la escena, con un "PULSE UNA TECLA PARA
+//      CONTINUAR" pintado en la propia lámina. Es la única de las tres que NO se
+//      va sola: las dos primeras se presentan sin que nadie toque nada, y esta
+//      espera. Un temporizador aquí diría lo contrario de lo que pone escrito.
 //
 // EL RELATO NO VA EN PERSPECTIVA. La primera versión era un rótulo estilo Star
 // Wars, con el texto alejándose hacia un horizonte, y se cambió por texto PLANO
@@ -22,7 +26,7 @@ import { Recursos } from '../core/recursos.js';
 // venía cada vez más pequeño. Lo que queda es más simple y se lee mejor: entra
 // por abajo, sube a tamaño constante y sale por arriba.
 //
-// CÓMO SE SALTA: cualquier tecla o botón, en las dos pantallas.
+// CÓMO SE SALTA: cualquier tecla o botón, en las tres.
 //
 // Y NO SE ESCRIBE EN NINGUNA PARTE. Hubo un pie que anunciaba los atajos y lo
 // quitó Sergio. Tiene sentido: son pantallas de las que se sale sin hacer nada
@@ -42,6 +46,17 @@ import { Recursos } from '../core/recursos.js';
 
 const FASE_SPLASH = 0;
 const FASE_RELATO = 1;
+// LA TERCERA: la portada con el logo y "PULSE UNA TECLA PARA CONTINUAR".
+//
+// Va DESPUÉS del relato y antes de elegir partida, que es donde la quiso
+// Sergio: el juego se presenta solo —la ficha técnica y la historia corren sin
+// que nadie toque nada— y aquí se para a esperarte. Es el primer momento en que
+// el juego pide algo.
+//
+// ESTA NO SE VA SOLA, y es lo único que la separa de las otras dos. El aviso
+// está PINTADO en la ilustración, así que un temporizador diría lo contrario de
+// lo que se lee en pantalla. Se espera lo que haga falta.
+const FASE_PORTADA = 2;
 
 // Lo que dura el splash, si nadie toca nada. Los últimos SPLASH_FUNDIDO
 // segundos son ya el fundido a negro, así que a los ocho en punto la pantalla
@@ -75,6 +90,7 @@ const ENTRADA = 0.6;
 
 const RUTA_SPLASH = 'assets/menus/splash.jpg';
 const RUTA_HISTORIA = 'assets/menus/intro-historia.jpg';
+const RUTA_PORTADA = 'assets/menus/titulo-pre.jpg';
 
 // EL GUION. Las líneas van PARTIDAS A MANO, no envueltas por `envolverTexto`:
 // en un texto que se lee renglón a renglón según entra, el corte de cada línea
@@ -173,7 +189,8 @@ const estado = {
   velocidad: 0,
   duracion: 0,
   splash: null,       // el splash, horneado al tamaño de la pantalla
-  historia: null      // la placa de la historia, horneada igual
+  historia: null,     // la placa de la historia, horneada igual
+  portada: null       // y la portada del "pulse una tecla"
 };
 
 export const Intro = {
@@ -181,12 +198,15 @@ export const Intro = {
   // no carga, su pantalla sale con un fondo de reserva: se pierde el dibujo, no
   // la posibilidad de llegar al menú.
   async cargar() {
-    const [splash, historia] = await Promise.all([
+    const [splash, historia, portada] = await Promise.all([
       Recursos.cargarSuelta(RUTA_SPLASH),
-      Recursos.cargarSuelta(RUTA_HISTORIA)
+      Recursos.cargarSuelta(RUTA_HISTORIA),
+      Recursos.cargarSuelta(RUTA_PORTADA)
     ]);
     if (splash) estado.splash = hornearPantalla(splash, true);
     if (historia) estado.historia = hornearPantalla(historia, false);
+    // La portada se encaja como el splash: es 16:9 como la pantalla y la llena.
+    if (portada) estado.portada = hornearPantalla(portada, true);
   },
 
   iniciar() {
@@ -203,7 +223,9 @@ export const Intro = {
     if (entrada.algunFlanco()) return siguiente();
 
     if (estado.fase === FASE_SPLASH && estado.reloj >= SPLASH_DURA) return siguiente();
-    if (estado.fase === FASE_RELATO && estado.reloj >= estado.duracion) return true;
+    if (estado.fase === FASE_RELATO && estado.reloj >= estado.duracion) return siguiente();
+    // La portada no tiene reloj: se sale de ella por el `algunFlanco` de arriba
+    // y por ningún otro sitio.
     return false;
   },
 
@@ -211,10 +233,16 @@ export const Intro = {
     if (estado.fase === FASE_SPLASH) {
       fondoPantalla(ctxMundo, estado.splash);
       velo(ctxMundo, SPLASH_DURA - estado.reloj, SPLASH_FUNDIDO);
-    } else {
+    } else if (estado.fase === FASE_RELATO) {
       fondoPantalla(ctxMundo, estado.historia);
       relato(ctxUi);
       velo(ctxMundo, estado.duracion - estado.reloj, RELATO_FUNDIDO);
+    } else {
+      fondoPantalla(ctxMundo, estado.portada);
+      // Solo la entrada desde el negro del relato: no hay salida que fundir,
+      // porque no se sabe cuándo va a ser. `Infinity` deja el fundido de salida
+      // sin disparar nunca — ver `velo`, que compara lo que sobra contra él.
+      velo(ctxMundo, Infinity, 0);
     }
   }
 };
@@ -222,6 +250,15 @@ export const Intro = {
 function siguiente() {
   if (estado.fase === FASE_SPLASH) {
     estado.fase = FASE_RELATO;
+    estado.reloj = 0;
+    return false;
+  }
+  if (estado.fase === FASE_RELATO) {
+    // SIN PORTADA NO HAY PARADA. Si la ilustración no ha cargado, esta pantalla
+    // sería un negro esperando una tecla que nadie sabe que hay que pulsar: se
+    // salta y se va a elegir partida, igual que antes de que existiera.
+    if (!estado.portada) return true;
+    estado.fase = FASE_PORTADA;
     estado.reloj = 0;
     return false;
   }

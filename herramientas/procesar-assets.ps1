@@ -3976,6 +3976,10 @@ $informeSuelo | Format-Table -AutoSize
 # quedan porque el siguiente menu con fondo blanco los va a querer.
 $MENUS = @(
     @{ src='menus\Main_menu.jpg'; dst='menus\titulo.jpg' }
+    # La PORTADA: la misma escena sin la lapida, con el logo y un "pulse una
+    # tecla" pintados. Cierra la intro y espera antes de elegir partida.
+    # Ver ui/intro.js. Nada medido sobre ella: no lleva nada encima.
+    @{ src='menus\Main_menu_pre.jpg'; dst='menus\titulo-pre.jpg' }
     @{ src='menus\seleccion_jugador.png'; dst='menus\seleccion.jpg' }
     @{ src='menus\splash_screen.png'; dst='menus\splash.jpg' }
     @{ src='menus\intro_historia.jpg'; dst='menus\intro-historia.jpg' }

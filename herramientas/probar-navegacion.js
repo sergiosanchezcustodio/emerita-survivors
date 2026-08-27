@@ -63,9 +63,29 @@ async function principal() {
     const donde = async () => NOMBRE[await pagina.evaluate(() => window.EMERITA.mando().pantalla)];
     const pulsar = async (t, ms = 450) => { await pagina.keyboard.press(t); await pagina.waitForTimeout(ms); };
 
-    await pulsar('Enter', 900);   // splash
-    await pulsar('Enter', 900);   // relato
-    comprobar(await donde() === 'huecos', 'la intro lleva a elegir partida');
+    // SE SALE DE LA INTRO PULSANDO HASTA SALIR, no contando pulsaciones.
+    //
+    // Antes eran dos Enter contados —splash y relato— y el día que se añadió una
+    // tercera pantalla a la intro reventaron SEIS comprobaciones de golpe, todas
+    // por estar una pantalla por detrás. Ninguna tenía que ver con lo que se
+    // estaba probando.
+    // LA ÚLTIMA PANTALLA DE LA INTRO ESPERA, Y ESO HAY QUE COMPROBARLO.
+    //
+    // La portada lleva "PULSE UNA TECLA PARA CONTINUAR" pintado en la propia
+    // ilustración: si algún día se le pusiera un temporizador, la pantalla diría
+    // una cosa y haría otra, y eso no da error ni se nota salvo mirándola. Se
+    // salta el splash y el relato, y en la portada se deja correr el reloj.
+    await pulsar('Enter', 900);   // splash -> relato
+    await pulsar('Enter', 900);   // relato -> portada
+    comprobar(await donde() === 'intro', 'tras el relato queda una pantalla más');
+    await pagina.waitForTimeout(5000);
+    comprobar(await donde() === 'intro',
+              'y NO se va sola: cinco segundos después sigue ahí');
+
+    let vueltas = 0;
+    while (await donde() === 'intro' && vueltas++ < 8) await pulsar('Enter', 900);
+    comprobar(await donde() === 'huecos',
+              `y con una tecla lleva a elegir partida (${vueltas} pulsación/es)`);
     await pulsar('Enter', 600);
     comprobar(await donde() === 'titulo', 'elegir partida lleva al título');
 
