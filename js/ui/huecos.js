@@ -1,5 +1,5 @@
 import { ANCHO_UI, ALTO_UI, ANCHO_FISICO, ALTO_FISICO } from '../core/constantes.js';
-import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
+import { FUENTE, FUENTE_TITULO, textoEspaciado, Capa } from './capa.js';
 import { Tema, panel } from './tema.js';
 import { Recursos } from '../core/recursos.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
@@ -88,7 +88,7 @@ export function refrescarHuecos() {
   for (let i = 0; i < MetaProgreso.NUM_HUECOS; i++) cache.push(MetaProgreso.resumen(i));
 }
 
-export function dibujarHuecos(ctxMundo, ctx, cursor, enBorrar) {
+export function dibujarHuecos(ctxMundo, ctx, cursor, enBorrar, nube) {
   if (!cache) refrescarHuecos();
   const t = Tema.actual;
 
@@ -139,9 +139,30 @@ export function dibujarHuecos(ctxMundo, ctx, cursor, enBorrar) {
     y += FILA_ALTO + FILA_HUECO;
   }
 
-  // SIN PIE. Llevaba un "Enter o A jugar / Supr o X borrar" y lo quitó Sergio en
-  // cuanto el borrado dejó de ser un atajo invisible y pasó a ser un botón que
-  // se ve: explicar por escrito lo que ya está dibujado es ruido.
+  // SIN PIE DE ATAJOS. Llevaba un "Enter o A jugar / Supr o X borrar" y lo quitó
+  // Sergio en cuanto el borrado dejó de ser un atajo invisible y pasó a ser un
+  // botón que se ve: explicar por escrito lo que ya está dibujado es ruido.
+  //
+  // LA NUBE SÍ SE ESCRIBE, y no es una excepción caprichosa: aquí no hay nada
+  // dibujado que la anuncie, y sobre todo hay algo que el jugador tiene que
+  // poder APUNTAR. Tu código es lo único que te devuelve tu partida en otro
+  // ordenador, y si no está a la vista no existe.
+  //
+  // En pequeño y al pie porque no es del camino normal: se usa una vez, el día
+  // que te sientas en otra máquina. Quien no lo lea juega igual y su partida se
+  // sincroniza sola.
+  if (nube) {
+    const abajo = ALTO_UI - Math.max(0, (ALTO_UI - Capa.altoVisible) / 2) - 18;
+    ctx.font = `12px ${FUENTE}`;
+    ctx.fillStyle = t.apagado;
+    ctx.fillText(`Tu código de partida:  ${nube.codigo}    ·    C copiar    ·    V traer otra`,
+                 ANCHO_UI / 2, abajo);
+    if (nube.aviso) {
+      ctx.font = `13px ${FUENTE}`;
+      ctx.fillStyle = '#ffd27a';
+      ctx.fillText(nube.aviso, ANCHO_UI / 2, abajo - 20);
+    }
+  }
   ctx.restore();
 }
 

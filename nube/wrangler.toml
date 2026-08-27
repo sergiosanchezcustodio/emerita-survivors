@@ -13,4 +13,4 @@ workers_dev = true
 [[d1_databases]]
 binding = "DB"                     # el nombre con que lo ve el codigo: entorno.DB
 database_name = "emerita-partidas"
-database_id = "PEGA-AQUI-EL-ID-QUE-TE-DE-WRANGLER"
+database_id = "7c61dd54-daf2-4684-aa16-8a3de8d46127"

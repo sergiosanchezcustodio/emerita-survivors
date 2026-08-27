@@ -27,9 +27,16 @@
 import { empaquetar, desempaquetar, pesoDe } from './progresoPortable.js';
 
 // LA DIRECCIÓN DEL SERVIDOR. Vacía = la nube está apagada y el juego no habla
-// con nadie, que es como se queda mientras no haya un Worker desplegado. Se
-// rellena con lo que imprima `wrangler deploy` (ver nube/LEEME.md).
-export let URL_NUBE = '';
+// con nadie: ni una petición. Ver nube/LEEME.md para desplegar otro.
+//
+// El subdominio es de la CUENTA, no de este Worker, y por eso está escrito con
+// el nombre de Sergio y no con el del juego: todo lo que despliegue en el futuro
+// colgará del mismo sitio.
+//
+// SI ESTA LÍNEA SE VACÍA, el juego sigue funcionando exactamente igual — guarda
+// en su navegador como siempre y no sincroniza. Es la propiedad que hace que
+// esto se pueda apagar cualquier día sin dejar tirado a nadie.
+export let URL_NUBE = 'https://emerita-partidas.sergiosanchezcustodio.workers.dev';
 
 // El código vive en `localStorage`, que en este proyecto está reservado al
 // progreso META. Esto lo es: identifica al jugador entre partidas y no lo lee

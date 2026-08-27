@@ -7,6 +7,8 @@ import { Entrada } from './core/entrada.js';
 import { Camara } from './core/camara.js';
 import { Recursos } from './core/recursos.js';
 import { MetaProgreso, metaAjena } from './core/metaProgreso.js';
+import * as Nube from './core/nube.js';
+import * as Progreso from './core/progresoPortable.js';
 import { crearRng, hash2 } from './core/rng.js';
 import { crearProbador, huellaMotor } from './core/determinismo.js';
 import { sen, cos, hipot } from './core/mate.js';
@@ -283,6 +285,65 @@ let enBorrarHueco = false;
 function irA(nueva) {
   pantalla = nueva;
   refrescarChuleta();
+  // AL ENTRAR EN LA PANTALLA DE PARTIDAS SE MIRA LA NUBE, y solo aquí: es el
+  // único momento en que se puede cambiar lo guardado sin pisarle nada a nadie
+  // —todavía no hay partida elegida— y además es por donde se pasa siempre al
+  // abrir el juego. Con la nube apagada esto no hace nada.
+  if (nueva === PANTALLA_HUECOS) mirarLaNube();
+}
+
+// Lo que se enseña al pie de la pantalla de partidas. Vacío = no decir nada,
+// que es lo normal: una copia que funciona no tiene que anunciarse.
+let nubeAviso = '';
+
+// BAJAR LA COPIA Y QUEDARSE CON LA MEJOR.
+//
+// No espera nadie a esto: si la red tarda o no hay, la pantalla ya está pintada
+// y se juega igual. Cuando llega, si lo de la nube tiene más juego que lo de
+// aquí, se aplica y se refresca la lista.
+//
+// GANA EL QUE MÁS HA JUGADO, no el más reciente: ver `comparar` en
+// core/progresoPortable.js. Y solo se pisan los huecos que vienen — uno vacío
+// arriba no borra el que hay aquí.
+// TRAER LA PARTIDA DE OTRO SITIO: se pega el código de allí y se baja.
+//
+// AQUÍ SÍ SE PISA LO QUE HAY, y es lo correcto: pegar el código de otro sitio es
+// decir "mi partida es la de allí". Aun así manda la misma regla de siempre —si
+// lo de aquí tiene más juego, se queda lo de aquí— para que teclear un código
+// por error no cueste veinte horas.
+async function pegarCodigoDeNube() {
+  const pegado = await pegarDelPortapapeles();
+  if (!pegado) { nubeAviso = 'No he podido leer el portapapeles.'; return; }
+  if (!Nube.usarCodigo(pegado)) {
+    nubeAviso = 'Eso no tiene la forma de un código de partida.';
+    return;
+  }
+  nubeAviso = 'Buscando esa partida…';
+  const copia = await Nube.bajar();
+  if (!copia) { nubeAviso = 'No hay ninguna partida guardada con ese código.'; return; }
+  const aqui = Progreso.pesoDe(MetaProgreso.todosLosHuecos());
+  if (copia.tiempo < aqui.tiempo) {
+    nubeAviso = 'Esa partida tiene menos juego que la de aquí: no se toca nada.';
+    return;
+  }
+  const puestos = MetaProgreso.aplicarHuecos(copia.huecos);
+  refrescarHuecos();
+  nubeAviso = puestos > 0 ? 'Traída tu partida.' : 'Ahí no había nada que traer.';
+}
+
+async function mirarLaNube() {
+  if (!Nube.URL_NUBE) return;
+  const copia = await Nube.bajar();
+  if (!copia) return;
+  const aqui = Progreso.pesoDe(MetaProgreso.todosLosHuecos());
+  const mejorArriba = copia.tiempo > aqui.tiempo ||
+                      (copia.tiempo === aqui.tiempo && copia.partidas > aqui.partidas);
+  if (!mejorArriba) return;
+  const puestos = MetaProgreso.aplicarHuecos(copia.huecos);
+  if (puestos > 0) {
+    refrescarHuecos();
+    nubeAviso = 'Recuperada tu partida de la nube.';
+  }
 }
 
 // La chuleta de atajos vive FUERA del lienzo (es texto del documento), así que
@@ -706,6 +767,29 @@ function entradaHuecos() {
   const mDer = c0 ? c0.consumirBoton(15) : false;
   const mA = c0 ? c0.consumirBoton(0) : false;
   const mAtras = entrada.consumirAtras();
+
+  // LA NUBE: llevarte tu código o traer el de otro sitio.
+  //
+  // Va con letras y no con una opción más en la lista porque no es del camino
+  // normal: se usa una vez, el día que te sientas en otro ordenador. Quien no
+  // sepa que existe juega igual y su partida se sincroniza sola.
+  //
+  // Se atiende ANTES del aviso de borrado a propósito no: se atiende después,
+  // porque con el aviso abierto la entrada es suya entera. Por eso está aquí
+  // arriba solo la lectura, y el efecto va debajo.
+  if (!confirmarBorrado && Nube.URL_NUBE) {
+    if (entrada.consumirFlanco('KeyC')) {
+      RedConsola.copiar(Nube.codigo()).then((ok) => {
+        nubeAviso = ok ? 'Tu código está copiado: guárdalo.'
+                       : 'No he podido copiarlo. Está escrito aquí abajo.';
+      });
+      return;
+    }
+    if (entrada.consumirFlanco('KeyV')) {
+      pegarCodigoDeNube();
+      return;
+    }
+  }
 
   // Con el aviso abierto, la entrada es suya entera: solo se puede decir sí o
   // no. Se atiende con los flancos YA consumidos arriba.
@@ -2499,7 +2583,8 @@ function dibujar(alpha) {
     // al limpiar el fotograma.
     ocultarCodigoRed();
     if (pantalla === PANTALLA_HUECOS) {
-      dibujarHuecos(ctx, Capa.ctx, cursorHueco, enBorrarHueco);
+      dibujarHuecos(ctx, Capa.ctx, cursorHueco, enBorrarHueco,
+                    Nube.URL_NUBE ? { codigo: Nube.codigo(), aviso: nubeAviso } : null);
       if (confirmarBorrado) {
         dibujarConfirmacion(Capa.ctx, cursorConfirmar, textoBorrado(cursorHueco));
       }
