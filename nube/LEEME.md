@@ -46,6 +46,46 @@ no habla con nadie.
 Tiene que contestar `{"error":"No hay ninguna copia con ese código."}` con un
 404. Si contesta eso, está en pie.
 
+## Si la URL no carga: puede no ser tuya la culpa
+
+Pasó el mismo día del despliegue, y conviene tenerlo escrito porque el síntoma
+engaña: el nombre resuelve, el despliegue dice `Deployed`, y la URL no abre. Lo
+primero que uno piensa es que ha desplegado mal.
+
+Lo medido entonces, desde una conexión de Movistar:
+
+| Comprobación | Resultado |
+|---|---|
+| El nombre resuelve | Sí, a `188.114.96.5` y `188.114.97.5`, que son de Cloudflare |
+| `cloudflare.com` y `workers.dev` | Funcionan, en 0,36 s — van por `104.19.x.x` |
+| Puerto 443 de `104.19.192.29` | Abierto |
+| Puerto 443 de `188.114.96.5` | **No abre** |
+| Puerto 80 de esa misma IP | Tampoco |
+
+O sea: Cloudflare entero funciona **salvo el trozo de su red donde ha caído el
+Worker**. No es TLS, ni un certificado a medio hacer, ni propagación de DNS: los
+paquetes no llegan, ni cifrados ni sin cifrar.
+
+En España es conocido que algunas operadoras bloquean rangos enteros de
+Cloudflare —el caso sonado fueron los bloqueos por retransmisiones de fútbol, que
+se llevaron por delante sitios sin ninguna relación— y suele ser intermitente.
+
+**Cómo distinguirlo en treinta segundos:** abrir la URL en el móvil con datos
+móviles, sin wifi. Si ahí carga, es la operadora.
+
+Y las salidas, de menos a más:
+
+1. **Esperar.** Si es de los bloqueos intermitentes, vuelve solo.
+2. **Un dominio propio.** Un Worker en un dominio tuyo sale por las IPs normales
+   de Cloudflare —las `104.x`, que sí pasan— en vez de por el rango de
+   `workers.dev`. Unos 10 € al año, y arregla el problema para todo el mundo.
+3. **VPN o cambiar de DNS, no.** Eso lo arregla para quien lo haga y no para
+   quien juega, que es lo único que importa aquí.
+
+Lo tranquilizador es que el juego ya está hecho contando con esto: si el servidor
+no contesta, se juega igual y se guarda igual. La copia en la nube falla en
+silencio, que es exactamente para lo que se diseñó así.
+
 ## Lo que hay que poner en el panel de Cloudflare
 
 Un extremo público que escribe recibe visitas de robots el primer día. El Worker
