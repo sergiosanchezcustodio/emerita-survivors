@@ -1,6 +1,7 @@
 import { POTENCIADORES, costePotenciador } from '../datos/potenciadores.js';
 import { MASCOTAS, MAX_NIVEL_MASCOTA, costeMascota } from '../datos/mascotas.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from '../datos/personajes.js';
+import * as Nube from './nube.js';
 
 // Progreso META: lo único que sobrevive entre partidas. Ver CLAUDE.md —
 // `localStorage` está permitido aquí PORQUE nada de esto se lee durante la
@@ -243,6 +244,46 @@ export const MetaProgreso = {
       // Sin almacenamiento disponible (privado, cuota agotada...) se sigue
       // jugando igual; solo no se recuerda para la próxima vez.
     }
+    // Y LA COPIA EN LA NUBE, si la hay. Va DESPUÉS de escribir en disco y sin
+    // esperarla: el disco manda y esto es una copia. Con la nube apagada —que es
+    // como está mientras no haya un servidor desplegado— esta línea no hace
+    // absolutamente nada. Ver core/nube.js.
+    Nube.subir(this.todosLosHuecos());
+  },
+
+  // LOS TRES HUECOS DE GOLPE, sin cargar ninguno.
+  //
+  // Es lo que sube a la nube: un código identifica al JUGADOR, no a una partida
+  // (ver core/nube.js). Y no puede pasar por `usar`, que cambia la partida en
+  // curso: mirar los tres para copiarlos no puede tener el efecto de dejar
+  // cargado el tercero.
+  todosLosHuecos() {
+    const fuera = [];
+    for (let i = 0; i < NUM_HUECOS; i++) fuera.push(ocupado(i) ? cargar(i) : null);
+    return fuera;
+  },
+
+  // Y al revés: dejar en disco lo que ha llegado de fuera.
+  //
+  // SOLO SE ESCRIBEN LOS HUECOS QUE VIENEN. Un hueco que allí está vacío no
+  // borra el que hay aquí: la nube añade, nunca quita. Si alguien quiere tirar
+  // una partida, la borra en su pantalla, que para eso está.
+  //
+  // Si el hueco que se estaba usando es uno de los que cambian, se recarga —si
+  // no, la pantalla seguiría enseñando los denarios de antes hasta que alguien
+  // cambiara de partida.
+  aplicarHuecos(huecos) {
+    if (this._congelado) return 0;
+    let puestos = 0;
+    for (let i = 0; i < NUM_HUECOS && i < huecos.length; i++) {
+      if (!huecos[i]) continue;
+      try {
+        localStorage.setItem(claveDe(i), JSON.stringify(normalizar(huecos[i])));
+        puestos++;
+      } catch { /* sin almacenamiento: se juega igual */ }
+    }
+    if (puestos > 0 && this.hueco >= 0) this.usar(this.hueco);
+    return puestos;
   },
 
   // Una partida terminada, gane o pierda: cuenta igual para el tiempo jugado y

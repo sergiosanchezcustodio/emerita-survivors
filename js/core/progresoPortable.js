@@ -170,6 +170,62 @@ export function comparar(mio, suyo) {
   return 'mio';
 }
 
+// --- LOS TRES HUECOS DE GOLPE, que es lo que va a la nube --------------------
+//
+// UN CÓDIGO POR JUGADOR, NO POR PARTIDA. El código de arriba lleva un hueco y
+// sirve para pasarle UNA partida a alguien; pero para llevarte lo tuyo a otro
+// ordenador, un código por hueco significa cargar con tres, y eso no lo hace
+// nadie. Así que lo que se sincroniza es el jugador entero.
+//
+// Cabe de sobra: un hueco lleno son 274 caracteres, tres son unos 800, y el tope
+// del servidor está en 2048.
+export function empaquetar(huecos) {
+  const dentro = {};
+  for (let i = 0; i < huecos.length; i++) {
+    if (huecos[i]) dentro[i] = serializar(huecos[i]);
+  }
+  return VERSION + 'H' + aBase64(JSON.stringify({ v: 1, h: dentro }));
+}
+
+export function desempaquetar(paquete) {
+  const limpio = String(paquete || '').trim().replace(/\s+/g, '');
+  if (limpio.slice(0, 3) !== VERSION + 'H') {
+    return { ok: false, motivo: 'Eso no es un progreso de Emerita.' };
+  }
+  let datos;
+  try { datos = JSON.parse(deBase64(limpio.slice(3))); }
+  catch { return { ok: false, motivo: 'El progreso ha llegado incompleto.' }; }
+  if (!datos || typeof datos.h !== 'object') {
+    return { ok: false, motivo: 'Ese progreso no lleva ninguna partida dentro.' };
+  }
+  const huecos = [];
+  for (const i in datos.h) {
+    const meta = {};
+    for (const [corto, largo] of CAMPOS) if (datos.h[i][corto] !== undefined) meta[largo] = datos.h[i][corto];
+    for (const [corto, largo] of MAPAS) if (datos.h[i][corto] !== undefined) meta[largo] = datos.h[i][corto];
+    huecos[i | 0] = meta;
+  }
+  return { ok: true, huecos };
+}
+
+// LO QUE DECIDE QUIÉN GANA, sumado de los tres huecos.
+//
+// Es la misma regla que `comparar` —el tiempo jugado, que solo puede crecer— y
+// se suma en vez de mirar hueco a hueco porque la nube guarda al jugador, no a
+// la partida: dos ordenadores se comparan enteros o no se comparan.
+//
+// Estos dos números viajan APARTE del progreso, en su propia columna, para que
+// el servidor pueda decidir sin aprender a leer el formato. Ver nube/worker.js.
+export function pesoDe(huecos) {
+  let tiempo = 0, partidas = 0;
+  for (let i = 0; i < huecos.length; i++) {
+    if (!huecos[i]) continue;
+    tiempo += +huecos[i].tiempoTotal || 0;
+    partidas += huecos[i].partidas | 0;
+  }
+  return { tiempo, partidas };
+}
+
 // Una frase para enseñar en pantalla antes de pisar nada. Sin esto, "importar"
 // es un botón que no dice qué va a pasar.
 export function resumir(meta) {
