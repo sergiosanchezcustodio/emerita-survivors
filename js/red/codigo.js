@@ -110,6 +110,134 @@ export function resumenCandidatos(sdp) {
   return { total: lista.length, locales, publicos };
 }
 
+// EL DIAGNÓSTICO: ¿esta conexión puede jugar, y con quién?
+//
+// POR QUÉ EXISTE. Las dos primeras pruebas entre máquinas de verdad fallaron, y
+// las dos por un motivo distinto que ESTABA ESCRITO EN EL PROPIO CÓDIGO que se
+// mandaron. El juego lo tenía delante las dos veces y se calló las dos veces:
+// dijo "no se ha podido conectar" al cabo de un rato, que es lo mismo que no
+// decir nada. Media hora de dos personas cada vez.
+//
+// Se puede saber ANTES de mandar nada. Son dos cuentas sobre los candidatos:
+//
+// NAT SIMÉTRICO. Se preguntan dos servidores STUN, y si los dos ven el MISMO
+// socket local por puertos DISTINTOS, el router abre una puerta nueva para cada
+// destino. Entonces ninguno de los puertos que viajan en el código es el que se
+// abrirá cuando llegue el paquete del otro: para él habrá una tercera puerta
+// que nadie puede saber de antemano. Es típico de los datos móviles, y no se
+// arregla con STUN — hace falta un servidor que RELE el tráfico (TURN), que
+// aquí no hay. Medido: un MacBook por 5G daba 95.127.23.45 en los puertos 50691
+// y 50744, misma prioridad, o sea el mismo socket.
+//
+// "El mismo socket" se reconoce por la PRIORIDAD, que es lo que ICE calcula a
+// partir de la interfaz de red: dos candidatos con la misma prioridad salen del
+// mismo sitio. Si salieran de tarjetas distintas, tendrían prioridades
+// distintas y dos puertos serían lo normal.
+//
+// LA MISMA CASA se ve comparando la dirección pública del otro con la tuya: si
+// coinciden, estáis detrás del mismo router. Eso NO deja jugar por el camino
+// público —habría que salir al router y volver a entrar por la misma puerta, y
+// casi ningún router doméstico lo hace— y quedan solo las direcciones locales.
+export function diagnosticar(sdp) {
+  const lista = leerCandidatos(sdp);
+  const publicas = [];
+  let locales = 0;
+  for (let i = 0; i < lista.length; i++) {
+    const c = lista[i].split(',');
+    if (c[3] === 's') publicas.push({ prioridad: c[0], ip: c[1], puerto: c[2] });
+    else locales++;
+  }
+
+  // Un socket local puede aparecer varias veces si se le pregunta a varios
+  // servidores. Que las respuestas no coincidan es la firma del NAT simétrico.
+  const porSocket = new Map();
+  for (let i = 0; i < publicas.length; i++) {
+    const p = publicas[i];
+    const clave = p.prioridad + '/' + p.ip;
+    if (!porSocket.has(clave)) porSocket.set(clave, new Set());
+    porSocket.get(clave).add(p.puerto);
+  }
+  let simetrico = false;
+  porSocket.forEach((puertos) => { if (puertos.size > 1) simetrico = true; });
+
+  return {
+    locales,
+    publicos: publicas.length,
+    // La dirección con la que te ve internet. Vacía si ningún STUN contestó.
+    ip: publicas.length > 0 ? publicas[0].ip : '',
+    puertos: publicas.map((p) => p.puerto),
+    simetrico
+  };
+}
+
+// La dirección pública que trae un CÓDIGO ya hecho, para compararla con la
+// propia. Devuelve '' si no trae ninguna, que tampoco es raro: sin STUN, o con
+// los dos servidores caídos, un código solo lleva direcciones locales.
+export function ipPublicaDe(codigo) {
+  try { return diagnosticar(descomprimir(codigo)).ip; } catch { return ''; }
+}
+
+// AÑADE TU DIRECCIÓN DE CASA AL SDP, con los puertos que ya tiene.
+//
+// Los navegadores esconden la IP de tu red detrás de un nombre `.local` y la
+// resuelven por mDNS, que es multicast por la wifi: si el router aísla a sus
+// clientes o un cortafuegos se come el UDP 5353, ese nombre no lo resuelve
+// nadie y las direcciones locales del código no sirven para nada. Es lo que
+// dejó a dos ordenadores de la misma casa sin poder verse.
+//
+// Lo que se esconde es la IP y SOLO la IP: el puerto viaja en claro. Así que
+// con la dirección escrita a mano se reconstruye el candidato entero.
+//
+// Se AÑADEN, no se sustituyen: los nombres `.local` se quedan por si la wifi sí
+// los resuelve, y estos van detrás como otro intento más. Un candidato que no
+// responde solo cuesta unos milisegundos de ICE.
+//
+// Un puerto por cada socket local, y por eso se recorren todos: cada tarjeta de
+// red —la wifi, la del cable, la máquina virtual que tengas instalada— tiene su
+// propio puerto, y solo uno de ellos es el de la wifi por la que estáis
+// hablando. Poniendo la misma IP en todos, ICE prueba los dos y se queda con el
+// que conteste; adivinar cuál era habría sido peor.
+export function conIpLocal(sdp, ip) {
+  if (!esIpLocal(ip)) return sdp;
+  const lineas = sdp.split(/\r?\n/);
+  const fuera = [];
+  const puestos = new Set();
+  for (let i = 0; i < lineas.length; i++) {
+    const l = lineas[i];
+    fuera.push(l);
+    const t = l.trim();
+    if (!t.startsWith('a=candidate:')) continue;
+    const p = t.slice('a=candidate:'.length).split(' ');
+    if (p.length < 8 || p[7] !== 'host') continue;
+    if (p[2].toLowerCase() !== 'udp') continue;
+    if (!/\.local$/i.test(p[4])) continue;      // ya es una IP: no hay nada que añadir
+    if (puestos.has(p[5])) continue;            // ese puerto ya lo hemos puesto
+    puestos.add(p[5]);
+    const copia = p.slice();
+    copia[4] = ip;
+    fuera.push('a=candidate:' + copia.join(' '));
+  }
+  return fuera.join('\r\n');
+}
+
+// ¿Esto que ha escrito es una dirección de red local?
+//
+// Se comprueba el RANGO, no solo la forma. Escribir aquí la dirección pública
+// —que es la que sale al buscar "cuál es mi ip", y es el error natural— no
+// serviría de nada y encima parecería que sí: el código saldría con un
+// candidato host imposible y la conexión fallaría igual, con un motivo menos a
+// la vista. Los rangos son los de siempre: 10.x, 172.16-31.x y 192.168.x.
+export function esIpLocal(ip) {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(String(ip || '').trim());
+  if (!m) return false;
+  const n = m.slice(1).map(Number);
+  if (n.some((x) => x > 255)) return false;
+  if (n[0] === 10) return true;
+  if (n[0] === 172 && n[1] >= 16 && n[1] <= 31) return true;
+  if (n[0] === 192 && n[1] === 168) return true;
+  return false;
+}
+
 // ¿ESTO ES UNA INVITACIÓN O UNA RESPUESTA? Se sabe mirando el rol DTLS, que va
 // dentro del propio código: quien invita no sabe todavía quién hará de cliente
 // y quién de servidor, así que pone `actpass` -"lo que haga falta"-, y quien

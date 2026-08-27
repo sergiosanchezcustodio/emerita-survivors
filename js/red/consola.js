@@ -1,5 +1,5 @@
 import { crearConexion, autoprueba, ESTADOS, SERVIDORES_POR_DEFECTO } from './conexion.js';
-import { tipoDe } from './codigo.js';
+import { tipoDe, esIpLocal } from './codigo.js';
 import { vigilarCada } from './sincro.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
 
@@ -66,7 +66,7 @@ function nueva(servidores) {
     const i = enlaces.indexOf(sesion);
     if (i >= 0) enlaces.splice(i, 1);
   }
-  sesion = crearConexion({ servidores });
+  sesion = crearConexion({ servidores, ipLocal: RedConsola.ipLocal });
   enlaces.push(sesion);
   // El identificador va en todos los mensajes: si alguna vez vuelve a hablar una
   // conexión que no es la que estás mirando, se ve en el acto de cuál es.
@@ -153,6 +153,52 @@ function comentarCandidatos(c) {
     console.log(`${c.publicos} dirección(es) pública(s) y ${c.locales} local(es): ` +
                 'vale para jugar entre dos casas.');
   }
+  const aviso = avisoDeConexion(c.diagnostico);
+  if (aviso) console.warn('RED: ' + aviso.titulo + ' ' + aviso.detalle);
+}
+
+// EL AVISO EN UNA FRASE, o cadena vacía si no hay nada que avisar.
+//
+// Vive aquí y no en la pantalla porque lo dicen los dos: la consola para quien
+// esté depurando y ui/red.js para quien esté jugando. Dos textos distintos para
+// el mismo hecho acaban contando cosas distintas.
+//
+// NO SE AVISA DE TODO LO RARO, solo de lo que impide jugar. Un aviso que salta
+// cuando no pasa nada se aprende a ignorar en dos días, y entonces ya no avisa
+// de lo que sí pasa.
+export function avisoDeConexion(d) {
+  if (!d) return null;
+  if (d.simetrico) {
+    return {
+      titulo: 'Tu conexión no deja jugar directamente.',
+      detalle: 'Dos servidores te ven por puertos distintos (' +
+               d.puertos.join(' y ') + '), así que tu router abre una puerta ' +
+               'nueva para cada destino y nadie puede saber cuál será la del ' +
+               'otro jugador. Es lo normal en datos móviles: prueba por wifi.'
+    };
+  }
+  if (d.publicos === 0) {
+    return {
+      titulo: 'No tienes dirección pública.',
+      detalle: 'No ha contestado ningún servidor STUN, así que solo se puede ' +
+               'jugar con alguien de tu misma red.'
+    };
+  }
+  return null;
+}
+
+// Y el otro aviso, el que solo se puede dar cuando ya hay un código del otro
+// delante: que los dos salís por el mismo router.
+export function avisoMismaRed(hayIpLocal) {
+  return {
+    titulo: 'Estáis los dos en la misma red.',
+    detalle: hayIpLocal
+      ? 'El camino público no sirve entre vosotros, pero has escrito tu ' +
+        'dirección de casa, así que hay por dónde conectar.'
+      : 'Vuestro router tendría que dejar salir y volver a entrar por la misma ' +
+        'puerta, y casi ninguno lo hace. Volved al menú y escribid vuestra ' +
+        'dirección de casa (la de ipconfig): con eso os conectáis por la wifi.'
+  };
 }
 
 export const RedConsola = {
@@ -162,6 +208,39 @@ export const RedConsola = {
   // correspondiente de docs/cooperativo-online.md. Ponerlo a [] vuelve al
   // comportamiento de "solo la misma casa", sin hablar con nadie de fuera.
   servidores: SERVIDORES_POR_DEFECTO,
+
+  // TU DIRECCIÓN DE CASA, escrita a mano.
+  //
+  // Solo hace falta para jugar con alguien de tu MISMA red, y hace falta porque
+  // el navegador esconde esa dirección detrás de un nombre `.local` que el otro
+  // ordenador tiene que resolver por mDNS — y eso lo rompe cualquier router que
+  // aísle a sus clientes o cualquier cortafuegos que se coma el UDP 5353.
+  //
+  // VIVE EN MEMORIA Y SE PIERDE AL RECARGAR, a propósito. `localStorage` está
+  // reservado en este proyecto al progreso META (denarios, héroes,
+  // potenciadores) y esto no lo es; además una dirección de red cambia al
+  // cambiar de casa o de wifi, y una guardada de la semana pasada sería un
+  // candidato que no responde y un motivo menos a la vista.
+  ipLocal: '',
+
+  // La devuelve tal cual si es de un rango privado, y '' si no. Escribir aquí la
+  // dirección PÚBLICA —que es la que sale al buscar "cuál es mi ip"— es el error
+  // natural, y no serviría de nada: ver `esIpLocal` en codigo.js.
+  ponerIpLocal(ip) {
+    const limpia = String(ip || '').trim();
+    if (limpia === '') { this.ipLocal = ''; return ''; }
+    if (!esIpLocal(limpia)) return '';
+    this.ipLocal = limpia;
+    return limpia;
+  },
+
+  // Lo que se sabe de la conexión de esta máquina, para que lo pinte la pantalla.
+  diagnostico() { return sesion ? sesion.diagnostico : null; },
+
+  // ¿El código que me han pasado viene de mi misma red?
+  mismaRedQue(codigo) {
+    return !!(sesion && sesion.mismaRedQue && sesion.mismaRedQue(codigo));
+  },
 
   // Cuántos hay conectados ahora mismo, sin contarte a ti.
   get conectados() {

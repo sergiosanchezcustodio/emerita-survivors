@@ -23,7 +23,7 @@ import {
 } from './sistemas/colisiones.js';
 import { Obstaculos } from './sistemas/obstaculos.js';
 import { Lockstep } from './core/lockstep.js';
-import { RedConsola } from './red/consola.js';
+import { RedConsola, avisoDeConexion, avisoMismaRed } from './red/consola.js';
 import { Sincro } from './red/sincro.js';
 import { dibujarRed, OPCIONES_RED, dibujarCaida, OPCIONES_CAIDA } from './ui/red.js';
 import { ocultarCodigoRed } from './ui/codigoRed.js';
@@ -1248,7 +1248,12 @@ let metasDeRed = null;
 // del otro), 'conectado' y 'error'.
 const red = {
   fase: 'menu', cursor: 0, codigo: '', copiado: false,
-  aviso: '', esAnfitrion: false, conectados: 0
+  aviso: '', esAnfitrion: false, conectados: 0,
+  // Lo que se sabe de la conexión antes de intentarla: ver `avisoDeConexion` en
+  // red/consola.js. Null mientras no haya nada que decir, que es lo normal.
+  avisoConexion: null,
+  // La dirección de casa escrita a mano y lo que se lleva tecleado de ella.
+  ipLocal: '', ipTecleada: ''
 };
 
 // SE HA CAÍDO LA RED EN PLENA PARTIDA.
@@ -1287,6 +1292,11 @@ function irARed(desde) {
   red.aviso = '';
   red.copiado = false;
   red.conectados = 0;
+  red.avisoConexion = null;
+  // La dirección de casa NO se borra al volver a entrar: se escribe una vez y
+  // sirve para los cuatro intentos que hagan falta. Se pierde al recargar, que
+  // es otra cosa.
+  red.ipLocal = RedConsola.ipLocal;
   irA(PANTALLA_RED);
 }
 
@@ -1312,6 +1322,7 @@ async function crearPartidaEnRed() {
   red.codigo = codigo;
   red.copiado = await RedConsola.copiar(codigo);
   red.esAnfitrion = true;
+  red.avisoConexion = avisoDeConexion(RedConsola.diagnostico());
   red.fase = 'esperando';
 }
 
@@ -1334,6 +1345,12 @@ async function unirseAPartidaEnRed() {
   red.codigo = respuesta;
   red.copiado = await RedConsola.copiar(respuesta);
   red.esAnfitrion = false;
+  // QUIEN SE UNE ES EL PRIMERO QUE PUEDE SABER SI ESTÁIS EN LA MISMA RED: es el
+  // primero que tiene delante el código del otro Y el suyo propio. Ese aviso
+  // manda sobre el de la conexión, porque es más concreto.
+  red.avisoConexion = RedConsola.mismaRedQue(codigo)
+    ? avisoMismaRed(!!RedConsola.ipLocal)
+    : avisoDeConexion(RedConsola.diagnostico());
   red.fase = 'esperando';
   // Y en cuanto el otro lo pegue, quedamos conectados sin hacer nada más.
   RedConsola.alConectar(() => { red.fase = 'conectado'; });
@@ -1347,14 +1364,53 @@ async function aceptarRespuestaEnRed() {
   }
   red.fase = 'uniendo';
   red.aviso = 'Conectando…';
+  // ¿ESTÁIS EN LA MISMA RED? Se sabe leyendo su código, y se sabe AHORA, no al
+  // cabo del minuto que tarda ICE en rendirse. Si además falla la conexión, el
+  // cartel de error dirá por qué en vez de encogerse de hombros.
+  const mismaRed = RedConsola.mismaRedQue(codigo);
+  if (mismaRed) red.avisoConexion = avisoMismaRed(!!RedConsola.ipLocal);
+
   const ok = await RedConsola.aceptar(codigo);
   if (!ok) {
     red.fase = 'error';
-    red.aviso = 'No se ha podido conectar con ese código.';
+    const porque = mismaRed
+      ? avisoMismaRed(!!RedConsola.ipLocal)
+      : avisoDeConexion(RedConsola.diagnostico());
+    red.aviso = porque
+      ? porque.titulo + ' ' + porque.detalle
+      : 'No se ha podido conectar con ese código.';
     return;
   }
   red.conectados = RedConsola.conectados;
   red.fase = 'conectado';
+}
+
+// LO QUE SE TECLEA DE LA DIRECCIÓN DE CASA.
+//
+// Es lo único que se escribe con el teclado en todo el juego, así que no hay
+// maquinaria de campos de texto que reutilizar y tampoco hace falta: una
+// dirección son dígitos y puntos, y con quince caracteres ya no cabe ninguna.
+//
+// Se lee por CÓDIGO DE TECLA y no por el carácter, igual que el resto de la
+// entrada del juego: `entrada` solo guarda códigos. El teclado numérico va
+// aparte porque es donde la mayoría de la gente teclea números.
+function tecleatIpLocal() {
+  if (entrada.consumirFlanco('Backspace')) {
+    red.ipTecleada = red.ipTecleada.slice(0, -1);
+    red.aviso = '';
+  }
+  if (red.ipTecleada.length >= 15) return;
+  for (let d = 0; d <= 9; d++) {
+    if (entrada.consumirFlanco('Digit' + d) || entrada.consumirFlanco('Numpad' + d)) {
+      red.ipTecleada += String(d);
+      red.aviso = '';
+    }
+  }
+  if (entrada.consumirFlanco('Period') || entrada.consumirFlanco('NumpadDecimal')) {
+    // Dos puntos seguidos no forman ninguna dirección y solo dan un error más
+    // tarde: se descartan aquí, que es donde se ve lo que estás escribiendo.
+    if (red.ipTecleada && !red.ipTecleada.endsWith('.')) red.ipTecleada += '.';
+  }
 }
 
 function entradaRed() {
@@ -1373,8 +1429,33 @@ function entradaRed() {
     const acepta = entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space') ||
                    (c && c.consumirBoton(0));
     if (atras || (acepta && red.cursor === 2)) { irA(volverDeRed); return; }
+    if (entrada.consumirFlanco('KeyL')) {
+      red.fase = 'ip';
+      red.ipTecleada = red.ipLocal;
+      red.aviso = '';
+      return;
+    }
     if (acepta && red.cursor === 0) crearPartidaEnRed();
     if (acepta && red.cursor === 1) { red.fase = 'pegar'; red.esAnfitrion = false; }
+    return;
+  }
+
+  if (red.fase === 'ip') {
+    if (atras) { red.fase = 'menu'; red.aviso = ''; return; }
+    tecleatIpLocal();
+    if (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('NumpadEnter')) {
+      // VACÍO ES UNA RESPUESTA VÁLIDA: es como se quita una dirección que ya no
+      // vale porque has cambiado de casa o de wifi.
+      const puesta = RedConsola.ponerIpLocal(red.ipTecleada);
+      if (!puesta && red.ipTecleada) {
+        red.aviso = 'Esa no es una dirección de red local. Empiezan por 192.168, ' +
+                    'por 10. o por 172.16-31.';
+        return;
+      }
+      red.ipLocal = puesta;
+      red.aviso = '';
+      red.fase = 'menu';
+    }
     return;
   }
 

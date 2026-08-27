@@ -1,5 +1,5 @@
 import { ANCHO_UI, ALTO_UI, ANCHO_FISICO, ALTO_FISICO } from '../core/constantes.js';
-import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
+import { FUENTE, FUENTE_TITULO, textoEspaciado, Capa } from './capa.js';
 import { Tema, panel } from './tema.js';
 import { fondoTitulo } from './pantallas.js';
 import { actualizarCodigoRed, ocultarCodigoRed } from './codigoRed.js';
@@ -93,6 +93,35 @@ function dibujarMenu(ctx, cursor) {
   }
 }
 
+// EL AVISO DE POR QUÉ ESTO NO VA A CONECTAR, cuando se sabe de antemano.
+//
+// Va en amarillo y con marco, no como un párrafo más: es lo único de esta
+// pantalla que puede ahorrarte media hora. Las dos primeras partidas en red de
+// verdad fracasaron por motivos que estaban escritos dentro del código que los
+// jugadores ya se habían mandado, y el juego se calló los dos.
+//
+// Se dibuja DEBAJO del código y no encima: el código sigue siendo lo que hay
+// que mandar, y hay routers que sí conectan a pesar del aviso. Esto informa, no
+// prohíbe.
+function dibujarAviso(ctx, aviso, y) {
+  if (!aviso) return y;
+  const t = Tema.actual;
+  const detalle = envolverEn(ctx, aviso.detalle, PANEL_ANCHO - 44);
+  const alto = 30 + detalle.length * 17 + 14;
+  const x = (ANCHO_UI - PANEL_ANCHO) / 2;
+  panel(ctx, x, y, PANEL_ANCHO, alto, false);
+
+  ctx.font = `600 15px ${FUENTE}`;
+  ctx.fillStyle = '#ffd27a';
+  ctx.fillText(aviso.titulo, ANCHO_UI / 2, y + 20);
+  ctx.font = `13px ${FUENTE}`;
+  ctx.fillStyle = t.texto;
+  for (let i = 0; i < detalle.length; i++) {
+    ctx.fillText(detalle[i], ANCHO_UI / 2, y + 40 + i * 17);
+  }
+  return y + alto + MARGEN;
+}
+
 // El bloque con el código propio y qué hacer con él.
 function dibujarCodigo(ctx, estado, y) {
   const t = Tema.actual;
@@ -127,6 +156,43 @@ export function dibujarRed(ctxMundo, ctx, estado) {
       'El otro contesta con el suyo. Dos mensajes y a jugar.'
     ], 100, t.apagado, 14, 20);
     dibujarMenu(ctx, estado.cursor);
+    // LA DIRECCIÓN DE CASA, al pie y en pequeño. No es del camino normal: solo
+    // sirve para jugar con alguien de tu misma red, y ponerla arriba haría
+    // pensar que hace falta siempre.
+    parrafo(ctx, [estado.ipLocal
+      ? `Tu dirección de casa: ${estado.ipLocal}   ·   L para cambiarla`
+      : '¿Jugáis en la misma casa? Pulsa  L  y escribe tu dirección de red.'],
+      // Al pie del hueco QUE SE VE, no del lienzo: en pantallas más anchas que
+      // 16:9 al lienzo se le recortan franjas arriba y abajo, y una línea puesta
+      // a ras del borde se pierde entera. Mismo cálculo que el botón de la
+      // esquina del título (ui/pantallas.js).
+      ALTO_UI - Math.max(0, (ALTO_UI - Capa.altoVisible) / 2) - 22, t.apagado, 13);
+    ctx.restore();
+    return;
+  }
+
+  // ESCRIBIENDO LA DIRECCIÓN DE CASA.
+  //
+  // Se teclea, no se pega: son doce caracteres y montar aquí el baile del
+  // portapapeles por eso sería peor. Es la única pantalla del juego donde se
+  // escribe algo, y se acepta solo lo que puede formar una dirección.
+  if (estado.fase === 'ip') {
+    titulo(ctx, 'TU DIRECCIÓN DE CASA');
+    parrafo(ctx, [
+      'Solo hace falta si el otro jugador está en TU MISMA wifi.',
+      'En Windows sale con  ipconfig ; en Mac, en Ajustes de red.'
+    ], 104, t.apagado, 14, 20);
+
+    const x = (ANCHO_UI - 300) / 2;
+    panel(ctx, x, 180, 300, 46, true);
+    ctx.font = `22px ${FUENTE}`;
+    ctx.fillStyle = estado.ipTecleada ? t.titulo : t.apagado;
+    ctx.fillText(estado.ipTecleada || '192.168.1.__', ANCHO_UI / 2, 203);
+
+    parrafo(ctx, estado.aviso ? [estado.aviso] : [''], 250, '#ffd27a', 14);
+    parrafo(ctx, [
+      'ENTER para guardarla   ·   BORRAR para corregir   ·   ESC para dejarlo'
+    ], 300, t.apagado, 14);
     ctx.restore();
     return;
   }
@@ -151,6 +217,8 @@ export function dibujarRed(ctxMundo, ctx, estado) {
          'ESC para volver.']
       : ['En cuanto lo pegue, entráis a la partida.',
          'ESC para volver.'], 320, t.apagado, 15);
+    // Y debajo de todo, lo que ya se sabe que va a fallar. Ver dibujarAviso.
+    dibujarAviso(ctx, estado.avisoConexion, 366);
     ctx.restore();
     return;
   }

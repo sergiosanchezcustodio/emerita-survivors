@@ -406,12 +406,110 @@ Lo que sigue sin estar: **entrando por el título nadie elige personaje**. Los
 reparte el anfitrión (`consola.js`, `i % 4`). Ya era así, pero desde la pantalla
 de personajes quedaba disimulado.
 
+## Las dos primeras pruebas de verdad, y por qué no llegaron a empezar
+
+El 27 de agosto de 2026 se intentó por primera vez entre dos máquinas de dos
+personas —un PC con Windows y un MacBook— desde la web publicada. Las dos
+tentativas fallaron, cada una por un motivo distinto, y **las dos por algo que
+estaba escrito DENTRO del código que los jugadores ya se habían intercambiado**.
+El juego lo tenía delante y se calló las dos veces: "no se ha podido conectar"
+al cabo de un rato. Media hora de dos personas cada vez.
+
+### 1. Los dos en la misma wifi: la misma dirección pública
+
+Los dos códigos traían `83.39.133.158`. La misma. Es el router de la casa visto
+desde fuera, así que para que uno llegara al otro por ahí el paquete tendría que
+salir al router y volver a entrar por la misma puerta —*hairpinning*—, y casi
+ningún router doméstico lo hace.
+
+Y el otro camino tampoco estaba: los seis candidatos locales eran nombres
+`.local`. **Los navegadores esconden la IP de tu red detrás de un nombre mDNS**,
+que el otro ordenador tiene que resolver a gritos por la wifi — y eso lo rompe el
+aislamiento de clientes del router, el cortafuegos comiéndose el UDP 5353, o que
+Windows y macOS no se contesten.
+
+No es que fallara la conexión: **no había ni un camino por el que intentarlo**.
+
+Lo contraintuitivo, y conviene tenerlo escrito: **dos ordenadores en la misma
+casa son un caso MÁS DIFÍCIL que dos casas distintas.** Entre dos casas, cada uno
+tiene su router y su dirección, y el agujereado normal de STUN funciona.
+
+### 2. El MacBook por datos móviles: NAT simétrico
+
+Su código traía dos direcciones públicas:
+
+    srflx  95.127.23.45  puerto 50691   prioridad 1677729535
+    srflx  95.127.23.45  puerto 50744   prioridad 1677729535
+
+Misma IP, **misma prioridad —o sea el mismo socket local— y puertos distintos**.
+Los dos servidores STUN vieron la misma conexión por dos puertas diferentes, que
+es la definición de NAT simétrico: la operadora abre una puerta nueva para cada
+destino. Ninguno de esos dos puertos es el que se abrirá cuando llegue el paquete
+del otro jugador; para él habrá una tercera que nadie puede saber de antemano.
+
+Ya estaba escrito más arriba que los NAT simétricos quedan fuera del alcance
+—harían falta servidores TURN, que son infraestructura con coste mensual—. Lo
+nuevo es que ahora **se reconocen y se dicen**.
+
+## El diagnóstico: decirlo ANTES, no después
+
+`diagnosticar()` en `js/red/codigo.js` son dos cuentas sobre los candidatos de un
+código, y contestan las dos preguntas de arriba sin intentar nada:
+
+- **NAT simétrico**: dos candidatos públicos con la misma prioridad y puertos
+  distintos. La prioridad es lo que identifica el socket, porque ICE la calcula a
+  partir de la interfaz de red: dos tarjetas distintas darían prioridades
+  distintas y dos puertos serían lo normal.
+- **La misma red**: la dirección pública del otro es la tuya. Se sabe leyendo su
+  código, no al cabo del minuto que tarda ICE en rendirse.
+
+El texto que ve el jugador sale de `avisoDeConexion` y `avisoMismaRed`, en
+`js/red/consola.js`, y lo dicen los dos sitios —la consola y la pantalla— para
+que no acaben contando cosas distintas. Sale en la pantalla del código, debajo y
+en amarillo: **informa, no prohíbe**. Hay routers que conectan a pesar del aviso.
+
+Solo se avisa de lo que impide jugar. Un aviso que salta cuando no pasa nada se
+aprende a ignorar en dos días, y entonces ya no avisa de lo que sí pasa.
+
+## Tu dirección de casa, escrita a mano
+
+Es el arreglo de verdad para el caso 1, y sale de un detalle: **lo que el
+navegador esconde es la IP y SOLO la IP**. El puerto viaja en claro dentro del
+candidato `.local`. Así que con la dirección escrita a mano se reconstruye el
+candidato entero, y el código pasa a llevar direcciones que el otro puede usar
+directamente, sin mDNS y sin depender del router.
+
+En la pantalla del cooperativo, `L` y se teclea. Se añade **un candidato por cada
+puerto local**, porque cada tarjeta de red —la wifi, el cable, la máquina virtual
+que tengas instalada— tiene el suyo y solo uno es el de la wifi por la que estáis
+hablando; ICE los prueba todos y se queda con el que conteste. Adivinar cuál era
+habría sido peor.
+
+Se comprueba que sea de un rango privado (10.x, 172.16-31.x, 192.168.x). Escribir
+ahí la dirección PÚBLICA es el error natural —es la que sale al buscar cuál es mi
+ip— y no serviría de nada, pero encima taparía el motivo: el código saldría con
+un candidato imposible y fallaría igual, con una pista menos.
+
+**Vive en memoria y se pierde al recargar**, a propósito: `localStorage` está
+reservado en este proyecto al progreso META, y una dirección de red guardada de
+la semana pasada es un candidato que no responde.
+
+    node herramientas\probar-diagnostico.js
+
+Esa prueba corre sobre **los códigos de verdad de las dos tentativas**, guardados
+tal cual llegaron. Es el banco de pruebas más honesto que hay: si algún día deja
+de reconocerlos, el aviso ha dejado de servir para lo único que se hizo.
+
 ## Lo que queda
 
 1. **Probarlo entre dos casas de verdad.** `camino()` tiene que decir `publica`;
    hasta hoy siempre ha dicho `local`. Es lo único que puede medir latencia y
-   pérdidas reales, y también si la operadora móvil lo permite: muchas usan NAT
-   simétrico y ahí el STUN no basta.
+   pérdidas reales.
+
+   Sigue pendiente **y ahora se sabe mejor qué no vale como prueba**: las dos
+   tentativas del 27 de agosto no lo eran. Los dos en la misma wifi comparten
+   dirección pública, y una punta por datos móviles cae en NAT simétrico. Hacen
+   falta dos líneas fijas, cada una en su casa. Ver la sección de arriba.
 
 2. **Reconexión.** Hoy una caída ofrece seguir en solitario o volver al menú;
    volver a engancharse y ponerse al día no está hecho.

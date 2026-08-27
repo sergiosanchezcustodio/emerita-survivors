@@ -1,5 +1,5 @@
 import { comprimir, descomprimir, comprobarCodec, contarCandidatos,
-         resumenCandidatos } from './codigo.js';
+         resumenCandidatos, diagnosticar, conIpLocal, ipPublicaDe } from './codigo.js';
 
 // LA CONEXIÓN ENTRE DOS JUGADORES, sin servidor de por medio.
 //
@@ -150,6 +150,15 @@ export function crearConexion(opciones) {
     locales: 0,
     publicos: 0,
     ultimoCodigo: '',
+    // Lo que se sabe de esta conexión con solo mirar sus candidatos: si el NAT
+    // es simétrico y con qué dirección la ve internet. Ver `diagnosticar` en
+    // codigo.js — son las dos preguntas cuya respuesta estaba delante las dos
+    // veces que una partida en red no llegó a empezar.
+    diagnostico: null,
+    // La dirección de casa, escrita a mano, cuando los dos jugadores están en la
+    // misma red y el navegador esconde las suyas detrás de nombres `.local`.
+    // Vacía es lo normal: solo hace falta para jugar en la misma casa.
+    ipLocal: (opciones && opciones.ipLocal) || '',
 
     // Enganches. Los pone quien use esto; por defecto no hacen nada.
     alAbrir: null,
@@ -266,6 +275,36 @@ export function crearConexion(opciones) {
     });
   }
 
+  // EL CÓDIGO QUE SE MANDA, y de paso lo que se sabe de esta conexión.
+  //
+  // Los dos lados —quien invita y quien responde— hacían exactamente lo mismo
+  // con el SDP recién horneado, así que está una sola vez. Aquí es donde entra
+  // la dirección de casa escrita a mano, si la hay: tiene que ir ANTES de
+  // comprimir, porque lo que viaja es el código y no el SDP.
+  function codigoDe(sdp) {
+    const conLocal = con.ipLocal ? conIpLocal(sdp, con.ipLocal) : sdp;
+    const resumen = resumenCandidatos(conLocal);
+    con.candidatos = resumen.total;
+    con.locales = resumen.locales;
+    con.publicos = resumen.publicos;
+    // EL DIAGNÓSTICO SE GUARDA AUNQUE NADIE LO MIRE TODAVÍA. Es lo que permite
+    // que la pantalla avise ANTES de mandar el código, en vez de que los dos
+    // jugadores descubran media hora después que no había camino posible.
+    con.diagnostico = diagnosticar(conLocal);
+    con.ultimoCodigo = comprimir(conLocal);
+    return con.ultimoCodigo;
+  }
+
+  // ¿EL OTRO ESTÁ EN MI MISMA RED? Se sabe leyendo su código, sin intentar nada:
+  // si su dirección pública es la mía, los dos salimos por el mismo router y el
+  // camino público no va a funcionar (habría que salir y volver a entrar por la
+  // misma puerta, y casi ningún router doméstico lo hace).
+  con.mismaRedQue = function (codigo) {
+    const suya = ipPublicaDe(codigo);
+    const mia = con.diagnostico ? con.diagnostico.ip : '';
+    return !!(suya && mia && suya === mia);
+  };
+
   // --- Anfitrión -------------------------------------------------------------
   con.invitar = async function () {
     const pc = nuevaPc();
@@ -281,12 +320,7 @@ export function crearConexion(opciones) {
     await pc.setLocalDescription(oferta);
     await esperarCandidatos(pc);
 
-    const sdp = pc.localDescription.sdp;
-    const resumen = resumenCandidatos(sdp);
-    con.candidatos = resumen.total;
-    con.locales = resumen.locales;
-    con.publicos = resumen.publicos;
-    con.ultimoCodigo = comprimir(sdp);
+    codigoDe(pc.localDescription.sdp);
     cambiar(ESTADOS.ESPERANDO);
     return con.ultimoCodigo;
   };
@@ -315,12 +349,7 @@ export function crearConexion(opciones) {
     await pc.setLocalDescription(respuesta);
     await esperarCandidatos(pc);
 
-    const sdp = pc.localDescription.sdp;
-    const resumen = resumenCandidatos(sdp);
-    con.candidatos = resumen.total;
-    con.locales = resumen.locales;
-    con.publicos = resumen.publicos;
-    con.ultimoCodigo = comprimir(sdp);
+    codigoDe(pc.localDescription.sdp);
     cambiar(ESTADOS.CONECTANDO);
     return con.ultimoCodigo;
   };
