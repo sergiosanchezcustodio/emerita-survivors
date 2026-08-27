@@ -295,18 +295,55 @@ comparación no lo vería directamente — solo de rebote, cuando los proyectile
 empezaran a diferir. Y es justo el estado que sincroniza el mensaje de la carta
 elegida, o sea lo más delicado del montaje. Pendiente.
 
+## Hasta cuatro jugadores, en estrella
+
+Cada invitado habla solo con el anfitrión y él reenvía. **Malla no**: con
+señalización a mano, cuatro jugadores en malla son seis intercambios de código
+pegados de uno en uno.
+
+Se reenvían dos cosas y por caminos distintos: las **pulsaciones** por el canal
+no fiable —los mismos bytes, sin mirarlos: quien no sea el destinatario los
+descarta solo— y por el fiable lo que TIENE que saber todo el mundo: **la carta
+elegida al subir de nivel** y **lo que se hace con un cofre**. Las huellas y las
+peticiones de detalle no se reenvían: son conversaciones de dos.
+
+Los dos últimos costaron una partida cada uno:
+
+- Con 3-4, la partida **se bloqueaba al subir de nivel**. La carta de un
+  invitado solo llegaba al anfitrión; los demás no cerraban su menú nunca y,
+  como el mundo espera a todos, se paraba todo. Con dos es invisible: el
+  anfitrión ES el otro.
+- **El cofre había que cerrarlo cuatro veces.** Todos lo ven, pero solo lo
+  cierra quien lo cogió — y viaja QUÉ ha hecho, porque la primera pulsación
+  termina el giro de las ruletas en vez de cerrar.
+
+La regla que sale de los dos: **todo lo que para el mundo y es entrada del
+jugador tiene que ir por el canal fiable**, porque justamente mientras el mundo
+está parado el búfer de pulsaciones no fluye.
+
+    node herramientas\jugar-en-red.js 4      cuatro ventanas ya conectadas, para mirar
+    node herramientas\probar-partida-en-red.js 120 nada 4
+
+Medido: cuatro pestañas en la misma máquina a 56 pasos por segundo, sin
+divergencia y a cuatro pasos como mucho unas de otras.
+
 ## Lo que queda
 
-1. **Pantallas de crear y unirse.** Sacar la red de la consola: crear partida,
-   pegar el código, ver a quién esperas.
+1. **Probarlo entre dos casas de verdad.** `camino()` tiene que decir `publica`;
+   hasta hoy siempre ha dicho `local`. Es lo único que puede medir latencia y
+   pérdidas reales, y también si la operadora móvil lo permite: muchas usan NAT
+   simétrico y ahí el STUN no basta.
 
-2. **Desconexiones.** Qué pasa cuando a alguien se le va el wifi o cierra la
-   pestaña. Hoy la partida se para y lo dice, pero no ofrece salida.
+2. **La entrada desde el menú del título.** Hoy se entra con la tecla `O` desde
+   la pantalla de personajes. La lápida trae sus cuatro opciones PINTADAS en la
+   ilustración: hace falta repintarla con una quinta y decir a qué altura queda.
 
-3. **El arsenal en la firma** (ver el hueco conocido, más arriba).
+3. **Reconexión.** Hoy una caída ofrece seguir en solitario o volver al menú;
+   volver a engancharse y ponerse al día no está hecho.
 
-4. **Probarlo entre dos casas de verdad.** `EMERITA.red.camino()` tiene que
-   decir `publica`. Hasta hoy solo ha dicho `local`.
+4. **El retardo de entrada, automático.** Está en 4 fotogramas, elegido sobre
+   una latencia de 1,4 ms que no es una latencia. `EMERITA.red.latencia()` ya
+   calcula la recomendación: falta aplicarla al conectar en vez de imprimirla.
 
 ## Dos cosas aprendidas que conviene no olvidar
 
