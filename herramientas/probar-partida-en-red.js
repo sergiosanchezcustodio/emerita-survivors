@@ -264,6 +264,40 @@ async function principal() {
     comprobar(cuantosVe === todas.length - 1,
               `el anfitrión ve ${cuantosVe} invitado(s)`);
 
+    // EL RETARDO DE ENTRADA SE PONE SOLO, midiendo el viaje.
+    //
+    // Llevaba clavado en 4 fotogramas desde que se eligió, y se eligió sobre una
+    // ida y vuelta de 1,4 ms entre dos pestañas de la misma máquina — que no es
+    // una latencia, es el suelo del sistema. Aquí el viaje es igual de corto, así
+    // que lo que se comprueba es que el número LO PONGA LA MEDIDA y caiga en lo
+    // razonable. El suelo son tres fotogramas, y lo puso esta misma prueba: con
+    // dos, cuatro pestañas en una máquina se bloquearon esperándose.
+    //
+    // Se le da un segundo: son veinte pings y van por el canal fiable.
+    await A.pagina.waitForTimeout(1200);
+    const retardos = [];
+    for (const p of todas) {
+      retardos.push(await p.pagina.evaluate(() => window.EMERITA.lockstep.retardo));
+    }
+    comprobar(retardos.every((r) => r >= 3 && r <= 8),
+              `el retardo queda dentro de lo admitido: ${retardos.join(', ')}`);
+
+    // Y QUE LO HAYA PUESTO LA MEDIDA, no que se parezca a un número.
+    //
+    // Aquí el viaje es de un milisegundo y la cuenta da 4, que es justo el valor
+    // que traía de fábrica: comparar contra 4 no distinguiría "medido" de "sin
+    // tocar". Se le pide la medida otra vez y se comprueba que lo que devuelve
+    // es lo que hay puesto.
+    const medida = await A.pagina.evaluate(async () => {
+      const r = await window.EMERITA.red.ajustarRetardo();
+      return r ? { ...r, puesto: window.EMERITA.lockstep.retardo } : null;
+    });
+    comprobar(medida && medida.fotogramas === medida.puesto,
+              medida
+                ? `la medida manda: viaje ${medida.mediana.toFixed(1)} ms -> ` +
+                  `${medida.fotogramas} fotogramas, y es lo que hay puesto`
+                : 'la medida no ha devuelto nada');
+
     // --- La partida ----------------------------------------------------------
     await A.pagina.evaluate(() => window.EMERITA.red.jugar());
     await A.pagina.waitForTimeout(500);
@@ -351,6 +385,25 @@ async function principal() {
     // muerta. Pasó con cuatro jugadores —el anfitrión no reenviaba la carta
     // elegida a los demás invitados, sus menús no se cerraban nunca y todo se
     // paraba— y esta prueba lo dio por bueno, porque miraba el total.
+    // EL MENÚ DE NIVEL PARA EL MUNDO A PROPÓSITO, y hay que cerrarlo antes de
+    // medir esto o la prueba se acusa a sí misma.
+    //
+    // El bucle de arriba pulsa Enter una vez por vuelta, así que puede acabar
+    // justo con el menú abierto: entonces el mundo está parado porque TIENE que
+    // estarlo —espera a que los cuatro elijan carta— y este pulso lo leía como
+    // "se han quedado bloqueadas". Salía con cuatro jugadores y no con dos,
+    // porque hacen falta cuatro elecciones y hay cuatro veces más ocasiones de
+    // pillarlo abierto. Dos horas buscando un bloqueo que no existía.
+    for (let intento = 0; intento < 8; intento++) {
+      let abiertos = 0;
+      for (const p of todas) {
+        const m = await p.pagina.evaluate(() => window.EMERITA.mando());
+        if (m.subiendoNivel || m.cofre) { abiertos++; await p.pagina.keyboard.press('Enter'); }
+      }
+      if (abiertos === 0) break;
+      await A.pagina.waitForTimeout(250);
+    }
+
     const antesDelPulso = [];
     for (const p of todas) antesDelPulso.push((await leer(p)).paso);
     await A.pagina.waitForTimeout(2000);

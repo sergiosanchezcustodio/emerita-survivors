@@ -1248,6 +1248,9 @@ let metasDeRed = null;
 // del otro), 'conectado' y 'error'.
 const red = {
   fase: 'menu', cursor: 0, codigo: '', copiado: false,
+  // Lo que ha salido de medir la conexión al abrirse: fotogramas de retardo y
+  // la ida y vuelta con que se eligieron. Cero mientras no se haya medido.
+  retardo: 0, rtt: 0,
   aviso: '', esAnfitrion: false, conectados: 0,
   // Lo que se sabe de la conexión antes de intentarla: ver `avisoDeConexion` en
   // red/consola.js. Null mientras no haya nada que decir, que es lo normal.
@@ -1297,6 +1300,10 @@ function irARed(desde) {
   // sirve para los cuatro intentos que hagan falta. Se pierde al recargar, que
   // es otra cosa.
   red.ipLocal = RedConsola.ipLocal;
+  // El aviso del retardo se engancha ANTES de que haya conexión: la medida
+  // empieza sola en cuanto se abre el canal, y engancharse después es una
+  // carrera que en una red rápida se pierde.
+  esperarRetardoDeRed();
   irA(PANTALLA_RED);
 }
 
@@ -1353,6 +1360,9 @@ async function unirseAPartidaEnRed() {
     : avisoDeConexion(RedConsola.diagnostico());
   red.fase = 'esperando';
   // Y en cuanto el otro lo pegue, quedamos conectados sin hacer nada más.
+  // Quien se une mide igual que el anfitrión: el viaje es el mismo, pero el
+  // retardo lo elige cada máquina para sí, y esta no puede fiarse de que la otra
+  // se lo diga (ver `ajustarRetardo`).
   RedConsola.alConectar(() => { red.fase = 'conectado'; });
 }
 
@@ -1383,6 +1393,23 @@ async function aceptarRespuestaEnRed() {
   }
   red.conectados = RedConsola.conectados;
   red.fase = 'conectado';
+}
+
+// EL RETARDO YA NO SE ELIGE AQUÍ: lo pone la propia conexión en cuanto se abre,
+// midiendo el viaje (ver `ajustarRetardo` en red/consola.js). Esta pantalla solo
+// se entera para poder enseñarlo, porque es el único número de aquí que dice
+// cómo se va a jugar.
+//
+// Tarda un segundo en llegar —son veinte pings— y hasta entonces `red.retardo`
+// vale cero y no se pinta nada, que es mejor que pintar un número que va a
+// cambiar delante de quien lo está leyendo.
+function esperarRetardoDeRed() {
+  red.retardo = 0;
+  red.rtt = 0;
+  RedConsola.alAjustarRetardo((r) => {
+    red.retardo = r.fotogramas;
+    red.rtt = r.mediana;
+  });
 }
 
 // LO QUE SE TECLEA DE LA DIRECCIÓN DE CASA.

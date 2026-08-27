@@ -245,6 +245,18 @@ export function dibujarRed(ctxMundo, ctx, estado) {
         : ['Ya sois cuatro, que es el máximo.', '', 'ENTER para empezar la partida.']
       : ['Esperando a que empiece el anfitrión…'],
       ALTO_UI / 2, t.texto, 16);
+    // LO QUE TARDA LA CONEXIÓN Y QUÉ SE HA HECHO CON ELLO.
+    //
+    // El retardo llevaba clavado en 4 desde que se eligió sobre 1,4 ms entre dos
+    // pestañas de la misma máquina, que no es una latencia. Ahora sale de medir
+    // esta conexión, y se enseña porque es el único número de esta pantalla que
+    // dice cómo se va a jugar. Tarda un segundo en aparecer: hasta entonces, no
+    // se pinta nada en vez de un cero que engaña.
+    if (estado.retardo) {
+      parrafo(ctx, [`Viaje: ${Math.round(estado.rtt)} ms  ·  ` +
+                    `retardo de entrada: ${estado.retardo} fotogramas`],
+              ALTO_UI / 2 + 70, t.apagado, 14);
+    }
     ctx.restore();
     return;
   }

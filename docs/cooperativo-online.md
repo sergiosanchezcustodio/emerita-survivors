@@ -80,6 +80,10 @@ predicción ni rebobinado, que es la parte cara de esta arquitectura.
 Se cambia en caliente con las teclas `,` y `.`, y el panel F3 dice en cuál está.
 Con 0 se juega exactamente como antes de que existiera el búfer.
 
+**Ese 4 es solo el valor de arranque**: en cuanto se abre una conexión, el juego
+mide el viaje y lo pone en lo que pida esa red. Ver más abajo, "El retardo de
+entrada, puesto solo".
+
     EMERITA.determinismo.medirRetardo()   ¿el desfase real es el configurado?
 
 Esa prueba existe porque "no noto diferencia" tiene dos explicaciones, y una es
@@ -500,6 +504,64 @@ Esa prueba corre sobre **los códigos de verdad de las dos tentativas**, guardad
 tal cual llegaron. Es el banco de pruebas más honesto que hay: si algún día deja
 de reconocerlos, el aviso ha dejado de servir para lo único que se hizo.
 
+## El retardo de entrada, puesto solo (hecho)
+
+Llevaba clavado en 4 fotogramas y ese número salía de una ida y vuelta de 1,4 ms
+entre dos pestañas de la misma máquina — que no es una latencia, es el suelo del
+sistema. Servía para probar el búfer y no decía nada de una red de verdad.
+
+Ahora lo pone la propia conexión en cuanto se abre el canal, midiendo veinte
+viajes. La cuenta, y cada sumando responde a algo distinto:
+
+    viaje    la MITAD de la ida y vuelta: una pulsación va en un sentido
+    +1       margen fijo; un fotograma de más no se percibe y uno de menos es
+             una partida que se para
+    +1       el paso del otro: un paquete no se atiende cuando llega sino en el
+             siguiente paso de quien lo recibe
+    +jitter  del peor viaje contra el normal, con tope de dos
+
+Con suelo en 3 y techo en `RETARDO_MAX` (8). En una red local da 3-4; entre dos
+casas subirá solo.
+
+**Va en la conexión, no en la pantalla.** El retardo depende del viaje, no de
+quién lo pidiera: puesto en la pantalla, quien conecta desde la consola o desde
+el banco de pruebas se quedaba con el valor de fábrica sin enterarse, y las
+pruebas medirían otra cosa que lo que se juega.
+
+**No hace falta que las dos máquinas pongan el mismo.** Cada una elige cuándo
+entra LO SUYO, y el paso al que va apuntada cada pulsación viaja en el paquete,
+así que las dos la colocan en el mismo sitio. Un retardo más alto de un lado solo
+le da más margen a ese lado. Medido: una partida entera con 2 de un lado y 3 del
+otro, cero divergencia. Y `retardo` no entra en la firma que se compara entre
+máquinas, así que esto no puede inventarse una desincronización.
+
+### Y no se toca con la partida en marcha
+
+El búfer apunta lo que pulsas en la casilla `paso + retardo`. Moverlo a mitad de
+partida deja SIN ESCRIBIR las casillas de en medio, y el mundo espera para
+siempre una pulsación que nadie va a poner. No es una desincronización: es un
+bloqueo permanente de todas las máquinas, sin un solo error en la consola.
+
+Con dos jugadores no se veía —la medida terminaba antes de empezar la partida—;
+con cuatro, el anfitrión mide una vez por invitado y la última caía ya dentro.
+Ahora se mide igual y se devuelve el número, pero no se aplica.
+
+### La prueba que se acusaba a sí misma
+
+Persiguiendo eso apareció otra cosa, y conviene tenerla escrita porque volverá a
+parecer un fallo del juego: `probar-partida-en-red.js` daba **SE HAN QUEDADO
+BLOQUEADAS** con cuatro jugadores, y no había ningún bloqueo. El mundo estaba
+parado porque el **menú de subir nivel** estaba abierto, que es exactamente lo
+que tiene que pasar mientras alguien elige carta.
+
+El bucle de la prueba pulsa Enter una vez por vuelta, así que puede terminar con
+el menú abierto. Con dos jugadores casi nunca coincide; con cuatro hacen falta
+cuatro elecciones y hay cuatro veces más ocasiones de pillarlo. Ahora la prueba
+cierra los menús antes de medir si el mundo avanza.
+
+Es la sexta de la lista de "desincronizaciones que no lo eran", y de la misma
+familia: lo que se estaba comparando no era la simulación.
+
 ## Lo que queda
 
 1. **Probarlo entre dos casas de verdad.** `camino()` tiene que decir `publica`;
@@ -513,10 +575,6 @@ de reconocerlos, el aviso ha dejado de servir para lo único que se hizo.
 
 2. **Reconexión.** Hoy una caída ofrece seguir en solitario o volver al menú;
    volver a engancharse y ponerse al día no está hecho.
-
-3. **El retardo de entrada, automático.** Está en 4 fotogramas, elegido sobre
-   una latencia de 1,4 ms que no es una latencia. `EMERITA.red.latencia()` ya
-   calcula la recomendación: falta aplicarla al conectar en vez de imprimirla.
 
 ## Dos cosas aprendidas que conviene no olvidar
 

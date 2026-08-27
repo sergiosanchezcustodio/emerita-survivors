@@ -1,6 +1,7 @@
 import { crearConexion, autoprueba, ESTADOS, SERVIDORES_POR_DEFECTO } from './conexion.js';
 import { tipoDe, esIpLocal } from './codigo.js';
 import { vigilarCada } from './sincro.js';
+import { Lockstep, RETARDO_MAX } from '../core/lockstep.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
 
 // LA RED DESDE LA CONSOLA, mientras no haya pantallas.
@@ -30,6 +31,43 @@ const enlaces = [];
 // Lo enchufa main.js: empezar y terminar una partida en red. Aquí no se puede
 // importar de main.js sin cerrar un círculo entre los dos módulos.
 let juego = null;
+
+// A quién avisar cuando el retardo de entrada se reajusta solo. Lo pone la
+// pantalla del cooperativo para poder enseñarlo; sin nadie escuchando, el
+// ajuste se hace igual y solo se ve en la consola.
+let alRetardo = null;
+// ¿Hay una medida en marcha? Ver `ajustarRetardo`.
+let midiendo = false;
+
+// Mide el viaje por todos los enlaces abiertos y deja puesto el retardo que pide
+// el peor de ellos. Ver el comentario largo de `ajustarRetardo`, que es donde
+// está el razonamiento; aquí solo está la cuenta.
+async function medirYPonerRetardo(abiertos, veces) {
+  // CON VARIOS INVITADOS MANDA EL PEOR. El mundo espera a todos: el retardo que
+  // sirve es el que le vale al que está más lejos, no el promedio.
+  let peor = null;
+  for (let i = 0; i < abiertos.length; i++) {
+    const r = await abiertos[i].medirLatencia(veces);
+    if (!r) continue;
+    if (!peor || r.mediana > peor.mediana) peor = r;
+  }
+  if (!peor) return null;
+
+  const FOTOGRAMA = 16.667;
+  const viaje = peor.mediana / 2;
+  const baile = Math.max(0, peor.max - peor.mediana) / 2;
+  const jitter = Math.min(2, Math.ceil(baile / FOTOGRAMA));
+  let fotogramas = Math.ceil(viaje / FOTOGRAMA) + 1 + 1 + jitter;
+  if (fotogramas < 3) fotogramas = 3;
+  if (fotogramas > RETARDO_MAX) fotogramas = RETARDO_MAX;
+
+  // Con la partida ya en marcha se mide pero NO se aplica: mover el retardo a
+  // mitad de partida deja huecos en el búfer y bloquea el mundo para siempre.
+  const enMarcha = !!(juego && juego.enPartida && juego.enPartida());
+  if (!enMarcha) Lockstep.retardo = fotogramas;
+
+  return { fotogramas, mediana: peor.mediana, max: peor.max, jitter, aplicado: !enMarcha };
+}
 
 // LA VERSIÓN DEL JUEGO VIAJA EN EL SALUDO, y no es burocracia.
 //
@@ -72,7 +110,23 @@ function nueva(servidores) {
   // conexión que no es la que estás mirando, se ve en el acto de cuál es.
   const yo = sesion.id;
   sesion.alEstado = (estado, error) => {
-    if (estado === ESTADOS.CONECTADO) console.log(`RED[${yo}]: conectado.`);
+    if (estado === ESTADOS.CONECTADO) {
+      console.log(`RED[${yo}]: conectado.`);
+      // EL RETARDO SE AJUSTA AQUÍ, en la conexión, y no en la pantalla.
+      //
+      // Da igual por dónde se haya conectado —el menú del juego, la consola o el
+      // banco de pruebas—: el retardo depende del viaje, no de quién lo pidiera.
+      // Puesto en la pantalla, el que conecta desde la consola se quedaba con el
+      // valor de fábrica sin enterarse, y las pruebas medirían otra cosa que lo
+      // que se juega.
+      RedConsola.ajustarRetardo().then((r) => {
+        if (!r) return;
+        console.log(`RED: viaje ${r.mediana.toFixed(1)} ms (punta ${r.max.toFixed(1)}) ` +
+                    `-> retardo de entrada ${r.fotogramas} fotogramas` +
+                    (r.aplicado ? '.' : ' (NO aplicado: la partida ya ha empezado).'));
+        if (alRetardo) alRetardo(r);
+      }).catch(() => {});
+    }
     else if (estado === ESTADOS.ERROR) console.error(`RED[${yo}]: ` + (error || 'error'));
     else if (estado === ESTADOS.CERRADO) console.log(`RED[${yo}]: conexión cerrada.`);
   };
@@ -382,6 +436,83 @@ export const RedConsola = {
     return { ...r, fotogramas };
   },
 
+  // EL RETARDO DE ENTRADA, PUESTO SOLO, a partir de lo que tarda esta conexión.
+  //
+  // POR QUÉ. El retardo llevaba clavado en 4 fotogramas desde que se eligió, y
+  // se eligió sobre una ida y vuelta de 1,4 ms entre dos pestañas de la misma
+  // máquina — que no es una latencia, es el suelo del sistema. Servía para
+  // probar el búfer y no significaba nada sobre una red de verdad. Con dos
+  // máquinas conectadas por fin hay un número que quiere decir algo.
+  //
+  // QUÉ ES ESTE NÚMERO. Los fotogramas que se espera antes de jugar lo que
+  // pulsas, y que son el tiempo que tiene el paquete del otro para llegar. Si se
+  // queda CORTO, el mundo se para a esperar y eso se ve como tirones; si se pasa,
+  // el mando responde tarde. Quedarse corto se nota mucho más, así que en la
+  // duda se redondea hacia arriba.
+  //
+  // LA CUENTA, y cada sumando responde a algo distinto:
+  //
+  //   viaje    la MITAD de la ida y vuelta: una pulsación va en un sentido.
+  //   +1       margen fijo. Un fotograma de más no se percibe -medido: Sergio
+  //            jugó con 0, con 2 y con 6 sin distinguirlos- y uno de menos es
+  //            una partida que se para.
+  //   +1       EL PASO DEL OTRO. Un paquete no se atiende cuando llega, sino en
+  //            el siguiente paso de quien lo recibe: si llega justo después de
+  //            uno, espera un fotograma entero antes de entrar. Eso no aparece
+  //            en la ida y vuelta y hay que sumarlo aparte.
+  //   +jitter  lo que baila la red, del peor viaje contra el normal. Es lo que
+  //            de verdad hace esperar: no la latencia media, sino el paquete que
+  //            llega tarde. Se le pone tope de dos, o una sola punta de 300 ms
+  //            dejaría el mando pastoso para siempre.
+  //
+  // EL SUELO ES 3, Y LO PUSO UNA PRUEBA QUE SE BLOQUEÓ. Con la primera versión
+  // de esta cuenta —sin el paso del otro y con suelo 2— cuatro pestañas en la
+  // misma máquina se quedaron paradas esperándose: la ida y vuelta era de un
+  // milisegundo, así que salía un retardo de 2, y con eso no hay hueco para que
+  // una pestaña de fondo pierda un fotograma. Y las pestañas de fondo pierden
+  // fotogramas, porque el navegador las frena a propósito.
+  //
+  // La lección es que el ping mide LA RED y no lo que tarda el otro en
+  // atenderlo. Cuando el cuello es la máquina de enfrente —y con cuatro
+  // ventanas abiertas siempre lo es— la medida se queda corta por debajo.
+  //
+  // NO HACE FALTA QUE LAS DOS MÁQUINAS PONGAN EL MISMO. Cada una elige cuándo
+  // entra LO SUYO, y el paso al que va apuntado viaja en el paquete, así que las
+  // dos colocan cada pulsación en el mismo sitio. Un retardo más alto de un lado
+  // solo le da más margen a ese lado. Y `retardo` no entra en la firma que se
+  // compara entre máquinas (ver PARTES en core/determinismo.js), así que esto no
+  // puede inventarse una desincronización.
+  // CON LA PARTIDA YA EN MARCHA NO SE TOCA, y esto costó una prueba entera.
+  //
+  // El búfer de pulsaciones apunta lo que pulsas en la casilla `paso + retardo`.
+  // Subir el retardo con la partida andando deja SIN ESCRIBIR las casillas que
+  // quedan en medio, y el mundo espera para siempre una pulsación tuya que nadie
+  // va a poner nunca. No es una desincronización: es un bloqueo permanente de
+  // las dos máquinas, y se ve como que el juego se queda congelado sin dar un
+  // solo error.
+  //
+  // Con dos jugadores no salía: el ajuste terminaba antes de empezar la partida.
+  // Con cuatro, el anfitrión mide una vez por invitado y la última medida caía ya
+  // dentro de la partida. `probar-partida-en-red.js 40 nada 4` lo cazó: las
+  // cuatro pestañas paradas en el mismo paso, cero avance.
+  //
+  // Se mide igual y se devuelve el número —sirve para enseñarlo—; lo que no se
+  // hace es aplicarlo.
+  async ajustarRetardo(veces = 20) {
+    const abiertos = enlaces.filter((e) => e.estado === ESTADOS.CONECTADO);
+    if (abiertos.length === 0) return null;
+    // NI DOS MEDIDAS A LA VEZ. `medirLatencia` guarda un solo manejador de pong
+    // por conexión, así que la segunda pisa a la primera y la primera se queda
+    // esperando pongs que ya se ha llevado otro.
+    if (midiendo) return null;
+    midiendo = true;
+    try {
+      return await medirYPonerRetardo(abiertos, veces);
+    } finally {
+      midiendo = false;
+    }
+  },
+
   // Por dónde va la conexión: la única prueba de que se ha atravesado un router.
   async camino() {
     if (!sesion) { console.error('Sin conexión.'); return null; }
@@ -492,9 +623,13 @@ export const RedConsola = {
   // depender de que alguien lea la consola.
   copiar: alPortapapeles,
 
+  // Aviso de que el retardo se ha reajustado, para quien quiera enseñarlo.
+  alAjustarRetardo(fn) { alRetardo = fn; },
+
   // Avisar cuando el canal se abra. Lo usa quien se ha unido: despues de
   // devolver su codigo no tiene nada que hacer salvo esperar, y la pantalla
   // tiene que enterarse sola de que ya estan dentro.
+
   alConectar(fn) {
     if (!sesion) return;
     sesion.alAbrir = fn;
