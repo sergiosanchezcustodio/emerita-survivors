@@ -131,18 +131,36 @@ const ORO_CLARO = '#f7dc9a';
 // --- El hueco de la placa ----------------------------------------------------
 //
 // Medido sobre la ilustración recorriendo desde el centro hacia fuera hasta
-// salir de lo oscuro: el panel va de x=240 a x=1013 y de y=196 a y=622 en
-// píxeles de la imagen (1248x832). De ahí, con la imagen encajada a lo alto del
-// lienzo y centrada, salen estas unidades de interfaz.
-const PANEL = { x0: 239, x1: 725, y0: 135, y1: 397 };
+// salir de lo oscuro, y quedándose con la MAYOR extensión que contiene al
+// centro: los lazos de la bandera cruzan el panel, así que una sola fila o una
+// sola columna se corta contra un lazo y devuelve un hueco más pequeño que el
+// que hay.
+//
+// LO QUE HAY QUE MEDIR NO ES EL AGUJERO, ES LA BANDA LIMPIA, y esto costó una
+// captura con el relato montado encima de un lazo.
+//
+// La primera medida cogió la mayor extensión oscura que contiene al centro y
+// dio y=156..726 en píxeles: 90 a 417 en unidades. Con esos números el texto
+// bajaba hasta el lazo de abajo y se leía por encima de la tricolor. El barrido
+// se había colado POR el lazo, que también tiene partes oscuras.
+//
+// Lo que vale es dónde cabe una línea CENTRADA sin tocar nada, y eso se saca
+// mirando el hueco de cinco columnas del centro a la vez y quedándose con lo
+// común a las cinco: y=287..661 en píxeles de la lámina (1672x941), o sea
+// 165..379 en unidades. Es MÁS CORTA que la de la placa anterior (135..397),
+// aunque la placa sea más grande: los lazos entran más.
+//
+// A lo ancho manda el mismo criterio de siempre —el texto va centrado en el
+// hueco— y sale prácticamente donde estaba: la placa tiene su centro en 481.
+const PANEL = { x0: 241, x1: 721, y0: 165, y1: 379 };
 const PANEL_CX = (PANEL.x0 + PANEL.x1) / 2;
 
 // Aire entre la piedra y el texto, para que el relato no roce el labrado.
 const MARGEN = 10;
 
-// Ancho de la columna de texto. El hueco de la placa mide 486, así que quedan
+// Ancho de la columna de texto. El hueco de la placa mide 480, así que quedan
 // diez unidades de respiro a cada lado.
-const ANCHO_TEXTO = 466;
+const ANCHO_TEXTO = 460;
 
 // Y un pelo más de guarda para el AJUSTE A LO ANCHO (ver `escalaQueEntra`): si
 // se apurara hasta el borde exacto, un carácter con un adorno que se salga de
@@ -276,13 +294,18 @@ function siguiente() {
 //
 //   - EL SPLASH se estira a 1920x1080. Mide 1672x941, que es 16:9 salvo por un
 //     0,06%: la deformación es invisible y así llena la pantalla.
-//   - LA PLACA DE LA HISTORIA, no. Mide 1248x832 —3:2 contra 16:9— y estirarla
-//     un 18% ensancharía las calaveras y las cintas. Pero recortarla tampoco
-//     vale: es un MARCO, y a un marco cortarle los bordes es quitarle lo que
-//     es. Así que se encaja entera a lo alto y las dos franjas que sobran a los
-//     lados se rellenan con la propia imagen estirada y apagada por detrás. Ni
-//     se deforma el marco ni aparecen bandas negras, que en una pantalla de
-//     presentación se leen como que algo ha fallado.
+//   - LA PLACA DE LA HISTORIA va por el otro camino: se encaja ENTERA a lo alto
+//     y lo que sobre a los lados se rellena con la propia imagen estirada y
+//     apagada por detrás. Es un MARCO, y a un marco cortarle los bordes es
+//     quitarle lo que es; y las bandas negras, en una pantalla de presentación,
+//     se leen como que algo ha fallado.
+//
+//     Hoy da igual cuál de los dos se use —la placa también es 1672x941, así
+//     que encajarla a lo alto la deja llenando la pantalla y el telón de detrás
+//     no se ve—, pero la placa anterior era 1248x832, o sea 3:2 contra 16:9, y
+//     estirarla un 18% ensanchaba las calaveras y las cintas. El camino se
+//     queda puesto por eso: la próxima placa puede volver a no ser 16:9, y esto
+//     lo aguanta sin tocar nada.
 function hornearPantalla(img, estirar) {
   const c = document.createElement('canvas');
   c.width = ANCHO_FISICO;

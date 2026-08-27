@@ -4058,9 +4058,43 @@ $informeMenus | Format-Table -AutoSize
 # reutiliza en todas las pestanas; sin subir ese numero, el icono viejo puede
 # quedarse semanas.
 $FAVICON_SRC = Join-Path $ORIGEN 'menus\favicon.png'
-$informeIconos = @()
+$informePestana = @()
 if (Test-Path $FAVICON_SRC) {
     $origenIcono = [System.Drawing.Bitmap]::FromFile($FAVICON_SRC)
+
+    # SE RECORTA AL DIBUJO ANTES DE REDUCIR, y no es un adorno: a 32 pixeles cada
+    # uno cuenta. La lamina viene con margenes transparentes -111 arriba, 170
+    # abajo, distintos entre si- y reduciendo la imagen ENTERA el dibujo sale mas
+    # pequeno de lo que cabe y encima descentrado un pixel. Recortado a su caja y
+    # centrado, ocupa la casilla entera.
+    #
+    # Se conserva la proporcion: la corona es mas ancha que alta, y estirarla a
+    # cuadrado la deformaria.
+    $iw = $origenIcono.Width; $ih = $origenIcono.Height
+    $bits = $origenIcono.LockBits(
+        (New-Object System.Drawing.Rectangle -ArgumentList @(0, 0, $iw, $ih)),
+        [System.Drawing.Imaging.ImageLockMode]::ReadOnly,
+        [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $paso = $bits.Stride
+    $bytes = New-Object byte[] ($paso * $ih)
+    [System.Runtime.InteropServices.Marshal]::Copy($bits.Scan0, $bytes, 0, $bytes.Length)
+    $origenIcono.UnlockBits($bits)
+    $cx0 = $iw; $cx1 = -1; $cy0 = $ih; $cy1 = -1
+    for ($y = 0; $y -lt $ih; $y++) {
+        for ($x = 0; $x -lt $iw; $x++) {
+            # 12 y no 0: el borde de un PNG suavizado arrastra alfas de valor 1 o
+            # 2 que no se ven y estirarian la caja hasta los bordes.
+            if ($bytes[$y * $paso + $x * 4 + 3] -gt 12) {
+                if ($x -lt $cx0) { $cx0 = $x }
+                if ($x -gt $cx1) { $cx1 = $x }
+                if ($y -lt $cy0) { $cy0 = $y }
+                if ($y -gt $cy1) { $cy1 = $y }
+            }
+        }
+    }
+    if ($cx1 -lt 0) { $cx0 = 0; $cy0 = 0; $cx1 = $iw - 1; $cy1 = $ih - 1 }   # opaca entera
+    $cw = $cx1 - $cx0 + 1; $ch = $cy1 - $cy0 + 1
+
     foreach ($lado in 32, 180) {
         $destinoIcono = Join-Path $DESTINO "favicon-$lado.png"
         $chico = New-Object System.Drawing.Bitmap $lado, $lado, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
@@ -4069,11 +4103,20 @@ if (Test-Path $FAVICON_SRC) {
         $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
         $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
         $g.Clear([System.Drawing.Color]::Transparent)
-        $g.DrawImage($origenIcono, 0, 0, $lado, $lado)
+        $esc = $lado / [Math]::Max($cw, $ch)
+        $nw = [float]($cw * $esc); $nh = [float]($ch * $esc)
+        # OJO: la coma de PowerShell aprieta mas que la resta, asi que los
+        # argumentos se calculan antes y se pasan en un array. En linea, `(32-$nw)/2`
+        # dentro de un New-Object se lee como una division de arrays y revienta.
+        $cajaDst = New-Object System.Drawing.RectangleF -ArgumentList @(
+            [float](($lado - $nw) / 2), [float](($lado - $nh) / 2), $nw, $nh)
+        $cajaSrc = New-Object System.Drawing.RectangleF -ArgumentList @(
+            [float]$cx0, [float]$cy0, [float]$cw, [float]$ch)
+        $g.DrawImage($origenIcono, $cajaDst, $cajaSrc, [System.Drawing.GraphicsUnit]::Pixel)
         $g.Dispose()
         $chico.Save($destinoIcono, [System.Drawing.Imaging.ImageFormat]::Png)
         $chico.Dispose()
-        $informeIconos += [PSCustomObject]@{
+        $informePestana += [PSCustomObject]@{
             Icono  = "favicon-$lado.png"
             Tamano = "${lado}x${lado}"
             KB     = "{0:N1}" -f ((Get-Item $destinoIcono).Length / 1KB)
@@ -4081,9 +4124,9 @@ if (Test-Path $FAVICON_SRC) {
     }
     $origenIcono.Dispose()
 } else {
-    $informeIconos += [PSCustomObject]@{ Icono='favicon.png'; Tamano='-'; KB='NO EXISTE' }
+    $informePestana += [PSCustomObject]@{ Icono='favicon.png'; Tamano='-'; KB='NO EXISTE' }
 }
-$informeIconos | Format-Table -AutoSize
+$informePestana | Format-Table -AutoSize
 
 
 # ---------------------------------------------------------------------------
