@@ -354,10 +354,19 @@ function dibujarTitulo(ctxMundo, ctxUi, menu, cursor) {
   // opaco se lee como un parche, y sumando luz parece que la propia piedra está
   // iluminada. El latido lento es lo que hace que se vea que ESO es lo que se
   // mueve cuando cambias de opción.
+  //
+  // AZUL ELÉCTRICO, por decisión de Sergio. Antes era un ámbar cálido que salía
+  // de las antorchas de la ilustración; el azul no sale de ninguna parte de la
+  // escena, y eso es justo lo que lo hace saltar: en una lápida de piedra a la
+  // luz del fuego, el único frío de la pantalla es el cursor.
+  //
+  // El relleno va más claro que el trazo —casi blanco azulado— porque sumado
+  // sobre piedra oscura un azul puro se apaga y deja la mancha sucia en vez de
+  // encendida. El color lo pone el borde; el relleno solo aclara.
   const pulso = latido(1500, 0.45);
   ctxUi.globalCompositeOperation = 'lighter';
   ctxUi.globalAlpha = 0.17 * pulso;
-  ctxUi.fillStyle = '#ffd9a0';
+  ctxUi.fillStyle = '#a8dcff';
   ctxUi.beginPath();
   ctxUi.roundRect(r.x, r.y, r.w, r.h, 6);
   ctxUi.fill();
@@ -367,9 +376,17 @@ function dibujarTitulo(ctxMundo, ctxUi, menu, cursor) {
   // lápida con una de ellas encendida no necesitan que nadie explique que se
   // sube, se baja y se pulsa. Donde sí sigue estando es en las pantallas que
   // tienen atajos que no se adivinan —la tienda, la selección—.
+  //
+  // EL BORDE, MÁS FINO QUE ANTES —de 2 a 1,3— y azul eléctrico. Lo pidió Sergio
+  // y le sienta bien al azul: un trazo frío y saturado pesa más que uno cálido
+  // al mismo grosor, así que con los 2 de antes el marco se comía la palabra
+  // que enmarca. Adelgazándolo se lee como un filo encendido y no como una caja.
+  //
+  // No baja de 1: por debajo, el suavizado lo reparte entre dos filas de píxeles
+  // y el borde deja de verse como una línea para verse como una mancha.
   ctxUi.save();
-  ctxUi.lineWidth = 2;
-  ctxUi.strokeStyle = `rgba(255, 214, 130, ${0.55 + 0.35 * pulso})`;
+  ctxUi.lineWidth = 1.3;
+  ctxUi.strokeStyle = `rgba(64, 176, 255, ${0.6 + 0.4 * pulso})`;
   ctxUi.beginPath();
   ctxUi.roundRect(r.x, r.y, r.w, r.h, 6);
   ctxUi.stroke();
