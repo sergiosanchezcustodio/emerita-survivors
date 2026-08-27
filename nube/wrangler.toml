@@ -1,0 +1,16 @@
+# EL DESPLIEGUE. Ver nube/LEEME.md para los pasos completos.
+#
+# `database_id` sale de crear la base y hay que pegarlo aquí a mano:
+#   npx wrangler d1 create emerita-partidas
+name = "emerita-partidas"
+main = "worker.js"
+compatibility_date = "2026-08-27"
+
+# Sin esto, el Worker responde en <nombre>.<tu-subdominio>.workers.dev, que es
+# una URL gratuita y con HTTPS: no hace falta dominio propio para esto.
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"                     # el nombre con que lo ve el codigo: entorno.DB
+database_name = "emerita-partidas"
+database_id = "PEGA-AQUI-EL-ID-QUE-TE-DE-WRANGLER"
