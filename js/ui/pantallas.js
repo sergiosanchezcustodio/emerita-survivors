@@ -75,7 +75,7 @@ const ARCO_Y = 264;
 const ARCO_ALTO = 482;
 
 // LAS CINCO OPCIONES DEL MENÚ, medidas sobre la ilustración (Main_menu.jpg,
-// 1376x768). Vienen pintadas en su marco —JUGAR, JUGAR EN RED, TIENDA,
+// 1672x941). Vienen pintadas en su marco —JUGAR, JUGAR EN RED, TIENDA,
 // CONFIGURACIÓN y SALIR—, así que aquí NO se vuelven a escribir: lo único que
 // falta es decir cuál está señalada, y eso se hace ILUMINANDO SU RECUADRO. Es
 // el criterio de toda esta pantalla: no competir con el arte.
@@ -86,48 +86,53 @@ const ARCO_ALTO = 482;
 // JPEG y el degradado de la piedra—. Cada vez que Sergio repinte la lápida, se
 // vuelve a pasar y se copian los números de abajo.
 //
-// Los rieles del marco caen en x=521 y x=856, y el interior va de 530 a 847.
+// El marco del menú va de x=663 a x=1037, contando por dentro de los rieles.
 //
 // Lo medido, en píxeles de la imagen:
 //
-//     JUGAR            y 552..572   x 642..736   ( 95 de ancho)
-//     JUGAR EN RED     y 587..607   x 581..799   (219)
-//     TIENDA           y 622..642   x 629..747   (119)
-//     CONFIGURACIÓN    y 657..677   x 564..811   (248)
-//     SALIR            y 692..712   x 643..733   ( 91)
+//     JUGAR            y 677..703   x 793..914   (122 de ancho)
+//     JUGAR EN RED     y 719..745   x 717..987   (271)
+//     TIENDA           y 762..789   x 776..925   (150)
+//     CONFIGURACIÓN    y 806..831   x 698..1002  (305)
+//     SALIR            y 849..874   x 794..908   (115)
 //
-// Las cinco miden lo mismo de alto y van separadas 35 exactos.
+// Las cinco miden lo mismo de alto y van separadas 43.
 //
-// EL BLOQUE CRECIÓ HACIA ARRIBA. La lámina de cinco opciones no recolocó nada:
-// TIENDA, CONFIGURACIÓN y SALIR están donde estaban al píxel, JUGAR EN RED
-// ocupa el renglón donde antes ponía START, y JUGAR subió uno. Por eso los tres
-// últimos números de esta tabla no han cambiado y los dos primeros sí.
+// LA LÁMINA CAMBIÓ DE TAMAÑO, no de composición: de 1376x768 a 1672x941, que es
+// la misma escena redibujada más grande. Todos los números de aquí son píxeles
+// de la imagen, así que TODOS cambian aunque no se haya movido nada — son los
+// mismos multiplicados por 1,215. Comprobado uno a uno contra los viejos: los
+// cinco anchos coinciden con el escalado dentro de cinco píxeles.
 //
-// Y esta vez el texto SÍ está centrado en el marco: las palabras caen en 689 y
-// el hueco entre rieles tiene su centro en 688. En la ilustración anterior no
-// era así —las palabras iban siete píxeles a la izquierda del centro del marco—
-// y por eso este número se sigue tomando del texto y no del marco.
-const OPCION_X = 689;
+// Esa es la trampa de esta pantalla: repintar la lápida al mismo tamaño no
+// obliga a tocar nada, y reexportarla más grande lo invalida todo sin que
+// aparezca ningún error. Se vuelve a sacar con `herramientas\medir-lapida.ps1`,
+// acotando la ventana al hueco de la placa.
+//
+// El texto está centrado en el marco: las cinco palabras caen en 851 —las cinco,
+// con un píxel de diferencia entre ellas— y el hueco entre rieles tiene su
+// centro en 850. Aun así el número se toma del TEXTO y no del marco, porque en
+// una ilustración anterior no coincidían: las palabras iban siete píxeles a la
+// izquierda del centro del marco.
+const OPCION_X = 851;
 
 // Un solo ancho para las cinco, y lo manda la más larga: CONFIGURACIÓN mide
-// 248. Con 276 quedan catorce píxeles de aire a cada lado de esa palabra, y el
-// recuadro entra holgado en el hueco del marco (530..847).
+// 305. Con 340 quedan diecisiete píxeles de aire a cada lado de esa palabra, y
+// el recuadro entra holgado en el hueco del marco (663..1037).
 //
-// La opción nueva no lo mueve: JUGAR EN RED mide 219 y cabe de sobra.
-//
-// Que a SALIR —91 de ancho— le sobre sitio es deliberado: un recuadro que
+// Que a SALIR —115 de ancho— le sobre sitio es deliberado: un recuadro que
 // cambia de tamaño según la palabra no se lee como un cursor que se mueve, sino
 // como cinco recuadros distintos.
-const OPCION_ANCHO = 276;
+const OPCION_ANCHO = 340;
 
-// Alto: 21 de texto más 10 de aire. Con 35 de separación entre renglones, deja
+// Alto: 27 de texto más 12 de aire. Con 43 de separación entre renglones, deja
 // cuatro píxeles de hueco entre un recuadro y el siguiente.
 const OPCIONES_TITULO = [
-  { y: 562, alto: 31 },     // JUGAR
-  { y: 597, alto: 31 },     // JUGAR EN RED
-  { y: 632, alto: 31 },     // TIENDA
-  { y: 667, alto: 31 },     // CONFIGURACIÓN
-  { y: 702, alto: 31 }      // SALIR
+  { y: 690, alto: 39 },     // JUGAR
+  { y: 732, alto: 39 },     // JUGAR EN RED
+  { y: 776, alto: 39 },     // TIENDA
+  { y: 818, alto: 39 },     // CONFIGURACIÓN
+  { y: 862, alto: 39 }      // SALIR
 ];
 
 const Imagenes = { titulo: null, seleccion: null };

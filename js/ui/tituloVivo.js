@@ -35,10 +35,13 @@ import { crearRng } from '../core/rng.js';
 //
 // CÓMO SE ENCAJA, que depende de lo que mida la ilustración.
 //
-// La de ahora es 1376x768 —proporción 1,792 contra el 1,778 de la pantalla— así
-// que LLENA de sobra: cubriendo el alto exacto sobran quince píxeles de ancho,
-// siete y medio recortados a cada lado, y ahí no hay más que escenario. Eso es
-// lo que hace `cubrir`, y es lo ideal: sin deformar y sin bandas.
+// La de ahora es 1672x941 —proporción 1,7768 contra el 1,7778 de la pantalla—
+// así que LLENA de sobra: es 16:9 con una milésima de diferencia, y `cubrir` se
+// come menos de un píxel por arriba y por abajo. Sin deformar y sin bandas.
+//
+// La anterior era 1376x768 (1,792) y sobraba por el otro lado: quince píxeles de
+// ancho, siete y medio a cada lado. Da igual cuál de los dos: `cubrir` resuelve
+// los dos casos y en ninguno se pierde nada que importe.
 //
 // Pero eso no siempre fue verdad. Una ilustración anterior era 3:2, y cubrir
 // con ella se comía 130 filas: las cuatro opciones van pintadas abajo, y el
@@ -60,14 +63,21 @@ const K = ANCHO_FISICO / ANCHO_UI;
 const TOLERANCIA_ENCAJE = 0.05;
 
 // CENTRO DE LA LLAMA DE CADA ANTORCHA, en píxeles de la ilustración original
-// (1376x768), como el resto de medidas de pantallas.js.
+// (1672x941), como el resto de medidas de pantallas.js.
 //
 // No van a ojo: salen de barrer la imagen buscando naranja muy claro (r>215,
 // b<110) por debajo del logo y agrupar por celdas de 50 píxeles. Los dos grupos
-// salieron limpios.
+// salieron limpios, cada uno repartido entre dos celdas contiguas a lo alto —una
+// llama mide más de cincuenta píxeles—, así que se promedian por su peso.
+//
+// SE VUELVEN A MEDIR CADA VEZ QUE CAMBIE LA LÁMINA, igual que las opciones del
+// menú: son píxeles de la imagen. Con la de 1376x768 caían en (358,550) y
+// (970,554), que escalado por 1,215 da (435,668) y (1179,673) — a un pelo de lo
+// medido aquí, o sea que la escena es la misma redibujada más grande. Si algún
+// día no coincidieran, es que además se ha movido algo.
 const ANTORCHAS = [
-  { x: 358, y: 550 },
-  { x: 970, y: 554 }
+  { x: 442, y: 667 },
+  { x: 1193, y: 675 }
 ];
 
 // Son ANTORCHAS, no los pebeteros de la ilustración anterior: la llama es

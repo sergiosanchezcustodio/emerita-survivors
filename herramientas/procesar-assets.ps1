@@ -3939,12 +3939,18 @@ $informeSuelo | Format-Table -AutoSize
 # La copia existe igualmente para que se mantenga la regla del proyecto: el
 # juego lee de assets/ y de ningun otro sitio, y resources/ es solo la fuente.
 #
-# La del TITULO es ahora `Main_menu.jpg`, que trae las cuatro opciones ya
-# pintadas en su placa -START, TIENDA, CONFIGURACION y SALIR- y las dos
-# antorchas encendidas. Se copia como .jpg y no se convierte: un fondo de
-# pantalla completa no necesita canal alfa.
+# La del TITULO es ahora `Main_menu.jpg`, que trae las cinco opciones ya
+# pintadas en su placa -JUGAR, JUGAR EN RED, TIENDA, CONFIGURACION y SALIR- y
+# las dos antorchas encendidas. Se copia como .jpg y no se convierte: un fondo
+# de pantalla completa no necesita canal alfa.
 #
-# Sustituye a `Nueva_Pantalla_Start.jpg`, que sustituyo a `Pantalla_Start.png`.
+# OJO AL REPINTARLA: si cambia de TAMANO, todo lo medido sobre ella deja de
+# valer -las cinco opciones del menu y las antorchas en js/ui/, y el recorte del
+# icono en empaquetar.ps1- y no salta ningun error, simplemente el recuadro de
+# luz cae donde no hay palabra. Paso al pasar de 1376x768 a 1672x941. Se vuelve
+# a medir con herramientas\medir-lapida.ps1.
+#
+# Sustituyo a `Nueva_Pantalla_Start.jpg`, que sustituyo a `Pantalla_Start.png`.
 # Las dos siguen en resources/ y ninguna se copia ya a assets/: el juego lee la
 # que diga esta tabla y solo esa.
 #
@@ -3961,7 +3967,7 @@ $informeSuelo | Format-Table -AutoSize
 #
 # EL SPLASH y LA PLACA DE LA HISTORIA siguen el mismo criterio: opacas, sin
 # recorte que perder, y convertidas a JPEG calidad 90 al copiarlas. La placa se
-# deja a su tamano original (1248x832) porque la intro la AMPLIA a lo alto del
+# deja a su tamano original (1536x1024) porque la intro la AMPLIA a lo alto del
 # lienzo, igual que el titulo.
 #
 # `ancho` y `recorte` son opcionales -reduccion y quitado de fondo- y ahora
