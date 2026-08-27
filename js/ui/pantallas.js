@@ -74,31 +74,34 @@ const ARCO_ANCHO = 292;
 const ARCO_Y = 264;
 const ARCO_ALTO = 482;
 
-// LAS CUATRO OPCIONES DEL MENÚ, medidas sobre la ilustración (Main_menu.jpg,
-// 1376x768). Vienen pintadas en su marco —START, TIENDA, CONFIGURACIÓN y
-// SALIR—, así que aquí NO se vuelven a escribir: lo único que falta es decir
-// cuál está señalada, y eso se hace ILUMINANDO SU RECUADRO. Es el criterio de
-// toda esta pantalla: no competir con el arte.
+// LAS CINCO OPCIONES DEL MENÚ, medidas sobre la ilustración (Main_menu.jpg,
+// 1376x768). Vienen pintadas en su marco —JUGAR, JUGAR EN RED, TIENDA,
+// CONFIGURACIÓN y SALIR—, así que aquí NO se vuelven a escribir: lo único que
+// falta es decir cuál está señalada, y eso se hace ILUMINANDO SU RECUADRO. Es
+// el criterio de toda esta pantalla: no competir con el arte.
 //
-// LAS MEDIDAS NO VAN A OJO. Salen de barrer la imagen contando píxeles claros
-// por filas, con dos precauciones que costó descubrir:
+// LAS MEDIDAS NO VAN A OJO NI SE SACAN A MANO: las da
+// `herramientas\medir-lapida.ps1` en una tabla de texto, y ahí están escritas
+// las tres precauciones que costó descubrir —los rieles del marco, el ruido del
+// JPEG y el degradado de la piedra—. Cada vez que Sergio repinte la lápida, se
+// vuelve a pasar y se copian los números de abajo.
 //
-//   - HAY QUE MEDIR DENTRO DE LOS RIELES DEL MARCO. Los rieles son más claros
-//     que el fondo, así que una ventana de medida que los pise los cuenta como
-//     texto y todos los renglones salen del mismo ancho: el del marco.
-//   - Y HAY QUE MEDIRLOS EN UN HUECO SIN TEXTO. Buscarlos a la altura de un
-//     renglón devuelve la palabra, no el riel.
-//
-// Con eso, los rieles caen en x=521 y x=856, y el interior va de 530 a 847.
+// Los rieles del marco caen en x=521 y x=856, y el interior va de 530 a 847.
 //
 // Lo medido, en píxeles de la imagen:
 //
-//     START            y 586..607   x 635..743   (109 de ancho)
-//     TIENDA           y 622..642   x 630..749   (120)
-//     CONFIGURACIÓN    y 657..677   x 564..812   (249)
-//     SALIR            y 692..712   x 643..735   ( 93)
+//     JUGAR            y 552..572   x 642..736   ( 95 de ancho)
+//     JUGAR EN RED     y 587..607   x 581..799   (219)
+//     TIENDA           y 622..642   x 629..747   (119)
+//     CONFIGURACIÓN    y 657..677   x 564..811   (248)
+//     SALIR            y 692..712   x 643..733   ( 91)
 //
-// Las cuatro miden lo mismo de alto y van separadas 35-36.
+// Las cinco miden lo mismo de alto y van separadas 35 exactos.
+//
+// EL BLOQUE CRECIÓ HACIA ARRIBA. La lámina de cinco opciones no recolocó nada:
+// TIENDA, CONFIGURACIÓN y SALIR están donde estaban al píxel, JUGAR EN RED
+// ocupa el renglón donde antes ponía START, y JUGAR subió uno. Por eso los tres
+// últimos números de esta tabla no han cambiado y los dos primeros sí.
 //
 // Y esta vez el texto SÍ está centrado en el marco: las palabras caen en 689 y
 // el hueco entre rieles tiene su centro en 688. En la ilustración anterior no
@@ -106,19 +109,22 @@ const ARCO_ALTO = 482;
 // y por eso este número se sigue tomando del texto y no del marco.
 const OPCION_X = 689;
 
-// Un solo ancho para las cuatro, y lo manda la más larga: CONFIGURACIÓN mide
-// 249. Con 276 quedan trece píxeles de aire a cada lado de esa palabra, y el
+// Un solo ancho para las cinco, y lo manda la más larga: CONFIGURACIÓN mide
+// 248. Con 276 quedan catorce píxeles de aire a cada lado de esa palabra, y el
 // recuadro entra holgado en el hueco del marco (530..847).
 //
-// Que a SALIR —93 de ancho— le sobre sitio es deliberado: un recuadro que
+// La opción nueva no lo mueve: JUGAR EN RED mide 219 y cabe de sobra.
+//
+// Que a SALIR —91 de ancho— le sobre sitio es deliberado: un recuadro que
 // cambia de tamaño según la palabra no se lee como un cursor que se mueve, sino
-// como cuatro recuadros distintos.
+// como cinco recuadros distintos.
 const OPCION_ANCHO = 276;
 
 // Alto: 21 de texto más 10 de aire. Con 35 de separación entre renglones, deja
 // cuatro píxeles de hueco entre un recuadro y el siguiente.
 const OPCIONES_TITULO = [
-  { y: 596, alto: 31 },     // START
+  { y: 562, alto: 31 },     // JUGAR
+  { y: 597, alto: 31 },     // JUGAR EN RED
   { y: 632, alto: 31 },     // TIENDA
   { y: 667, alto: 31 },     // CONFIGURACIÓN
   { y: 702, alto: 31 }      // SALIR

@@ -77,15 +77,30 @@ async function principal() {
 
     // --- IDA Y VUELTA por cada rama ------------------------------------------
     await pulsar('Enter', 600);
-    comprobar(await donde() === 'seleccion', 'START lleva a elegir personajes');
+    comprobar(await donde() === 'seleccion', 'JUGAR lleva a elegir personajes');
     await pulsar('Escape', 600);
     comprobar(await donde() === 'titulo', 'y ESC vuelve al título');
 
+    // LA SEGUNDA OPCIÓN DE LA LÁPIDA. Se comprueba la ida y la vuelta como
+    // todas, pero esta importa por una razón de más: hasta que se repintó la
+    // ilustración, al cooperativo solo se entraba por un atajo sin escribir en
+    // ninguna parte.
+    await pulsar('ArrowDown', 400);
+    await pulsar('Enter', 700);
+    comprobar(await donde() === 'red', 'JUGAR EN RED lleva al cooperativo online');
+    await pulsar('Escape', 600);
+    comprobar(await donde() === 'titulo',
+              'y ESC vuelve AL TÍTULO, que es de donde se entró');
+
+    // El cursor se quedó en JUGAR EN RED: se sube antes de seguir, o el Enter
+    // de abajo volvería al cooperativo en vez de ir a personajes.
+    await pulsar('ArrowUp', 400);
     await pulsar('Enter', 600);
     await pulsar('KeyO', 700);
-    comprobar(await donde() === 'red', 'O lleva al cooperativo online');
+    comprobar(await donde() === 'red', 'el atajo O sigue llevando al cooperativo');
     await pulsar('Escape', 600);
-    comprobar(await donde() === 'seleccion', 'y ESC vuelve a personajes');
+    comprobar(await donde() === 'seleccion',
+              'y desde ahí ESC vuelve a personajes, no al título');
 
     await pulsar('Enter', 700);
     comprobar(await donde() === 'mascotas', 'confirmar personaje lleva a mascotas');

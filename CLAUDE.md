@@ -20,6 +20,7 @@
 - `python -m http.server 8000` — servidor local a mano; abrir http://localhost:8000
 - `.\herramientas\procesar-assets.ps1` — convierte `resources/` en sprites
 - `.\herramientas\ver-assets.ps1 <ruta>` — describe imágenes sin abrirlas
+- `.\herramientas\medir-lapida.ps1` — dónde caen los renglones del menú del título
 - `.\herramientas\instalar-lanzador.ps1` — deja el comando `emerita` en su sitio
 
 ## Coste de contexto (no negociable)

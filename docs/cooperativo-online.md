@@ -367,6 +367,45 @@ está parado el búfer de pulsaciones no fluye.
 Medido: cuatro pestañas en la misma máquina a 56 pasos por segundo, sin
 divergencia y a cuatro pasos como mucho unas de otras.
 
+## La entrada desde el menú del título (hecha)
+
+Durante un tiempo al cooperativo solo se entraba con la tecla `O` desde la
+pantalla de personajes, y no por gusto: **las opciones de la lápida vienen
+pintadas en la ilustración**, así que añadir una al título era repintar el arte,
+no tocar código. La pantalla de personajes se dibuja por código y admitía una
+más sin repintar nada.
+
+Sergio repintó la lámina el 27 de agosto de 2026: **JUGAR EN RED**, segundo
+renglón, y de paso START pasó a JUGAR. El bloque creció hacia arriba —TIENDA,
+CONFIGURACIÓN y SALIR siguen donde estaban al píxel— así que de la tabla de
+`OPCIONES_TITULO` solo cambiaron los dos primeros números.
+
+Las medidas no se sacan a ojo ni a mano:
+
+    .\herramientas\medir-lapida.ps1
+
+Barre la imagen y devuelve dónde cae cada renglón, listo para copiar. Existe
+porque esto va a volver a pasar cada vez que se repinte la lápida, y porque
+abrir el PNG para medirlo cuesta unos 4.700 tokens de contexto que ya no se van.
+
+Tres cosas que costaron un rato y están escritas en su cabecera, para no
+volver a pagarlas: los rieles del marco no se encuentran por brillo (el texto
+brilla más que la piedra, y en esta lámina el riel derecho ni destaca); el ancho
+de una palabra no se mide con el píxel más extremo (un punto de ruido del JPEG
+la estiraba cien píxeles); y **PowerShell no distingue mayúsculas**, así que
+`$y0` y el parámetro `$Y0` eran la misma variable — el origen de la franja se
+machacaba con el primer renglón y las medidas salían sumadas unas a otras, con
+un bloque acabando en y=1122 sobre una imagen de 768. Parecía un fallo de
+detección y era un nombre.
+
+**El atajo `O` se queda**, y ESC vuelve por donde se entró: al título si se
+entró por la lápida, a personajes si se entró por el atajo. Sin eso, arrepentirse
+en el título te dejaba en una pantalla en la que no habías estado.
+
+Lo que sigue sin estar: **entrando por el título nadie elige personaje**. Los
+reparte el anfitrión (`consola.js`, `i % 4`). Ya era así, pero desde la pantalla
+de personajes quedaba disimulado.
+
 ## Lo que queda
 
 1. **Probarlo entre dos casas de verdad.** `camino()` tiene que decir `publica`;
@@ -374,14 +413,10 @@ divergencia y a cuatro pasos como mucho unas de otras.
    pérdidas reales, y también si la operadora móvil lo permite: muchas usan NAT
    simétrico y ahí el STUN no basta.
 
-2. **La entrada desde el menú del título.** Hoy se entra con la tecla `O` desde
-   la pantalla de personajes. La lápida trae sus cuatro opciones PINTADAS en la
-   ilustración: hace falta repintarla con una quinta y decir a qué altura queda.
-
-3. **Reconexión.** Hoy una caída ofrece seguir en solitario o volver al menú;
+2. **Reconexión.** Hoy una caída ofrece seguir en solitario o volver al menú;
    volver a engancharse y ponerse al día no está hecho.
 
-4. **El retardo de entrada, automático.** Está en 4 fotogramas, elegido sobre
+3. **El retardo de entrada, automático.** Está en 4 fotogramas, elegido sobre
    una latencia de 1,4 ms que no es una latencia. `EMERITA.red.latencia()` ya
    calcula la recomendación: falta aplicarla al conectar en vez de imprimirla.
 

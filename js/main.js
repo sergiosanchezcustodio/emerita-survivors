@@ -224,7 +224,13 @@ let cursorTienda = 0;
 
 // --- Menú principal ---------------------------------------------------------
 // Sustituye al "pulsa cualquier tecla" del título.
-// Las cuatro opciones de la lápida más el botón de la esquina.
+// Las cinco opciones de la lápida más el botón de la esquina.
+//
+// EL ORDEN NO ES LIBRE: es el de las palabras pintadas en la piedra. La lista y
+// la ilustración tienen que decir lo mismo y en la misma fila, porque lo único
+// que pone el código encima es un recuadro de luz sobre la opción señalada (ver
+// OPCIONES_TITULO en ui/pantallas.js). Mover una aquí sin repintar la lámina
+// enciende el recuadro sobre otra palabra.
 //
 // `esquina` saca a "empezar de cero" del bloque del menú y lo manda abajo a la
 // derecha, separado de todo lo demás. Sigue en la misma lista y en el mismo
@@ -233,6 +239,7 @@ let cursorTienda = 0;
 // lo que se pulsa a diario.
 const MENU = [
   { id: 'jugar',  texto: 'JUGAR' },
+  { id: 'red',    texto: 'JUGAR EN RED' },
   { id: 'tienda', texto: 'TIENDA' },
   { id: 'config', texto: 'CONFIGURACIÓN' },
   { id: 'salir',  texto: 'SALIR' },
@@ -776,6 +783,9 @@ function entradaTitulo() {
       puestos[0] = { personaje: primeroDesbloqueado(), listo: false };
       irA(PANTALLA_SELECCION);
       break;
+    case 'red':
+      irARed(PANTALLA_TITULO);
+      break;
     case 'tienda':
       pestanyaTienda = PESTANYA_POTENCIADORES;
       cursorTienda = 0;
@@ -1143,11 +1153,16 @@ function entradaSeleccion() {
     }
   }
 
-  // AL COOPERATIVO ONLINE. Aquí y no en el título porque las cuatro opciones de
-  // la lápida vienen pintadas en la ilustración; esta pantalla se dibuja por
-  // código y admite una más sin repintar nada. Y encaja: es donde ya se decide
-  // quién juega.
-  if (entrada.consumirFlanco('KeyO')) { irARed(); return; }
+  // AL COOPERATIVO ONLINE, por atajo.
+  //
+  // Durante un tiempo esta fue la ÚNICA puerta, y no por gusto: las opciones de
+  // la lápida vienen pintadas en la ilustración, así que añadir una al título
+  // era repintar el arte. Ya está repintada —JUGAR EN RED, segundo renglón— y
+  // esa es ahora la puerta que se ve.
+  //
+  // El atajo se queda: no estorba, está probado, y aquí encaja porque es donde
+  // se decide quién juega.
+  if (entrada.consumirFlanco('KeyO')) { irARed(PANTALLA_SELECCION); return; }
 
   // --- Salida ---------------------------------------------------------------
   const presentes = puestos.filter(Boolean);
@@ -1252,7 +1267,20 @@ let cursorCaida = 0;
 // pararse.
 let puestoLocalRed = 0;
 
-function irARed() {
+// A DÓNDE VUELVE ESC DESDE EL COOPERATIVO, que ya no es siempre el mismo sitio.
+//
+// Se entra por dos puertas —la opción JUGAR EN RED de la lápida y el atajo `O`
+// de la pantalla de personajes— y salir siempre a personajes convertía el ESC
+// del título en un viaje: ibas al cooperativo, te arrepentías y aparecías en
+// una pantalla en la que no habías estado. Se apunta la puerta al entrar.
+//
+// `irARed` se llama también desde dentro de la propia pantalla, para volver a
+// su menú tras cerrar una conexión; en esas llamadas no se pasa nada y la
+// puerta apuntada se conserva.
+let volverDeRed = PANTALLA_SELECCION;
+
+function irARed(desde) {
+  if (desde !== undefined) volverDeRed = desde;
   red.fase = 'menu';
   red.cursor = 0;
   red.codigo = '';
@@ -1344,7 +1372,7 @@ function entradaRed() {
     }
     const acepta = entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space') ||
                    (c && c.consumirBoton(0));
-    if (atras || (acepta && red.cursor === 2)) { irA(PANTALLA_SELECCION); return; }
+    if (atras || (acepta && red.cursor === 2)) { irA(volverDeRed); return; }
     if (acepta && red.cursor === 0) crearPartidaEnRed();
     if (acepta && red.cursor === 1) { red.fase = 'pegar'; red.esAnfitrion = false; }
     return;
@@ -2742,7 +2770,7 @@ async function arrancar() {
 
   // Los jugadores NO se crean aquí: los crea empezarPartida() con lo que se
   // haya elegido en la pantalla de selección. Todo lo de arriba —pools,
-  // director, recursos— sí se monta ya, para que al pulsar START no haya que
+  // director, recursos— sí se monta ya, para que al pulsar JUGAR no haya que
   // esperar a nada.
   // La intro carga junto a las pantallas, no antes ni después: las dos leen
   // imágenes sueltas y ninguna depende de la otra.

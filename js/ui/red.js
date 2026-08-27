@@ -49,7 +49,7 @@ function fondo(ctxMundo) {
   // MÁS OSCURO QUE LA PANTALLA DE PARTIDAS, y por una razón concreta: allí las
   // tres filas tapan el centro, y aquí hay poco texto sobre mucha ilustración.
   // Con el velo de allí se leían por debajo las opciones del menú del título
-  // —START, TIENDA, CONFIGURACIÓN— y eso en una pantalla que no es esa no es
+  // —JUGAR, TIENDA, CONFIGURACIÓN— y eso en una pantalla que no es esa no es
   // ambiente, es ruido: parece que se puedan pulsar.
   ctxMundo.fillStyle = 'rgba(6,6,12,.985)';
   ctxMundo.fillRect(0, 0, ANCHO_FISICO, ALTO_FISICO);
