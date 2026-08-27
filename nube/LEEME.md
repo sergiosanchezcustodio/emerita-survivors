@@ -46,6 +46,37 @@ no habla con nadie.
 Tiene que contestar `{"error":"No hay ninguna copia con ese código."}` con un
 404. Si contesta eso, está en pie.
 
+## Probado el 27 de agosto de 2026, contra el Worker desplegado
+
+No "debería funcionar": esto es lo que dio.
+
+**La API, con curl:**
+
+    subir una partida de 46512 s      -> {"guardado":true}
+    recuperarla                       -> tiempo 46512, partidas 37, con la hora del SERVIDOR
+    intentar machacarla con 900 s     -> {"guardado":false,
+                                          "motivo":"Hay una copia con más juego encima."}
+    qué hay arriba después            -> la buena, intacta
+    lo mismo con ?forzar=1            -> {"guardado":true}
+    un código con mala forma          -> 400
+    una ruta que liste                -> 404
+
+**Y el juego, desde dos navegadores**, que es la prueba que de verdad vale porque
+incluye el CORS, el agrupado de subidas y el formato entero:
+
+- Uno pone un código y juega: 7.777 denarios, 12 partidas, 15.000 s, potenciador
+  de vida 4, Oreo de nivel 2. Guarda, y al rato dice `subido`.
+- Otro navegador con su propio `localStorage` —o sea otra máquina— pone el mismo
+  código y baja: **7777 denarios, 12 partidas, 15000 s, vida 4, Oreo 2**.
+
+Idéntico, y sin un solo error en consola. Las filas de prueba se borraron
+después: la tabla quedó en cero.
+
+**El bloqueo de la operadora resultó ser intermitente, como se sospechaba.** La
+URL estuvo sin abrir un buen rato y volvió sola, sin tocar nada. Mientras dura un
+corte, quien esté en esa red no sincroniza y el juego se lo traga en silencio,
+que es justo para lo que está hecho así.
+
 ## Si la URL no carga: puede no ser tuya la culpa
 
 Pasó el mismo día del despliegue, y conviene tenerlo escrito porque el síntoma
