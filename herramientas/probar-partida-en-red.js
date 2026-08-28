@@ -193,8 +193,51 @@ async function probarCorte(A, B) {
   }
 }
 
+// CORTAR SOLO UN ENLACE, no todos los del anfitrión.
+//
+// `EMERITA.red.cortar()` -- lo que usa el modo de dos jugadores, más abajo --
+// barre TODOS los enlaces de quien lo llama, que es justo lo que NO se quiere
+// aquí: la prueba de tres o cuatro necesita que se caiga UNO solo mientras los
+// demás siguen sanos. `enlacesConectados()` (red/consola.js) ya devuelve la
+// lista en el mismo orden en que se invitó, así que el índice `i` es "el
+// invitado i-ésimo, sin contar al anfitrión".
+//
+// El cuerpo es el mismo que `cortar()`: cerrar y avisar A MANO, para que la
+// caída se declare en el acto y no cuando a WebRTC le parezca -- Chrome puede
+// tardar unos cientos de milisegundos en anunciar un `closed` de verdad, y la
+// prueba necesita saber EXACTAMENTE cuándo se ha cortado para medir lo de
+// después.
+async function cortarEnlace(p, indice) {
+  await p.pagina.evaluate((i) => {
+    const enlace = window.EMERITA.red.enlacesConectados()[i];
+    if (!enlace) throw new Error('No hay enlace conectado en el índice ' + i);
+    const avisar = enlace.alCerrar;
+    enlace.cerrar();
+    if (avisar) avisar();
+  }, indice);
+}
+
+// Y la misma idea desde el lado de un invitado, que solo tiene un enlace: el
+// suyo con el anfitrión.
+async function cortarPropioEnlace(p) {
+  await p.pagina.evaluate(() => {
+    const enlace = window.EMERITA.red.sesion;
+    if (!enlace) return;
+    const avisar = enlace.alCerrar;
+    enlace.cerrar();
+    if (avisar) avisar();
+  });
+}
+
 // La caída de verdad y la vuelta, con el juego ya en marcha.
-async function probarReenganche(A, B) {
+//
+// `otras` son los invitados por encima del segundo -- vacío con dos
+// jugadores, y entonces esta función hace exactamente lo de siempre. Con
+// `otras` no vacío, se cae SOLO el enlace con el PRIMERO de `otras` -- ver
+// `probarReengancheVarios` más abajo, que es donde vive esa otra mitad.
+async function probarReenganche(A, B, otras = []) {
+  if (otras.length > 0) { await probarReengancheVarios(A, B, otras); return; }
+
   const estado = (p) => p.pagina.evaluate(() => {
     const m = window.EMERITA.mando();
     return {
@@ -277,6 +320,116 @@ async function probarReenganche(A, B) {
   comprobar(!rotoA, rotoA ? `SE HA ROTO: ${rotoA}` : 'sin desincronización tras volver');
 
   for (const p of [A, B]) {
+    const otros = p.errores.filter((t) => !/AudioContext/.test(t) && !/favicon/.test(t) &&
+                                          !/cortado/.test(t) && !/cortar/.test(t) &&
+                                          !/Se ha cortado/.test(t));
+    comprobar(otros.length === 0,
+              otros.length === 0 ? `sin errores (${p.nombre})`
+                                 : `errores en ${p.nombre}: ${otros.slice(0, 2).join(' | ')}`);
+  }
+}
+
+// LA CAÍDA DE UN ENLACE ENTRE VARIOS, y que reconectarlo no toque a los demás.
+//
+// Es la mitad que nunca se había jugado de verdad: el código de
+// `Sincro.reanudar`/`RedConsola.enlacesConectados` estaba revisado a mano y
+// probado con Node montando la estrella con conexiones de mentira, pero
+// ningún navegador real había pasado por él. Aquí se cae el enlace del
+// anfitrión con UN SOLO invitado -- `otras[0]`, el tercer jugador -- mientras
+// el segundo (B) y el cuarto (`otras[1]`, si lo hay) siguen conectados y
+// esperando, tal cual pasaría con un cable que se sale de un router de tres.
+async function probarReengancheVarios(A, B, otras) {
+  const cortado = otras[0];
+  const sanos = [B, ...otras.slice(1)];
+  const todas = [A, B, ...otras];
+
+  const estado = (p) => p.pagina.evaluate(() => {
+    const m = window.EMERITA.mando();
+    return {
+      paso: window.EMERITA.lockstep.paso,
+      red: m.redActiva, caida: m.caida, puede: m.puedeReenganchar,
+      jugadores: m.jugadores
+    };
+  });
+
+  await A.pagina.waitForTimeout(2500);
+  const antes = await estado(A);
+  comprobar(antes.red === 1 && antes.jugadores === todas.length,
+            `en marcha con ${antes.jugadores} jugadores (paso ${antes.paso})`);
+
+  // SE CAE SOLO EL ENLACE CON EL TERCER JUGADOR. El índice 1 de
+  // `enlacesConectados()` en el anfitrión es ese invitado: el 0 es B, que
+  // tiene que quedar intacto -- es justo lo que esta prueba existe para
+  // comprobar.
+  await cortarEnlace(A, 1);
+  await cortarPropioEnlace(cortado);
+  await A.pagina.waitForTimeout(1500);
+
+  const cortadoA = await estado(A), cortadoC = await estado(cortado);
+  comprobar(cortadoA.caida === 1 && cortadoC.caida === 1,
+            'el anfitrión y el jugador cortado sacan el cartel de la caída');
+  comprobar(cortadoA.puede === 1 && cortadoC.puede === 1,
+            'y los dos ofrecen reconectar');
+
+  // LOS QUE NO SE HAN CAÍDO NO SACAN NINGÚN CARTEL. Su Sincro no se ha roto
+  // -- su enlace con el anfitrión sigue perfectamente sano --, así que lo
+  // único que ven es el mundo quieto, esperando a quien falta. Sacarles el
+  // cartel de la caída sería mentir: ellos no han perdido nada.
+  const sanosVistos = [];
+  for (const p of sanos) sanosVistos.push(await estado(p));
+  comprobar(sanosVistos.every((e) => e.caida === 0),
+            'los que siguen conectados NO sacan cartel: su enlace no se ha caído');
+
+  await A.pagina.waitForTimeout(1200);
+  const quieto = await estado(A);
+  comprobar(quieto.paso === cortadoA.paso,
+            `el mundo entero se queda quieto -- incluidos los sanos -- ` +
+            `mientras se decide (paso ${quieto.paso})`);
+
+  // RECONECTAR, por la consola -- el mismo baile de códigos de siempre, con
+  // el jugador que se cayó y NADIE MÁS. Los otros dos enlaces del anfitrión
+  // ni se tocan.
+  const invitacion = await A.pagina.evaluate(() => window.EMERITA.red.invitar());
+  comprobar(!!invitacion, `código nuevo para el jugador 3 (${(invitacion || '').length} caracteres)`);
+  const respuesta = await cortado.pagina.evaluate((c) => window.EMERITA.red.responder(c),
+                                                  invitacion);
+  comprobar(!!respuesta, 'y contesta');
+  await A.pagina.evaluate((c) => window.EMERITA.red.aceptar(c), respuesta);
+  await A.pagina.waitForTimeout(2500);
+
+  const vueltaA = await estado(A), vueltaC = await estado(cortado);
+  comprobar(vueltaA.red === 1 && vueltaC.red === 1, 'el anfitrión y el reconectado vuelven a jugar');
+  comprobar(vueltaA.caida === 0 && vueltaC.caida === 0, 'y el cartel se va en los dos');
+  comprobar(vueltaA.paso > quieto.paso,
+            `y la partida SIGUE DONDE ESTABA (${quieto.paso} -> ${vueltaA.paso})`);
+  comprobar(vueltaA.jugadores === todas.length && vueltaC.jugadores === todas.length,
+            `con los ${todas.length} jugadores todavía en pie`);
+
+  // Y LOS QUE NUNCA SE CAYERON TAMBIÉN SIGUEN, sin que nadie los tocara: en
+  // cuanto el anfitrión vuelve a reenviar, se ponen al día solos.
+  const sanosVuelta = [];
+  for (const p of sanos) sanosVuelta.push(await estado(p));
+  comprobar(sanosVuelta.every((e) => e.red === 1 && e.paso > quieto.paso),
+            'los que nunca se cayeron también siguen, sin haber tenido que hacer nada');
+
+  await A.pagina.waitForTimeout(2500);
+  const luego = [];
+  for (const p of todas) luego.push(await estado(p));
+  comprobar(luego.every((e) => e.paso > vueltaA.paso), `y se sigue jugando (paso ${luego[0].paso})`);
+  const pasos = luego.map((e) => e.paso);
+  const separacion = Math.max(...pasos) - Math.min(...pasos);
+  comprobar(separacion < 30, `las ${todas.length} van a la par (${separacion} pasos de diferencia)`);
+
+  const rotos = [];
+  for (const p of todas) {
+    const r = await p.pagina.evaluate(() => window.EMERITA.mando().redRota);
+    if (r) rotos.push(`${p.nombre}: ${r}`);
+  }
+  comprobar(rotos.length === 0,
+            rotos.length === 0 ? 'sin desincronización en ninguna de las cuatro'
+                               : 'SE HA ROTO -> ' + rotos.join(' | '));
+
+  for (const p of todas) {
     const otros = p.errores.filter((t) => !/AudioContext/.test(t) && !/favicon/.test(t) &&
                                           !/cortado/.test(t) && !/cortar/.test(t) &&
                                           !/Se ha cortado/.test(t));
@@ -433,7 +586,7 @@ async function principal() {
     }
 
     if (CORTE) { await probarCorte(A, B); return; }
-    if (REENGANCHE) { await probarReenganche(A, B); return; }
+    if (REENGANCHE) { await probarReenganche(A, B, otras); return; }
 
     // Moverse de verdad, en las dos, en direcciones distintas. Quedarse quieto
     // probaría mucho menos: sin movimiento no hay rumbo de cámara, y sin rumbo

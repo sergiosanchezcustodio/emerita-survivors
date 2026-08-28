@@ -331,13 +331,12 @@ export const OPCIONES_CAIDA = ['SEGUIR EN SOLITARIO', 'VOLVER AL MENÚ'];
 // pulse lo que no era.
 export const OPCIONES_CAIDA_RE = ['RECONECTAR', 'SEGUIR EN SOLITARIO', 'VOLVER AL MENÚ'];
 
-// SOLO CON DOS JUGADORES, y conviene decir por qué en vez de esconderlo.
-//
-// En estrella, un invitado que se cae solo ha perdido SU enlace con el
-// anfitrión; los demás siguen enganchados y esperando. Volver a meterlo pide
-// sustituir un enlace de los tres sin tocar los otros dos, y hoy la ruptura de
-// uno para la sincronización entera. Con dos jugadores no hay esa distinción: el
-// enlace que se cayó es el único que hay.
+// TAMBIÉN CON TRES O CUATRO. En estrella, un invitado que se cae solo ha
+// perdido SU enlace con el anfitrión; los demás siguen enganchados y
+// esperando. `sePuedeReenganchar` en main.js decide esto mirando si la caída
+// fue de red y no una desincronización; `Sincro.reanudar` en red/sincro.js es
+// quien sustituye solo el enlace que se cayó sin tocar los otros — ver
+// "Con tres o cuatro" en docs/cooperativo-online.md.
 export function opcionesCaida(sePuedeReenganchar) {
   return sePuedeReenganchar ? OPCIONES_CAIDA_RE : OPCIONES_CAIDA;
 }

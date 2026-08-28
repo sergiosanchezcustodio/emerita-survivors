@@ -328,6 +328,16 @@ export const RedConsola = {
     return n;
   },
 
+  // CON QUIÉN SE HABLA AHORA MISMO, de verdad. Lo pide el reenganche con tres o
+  // cuatro jugadores: `Sincro.reanudar` tiene que volver a enganchar TODOS los
+  // enlaces que sigan en pie —los que nunca se cayeron, más el nuevo que
+  // sustituye al que sí— y no solo el que se acaba de negociar, o los que
+  // nunca se cayeron se quedarían mudos (ver `parar()` en red/sincro.js: les
+  // quita la voz a todos, no solo al que se rompió).
+  enlacesConectados() {
+    return enlaces.filter((e) => e.estado === ESTADOS.CONECTADO);
+  },
+
   async invitar() {
     const c = nueva(this.servidores);
     const codigo = await c.invitar();
@@ -702,6 +712,29 @@ export const RedConsola = {
   cerrar() {
     for (let i = 0; i < enlaces.length; i++) enlaces[i].cerrar();
     enlaces.length = 0;
+    sesion = null;
+  },
+
+  // ABORTAR SOLO EL INTENTO EN CURSO, sin tocar lo que ya estaba conectado.
+  //
+  // `cerrar()` es para salir del cooperativo entero y por eso barre TODOS los
+  // enlaces; usarlo para cancelar un reenganche a medias —alguien pulsa ESC
+  // mientras pega el código— se llevaba por delante también a los jugadores que
+  // seguían perfectamente enganchados. Con tres o cuatro, eso convertía "no
+  // quiero reconectar a este" en "he desconectado a todo el mundo".
+  //
+  // Mismo cuerpo que la limpieza de `nueva()` al empezar un intento nuevo sobre
+  // uno a medias: cierra solo `sesion` —el intento que no ha llegado a
+  // cuajar— y lo quita de la lista.
+  cerrarIntento() {
+    if (!sesion) return;
+    sesion.alEstado = null;
+    sesion.alCerrar = null;
+    sesion.alControl = null;
+    sesion.alJuego = null;
+    sesion.cerrar();
+    const i = enlaces.indexOf(sesion);
+    if (i >= 0) enlaces.splice(i, 1);
     sesion = null;
   },
 

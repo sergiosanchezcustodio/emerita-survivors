@@ -1601,13 +1601,22 @@ function entradaRed() {
   }
 
   if (red.fase === 'pegar') {
-    if (atras) { irARed(); return; }
+    if (atras) { if (red.reenganche) volverDelReenganche(); else irARed(); return; }
     if (entrada.consumirFlanco('KeyV')) unirseAPartidaEnRed();
     return;
   }
 
   if (red.fase === 'esperando') {
-    if (atras) { RedConsola.cerrar(); irARed(); return; }
+    // ABORTAR UN REENGANCHE NO ES SALIR DEL COOPERATIVO. `cerrar()` barre
+    // TODOS los enlaces, y con tres o cuatro eso incluye a quien nunca se
+    // había caído. `cerrarIntento()` solo se lleva por delante el código a
+    // medias que se estaba negociando. Y se vuelve al CARTEL, no al menú de
+    // red: la partida sigue congelada detrás y ahí es donde se explica.
+    if (atras) {
+      if (red.reenganche) { RedConsola.cerrarIntento(); volverDelReenganche(); }
+      else { RedConsola.cerrar(); irARed(); }
+      return;
+    }
     // Solo el anfitrión pega una respuesta: quien se ha unido ya no tiene nada
     // que pegar, solo esperar.
     if (red.esAnfitrion && entrada.consumirFlanco('KeyV')) aceptarRespuestaEnRed();
@@ -1615,7 +1624,16 @@ function entradaRed() {
   }
 
   if (red.fase === 'conectado') {
-    if (atras) { RedConsola.salir(); irARed(); return; }
+    // MISMO CUIDADO AQUÍ. `salir()` manda 'adios' y cuelga DE VERDAD
+    // (`Sincro.desconectar()`), que en mitad de un reenganche con más
+    // jugadores tira también a los que seguían conectados. El canal nuevo
+    // simplemente se cierra, sin despedirse de una partida que no se ha
+    // llegado a reanudar.
+    if (atras) {
+      if (red.reenganche) { RedConsola.cerrarIntento(); volverDelReenganche(); }
+      else { RedConsola.salir(); irARed(); }
+      return;
+    }
     red.conectados = RedConsola.conectados;
     // INVITAR A OTRO MÁS. Cada invitado necesita su propio par de códigos
     // —cada conexión trae sus credenciales— así que se repite el baile una vez
@@ -1637,7 +1655,10 @@ function entradaRed() {
     return;
   }
 
-  if (red.fase === 'error' && atras) { RedConsola.cerrar(); irARed(); }
+  if (red.fase === 'error' && atras) {
+    if (red.reenganche) { RedConsola.cerrarIntento(); volverDelReenganche(); }
+    else { RedConsola.cerrar(); irARed(); }
+  }
 }
 
 // LO QUE PARA EL MUNDO SIN SALIR EN NINGUNA FIRMA: la pantalla en la que se
@@ -1763,12 +1784,18 @@ function seguirEnSolitarioTrasCaida() {
 
 // ¿SE PUEDE VOLVER A ESTA PARTIDA?
 //
-// Tres condiciones, y las tres son de fondo y no de pantalla. Tiene que haber
-// una caída de verdad -- no se reengancha uno a una partida que sigue --, tiene
-// que quedar mundo al que volver, y tienen que ser dos jugadores: ver
-// `opcionesCaida` en ui/red.js para por qué lo tercero.
+// Tiene que haber una caída de verdad -- no se reengancha uno a una partida
+// que sigue --, tiene que quedar mundo al que volver, y tiene que haber sido
+// la red y no una desincronización ni un `adios` a propósito.
+//
+// YA NO HACE FALTA SER DOS. La restricción a dos jugadores era de la primera
+// versión: con tres o cuatro, `Sincro.reanudar` sustituía TODOS los enlaces
+// por el único que se acababa de negociar y se llevaba por delante a quien
+// seguía perfectamente conectado. Ahora `reengancharPartida` reanuda con
+// `RedConsola.enlacesConectados()` -- todos los que sigan en pie más el nuevo
+// -- así que un enlace roto entre tres o cuatro ya no exige rehacerlos todos.
 function sePuedeReenganchar() {
-  return !!caidaRed && !finalMostrado && jugadores.length === 2 && Sincro.rotoPorRed;
+  return !!caidaRed && !finalMostrado && jugadores.length >= 2 && Sincro.rotoPorRed;
 }
 
 // EL SALUDO QUE VIAJA POR EL CANAL NUEVO, o null si aquí no hay nada a lo que
@@ -1806,7 +1833,13 @@ function reengancharPartida(enlace, suyo) {
   const porque = Sincro.comprobarReenganche(suyo);
   if (porque) return negar(porque);
 
-  Sincro.reanudar([enlace]);
+  // TODOS LOS QUE SIGAN EN PIE, no solo el que se acaba de negociar. Con dos
+  // jugadores es el mismo enlace de siempre; con tres o cuatro, `enlace` es
+  // solo el que sustituye al que se cayó -- los demás nunca se fueron, y
+  // `parar()` les había quitado la voz a todos por igual (ver red/sincro.js).
+  // Reanudar con la lista entera los vuelve a enganchar sin tocarlos de otra
+  // forma.
+  Sincro.reanudar(RedConsola.enlacesConectados());
   caidaRed = '';
   reenganchando = false;
   red.reenganche = false;
@@ -1848,6 +1881,19 @@ function irAlReenganche() {
   irA(PANTALLA_RED);
   if (red.esAnfitrion) crearPartidaEnRed();
   else red.fase = 'pegar';
+}
+
+// ABANDONAR EL BAILE DE CÓDIGOS A MEDIAS, volviendo AL CARTEL Y NO AL MENÚ DE
+// RED. `caidaRed` no se toca aquí a propósito: sigue puesto desde que se cayó
+// la conexión, así que basta con volver a esa pantalla para que reaparezca
+// con sus opciones de siempre. Ir al menú de red en su lugar dejaría la
+// partida congelada detrás sin ningún cartel que la explique, y desde ahí un
+// ESC de más caía en el menú de personajes o el título sin haberla soltado
+// nunca como es debido.
+function volverDelReenganche() {
+  reenganchando = false;
+  red.reenganche = false;
+  irA(PANTALLA_JUEGO);
 }
 
 function entradaCaidaRed() {

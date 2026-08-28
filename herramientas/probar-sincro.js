@@ -319,6 +319,136 @@ console.log('\nSe vuelve a la partida sin tocar el búfer');
   comprobar(!m.sincroA.roto && !m.sincroB.roto, 'sin declarar nada roto al reanudar');
 }
 
+// CON TRES, LA CAÍDA DE UN ENLACE NO TIENE POR QUÉ TIRAR LOS OTROS.
+//
+// En estrella, el anfitrión (A) habla por separado con cada invitado (B y C);
+// B y C nunca se ven entre ellos. Si se cae el cable A-B, el de A-C no tiene
+// ni un motivo para tocarse -- y esta prueba es la diferencia entre decirlo y
+// comprobarlo: `sincroA.reanudar` recibe la lista de TODO lo que sigue en
+// pie -- `RedConsola.enlacesConectados()` en la aplicación de verdad-- y no
+// solo el enlace que se acaba de renegociar con B.
+console.log('\nCon tres, se reengancha SOLO el enlace que se cayó');
+{
+  const conAB = crearParConexiones();
+  const conAC = crearParConexiones();
+  const bufA = crearBufer(), bufB = crearBufer(), bufC = crearBufer();
+  bufA.iniciar(4); bufB.iniciar(4); bufC.iniciar(4);
+  const sincroA = crearSincro(bufA), sincroB = crearSincro(bufB), sincroC = crearSincro(bufC);
+  const mundoA = crearMundo('A'), mundoB = crearMundo('B'), mundoC = crearMundo('C');
+  const rotos = { A: '', B: '', C: '' };
+  const reconectables = { A: false, B: false, C: false };
+
+  const opciones = (mundo, quien, jugadorLocal) => ({
+    esAnfitrion: jugadorLocal === 0,
+    jugadorLocal,
+    jugadores: 3,
+    partesDe: () => mundo.partes(),
+    nombres: mundo.nombres,
+    fotoDe: (grupos) => mundo.foto(grupos),
+    comparaFotos,
+    // El mismo enganche que usa `sincro.js` de verdad: UN solo argumento. La
+    // reconectabilidad no viaja por aquí -- se lee aparte, en `Sincro.rotoPorRed`.
+    alRomperse: (t) => { rotos[quien] = t; }
+  });
+
+  sincroA.empezar([conAB.a, conAC.a], opciones(mundoA, 'A', 0));
+  sincroB.empezar(conAB.b, opciones(mundoB, 'B', 1));
+  sincroC.empezar(conAC.b, opciones(mundoC, 'C', 2));
+
+  // MUTABLE A PROPÓSITO: tras reconectar, A y B hablan por un par de
+  // conexiones NUEVO (`conAB2`) y no por este. Si `correr3` siguiera vaciando
+  // la cola del par viejo, los paquetes de la reconexión se quedarían
+  // encolados en `conAB2` sin que nadie los entregara -- no es que no lleguen,
+  // es que nadie va a buscarlos.
+  let conABActual = conAB;
+
+  function correr3(pasos) {
+    let dA = 0, dB = 0, dC = 0;
+    for (let t = 0; t < pasos; t++) {
+      conABActual.entregar(); conAC.entregar();
+      if (sincroA.antesDelPaso(mandoQuieto)) { bufA.avanzar(); sincroA.despuesDelPaso(); dA++; }
+      if (sincroB.antesDelPaso(mandoQuieto)) { bufB.avanzar(); sincroB.despuesDelPaso(); dB++; }
+      if (sincroC.antesDelPaso(mandoQuieto)) { bufC.avanzar(); sincroC.despuesDelPaso(); dC++; }
+    }
+    conABActual.entregar(); conAC.entregar();
+    return { dA, dB, dC };
+  }
+
+  correr3(60);
+  const pasoAntes = bufA.paso;
+  comprobar(pasoAntes === bufB.paso && pasoAntes === bufC.paso, 'los tres empiezan iguales');
+
+  // SE CAE SOLO EL CABLE A-B. `alCerrar` solo se llama en las dos puntas del
+  // enlace que se ha ido; el de C ni se toca, como pasaría con un WebRTC de
+  // verdad.
+  conAB.a.alCerrar();
+  conAB.b.alCerrar();
+  comprobar(!!rotos.A && !!rotos.B, 'A y B, que tenían ese cable, declaran la caída');
+  comprobar(!rotos.C, 'C no declara nada: SU enlace con el anfitrión nunca se ha caído');
+  comprobar(sincroA.rotoPorRed && sincroB.rotoPorRed,
+            'y las dos que la declaran la marcan reconectable');
+
+  // `parar()` es lo que hace `terminarPartidaEnRed` en la aplicación de
+  // verdad: dejar de simular sin colgar el teléfono. C no la llama -- su
+  // Sincro no se ha roto -- y sigue con `activo` a `true` todo el rato.
+  sincroA.parar();
+  sincroB.parar();
+
+  // A Y B NI SIQUIERA SE LES PREGUNTA, y a propósito: en el juego de verdad,
+  // mientras el cartel de caída está puesto, `main.js` corta antes de llegar a
+  // `Sincro.antesDelPaso` (`if (caidaRed) return;` en `actualizar`). Llamarla
+  // aquí con `activo = false` no simularía eso -- devolvería `true` sin más,
+  // que es lo que le sirve al que juega SOLO, y avanzaría un paso que en el
+  // juego real nunca se da.
+  //
+  // C SÍ SE LE PREGUNTA, porque en su máquina no hay ningún cartel: su bucle
+  // sigue corriendo normal y es `Lockstep.listo()` quien lo frena, a la espera
+  // de un puesto 1 (B) que ha dejado de llegarle.
+  //
+  // C NO SE QUEDA CLAVADO EN EL MISMO PASO QUE A Y B, y no es un fallo: antes
+  // de que A muriera ya había mandado -con la redundancia del paquete- sus
+  // pulsaciones un puñado de pasos por delante, y C las tiene guardadas y
+  // sabidas. Corre ese margen con datos que las tres máquinas ya habían
+  // acordado, y SOLO ENTONCES se para de verdad. Es justo la ventaja de
+  // `retardo`, funcionando exactamente para lo que se diseñó.
+  let ultimoPasoC = bufC.paso;
+  for (let t = 0; t < 120; t++) {
+    conAC.entregar();
+    if (sincroC.antesDelPaso(mandoQuieto)) { bufC.avanzar(); sincroC.despuesDelPaso(); ultimoPasoC = bufC.paso; }
+  }
+  comprobar(bufA.paso === pasoAntes && bufB.paso === pasoAntes,
+            `A y B se quedan clavados exactamente donde estaban (${pasoAntes})`);
+  comprobar(ultimoPasoC > pasoAntes && ultimoPasoC <= pasoAntes + bufC.retardo + 1,
+            `C corre unos pocos pasos más con lo que ya tenía comprometido, y no más ` +
+            `(de ${pasoAntes} a ${ultimoPasoC}, con retardo ${bufC.retardo})`);
+  comprobar(!sincroC.roto, 'y C sigue sin declarar nada roto: solo está esperando');
+
+  // RECONECTAR: un canal nuevo para B, y el de C -- que nunca se tocó -- se
+  // vuelve a enganchar TAL CUAL, dentro de la misma lista.
+  const conAB2 = crearParConexiones();
+  conABActual = conAB2;
+  sincroA.reanudar([conAC.a, conAB2.a]);
+  sincroB.reanudar(conAB2.b);
+  comprobar(!sincroA.roto && !sincroB.roto, 'A y B vuelven a estar enteros');
+
+  const r2 = correr3(200);
+  comprobar(r2.dA > 190 && r2.dB > 190 && r2.dC > 190,
+            `los tres vuelven a avanzar (${r2.dA}, ${r2.dB}, ${r2.dC} pasos)`);
+  // NO EXACTAMENTE EL MISMO PASO, y no hace falta: `paso` es la cuenta LOCAL
+  // de cada máquina, no un reloj compartido, y C sigue llevando la ventaja de
+  // los pasos que corrió con datos ya comprometidos mientras A y B estaban
+  // parados. Lo que importa -y lo que se comprueba dos líneas más abajo- es
+  // que nadie declare una separación al comparar huellas. Ver "Las cinco
+  // desincronizaciones que no lo eran" en docs/cooperativo-online.md.
+  const separacion = Math.abs(bufA.paso - bufC.paso);
+  comprobar(bufA.paso === bufB.paso && bufA.paso > pasoAntes,
+            `A y B siguen exactamente iguales entre ellos, y ninguno desde cero (${bufA.paso})`);
+  comprobar(separacion <= bufC.retardo + 1,
+            `y C no se aleja más allá de la ventaja con la que ya venía (${separacion} pasos)`);
+  comprobar(!sincroA.roto && !sincroB.roto && !sincroC.roto,
+            'sin ninguna desincronización nueva -- y C, al que no se tocó, tampoco');
+}
+
 console.log('\nEl saludo del reenganche reconoce a la otra punta');
 {
   const m = montar();

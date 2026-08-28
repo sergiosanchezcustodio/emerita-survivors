@@ -631,7 +631,7 @@ nada—, el que no vuelve y acaba dándose por perdido pasados los quince, el
 callarse con el canal sano que se espera sin límite, y el recuento con varios
 enlaces.
 
-## El reenganche: volver a una partida caída (hecho, con dos jugadores)
+## El reenganche: volver a una partida caída (hecho, con dos, tres o cuatro)
 
 Cuando el canal se cierra de verdad y no vuelve, el bache de arriba se rinde y
 sale el cartel. Ahora ese cartel tiene una salida más, **RECONECTAR**, y va la
@@ -685,34 +685,82 @@ es exactamente el momento en que se abre el canal del reenganche. El retardo se
 habría movido sobre un búfer a medio llenar. Ahora la pregunta es si hay mundo, no
 si hay conexión.
 
-### Solo con dos jugadores, y por qué
+### Con tres o cuatro: sustituir SOLO el enlace que se cayó (hecho)
 
 En estrella, un invitado que se cae solo ha perdido SU enlace con el anfitrión;
-los demás siguen enganchados y esperando —y ese caso ya lo cuentan bien, con el
-cartel de espera diciendo a quién se aguarda—. Volver a meterlo pide sustituir un
-enlace de los tres sin tocar los otros dos, y hoy la ruptura de uno para la
-sincronización entera. Con dos jugadores no hay esa distinción: el enlace que se
-cayó es el único que hay. Con tres o cuatro, el cartel sigue teniendo las dos
-salidas de siempre.
+los demás siguen enganchados y esperando —y ese caso ya lo contaba bien, con el
+cartel de espera diciendo a quién se aguarda—. Lo que faltaba era que volver a
+meterlo no exigiera rehacer también los enlaces que nunca se habían caído.
+
+**El hueco no estaba en `sincro.js`.** `reanudar(conexiones)` ya aceptaba una
+lista desde el primer día —lo pedía la prueba de Node, que monta las dos puntas
+a mano—; el problema vivía un piso más arriba, en cómo `main.js` construía esa
+lista y en qué hacía `RedConsola` al abortar un intento:
+
+- `reengancharPartida` llamaba a `Sincro.reanudar([enlace])` con SOLO el enlace
+  recién negociado. Con dos jugadores es el único que hay y no se nota; con
+  tres o cuatro, sustituye TODA la lista y deja mudos —`_engancharEnlaces` no
+  vuelve a pasar por ellos— a los invitados que seguían perfectamente
+  conectados. Ahora reanuda con `RedConsola.enlacesConectados()`: todo lo que
+  siga `CONECTADO` en ese instante, el nuevo incluido.
+- `RedConsola.cerrar()` —lo que se llamaba al abortar un intento a medias con
+  ESC— cierra y vacía la lista ENTERA de enlaces. Cancelar la reconexión con el
+  jugador 3 se llevaba por delante también al jugador 2, que no había hecho
+  nada. `RedConsola.cerrarIntento()` es el mismo cuerpo pero solo sobre la
+  conexión en curso, dejando el resto tal cual.
+- Y `sePuedeReenganchar()` tenía `jugadores.length === 2` a mano, que era la
+  puerta cerrada del todo: con tres o cuatro el cartel ni ofrecía RECONECTAR.
+
+**Y el ESC del intento a medias ahora vuelve AL CARTEL**, no al menú de red —
+`volverDelReenganche()` en vez de `irARed()`—, porque `caidaRed` sigue puesto
+todo el rato y es donde se explica que la partida sigue congelada detrás. Antes
+de esto, cancelar un reenganche dejaba el mundo parado sin ningún cartel que lo
+dijera, a un ESC más de perderlo del todo por el menú de personajes o el título.
+
+**No hace falta tocar `Lockstep` para nada de esto.** El paso no se mueve
+mientras el mundo espera —eso ya lo resolvió el reenganche de dos—, así que ni
+el invitado que nunca se cayó necesita ningún aviso especial: sigue con
+`Sincro.activo = true` y `roto = ''` todo el rato, simplemente esperando a que
+vuelvan a llegarle los pasos del que sí se cayó. En cuanto el anfitrión reengancha
+y vuelve a reenviar, se pone al día solo.
 
 ### Cómo se comprueba
 
     node herramientas\probar-sincro.js
     node herramientas\probar-partida-en-red.js 20 reenganche
+    node herramientas\probar-partida-en-red.js 20 reenganche 4
 
 La primera cubre la lógica: que `reanudar` no toque el contador de pasos, que el
-saludo reconozca a la otra punta en los dos sentidos, y las cuatro formas de
+saludo reconozca a la otra punta en los dos sentidos, las cuatro formas de
 rechazarlo —una huella torcida, ningún punto común, dos puntas que se creen el
-mismo jugador, y una divergencia que no cuenta como caída de red—.
+mismo jugador, y una divergencia que no cuenta como caída de red— y, para tres
+jugadores, que la caída del enlace A-B no toque el enlace A-C y que reanudar solo
+el primero baste para que los tres vuelvan a avanzar en el mismo paso.
 
-La segunda es la de verdad: dos pestañas jugando, `EMERITA.red.cortar()` en las
-dos —que corta a lo bruto y sin despedirse, como si se fuera el router—, el baile
-de códigos nuevo y la partida siguiendo. **Medido: cortada en el paso 183, de
-vuelta en el 333 y jugando hasta el 484 con las dos puntas a cero pasos de
-distancia y sin desincronización.** Y de paso pisa la puerta que ve una persona:
-que RECONECTAR lleva a la pantalla de códigos y que ESC devuelve al cartel con la
-partida todavía ahí, en vez de al menú de red — que sería perderla sin haberlo
-pedido.
+Las otras dos son de verdad, con Playwright abriendo pestañas de Chromium.
+`EMERITA.red.cortar()` corta a lo bruto y sin despedirse, como si se fuera el
+router. **Con dos: medido cortada en el paso 183, de vuelta en el 333 y jugando
+hasta el 484 con las dos puntas a cero pasos de distancia y sin
+desincronización.** Y de paso pisa la puerta que ve una persona: que RECONECTAR
+lleva a la pantalla de códigos y que ESC devuelve al cartel con la partida
+todavía ahí, en vez de al menú de red — que sería perderla sin haberlo pedido.
+
+**Con cuatro (hecho y comprobado): se corta SOLO el enlace con el tercer
+jugador** —`cortarEnlace`/`cortarPropioEnlace` en el propio banco de pruebas,
+alcanzando `enlace.cerrar()` directamente porque `EMERITA.red.cortar()` habría
+cortado los tres enlaces del anfitrión y no solo uno—. **Medido: caída en el
+paso 181, el anfitrión y el jugador 3 sacan el cartel; el jugador 2 y el 4 NO
+—su enlace nunca se rompió—; el mundo entero se queda quieto de todos modos,
+porque el lockstep espera a los cuatro; se reconecta solo el jugador 3, y los
+cuatro siguen desde el 181 hasta el 482 sin que el 2 y el 4 hicieran nada.** Es
+la prueba que faltaba desde que se escribió "Con tres o cuatro" arriba, y confirma
+lo que decía esa sección de memoria: el hueco nunca estuvo en `Lockstep`, estaba
+en cómo se reconstruía la lista de enlaces.
+
+**Requieren tanto Playwright (`npm install`, que baja un Chromium de ~180 MB)
+como que el proceso pueda abrir sockets UDP de verdad** —WebRTC los necesita
+incluso entre dos pestañas de la misma máquina—; en un entorno en sandbox que
+los bloquee por defecto, hay que lanzarlas sin esa restricción.
 
 ## Lo que queda
 
@@ -725,10 +773,14 @@ pedido.
    dirección pública, y una punta por datos móviles cae en NAT simétrico. Hacen
    falta dos líneas fijas, cada una en su casa. Ver la sección de arriba.
 
-2. **El reenganche con tres o cuatro.** Con dos ya está (ver arriba). Con más,
-   hace falta que la caída de un enlace no pare la sincronización entera, para
-   poder sustituir ese enlace sin tocar los otros. Es el trabajo de verdad que
-   queda del reenganche.
+2. **Jugar el reenganche con tres o cuatro, con personas de verdad.** El camino
+   feliz ya está comprobado con Playwright —ver "Con cuatro (hecho y
+   comprobado)" arriba: caída de un enlace, reconexión de solo ese, los otros
+   dos sin enterarse—, pero eso es UN navegador con cuatro pestañas, no cuatro
+   personas en cuatro casas. Falta además el camino de abortar a medias —ESC en
+   'pegar'/'esperando'/'error' del reenganche con otros invitados esperando
+   detrás, que `probarReengancheVarios` no ejercita todavía— y `jugar-en-red.js
+   4` con alguien sacando el router de un jugador a mitad de partida.
 
 3. **Volver después de cerrar la pestaña.** Ahí el mundo de quien se fue ya no
    existe y haría falta serializar y transmitir el estado ENTERO —pools, RNG,
