@@ -126,6 +126,27 @@ el teclado.
 
 ---
 
+## Cooperativo online
+
+Hasta **cuatro jugadores en red**, cada uno en su casa, sin servidor: se juega
+desde **JUGAR EN RED** en el título. Quien crea la partida genera un código y lo
+manda por donde habléis —WhatsApp, Discord, lo que sea—; el otro contesta con el
+suyo. Dos mensajes y a jugar.
+
+Por la red viajan solo las **pulsaciones**, nunca el estado del mundo:
+[lockstep](https://en.wikipedia.org/wiki/Lockstep_%28computing%29) determinista, la
+misma técnica de los RTS clásicos. Cada máquina simula la partida entera por su
+cuenta a partir de la misma semilla, así que el tráfico es mínimo y no hace
+falta ningún servidor de partida — el código WebRTC conecta las máquinas
+directamente. Con tres o cuatro jugadores, el anfitrión reenvía lo que pulsa
+cada invitado a los demás.
+
+Si se cae la conexión a mitad de partida, un cartel lo dice y ofrece
+**RECONECTAR**: se repite el baile de códigos y la partida sigue exactamente
+donde se quedó, sin reiniciar nada.
+
+---
+
 ## Los cuatro
 
 Cada personaje lleva **su** arma, la que nadie más puede llevar. En cooperativo
@@ -273,6 +294,20 @@ que es la otra forma de que te toque algo bueno sin haberlo comprado.
 
 ---
 
+## La copia en la nube
+
+El progreso —denarios, héroes y potenciadores desbloqueados— se puede llevar de
+un ordenador a otro. **Sin cuenta, sin correo, sin contraseña**: la identidad es
+un código de 128 bits que el juego genera solo.
+
+No es la fuente de la verdad, es una copia: el navegador sigue guardando donde
+siempre, y si el servidor no contesta —o no hay servidor puesto— se juega
+exactamente igual, guardando en local. Por debajo es un Worker de Cloudflare con
+una base D1, los dos dentro del plan gratuito. Detalle completo en
+[nube/LEEME.md](nube/LEEME.md).
+
+---
+
 ## Cómo está hecho
 
 **Restricciones no negociables**, y se cumplen todas:
@@ -332,6 +367,7 @@ Todas offline, en PowerShell y sin dependencias. Ninguna forma parte del juego.
 | `ver-assets.ps1` | Describe imágenes sin abrirlas |
 | `empaquetar.ps1` | Genera la aplicación de escritorio |
 | `empaquetar-web.ps1` | Genera el zip para itch.io (o cualquier host estático) |
+| `publicar-itch.ps1` | Sube ese zip a itch.io con `butler` |
 
 ---
 
