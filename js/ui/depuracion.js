@@ -107,6 +107,9 @@ export function dibujarDepuracion(ctx, datos) {
       LINEAS.push(`  camino   ${r.camino}` +
                   (r.rttMs ? ` · ${r.rttMs.toFixed(0)} ms de ida y vuelta` : ''));
     }
+    // El bache sale aparte de `roto` porque es justo lo contrario: la partida
+    // sigue viva y se está esperando a que vuelva el contacto.
+    if (r.bache) LINEAS.push(`  BACHE    ${r.bache}`);
   }
   LINEAS.push(`escala     ${ESCALA_ARTE}x arte · ${datos.zoom}x pantalla`);
   if (datos.sustituidos > 0) {

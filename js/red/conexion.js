@@ -166,8 +166,16 @@ export function crearConexion(opciones) {
     alEstado: null,
     alControl: null,      // (texto)
     alJuego: null,        // (ArrayBuffer)
+    // UN BACHE NO ES UNA CAÍDA, y hasta hoy no había forma de distinguirlos
+    // desde arriba. `alCerrar` es definitivo —el canal se ha ido y no vuelve—;
+    // `alBache` dice que el contacto se ha perdido pero la conexión sigue
+    // intentándolo, y `alVolver` que lo ha conseguido. Entre los dos hay un rato
+    // en el que la partida no se ha perdido: solo está esperando.
+    alBache: null,        // (motivo)
+    alVolver: null,
 
     _cerrado: false,
+    _enBache: false,
     _relojFallo: 0,
     _pc: null,
     _control: null,
@@ -185,6 +193,32 @@ export function crearConexion(opciones) {
     con.estado = estado;
     con.error = error || '';
     if (con.alEstado) con.alEstado(estado, con.error);
+  }
+
+  // SE ENTRA Y SE SALE DEL BACHE, y solo con la conexión ya hecha.
+  //
+  // Antes de estar conectado, un tropiezo de ICE lo gestiona el margen de
+  // `failed` de más abajo: ahí no hay partida que salvar, solo un emparejamiento
+  // que todavía no ha cuajado. Un bache es otra cosa —dos personas jugando y el
+  // contacto que se va— y ahí lo que hace falta no es rendirse, sino esperar.
+  function bache(motivo) {
+    if (con._cerrado || con._enBache) return;
+    if (con.estado !== ESTADOS.CONECTADO) return;
+    con._enBache = true;
+    cambiar(ESTADOS.CONECTANDO, motivo);
+    if (con.alBache) con.alBache(motivo);
+  }
+
+  function volverDelBache() {
+    if (!con._enBache || con._cerrado) return;
+    con._enBache = false;
+    // Y VOLVER AL ESTADO DE CONECTADO, que es lo que faltaba: antes, tras un
+    // 'disconnected' que se curaba solo, la conexión se quedaba diciendo
+    // "conectando" para siempre. Los canales nunca se cerraron y la partida
+    // seguía, pero todo lo que preguntara por el estado —el panel, el margen de
+    // `failed`, cualquier cosa que se escriba mañana— leía una mentira.
+    cambiar(ESTADOS.CONECTADO);
+    if (con.alVolver) con.alVolver();
   }
 
   function nuevaPc() {
@@ -210,7 +244,16 @@ export function crearConexion(opciones) {
       // de que hubo un sobresalto, que es exactamente lo que hay que hacer con
       // los sobresaltos que se curan solos.
       if (e === 'failed') {
-        if (con.estado === ESTADOS.CONECTADO) return;
+        // JUGANDO, UN `failed` ES UN BACHE Y NO EL FINAL. Antes se descartaba
+        // aquí mismo —la conexión ya estaba hecha, luego el aviso era falso— y
+        // el resultado era el peor posible: si de verdad se había ido, nadie se
+        // enteraba nunca y la partida se quedaba congelada sin un solo mensaje.
+        // Chrome se recupera de esto a menudo, así que se espera; quien decide
+        // cuánto es el de arriba, que es el único que sabe si hay partida.
+        if (con.estado === ESTADOS.CONECTADO) {
+          bache('Se ha perdido el contacto; reintentando.');
+          return;
+        }
         if (con._relojFallo) return;                 // ya hay un margen corriendo
         con._relojFallo = setTimeout(() => {
           con._relojFallo = 0;
@@ -220,9 +263,12 @@ export function crearConexion(opciones) {
         }, MARGEN_FALLO);
         return;
       }
-      if (e === 'connected' && con._relojFallo) {
-        clearTimeout(con._relojFallo);
-        con._relojFallo = 0;
+      if (e === 'connected') {
+        if (con._relojFallo) {
+          clearTimeout(con._relojFallo);
+          con._relojFallo = 0;
+        }
+        volverDelBache();
       }
       if (e === 'closed') {
         cambiar(ESTADOS.CERRADO, '');
@@ -230,7 +276,7 @@ export function crearConexion(opciones) {
       } else if (e === 'disconnected') {
         // 'disconnected' no es definitivo: ICE reintenta y a menudo vuelve.
         // No se cierra nada aquí, solo se anota.
-        cambiar(ESTADOS.CONECTANDO, 'Se ha perdido el contacto; reintentando.');
+        bache('Se ha perdido el contacto; reintentando.');
       }
     });
     con._pc = pc;

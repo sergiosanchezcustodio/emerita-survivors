@@ -119,6 +119,16 @@ function nueva(servidores) {
       // Puesto en la pantalla, el que conecta desde la consola se quedaba con el
       // valor de fábrica sin enterarse, y las pruebas medirían otra cosa que lo
       // que se juega.
+      // Y SI HAY UNA PARTIDA CAÍDA ESPERANDO, ESTE CANAL ES PARA VOLVER A ELLA.
+      //
+      // El saludo se manda solo, en cuanto se abre, y por las dos puntas a la
+      // vez: cada una comprueba a la otra con lo suyo. No hay nada que pulsar
+      // porque no hay nada que decidir — quien ha llegado hasta aquí ya eligió
+      // RECONECTAR en el cartel de la caída.
+      if (juego && juego.puntoDeReenganche) {
+        const punto = juego.puntoDeReenganche();
+        if (punto) sesion.enviarControl('re ' + JSON.stringify(punto));
+      }
       RedConsola.ajustarRetardo().then((r) => {
         if (!r) return;
         console.log(`RED: viaje ${r.mediana.toFixed(1)} ms (punta ${r.max.toFixed(1)}) ` +
@@ -134,6 +144,19 @@ function nueva(servidores) {
     // El saludo se atiende AQUÍ y no en sincro.js: cuando llega, la partida
     // todavía no existe y no hay nadie a quien dárselo.
     if (t.startsWith('inicio ')) { empezarPorInvitacion(t); return; }
+    // El saludo del reenganche, y su negativa. Se atienden aquí por lo mismo que
+    // `inicio`: quien tiene el enlace nuevo en la mano es este módulo.
+    if (t.startsWith('re ')) {
+      let suyo = null;
+      try { suyo = JSON.parse(t.slice(3)); }
+      catch { console.error('RED: el saludo del reenganche no se ha podido leer.'); return; }
+      if (juego && juego.reenganchar) juego.reenganchar(sesion, suyo);
+      return;
+    }
+    if (t.startsWith('nore ')) {
+      if (juego && juego.reengancheRechazado) juego.reengancheRechazado(t.slice(5));
+      return;
+    }
     // El anfitrión pide el progreso de esta máquina para poder simularla igual.
     if (t === 'dameMeta') {
       sesion.enviarControl('meta ' + JSON.stringify(MetaProgreso.aCompartir()));
@@ -602,6 +625,30 @@ export const RedConsola = {
     });
     console.log(`Partida en red empezada con ${pers.length} jugadores ` +
                 `(semilla ${semilla.toString(16)}). Eres el jugador 1.`);
+    return true;
+  },
+
+  // CORTAR A LO BRUTO, como si se fuera la luz del router.
+  //
+  // Existe para el banco de pruebas: una caída de red de verdad no se puede
+  // ensayar jugando sin desenchufar algo, y es justo el caso que menos se puede
+  // dejar sin probar. A diferencia de `salir()`, NO SE DESPIDE: nadie manda
+  // 'adios', así que cada punta se entera por donde se entera en la vida real
+  // —su canal, que se cae— y la partida queda marcada como caída DE RED, que es
+  // la única a la que se puede volver.
+  cortar() {
+    for (let i = 0; i < enlaces.length; i++) {
+      const enlace = enlaces[i];
+      // El aviso se guarda ANTES de cerrar y se da DESPUES: `cerrar()` se marca
+      // como cerrada y a partir de ahí ya no avisa de nada, que es lo correcto
+      // cuando se cierra a propósito y lo contrario de lo que hace falta aquí.
+      const avisar = enlace.alCerrar;
+      enlace.cerrar();
+      if (avisar) avisar();
+    }
+    enlaces.length = 0;
+    sesion = null;
+    console.log('RED: canal cortado a lo bruto (prueba).');
     return true;
   },
 

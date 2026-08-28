@@ -139,6 +139,23 @@ function dibujarCodigo(ctx, estado, y) {
   return y + alto + MARGEN;
 }
 
+// LA MISMA PANTALLA SIRVE PARA VOLVER, y hay que decirlo o engaña.
+//
+// El baile de códigos es idéntico —las credenciales de una conexión no se
+// reciclan, así que reengancharse es pasarse dos códigos nuevos— pero lo que
+// pasa al final no lo es: aquí no empieza una partida, se reanuda la que está
+// congelada detrás. Sin esta línea, la pantalla dice CREANDO PARTIDA y quien la
+// mira cree que ha perdido la suya.
+function marcaReenganche(ctx, estado) {
+  if (!estado.reenganche) return;
+  const t = Tema.actual;
+  ctx.font = `13px ${FUENTE}`;
+  ctx.fillStyle = '#ffd27a';
+  ctx.fillText('VOLVER A LA PARTIDA · sigue en pie, esperando a reanudarse',
+               ANCHO_UI / 2,
+               ALTO_UI - Math.max(0, (ALTO_UI - Capa.altoVisible) / 2) - 22);
+}
+
 export function dibujarRed(ctxMundo, ctx, estado) {
   fondo(ctxMundo);
   const t = Tema.actual;
@@ -198,8 +215,11 @@ export function dibujarRed(ctxMundo, ctx, estado) {
   }
 
   if (estado.fase === 'creando' || estado.fase === 'uniendo') {
-    titulo(ctx, estado.fase === 'creando' ? 'CREANDO PARTIDA' : 'UNIÉNDOME');
+    titulo(ctx, estado.reenganche
+      ? (estado.fase === 'creando' ? 'PREPARANDO LA VUELTA' : 'VOLVIENDO')
+      : (estado.fase === 'creando' ? 'CREANDO PARTIDA' : 'UNIÉNDOME'));
     parrafo(ctx, [estado.aviso || 'Un momento…'], ALTO_UI / 2, t.texto, 17);
+    marcaReenganche(ctx, estado);
     ctx.restore();
     return;
   }
@@ -219,6 +239,7 @@ export function dibujarRed(ctxMundo, ctx, estado) {
          'ESC para volver.'], 320, t.apagado, 15);
     // Y debajo de todo, lo que ya se sabe que va a fallar. Ver dibujarAviso.
     dibujarAviso(ctx, estado.avisoConexion, 366);
+    marcaReenganche(ctx, estado);
     ctx.restore();
     return;
   }
@@ -230,6 +251,7 @@ export function dibujarRed(ctxMundo, ctx, estado) {
       '',
       'ESC para volver.'
     ], ALTO_UI / 2 - 20, t.texto, 17);
+    marcaReenganche(ctx, estado);
     ctx.restore();
     return;
   }
@@ -238,6 +260,13 @@ export function dibujarRed(ctxMundo, ctx, estado) {
     const cuantos = 1 + (estado.conectados || 1);
     titulo(ctx, 'CONECTADOS');
     parrafo(ctx, [`Sois ${cuantos} jugadores.`], 110, t.titulo, 18);
+    if (estado.reenganche) {
+      parrafo(ctx, ['Comprobando que seguís en la misma partida…'],
+              ALTO_UI / 2, t.texto, 16);
+      marcaReenganche(ctx, estado);
+      ctx.restore();
+      return;
+    }
     parrafo(ctx, estado.esAnfitrion
       ? cuantos < 4
         ? ['ENTER para empezar la partida.', '',
@@ -261,11 +290,21 @@ export function dibujarRed(ctxMundo, ctx, estado) {
     return;
   }
 
-  // Error.
+  // Error. Es también donde acaba un reenganche que no cuadra, y ahí el texto no
+  // es un "algo ha fallado": es la razón concreta por la que esas dos partidas
+  // ya no se pueden juntar. Ver `comprobarReenganche` en red/sincro.js.
   titulo(ctx, 'NO HA PODIDO SER');
-  parrafo(ctx, lineas(estado.aviso || 'Algo ha fallado.', 3), ALTO_UI / 2 - 20,
-          t.texto, 15);
-  parrafo(ctx, ['ESC para volver.'], ALTO_UI / 2 + 60, t.apagado, 15);
+  // Partido POR PALABRAS y no cada 48 caracteres: `lineas` es para el código,
+  // que no tiene palabras, y aquí cortaba los motivos por la mitad justo cuando
+  // el motivo es lo único que hay.
+  ctx.font = `15px ${FUENTE}`;
+  parrafo(ctx, envolverEn(ctx, estado.aviso || 'Algo ha fallado.',
+                          PANEL_ANCHO - 40).slice(0, 4),
+          ALTO_UI / 2 - 40, t.texto, 15);
+  parrafo(ctx, [estado.reenganche
+    ? 'ESC para volver al cartel.'
+    : 'ESC para volver.'], ALTO_UI / 2 + 60, t.apagado, 15);
+  marcaReenganche(ctx, estado);
   ctx.restore();
 }
 
@@ -275,14 +314,88 @@ export function dibujarRed(ctxMundo, ctx, estado) {
 // decirlo: quien está jugando ve el mundo congelado y no sabe si ha sido su
 // wifi, el del otro o un fallo del juego.
 //
+// ESTE CARTEL YA NO SALE POR CUALQUIER TROPIEZO. Antes lo sacaba el primer
+// corte, y la mayoría de los cortes vuelven solos a los pocos segundos; ahora
+// delante hay un compás de espera —`dibujarEspera`, aquí arriba— y aquí se
+// llega cuando ya se ha esperado y no ha vuelto.
+//
 // Dos salidas y ninguna más, porque no hay más: seguir tú solo con la partida
-// donde está, o volver al menú. Reconectar y ponerse al día es otra cosa
-// —habría que reenviar los pasos perdidos— y no está hecha.
+// donde está, o volver al menú. Volver a engancharse tras un corte de verdad
+// exige repetir el baile de códigos, porque la señalización sois vosotros, y
+// eso no está hecho.
 export const OPCIONES_CAIDA = ['SEGUIR EN SOLITARIO', 'VOLVER AL MENÚ'];
 
-export function dibujarCaida(ctx, motivo, cursor) {
+// Y CON EL REENGANCHE DELANTE, cuando se puede. Va primero porque es lo que casi
+// todo el mundo quiere: seguir la partida que estabais jugando. Las otras dos
+// siguen debajo y en el mismo orden, para que quien ya se sepa el cartel no
+// pulse lo que no era.
+export const OPCIONES_CAIDA_RE = ['RECONECTAR', 'SEGUIR EN SOLITARIO', 'VOLVER AL MENÚ'];
+
+// SOLO CON DOS JUGADORES, y conviene decir por qué en vez de esconderlo.
+//
+// En estrella, un invitado que se cae solo ha perdido SU enlace con el
+// anfitrión; los demás siguen enganchados y esperando. Volver a meterlo pide
+// sustituir un enlace de los tres sin tocar los otros dos, y hoy la ruptura de
+// uno para la sincronización entera. Con dos jugadores no hay esa distinción: el
+// enlace que se cayó es el único que hay.
+export function opcionesCaida(sePuedeReenganchar) {
+  return sePuedeReenganchar ? OPCIONES_CAIDA_RE : OPCIONES_CAIDA;
+}
+
+// EL COMPÁS DE ESPERA, que es el cartel que faltaba.
+//
+// Hasta ahora una partida en red solo tenía dos estados a la vista: se juega, o
+// se ha cortado y salen las dos salidas. Entre medias estaba el caso más
+// frecuente de todos —el contacto se va unos segundos y vuelve— y se veía como
+// lo peor que puede verse: la imagen congelada, sin un mensaje, sin saber si ha
+// sido tu wifi, la del otro o que el juego se ha colgado.
+//
+// NO SE OSCURECE LA PANTALLA, a diferencia del cartel de caída. Es deliberado:
+// la partida no se ha perdido, sigue ahí entera esperando a seguir, y taparla
+// diría justo lo contrario. Una tira abajo basta para explicar la quietud sin
+// dar a entender que se acabó.
+export function dibujarEspera(ctx, espera) {
   const t = Tema.actual;
-  const ancho = 460, alto = 190;
+  const ancho = 400, alto = 56;
+  const px = (ANCHO_UI - ancho) / 2;
+  const py = ALTO_UI - alto - 34;
+
+  ctx.save();
+  panel(ctx, px, py, ancho, alto, true);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // El motivo del transporte manda sobre el genérico: "se ha perdido el
+  // contacto" dice a qué atenerse, y "esperando a jugador 2" no dice nada que no
+  // se vea ya en la pantalla parada.
+  let texto = espera.motivo;
+  if (!texto) {
+    const quien = espera.quien.map((i) => 'jugador ' + (i + 1)).join(', ');
+    texto = 'Esperando a ' + (quien || 'el otro jugador') + '…';
+  }
+  ctx.font = `13px ${FUENTE}`;
+  ctx.fillStyle = t.texto;
+  ctx.fillText(texto, ANCHO_UI / 2, py + 20);
+
+  // LA CUENTA ATRÁS SOLO SALE SI DE VERDAD LA HAY. Con el canal sano se espera
+  // sin límite —el otro puede tener la pestaña de fondo— y un número bajando
+  // ahí sería una amenaza inventada.
+  ctx.font = `11px ${FUENTE}`;
+  ctx.fillStyle = t.apagado;
+  if (espera.restan > 0) {
+    ctx.fillText('Se sigue solo si vuelve · ' + Math.ceil(espera.restan) + ' s',
+                 ANCHO_UI / 2, py + 40);
+  } else {
+    ctx.fillText('La partida sigue entera; se reanuda sola · ' +
+                 espera.segundos.toFixed(0) + ' s', ANCHO_UI / 2, py + 40);
+  }
+  ctx.restore();
+}
+
+export function dibujarCaida(ctx, motivo, cursor, opciones) {
+  const OPCIONES = opciones || OPCIONES_CAIDA;
+  const t = Tema.actual;
+  const ancho = 460, alto = 190 + (OPCIONES.length - 2) * 40;
   const px = (ANCHO_UI - ancho) / 2;
   const py = (ALTO_UI - alto) / 2;
 
@@ -308,12 +421,12 @@ export function dibujarCaida(ctx, motivo, cursor) {
   }
 
   const ALTO_OP = 32;
-  let y = py + alto - 24 - OPCIONES_CAIDA.length * (ALTO_OP + 8);
-  for (let i = 0; i < OPCIONES_CAIDA.length; i++) {
+  let y = py + alto - 24 - OPCIONES.length * (ALTO_OP + 8);
+  for (let i = 0; i < OPCIONES.length; i++) {
     const elegida = i === cursor;
     ctx.font = `15px ${FUENTE}`;
     ctx.fillStyle = elegida ? t.titulo : t.texto;
-    ctx.fillText((elegida ? '> ' : '') + OPCIONES_CAIDA[i], ANCHO_UI / 2, y + ALTO_OP / 2);
+    ctx.fillText((elegida ? '> ' : '') + OPCIONES[i], ANCHO_UI / 2, y + ALTO_OP / 2);
     y += ALTO_OP + 8;
   }
   ctx.restore();

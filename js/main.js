@@ -27,7 +27,7 @@ import { Obstaculos } from './sistemas/obstaculos.js';
 import { Lockstep } from './core/lockstep.js';
 import { RedConsola, avisoDeConexion, avisoMismaRed } from './red/consola.js';
 import { Sincro } from './red/sincro.js';
-import { dibujarRed, OPCIONES_RED, dibujarCaida, OPCIONES_CAIDA } from './ui/red.js';
+import { dibujarRed, OPCIONES_RED, dibujarCaida, opcionesCaida, dibujarEspera } from './ui/red.js';
 import { ocultarCodigoRed } from './ui/codigoRed.js';
 import { Recogibles } from './entidades/recogible.js';
 import { Cofres, COFRE, LLAMARADA, IMAN, COMIDA, RELOJ, MONEDAS } from './entidades/cofre.js';
@@ -1340,7 +1340,10 @@ const red = {
   // red/consola.js. Null mientras no haya nada que decir, que es lo normal.
   avisoConexion: null,
   // La dirección de casa escrita a mano y lo que se lleva tecleado de ella.
-  ipLocal: '', ipTecleada: ''
+  ipLocal: '', ipTecleada: '',
+  // ¿Esto es un reenganche a una partida caída, o una partida nueva? El baile de
+  // códigos es el mismo; lo que pasa al final, no.
+  reenganche: false
 };
 
 // SE HA CAÍDO LA RED EN PLENA PARTIDA.
@@ -1358,6 +1361,18 @@ let cursorCaida = 0;
 // decide seguir en solitario. Se apunta al empezar porque `Sincro` lo olvida al
 // pararse.
 let puestoLocalRed = 0;
+
+// LA SEMILLA DE ESTA PARTIDA, guardada para el reenganche.
+//
+// Antes se usaba y se tiraba: sembraba el RNG y ahí terminaba su vida. Para
+// volver a engancharse hace falta poder decirle al otro de qué partida venimos,
+// y la semilla es la primera pregunta -- dos partidas con semillas distintas no
+// tienen ni por dónde empezar a compararse.
+let semillaRed = 0;
+
+// Y si estamos en mitad de un reenganche, para que la pantalla de códigos sepa
+// que no esta creando una partida sino volviendo a una.
+let reenganchando = false;
 
 // A DÓNDE VUELVE ESC DESDE EL COOPERATIVO, que ya no es siempre el mismo sitio.
 //
@@ -1380,6 +1395,7 @@ function irARed(desde) {
   red.copiado = false;
   red.conectados = 0;
   red.avisoConexion = null;
+  red.reenganche = false;
   // La dirección de casa NO se borra al volver a entrar: se escribe una vez y
   // sirve para los cuatro intentos que hagan falta. Se pierde al recargar, que
   // es otra cosa.
@@ -1524,9 +1540,23 @@ function tecleatIpLocal() {
   }
 }
 
+// DEJARLO A MEDIAS Y VOLVER AL CARTEL.
+//
+// Salir de un reenganche no es salir del cooperativo: la partida sigue ahí
+// congelada y las dos salidas de siempre —seguir en solitario o volver al menú—
+// siguen esperando. Mandarlo al menú de red desde aquí sería perderla sin
+// haberlo pedido.
+function dejarElReenganche() {
+  RedConsola.cerrar();
+  reenganchando = false;
+  red.reenganche = false;
+  irA(PANTALLA_JUEGO);
+}
+
 function entradaRed() {
   const c = entrada.controles[0];
   const atras = entrada.consumirFlanco('Escape') || entrada.consumirAtras();
+  if (red.reenganche && atras && red.fase !== 'ip') { dejarElReenganche(); return; }
 
   if (red.fase === 'menu') {
     const eje = c ? c.flancoEje(false) : 0;
@@ -1590,11 +1620,16 @@ function entradaRed() {
     // INVITAR A OTRO MÁS. Cada invitado necesita su propio par de códigos
     // —cada conexión trae sus credenciales— así que se repite el baile una vez
     // por persona. Las que ya estaban conectadas siguen estándolo.
-    if (red.esAnfitrion && red.conectados < 3 && entrada.consumirFlanco('KeyI')) {
+    if (!red.reenganche && red.esAnfitrion && red.conectados < 3 &&
+        entrada.consumirFlanco('KeyI')) {
       crearPartidaEnRed();
       return;
     }
-    if (red.esAnfitrion &&
+    // EN UN REENGANCHE NO HAY NADA QUE PULSAR. El saludo va y vuelve solo en
+    // cuanto se abre el canal, y si cuadra la partida se reanuda sola. Dejar
+    // aquí el ENTER de empezar sería dejar a mano el botón de tirar la partida
+    // que se estaba intentando salvar.
+    if (!red.reenganche && red.esAnfitrion &&
         (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space') ||
          (c && c.consumirBoton(0)))) {
       RedConsola.jugar();
@@ -1629,6 +1664,11 @@ function mandoActual() {
     // Y lo de la red, para la prueba de partida.
     redActiva: Sincro.activo ? 1 : 0,
     redRota: Sincro.roto || '',
+    // El cartel de la caída y si ofrece volver. Sin esto, la prueba del
+    // reenganche solo podia mirar si la partida seguia, no si el juego llego a
+    // ofrecer la opcion.
+    caida: caidaRed ? 1 : 0,
+    puedeReenganchar: sePuedeReenganchar() ? 1 : 0,
     esperados: Lockstep.esperados,
     faltan: Lockstep.faltan().join(',')
   };
@@ -1647,6 +1687,8 @@ function empezarPartidaEnRed(conexion, cfg) {
   // no rompe el lockstep; lo que lo rompía era que su máquina no lo supiera.
   caidaRed = '';
   puestoLocalRed = cfg.jugadorLocal | 0;
+  semillaRed = cfg.semilla >>> 0;
+  reenganchando = false;
   metasDeRed = [];
   const metas = cfg.metas || [];
   for (let i = 0; i < cfg.personajes.length; i++) {
@@ -1719,10 +1761,100 @@ function seguirEnSolitarioTrasCaida() {
   caidaRed = '';
 }
 
+// ¿SE PUEDE VOLVER A ESTA PARTIDA?
+//
+// Tres condiciones, y las tres son de fondo y no de pantalla. Tiene que haber
+// una caída de verdad -- no se reengancha uno a una partida que sigue --, tiene
+// que quedar mundo al que volver, y tienen que ser dos jugadores: ver
+// `opcionesCaida` en ui/red.js para por qué lo tercero.
+function sePuedeReenganchar() {
+  return !!caidaRed && !finalMostrado && jugadores.length === 2 && Sincro.rotoPorRed;
+}
+
+// EL SALUDO QUE VIAJA POR EL CANAL NUEVO, o null si aquí no hay nada a lo que
+// volver. Lo pide red/consola.js en cuanto se abre el canal.
+function puntoDeReenganche() {
+  if (!sePuedeReenganchar()) return null;
+  const punto = Sincro.puntoDeReenganche();
+  punto.semilla = semillaRed >>> 0;
+  return punto;
+}
+
+// Y LA COMPROBACIÓN, que es de lo que va todo esto.
+//
+// Reengancharse a ciegas sería peor que no reengancharse: dos mundos que ya no
+// son el mismo seguirían jugando como si lo fueran, y la desincronización que
+// saltara media hora después no tendría de dónde tirar. Así que antes de
+// reanudar nada se comparan la semilla y la última huella que los dos tengan
+// comprobada, y si no cuadra se dice por qué y no se reanuda.
+function reengancharPartida(enlace, suyo) {
+  const negar = (motivo) => {
+    // AL OTRO HAY QUE DECÍRSELO. Si solo se entera esta punta, la de enfrente se
+    // queda mirando una pantalla de "conectados" que no va a avanzar nunca.
+    enlace.enviarControl('nore ' + motivo);
+    red.fase = 'error';
+    red.aviso = 'No se puede volver a la partida: ' + motivo;
+    return false;
+  };
+  if (!sePuedeReenganchar()) {
+    return negar('en la otra maquina ya no queda esa partida. ' +
+                 '¿Se ha vuelto al menú, o se ha seguido en solitario?');
+  }
+  if ((suyo.semilla >>> 0) !== (semillaRed >>> 0)) {
+    return negar('no venis de la misma partida.');
+  }
+  const porque = Sincro.comprobarReenganche(suyo);
+  if (porque) return negar(porque);
+
+  Sincro.reanudar([enlace]);
+  caidaRed = '';
+  reenganchando = false;
+  red.reenganche = false;
+  irA(PANTALLA_JUEGO);
+  console.log('RED: reenganchados en el paso ' + Lockstep.paso + '. Se sigue.');
+  return true;
+}
+
+// Lo mismo visto desde el otro lado: el de enfrente ha dicho que no.
+function reengancheRechazado(motivo) {
+  if (!reenganchando) return;
+  Sincro.parar();
+  red.fase = 'error';
+  red.aviso = 'La otra maquina no puede volver: ' + motivo;
+}
+
+// ENTRAR AL BAILE DE CÓDIGOS SIN SALIR DE LA PARTIDA.
+//
+// Se reutiliza la pantalla del cooperativo entera, porque reengancharse ES el
+// mismo baile: las credenciales de una conexión no se reciclan, así que hace
+// falta un par de códigos nuevo. Lo único que cambia es que al final no se
+// empieza nada -- la partida sigue congelada detrás de esta pantalla y lo que se
+// hace es descongelarla.
+//
+// Los papeles se conservan: quien invitó vuelve a invitar. No es capricho, es
+// que el puesto de cada uno tiene que seguir siendo el que era.
+function irAlReenganche() {
+  reenganchando = true;
+  red.reenganche = true;
+  red.cursor = 0;
+  red.codigo = '';
+  red.aviso = '';
+  red.copiado = false;
+  red.conectados = 0;
+  red.avisoConexion = null;
+  red.ipLocal = RedConsola.ipLocal;
+  red.esAnfitrion = puestoLocalRed === 0;
+  esperarRetardoDeRed();
+  irA(PANTALLA_RED);
+  if (red.esAnfitrion) crearPartidaEnRed();
+  else red.fase = 'pegar';
+}
+
 function entradaCaidaRed() {
   const c = entrada.controles[0];
   const eje = c ? c.flancoEje(false) : 0;
-  const n = OPCIONES_CAIDA.length;
+  const OPCIONES = opcionesCaida(sePuedeReenganchar());
+  const n = OPCIONES.length;
   if (entrada.consumirFlanco('ArrowDown') || (c && c.consumirBoton(13)) || eje > 0) {
     cursorCaida = (cursorCaida + 1) % n;
   }
@@ -1731,7 +1863,13 @@ function entradaCaidaRed() {
   }
   if (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space') ||
       (c && c.consumirBoton(0))) {
-    if (cursorCaida === 0) seguirEnSolitarioTrasCaida();
+    // POR EL TEXTO Y NO POR EL ÍNDICE: la lista tiene dos entradas o tres según
+    // se pueda volver o no, y un número aquí significaría una cosa distinta en
+    // cada caso. Es la clase de error que no se ve hasta que alguien pulsa
+    // "seguir en solitario" y se le va la partida al menú.
+    const elegida = OPCIONES[cursorCaida];
+    if (elegida === 'RECONECTAR') irAlReenganche();
+    else if (elegida === 'SEGUIR EN SOLITARIO') seguirEnSolitarioTrasCaida();
     else { caidaRed = ''; volverAlMenu(); }
   }
 }
@@ -2754,7 +2892,18 @@ function dibujar(alpha) {
   }
   perfil.texto = performance.now() - tNum;
 
-  if (caidaRed) dibujarCaida(Capa.ctx, caidaRed, cursorCaida);
+  if (caidaRed) {
+    dibujarCaida(Capa.ctx, caidaRed, cursorCaida, opcionesCaida(sePuedeReenganchar()));
+  }
+  else if (Sincro.activo) {
+    // Y SI NO SE HA CORTADO PERO EL MUNDO ESTÁ QUIETO, DECIR POR QUÉ. Es el
+    // mismo principio que el aviso de la consola —una pantalla congelada sin
+    // explicación es un fallo en sí mismo— pero puesto donde mira quien juega,
+    // que no es la consola. `espera()` devuelve null mientras no haya nada que
+    // contar, o sea casi siempre.
+    const esperaRed = Sincro.espera();
+    if (esperaRed) dibujarEspera(Capa.ctx, esperaRed);
+  }
 
   if (verDepuracion) {
     dibujarDepuracion(ctxUi, {
@@ -2992,7 +3141,19 @@ async function arrancar() {
   RedConsola.enganchar({
     empezar: empezarPartidaEnRed,
     terminar: terminarPartidaEnRed,
-    enPartida: () => Sincro.activo
+    // ESTO NO ES `Sincro.activo`, y la diferencia es un bloqueo permanente.
+    //
+    // Lo usa `medirYPonerRetardo` para no mover el retardo con la partida en
+    // marcha: moverlo deja sin escribir las casillas del búfer que quedan en
+    // medio y el mundo espera para siempre una pulsación que nadie va a poner.
+    // Con una partida caída, `Sincro.activo` es false -- se paró al romperse --
+    // y el canal del reenganche se abria midiendo y aplicando un retardo nuevo a
+    // un búfer que sigue a medio llenar. La partida hay que contarla mientras
+    // haya mundo, no mientras haya conexión.
+    enPartida: () => Sincro.activo || !!caidaRed,
+    puntoDeReenganche,
+    reenganchar: reengancharPartida,
+    reengancheRechazado
   });
 
   window.EMERITA = {

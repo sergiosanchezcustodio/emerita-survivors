@@ -52,6 +52,45 @@ const GRUPOS_VIGILADOS = ['jugadores', 'disparos', 'proyectiles', 'zonas',
 // una pantalla congelada y merece saber por qué.
 const ESPERA_AVISO = 120;
 
+// CUANTO SE AGUANTA UN BACHE ANTES DE DAR LA PARTIDA POR PERDIDA.
+//
+// Quince segundos, contados en pasos porque es el único reloj que hay aquí — y
+// mientras se espera el mundo no avanza, así que `antesDelPaso` se sigue
+// llamando sesenta veces por segundo aunque no se dé ni un paso.
+//
+// El número sale de las dos cosas que puede ser un bache. Si es un tropiezo de
+// ICE —la wifi que parpadea, el router que cambia de canal, un cable que se
+// menea— vuelve en dos o tres segundos y quince sobran. Si es la línea que se ha
+// caído de verdad, no va a volver, y quince segundos mirando una pantalla quieta
+// ya son suficientes para que nadie piense que el juego se ha colgado.
+const AGUANTE_BACHE = 900;
+
+// Y ESTE RELOJ SOLO CORRE CON EL TRANSPORTE DICIENDO QUE ALGO VA MAL.
+//
+// Esperar con el canal sano es otra cosa y no se le pone límite: el otro puede
+// estar en una pestaña de fondo —los navegadores frenan a los que no se ven— o
+// haber soltado el mando un momento. Rendirse ahí sería echar a alguien de su
+// propia partida por haber mirado el navegador un rato.
+
+// LAS DIECISIETE PARTES, EN UN SOLO NUMERO.
+//
+// Para el saludo del reenganche no hace falta el detalle: solo hay que decidir
+// si las dos partidas siguen siendo la misma en un paso concreto, y eso es un
+// sí o un no. Mandando las partes enteras de ocho pasos irían tres kilobytes por
+// un canal que acaba de nacer; mezcladas van ocho números.
+//
+// El detalle sigue estando donde hace falta —en la vigilancia de cada veinte
+// pasos, que es la que tiene que decir QUÉ componente se ha separado—. Aquí la
+// pregunta es otra.
+function mezclarPartes(partes) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < partes.length; i++) {
+    h = (h ^ (partes[i] >>> 0)) >>> 0;
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
 export function vigilarCada(pasos) {
   CADA_HUELLA = Math.max(1, pasos | 0);
   return CADA_HUELLA;
@@ -74,10 +113,31 @@ export function crearSincro(L) {
   jugadores: 1,
   // Motivo por el que se ha roto la partida, si se ha roto.
   roto: '',
+  // Y SI LA CULPA FUE DE LA RED, que no es lo mismo ni de lejos.
+  //
+  // A un corte se le puede volver: los dos mundos siguen enteros y solo falta
+  // un canal. A una DIVERGENCIA no: los dos mundos ya son distintos, y volver a
+  // conectarlos solo serviría para que siguieran jugando dos partidas creyendo
+  // que son una, que es justo lo que toda la vigilancia de aquí existe para
+  // impedir. Y a un `adios` tampoco: quien se fue ya no tiene partida.
+  rotoPorRed: false,
   // Cuántas huellas se han comparado y en cuántos pasos ha habido que esperar.
   huellasComparadas: 0,
   desdeUltimaHuella: 0,
   _pasosParado: 0,
+  // EL BACHE: el transporte dice que el enlace se ha ido, pero puede volver.
+  //
+  // No es lo mismo que `roto`. `roto` es definitivo y saca el cartel de las dos
+  // salidas; esto es un compás de espera en el que la partida sigue entera en
+  // las dos máquinas y solo falta que el cable vuelva. El texto es lo que se le
+  // enseña a quien está mirando; vacío mientras no pase nada, que es lo normal.
+  bache: '',
+  pasosBache: 0,
+  // Cuántos enlaces están caídos ahora mismo. Con cuatro jugadores el anfitrión
+  // tiene tres, y que vuelva uno no significa que hayan vuelto los otros dos:
+  // contando en vez de guardando un si/no, el aviso se quita cuando lo tiene que
+  // quitar y no con el primero que conteste.
+  _enBache: 0,
   // El último paso que se comprobó y salió bien. Al romperse, acota la
   // divergencia a la ventana entre ese paso y el que falla.
   ultimoBueno: -1,
@@ -141,15 +201,107 @@ export function crearSincro(L) {
     this._alRomperse = opciones.alRomperse || null;
     this._mias = new Map();
     this.roto = '';
+    this.rotoPorRed = false;
     this.huellasComparadas = 0;
     this.desdeUltimaHuella = 0;
     this._pasosParado = 0;
+    this.bache = '';
+    this.pasosBache = 0;
+    this._enBache = 0;
     this.activo = true;
 
     // El búfer, con los puestos repartidos: el mío es local, el resto viene por
     // la red.
     L.reiniciar(this.jugadores, [this.jugadorLocal]);
+    this._engancharEnlaces();
+  },
 
+  // VOLVER A UNA PARTIDA QUE SIGUE EN PIE, por un canal nuevo.
+  //
+  // Es `empezar` MENOS las dos cosas que aquí serían el desastre: no toca el
+  // búfer —`L.reiniciar` pondría el contador de pasos a cero y las dos máquinas
+  // dejarían de hablar del mismo paso— y no borra las huellas guardadas, que son
+  // precisamente con lo que se acaba de comprobar que la partida es la misma.
+  //
+  // Lo que sí se limpia es el motivo de la ruptura y el bache: la conexión que
+  // se cayó ya no existe, y el que manda ahora es el enlace nuevo.
+  reanudar(conexiones) {
+    this._enlaces = Array.isArray(conexiones) ? conexiones.slice() : [conexiones];
+    this.roto = '';
+    this.rotoPorRed = false;
+    this.bache = '';
+    this.pasosBache = 0;
+    this._enBache = 0;
+    this._pasosParado = 0;
+    this.activo = true;
+    this._engancharEnlaces();
+    return true;
+  },
+
+  // LO QUE HAY QUE ENSEÑARLE AL OTRO PARA QUE COMPRUEBE QUE SEGUIMOS EN LA
+  // MISMA PARTIDA.
+  //
+  // Reengancharse a ciegas sería peor que no reengancharse: dos mundos que ya no
+  // son el mismo seguirían jugando como si lo fueran, y eso es exactamente lo
+  // que toda la vigilancia de este módulo existe para no permitir. El caso no es
+  // rebuscado: basta con que uno de los dos haya elegido SEGUIR EN SOLITARIO
+  // antes de arrepentirse.
+  puntoDeReenganche() {
+    const pasos = [];
+    for (const p of this._mias.keys()) pasos.push(p);
+    pasos.sort((a, b) => b - a);
+    const huellas = [];
+    for (let i = 0; i < pasos.length && i < 8; i++) {
+      huellas.push(pasos[i] + ':' + mezclarPartes(this._mias.get(pasos[i])));
+    }
+    return {
+      jugadores: this.jugadores,
+      puesto: this.jugadorLocal,
+      paso: L.paso,
+      huellas
+    };
+  },
+
+  // Y la respuesta: cadena vacía si se puede reanudar, y si no, POR QUÉ NO.
+  //
+  // El motivo se dice con las palabras de quien juega y no con un código: quien
+  // está mirando esa pantalla acaba de perder una partida de media hora y lo
+  // menos que se le puede dar es la razón.
+  comprobarReenganche(suyo) {
+    if (!suyo) return 'no ha contestado.';
+    if ((suyo.jugadores | 0) !== this.jugadores) {
+      return 'no jugabais los mismos: ' + this.jugadores + ' aquí y ' +
+             (suyo.jugadores | 0) + ' allí.';
+    }
+    if ((suyo.puesto | 0) === this.jugadorLocal) {
+      return 'los dos os creéis el mismo jugador. ¿Habéis abierto la partida ' +
+             'dos veces en la misma máquina?';
+    }
+    const suyas = new Map();
+    const lista = suyo.huellas || [];
+    for (let i = 0; i < lista.length; i++) {
+      const c = String(lista[i]).split(':');
+      suyas.set(parseInt(c[0], 10), parseInt(c[1], 10) >>> 0);
+    }
+    // EL PUNTO COMÚN ES EL PASO MÁS ALTO QUE LOS DOS TENGÁIS COMPROBADO. Se
+    // guardan las treinta últimas huellas, una cada veinte pasos: diez segundos
+    // de historia, de sobra para dos mundos que se pararon a la vez.
+    let comun = -1;
+    for (const p of this._mias.keys()) {
+      if (suyas.has(p) && p > comun) comun = p;
+    }
+    if (comun < 0) {
+      return 'no compartís ningún punto comprobado. Habéis parado demasiado ' +
+             'lejos el uno del otro para saber si seguís en la misma partida.';
+    }
+    if (mezclarPartes(this._mias.get(comun)) !== suyas.get(comun)) {
+      return 'vuestras partidas ya no son la misma en el paso ' + comun + '. ' +
+             '¿Alguno ha seguido jugando en solitario?';
+    }
+    return '';
+  },
+
+  _engancharEnlaces() {
     for (let i = 0; i < this._enlaces.length; i++) {
       const enlace = this._enlaces[i];
       enlace.alJuego = (datos) => {
@@ -163,7 +315,30 @@ export function crearSincro(L) {
       };
       enlace.alControl = (texto) => this._recibirControl(texto, enlace);
       enlace.alCerrar = () => {
-        if (this.activo) this._romper('Se ha cortado la conexión.');
+        // ESTE SÍ ES DEFINITIVO. Un canal cerrado no se vuelve a abrir: para
+        // volver haría falta un código nuevo y el baile entero, que es otra
+        // tarea. Aquí no hay nada que esperar, así que no se espera.
+        if (this.activo) this._romper('Se ha cortado la conexión.', true);
+      };
+      enlace._bache = false;
+      enlace.alBache = (motivo) => {
+        if (!this.activo || this.roto || enlace._bache) return;
+        enlace._bache = true;
+        if (++this._enBache > 1) return;
+        this.bache = motivo || 'Se ha perdido el contacto.';
+        this.pasosBache = 0;
+        console.warn('RED: ' + this.bache + ' Se espera hasta ' +
+                     (AGUANTE_BACHE / 60 | 0) + ' s.');
+      };
+      enlace.alVolver = () => {
+        if (!enlace._bache) return;
+        enlace._bache = false;
+        if (--this._enBache > 0) return;
+        this._enBache = 0;
+        console.log('RED: el contacto ha vuelto tras ' +
+                    (this.pasosBache / 60).toFixed(1) + ' s. Se sigue donde estaba.');
+        this.bache = '';
+        this.pasosBache = 0;
       };
     }
   },
@@ -208,6 +383,18 @@ export function crearSincro(L) {
     if (!this.activo) return true;
     if (this.roto) return false;
 
+    // EL RELOJ DEL BACHE CORRE AUNQUE EL MUNDO SIGA ANDANDO UN POCO MÁS.
+    //
+    // Al irse el contacto quedan todavía unas pulsaciones en el búfer, así que
+    // hay unos fotogramas en los que se juega con normalidad antes de pararse.
+    // Contando solo cuando el mundo está quieto, esos fotogramas se regalarían a
+    // la espera y el aguante sería distinto cada vez.
+    if (this.bache && ++this.pasosBache >= AGUANTE_BACHE) {
+      this._romper(this.bache + ' No ha vuelto en ' +
+                   (AGUANTE_BACHE / 60 | 0) + ' segundos.', true);
+      return false;
+    }
+
     // Registrar lo de aquí solo tiene sentido si el mundo va a avanzar: el
     // búfer apunta al paso EN CURSO más el retardo, y si el paso no se da, ese
     // destino no cambia. Registrar de nuevo lo mismo no hace daño, pero mandar
@@ -234,8 +421,33 @@ export function crearSincro(L) {
       }
       return false;
     }
+    // PONERSE AL DÍA NO HAY QUE PROGRAMARLO, y conviene saber por qué: en
+    // lockstep, si falta la pulsación de alguien el mundo se para EN TODAS las
+    // máquinas. O sea que mientras uno está caído el otro tampoco avanza, y al
+    // volver no hay media partida que recuperar sino unos pocos pasos. De eso ya
+    // se encarga `empaquetar`, que manda hasta cuarenta marcos atrasados en
+    // cuanto ve que el otro se ha quedado atrás.
     this._pasosParado = 0;
     return true;
+  },
+
+  // QUÉ CONTARLE A QUIEN ESTÁ MIRANDO UNA PANTALLA QUIETA.
+  //
+  // Devuelve null mientras no haya nada que decir, que es casi siempre. Los dos
+  // segundos de margen son a propósito: por debajo de eso el mundo se para y
+  // arranca constantemente —es el pulso normal de una partida en red— y un
+  // cartel parpadeando ahí sería peor que el silencio.
+  espera() {
+    if (!this.activo || this.roto) return null;
+    if (this._pasosParado < ESPERA_AVISO) return null;
+    return {
+      motivo: this.bache,
+      segundos: this._pasosParado / 60,
+      // Cuánto queda antes de rendirse. Cero cuando no hay bache: el canal esta
+      // sano y se espera lo que haga falta, así que no hay cuenta atrás que dar.
+      restan: this.bache ? Math.max(0, (AGUANTE_BACHE - this.pasosBache) / 60) : 0,
+      quien: L.faltan()
+    };
   },
 
   // La carta que acaba de elegir quien juega aquí. Va por el canal FIABLE: si
@@ -431,9 +643,10 @@ export function crearSincro(L) {
     this._difundirControl(`dame ${paso} ${grupos.join(',')}`);
   },
 
-  _romper(motivo) {
+  _romper(motivo, porRed) {
     if (this.roto) return;
     this.roto = motivo;
+    this.rotoPorRed = !!porRed;
     console.error('RED: ' + motivo);
     if (this._alRomperse) this._alRomperse(motivo);
   },
@@ -449,7 +662,9 @@ export function crearSincro(L) {
       huellas: this.huellasComparadas,
       camino: this.camino,
       rttMs: this.rttMs,
-      roto: this.roto
+      bache: this.bache,
+      roto: this.roto,
+      rotoPorRed: this.rotoPorRed ? 1 : 0
     };
   }
  };

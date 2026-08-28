@@ -63,6 +63,19 @@ const VIDA_MARATON = 2000;   // +4% por nivel: unas ochenta veces la vida normal
 // unió, que llevaba el puesto 1. Ese es el caso delicado — si el búfer de
 // pulsaciones no cambia de puesto, se queda sin poder moverse.
 const CORTE = process.argv[3] === 'corte';
+// MODO REENGANCHE: se cae la red de verdad y las dos puntas vuelven.
+//
+//   node herramientas\probar-partida-en-red.js 20 reenganche
+//
+// Es el caso que no se puede ensayar jugando sin desenchufar algo, y el que más
+// falta hace probar: comprueba que las dos máquinas ofrecen volver, que el
+// saludo del reenganche las reconoce, y sobre todo QUE LA PARTIDA SIGUE DONDE
+// ESTABA -- no desde cero, que es en lo que se convertiría un reenganche mal
+// hecho sin que nadie se diera cuenta hasta media hora después.
+//
+// El corte es a lo bruto (`EMERITA.red.cortar()`): nadie se despide, así que
+// cada punta se entera por su canal, igual que si se fuera el router.
+const REENGANCHE = process.argv[3] === 'reenganche';
 // CUÁNTOS JUGADORES. Dos por defecto; con `3` o `4` se prueba la estrella, que
 // es donde el anfitrión tiene que REENVIAR lo que pulsa cada invitado a los
 // demás — los invitados no se ven entre ellos.
@@ -174,6 +187,99 @@ async function probarCorte(A, B) {
   for (const p of [A, B]) {
     const otros = p.errores.filter((t) => !/AudioContext/.test(t) && !/favicon/.test(t) &&
                                           !/ha salido/.test(t));
+    comprobar(otros.length === 0,
+              otros.length === 0 ? `sin errores (${p.nombre})`
+                                 : `errores en ${p.nombre}: ${otros.slice(0, 2).join(' | ')}`);
+  }
+}
+
+// La caída de verdad y la vuelta, con el juego ya en marcha.
+async function probarReenganche(A, B) {
+  const estado = (p) => p.pagina.evaluate(() => {
+    const m = window.EMERITA.mando();
+    return {
+      paso: window.EMERITA.lockstep.paso,
+      red: m.redActiva, caida: m.caida, puede: m.puedeReenganchar,
+      jugadores: m.jugadores
+    };
+  });
+
+  await A.pagina.waitForTimeout(2500);
+  const antes = await estado(B);
+  comprobar(antes.red === 1, `en marcha (paso ${antes.paso})`);
+
+  // Se va la red. Las DOS puntas cortan: lo que se simula es el cable, no que
+  // alguien se vaya -- de eso ya va el modo `corte`.
+  await A.pagina.evaluate(() => window.EMERITA.red.cortar());
+  await B.pagina.evaluate(() => window.EMERITA.red.cortar());
+  await A.pagina.waitForTimeout(1500);
+
+  const cortadoA = await estado(A), cortadoB = await estado(B);
+  comprobar(cortadoA.caida === 1 && cortadoB.caida === 1,
+            'las dos sacan el cartel de la caída');
+  comprobar(cortadoA.puede === 1 && cortadoB.puede === 1,
+            'y las dos ofrecen volver');
+
+  await A.pagina.waitForTimeout(1200);
+  const quieto = await estado(A);
+  comprobar(quieto.paso === cortadoA.paso,
+            `el mundo se queda quieto mientras se decide (paso ${quieto.paso})`);
+
+  // Y EL CARTEL LLEVA DE VERDAD A LA PANTALLA DE CÓDIGOS.
+  //
+  // El baile de más abajo se hace por la consola, que es lo que sabe hacer esta
+  // prueba; pero quien juega llega ahí pulsando RECONECTAR, y esa puerta hay que
+  // pisarla o se queda sin probar la única parte que ve una persona. Se entra y
+  // se sale: ESC tiene que devolver al cartel, no al menú de red -- la partida
+  // sigue congelada detrás y mandarla al menú sería perderla sin pedirlo.
+  await B.pagina.keyboard.press('Enter');
+  await B.pagina.waitForTimeout(500);
+  const enPantallaRed = await B.pagina.evaluate(() => window.EMERITA.mando().pantalla);
+  comprobar(enPantallaRed === 8, `RECONECTAR lleva a la pantalla de códigos (${enPantallaRed})`);
+  await B.pagina.keyboard.press('Escape');
+  await B.pagina.waitForTimeout(500);
+  const devuelto = await B.pagina.evaluate(() => {
+    const m = window.EMERITA.mando();
+    return { pantalla: m.pantalla, caida: m.caida };
+  });
+  comprobar(devuelto.pantalla === 2 && devuelto.caida === 1,
+            'y ESC devuelve al cartel, con la partida todavía ahí');
+
+  // EL BAILE DE CÓDIGOS, OTRA VEZ. Las credenciales de una conexión no se
+  // reciclan: reengancharse es pasarse dos códigos nuevos, los mismos dos
+  // mensajes de la primera vez.
+  const invitacion = await A.pagina.evaluate(() => window.EMERITA.red.invitar());
+  comprobar(!!invitacion, `código nuevo (${(invitacion || '').length} caracteres)`);
+  const respuesta = await B.pagina.evaluate((c) => window.EMERITA.red.responder(c),
+                                            invitacion);
+  comprobar(!!respuesta, 'y la otra punta contesta');
+  await A.pagina.evaluate((c) => window.EMERITA.red.aceptar(c), respuesta);
+  await A.pagina.waitForTimeout(2500);
+
+  const vueltaA = await estado(A), vueltaB = await estado(B);
+  comprobar(vueltaA.red === 1 && vueltaB.red === 1,
+            'las dos vuelven a estar en partida');
+  comprobar(vueltaA.caida === 0 && vueltaB.caida === 0, 'y el cartel se va');
+  // LO QUE DE VERDAD SE ESTÁ COMPROBANDO: que se sigue, no que se empieza. Un
+  // reenganche que reiniciara el contador de pasos pasaría por bueno a simple
+  // vista y sería otra partida.
+  comprobar(vueltaA.paso > quieto.paso,
+            `y la partida SIGUE DONDE ESTABA (${quieto.paso} -> ${vueltaA.paso})`);
+  comprobar(vueltaA.jugadores === 2 && vueltaB.jugadores === 2,
+            'con los dos jugadores todavía en pie');
+
+  await A.pagina.waitForTimeout(2500);
+  const luegoA = await estado(A), luegoB = await estado(B);
+  comprobar(luegoA.paso > vueltaA.paso, `y se sigue jugando (paso ${luegoA.paso})`);
+  comprobar(Math.abs(luegoA.paso - luegoB.paso) < 30,
+            `las dos van a la par (${Math.abs(luegoA.paso - luegoB.paso)} pasos)`);
+  const rotoA = await A.pagina.evaluate(() => window.EMERITA.mando().redRota);
+  comprobar(!rotoA, rotoA ? `SE HA ROTO: ${rotoA}` : 'sin desincronización tras volver');
+
+  for (const p of [A, B]) {
+    const otros = p.errores.filter((t) => !/AudioContext/.test(t) && !/favicon/.test(t) &&
+                                          !/cortado/.test(t) && !/cortar/.test(t) &&
+                                          !/Se ha cortado/.test(t));
     comprobar(otros.length === 0,
               otros.length === 0 ? `sin errores (${p.nombre})`
                                  : `errores en ${p.nombre}: ${otros.slice(0, 2).join(' | ')}`);
@@ -327,6 +433,7 @@ async function principal() {
     }
 
     if (CORTE) { await probarCorte(A, B); return; }
+    if (REENGANCHE) { await probarReenganche(A, B); return; }
 
     // Moverse de verdad, en las dos, en direcciones distintas. Quedarse quieto
     // probaría mucho menos: sin movimiento no hay rumbo de cámara, y sin rumbo

@@ -207,6 +207,175 @@ console.log('\nY vuelve solo cuando el otro habla otra vez');
   comprobar(!m.rotos.A, 'sin declarar nada roto por el camino');
 }
 
+// UN BACHE NO ES UNA CAÍDA, y estas cuatro pruebas son las de la diferencia.
+//
+// El caso más frecuente de una partida en red no es que se corte: es que el
+// contacto se vaya unos segundos y vuelva. Hasta ahora eso no tenía forma de
+// contarse -- o se jugaba, o se había acabado -- y lo que veía quien jugaba era
+// la pantalla congelada sin una palabra.
+console.log('\nUn bache que vuelve no rompe la partida');
+{
+  const m = montar();
+  correr(m, 60);
+  m.con.b.cortado = true;
+  m.con.a.alBache('Se ha perdido el contacto; reintentando.');
+  correr(m, 300);                          // cinco segundos caído
+  const parado = m.bufA.paso;
+  comprobar(!m.rotos.A, 'a los cinco segundos todavía no se ha rendido');
+  const e = m.sincroA.espera();
+  comprobar(!!e && !!e.motivo, `y tiene algo que contar: "${e && e.motivo}"`);
+  comprobar(!!e && e.restan > 0 && e.restan < 15,
+            `con cuenta atrás de verdad (quedan ${e && e.restan.toFixed(1)} s)`);
+
+  m.con.b.cortado = false;
+  m.con.a.alVolver();
+  correr(m, 200);
+  comprobar(m.sincroA.bache === '', 'al volver el contacto, el aviso se quita');
+  comprobar(m.bufA.paso > parado + 150,
+            'y se sigue donde estaba, sin transferir nada ' +
+            `(de ${parado} a ${m.bufA.paso})`);
+  comprobar(!m.rotos.A, 'sin declarar nada roto por el camino');
+}
+
+console.log('\nUn bache que NO vuelve acaba dándose por perdido');
+{
+  const m = montar();
+  correr(m, 60);
+  m.con.b.cortado = true;
+  m.con.a.alBache('Se ha perdido el contacto; reintentando.');
+  correr(m, 600);                          // diez segundos
+  comprobar(!m.rotos.A, 'a los diez segundos aún se espera');
+  correr(m, 400);                          // pasado el aguante
+  comprobar(!!m.rotos.A, 'pasados los quince, se da por perdida');
+  comprobar(/No ha vuelto/.test(m.rotos.A || ''),
+            `y dice por qué: "${(m.rotos.A || '').slice(0, 70)}..."`);
+}
+
+// SIN BACHE NO HAY CUENTA ATRÁS. Callarse con el canal sano es otra cosa -- el
+// otro puede tener la pestaña de fondo, que los navegadores frenan -- y ahí
+// rendirse sería echar a alguien de su partida por haber mirado el navegador.
+console.log('\nCallarse con el canal sano se espera sin límite');
+{
+  const m = montar();
+  correr(m, 60);
+  m.con.b.cortado = true;
+  correr(m, 1200);                         // veinte segundos, mas que el aguante
+  comprobar(!m.rotos.A, 'no se rompe nada: nadie ha dicho que el enlace se caiga');
+  const e = m.sincroA.espera();
+  comprobar(!!e && e.restan === 0, 'y no se le enseña una cuenta atrás inventada');
+  comprobar(!!e && e.quien.indexOf(1) >= 0,
+            `pero sí a quien se espera (jugador ${e && e.quien[0] + 1})`);
+}
+
+// CON CUATRO JUGADORES EL ANFITRIÓN TIENE TRES ENLACES, y que vuelva uno no
+// significa que hayan vuelto los otros. Por eso se cuentan en vez de guardar un
+// si/no: con un si/no, el primero que contestara borraba el aviso de los demás.
+console.log('\nCon varios enlaces, el aviso se va con el último');
+{
+  const bufC = crearBufer(); bufC.iniciar(4);
+  const sincroC = crearSincro(bufC);
+  const mudo = () => ({ alControl: null, alJuego: null,
+                        enviarControl: () => true, enviarJuego: () => true });
+  const uno = mudo(), dos = mudo();
+  sincroC.empezar([uno, dos], {
+    esAnfitrion: true, jugadorLocal: 0, jugadores: 3,
+    partesDe: () => [1, 2], nombres: ['a', 'b'], alRomperse: () => {}
+  });
+  uno.alBache('se fue uno');
+  dos.alBache('se fue el otro');
+  comprobar(sincroC.bache === 'se fue uno', 'el aviso es el del primero que cayó');
+  uno.alVolver();
+  comprobar(sincroC.bache !== '', 'con uno de vuelta y otro caído, el aviso sigue');
+  dos.alVolver();
+  comprobar(sincroC.bache === '', 'y se quita cuando han vuelto los dos');
+}
+
+// EL REENGANCHE: volver a una partida que sigue en pie, por un canal nuevo.
+//
+// Lo caro de esto no es ponerse al dia -- en lockstep los dos mundos se paran a
+// la vez, así que no hay nada que recuperar -- sino no volver a la partida
+// equivocada. Estas pruebas son casi todas de lo segundo.
+console.log('\nSe vuelve a la partida sin tocar el búfer');
+{
+  const m = montar();
+  correr(m, 200);
+  const paso = m.bufA.paso;
+  m.sincroA._romper('se ha cortado', true);
+  m.sincroB._romper('se ha cortado', true);
+  comprobar(m.sincroA.rotoPorRed, 'la ruptura queda marcada como de red');
+
+  // Un canal NUEVO: las credenciales de una conexión no se reciclan, así que
+  // esto es lo que pasa de verdad tras pegarse dos códigos nuevos.
+  const otro = crearParConexiones();
+  m.sincroA.reanudar(otro.a);
+  m.sincroB.reanudar(otro.b);
+  m.con = otro;
+  comprobar(m.bufA.paso === paso,
+            `el contador de pasos no se toca (sigue en ${m.bufA.paso})`);
+  comprobar(m.sincroA.roto === '' && m.sincroA.activo, 'y la partida vuelve a estar viva');
+  const r = correr(m, 200);
+  comprobar(r.dadosA > 190 && r.dadosB > 190,
+            `y se sigue jugando (${r.dadosA} y ${r.dadosB} pasos)`);
+  comprobar(!m.sincroA.roto && !m.sincroB.roto, 'sin declarar nada roto al reanudar');
+}
+
+console.log('\nEl saludo del reenganche reconoce a la otra punta');
+{
+  const m = montar();
+  correr(m, 200);
+  comprobar(m.sincroA.comprobarReenganche(m.sincroB.puntoDeReenganche()) === '',
+            'dos puntas de la misma partida se reconocen');
+  comprobar(m.sincroB.comprobarReenganche(m.sincroA.puntoDeReenganche()) === '',
+            'y en el otro sentido también');
+}
+
+// LA PRUEBA QUE JUSTIFICA TODO EL SALUDO. Basta con que uno haya elegido SEGUIR
+// EN SOLITARIO antes de arrepentirse para que los dos mundos ya no sean el
+// mismo, y reengancharlos sería dejarlos jugando dos partidas creyendo que son
+// una -- justo lo que la vigilancia de este módulo existe para impedir.
+console.log('\nY rechaza una partida que ya no es la misma');
+{
+  const m = montar();
+  correr(m, 200);
+  const suyo = m.sincroB.puntoDeReenganche();
+  // Se tuerce la huella del punto que los dos tienen comprobado.
+  const trozos = String(suyo.huellas[0]).split(':');
+  suyo.huellas[0] = trozos[0] + ':' + ((parseInt(trozos[1], 10) ^ 1) >>> 0);
+  const porque = m.sincroA.comprobarReenganche(suyo);
+  comprobar(porque !== '', 'no se reengancha a ciegas');
+  comprobar(/ya no son la misma/.test(porque), `y dice por qué: "${porque}"`);
+}
+
+console.log('\nY rechaza lo que no puede comprobar');
+{
+  const m = montar();
+  correr(m, 200);
+  const suyo = m.sincroB.puntoDeReenganche();
+  // Huellas de pasos que esta punta no tiene: han parado demasiado lejos.
+  suyo.huellas = ['99980:1', '99960:2'];
+  const porque = m.sincroA.comprobarReenganche(suyo);
+  comprobar(/ningún punto comprobado/.test(porque),
+            `sin punto comun no se reanuda: "${porque}"`);
+
+  const mismo = m.sincroB.puntoDeReenganche();
+  mismo.puesto = m.sincroA.jugadorLocal;
+  comprobar(m.sincroA.comprobarReenganche(mismo) !== '',
+            'ni con dos puntas que se creen el mismo jugador');
+}
+
+// UNA DIVERGENCIA NO SE ARREGLA RECONECTANDO, y por eso no se ofrece: los dos
+// mundos ya son distintos y un canal nuevo solo los dejaria seguir así.
+console.log('\nUna divergencia no cuenta como caída de red');
+{
+  const m = montar();
+  correr(m, 60);
+  m.mundoB.valores[3] = 999;
+  correr(m, 60);
+  comprobar(!!(m.rotos.A || m.rotos.B), 'la divergencia se detecta');
+  comprobar(!m.sincroA.rotoPorRed && !m.sincroB.rotoPorRed,
+            'y NO queda marcada como caída de red');
+}
+
 console.log('\nLa elección de carta viaja');
 {
   const m = montar();

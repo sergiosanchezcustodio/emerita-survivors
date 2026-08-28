@@ -1,6 +1,6 @@
 # Cooperativo online: dónde estamos
 
-Última actualización: 27 de agosto de 2026.
+Última actualización: 28 de agosto de 2026.
 
 El plan es **lockstep**: por la red viajan solo las pulsaciones, y cada máquina
 simula la partida entera por su cuenta. Es lo que permite jugar sin servidor y
@@ -562,6 +562,158 @@ cierra los menús antes de medir si el mundo avanza.
 Es la sexta de la lista de "desincronizaciones que no lo eran", y de la misma
 familia: lo que se estaba comparando no era la simulación.
 
+## El bache: la caída que se cura sola (hecho)
+
+**Una partida en red solo tenía dos estados a la vista**: se juega, o se ha
+cortado y salen las dos salidas —seguir en solitario o volver al menú—. Entre
+medias faltaba el caso MÁS FRECUENTE de todos: el contacto se va unos segundos y
+vuelve. La wifi que parpadea, el router que cambia de canal, un cable que se
+menea. Y eso se veía como lo peor que puede verse: la imagen congelada, sin un
+mensaje, sin saber si ha sido tu red, la del otro o que el juego se ha colgado.
+
+**Ponerse al día no ha habido que programarlo, y conviene saber por qué.** En
+lockstep, si falta la pulsación de alguien el mundo se para EN TODAS las
+máquinas. O sea que mientras uno está caído el otro tampoco avanza: cuando vuelve
+no hay media partida que recuperar, sino unos pocos pasos. De eso ya se encargaba
+`empaquetar`, que manda hasta cuarenta marcos atrasados en cuanto ve que el otro
+se ha quedado atrás. Lo caro de una reconexión en otros juegos —transferir el
+estado— aquí sale gratis por la arquitectura.
+
+Lo que faltaba era distinguir el bache de la caída, y decirlo.
+
+**`alCerrar` es definitivo; `alBache` y `alVolver` son nuevos** (`js/red/conexion.js`).
+Un canal cerrado no se vuelve a abrir y ahí no hay nada que esperar. Un tropiezo
+de ICE es otra cosa: la conexión sigue intentándolo y a menudo lo consigue.
+
+Dos arreglos salieron de escribir eso, y los dos eran mudos:
+
+- **Un `failed` con la partida en marcha se descartaba en el acto.** El
+  razonamiento era que si ya estaba conectado, el aviso tenía que ser falso — y
+  eso vale durante el emparejamiento, que es para lo que se escribió. Jugando da
+  el peor resultado posible: si la conexión se había ido de verdad, nadie se
+  enteraba NUNCA y la partida se quedaba congelada sin un solo mensaje.
+- **Tras un `disconnected` que se curaba solo, la conexión se quedaba diciendo
+  "conectando" para siempre.** Los canales nunca se cerraron y se seguía jugando,
+  así que no se notaba; pero todo lo que preguntara por el estado leía una
+  mentira, empezando por el margen de `failed`.
+
+**El aguante son quince segundos**, contados en pasos de lógica porque es el
+único reloj que hay ahí — y mientras se espera el mundo no avanza, así que
+`antesDelPaso` se sigue llamando sesenta veces por segundo aunque no dé un paso.
+El número sale de las dos cosas que puede ser un bache: si es un tropiezo de ICE
+vuelve en dos o tres segundos y quince sobran; si la línea se ha caído de verdad
+no va a volver, y quince segundos mirando una pantalla quieta ya bastan para que
+nadie piense que el juego se ha colgado. Pasados, sale el cartel de siempre.
+
+**Y ese reloj solo corre con el transporte diciendo que algo va mal.** Esperar
+con el canal sano es otra cosa y no se le pone límite: el otro puede tener la
+pestaña de fondo —los navegadores frenan a las que no se ven— o haber soltado el
+mando un momento. Rendirse ahí sería echar a alguien de su propia partida por
+haber mirado el navegador un rato.
+
+**El cartel de espera no oscurece la pantalla**, a diferencia del de caída. Es
+deliberado: la partida no se ha perdido, sigue ahí entera esperando a seguir, y
+taparla diría justo lo contrario. Una tira abajo con el motivo y la cuenta atrás
+—y la cuenta atrás SOLO si de verdad la hay, o sería una amenaza inventada—.
+Sale a los dos segundos, el mismo margen que ya usaba el aviso de la consola:
+por debajo de eso el mundo se para y arranca constantemente, que es el pulso
+normal de una partida en red, y un cartel parpadeando ahí sería peor que el
+silencio.
+
+**Los enlaces caídos se cuentan, no se marcan.** Con cuatro jugadores el
+anfitrión tiene tres, y que vuelva uno no significa que hayan vuelto los otros
+dos: con un sí/no, el primero que contestara borraba el aviso de los demás.
+
+    node herramientas\probar-sincro.js
+
+Cuatro casos nuevos: el bache que vuelve —y sigue donde estaba, sin transferir
+nada—, el que no vuelve y acaba dándose por perdido pasados los quince, el
+callarse con el canal sano que se espera sin límite, y el recuento con varios
+enlaces.
+
+## El reenganche: volver a una partida caída (hecho, con dos jugadores)
+
+Cuando el canal se cierra de verdad y no vuelve, el bache de arriba se rinde y
+sale el cartel. Ahora ese cartel tiene una salida más, **RECONECTAR**, y va la
+primera porque es lo que quiere casi todo el mundo: seguir la partida que
+estabais jugando.
+
+**Los dos mundos siguen enteros.** Mientras el cartel está puesto, `actualizar`
+no da un solo paso, así que la partida está literalmente congelada detrás de él —
+los pools, el RNG, el director, los arsenales, el paso en el que iba el búfer. No
+hay nada que transferir: hace falta un canal y una comprobación.
+
+**El canal es el baile de códigos otra vez.** Las credenciales de una conexión no
+se reciclan, así que reengancharse son los mismos dos mensajes de la primera vez.
+Se reutiliza la pantalla del cooperativo entera y **los papeles se conservan**:
+quien invitó vuelve a invitar, porque el puesto de cada uno tiene que seguir
+siendo el que era. La pantalla lo dice —*VOLVER A LA PARTIDA · sigue en pie,
+esperando a reanudarse*— o diría CREANDO PARTIDA y quien la mira creería que ha
+perdido la suya.
+
+**Y la comprobación es de lo que va todo esto.** Reengancharse a ciegas sería
+peor que no reengancharse: dos mundos que ya no son el mismo seguirían jugando
+como si lo fueran, que es justo lo que toda la vigilancia de `sincro.js` existe
+para impedir. Y el caso no es rebuscado — basta con que uno haya elegido SEGUIR
+EN SOLITARIO antes de arrepentirse.
+
+En cuanto se abre el canal, las dos puntas se mandan solas un saludo con la
+semilla, cuántos jugabais, qué puesto llevaba cada uno y **las ocho últimas
+huellas guardadas**, mezcladas cada una en un solo número: aquí la pregunta no es
+qué componente difiere, sino si las dos partidas son la misma en un paso
+concreto, y eso es un sí o un no. Se busca el paso más alto que los dos tengan
+comprobado y se comparan ahí. Si no cuadra, se dice por qué —con las palabras de
+quien juega, que acaba de perder media hora— y no se reanuda nada.
+
+**`reanudar` es `empezar` menos las dos cosas que aquí serían el desastre**: no
+toca el búfer —`L.reiniciar` pondría el contador de pasos a cero y las dos
+máquinas dejarían de hablar del mismo paso— y no borra las huellas guardadas, que
+son precisamente con lo que se acaba de comprobar que la partida es la misma.
+
+**Una divergencia no se ofrece reconectar**, y por eso `_romper` ahora apunta
+también de quién fue la culpa. A un corte se le puede volver; a dos mundos que ya
+son distintos, no: un canal nuevo solo los dejaría seguir así. Un `adios` tampoco
+cuenta — quien se fue ya no tiene partida.
+
+### El bloqueo permanente que se evitó por poco
+
+`medirYPonerRetardo` no aplica el retardo con la partida en marcha, porque moverlo
+deja sin escribir las casillas del búfer que quedan en medio y el mundo espera
+para siempre una pulsación que nadie va a poner. Lo preguntaba con
+`enPartida: () => Sincro.activo` — y **con una partida caída eso es `false`**, que
+es exactamente el momento en que se abre el canal del reenganche. El retardo se
+habría movido sobre un búfer a medio llenar. Ahora la pregunta es si hay mundo, no
+si hay conexión.
+
+### Solo con dos jugadores, y por qué
+
+En estrella, un invitado que se cae solo ha perdido SU enlace con el anfitrión;
+los demás siguen enganchados y esperando —y ese caso ya lo cuentan bien, con el
+cartel de espera diciendo a quién se aguarda—. Volver a meterlo pide sustituir un
+enlace de los tres sin tocar los otros dos, y hoy la ruptura de uno para la
+sincronización entera. Con dos jugadores no hay esa distinción: el enlace que se
+cayó es el único que hay. Con tres o cuatro, el cartel sigue teniendo las dos
+salidas de siempre.
+
+### Cómo se comprueba
+
+    node herramientas\probar-sincro.js
+    node herramientas\probar-partida-en-red.js 20 reenganche
+
+La primera cubre la lógica: que `reanudar` no toque el contador de pasos, que el
+saludo reconozca a la otra punta en los dos sentidos, y las cuatro formas de
+rechazarlo —una huella torcida, ningún punto común, dos puntas que se creen el
+mismo jugador, y una divergencia que no cuenta como caída de red—.
+
+La segunda es la de verdad: dos pestañas jugando, `EMERITA.red.cortar()` en las
+dos —que corta a lo bruto y sin despedirse, como si se fuera el router—, el baile
+de códigos nuevo y la partida siguiendo. **Medido: cortada en el paso 183, de
+vuelta en el 333 y jugando hasta el 484 con las dos puntas a cero pasos de
+distancia y sin desincronización.** Y de paso pisa la puerta que ve una persona:
+que RECONECTAR lleva a la pantalla de códigos y que ESC devuelve al cartel con la
+partida todavía ahí, en vez de al menú de red — que sería perderla sin haberlo
+pedido.
+
 ## Lo que queda
 
 1. **Probarlo entre dos casas de verdad.** `camino()` tiene que decir `publica`;
@@ -573,8 +725,21 @@ familia: lo que se estaba comparando no era la simulación.
    dirección pública, y una punta por datos móviles cae en NAT simétrico. Hacen
    falta dos líneas fijas, cada una en su casa. Ver la sección de arriba.
 
-2. **Reconexión.** Hoy una caída ofrece seguir en solitario o volver al menú;
-   volver a engancharse y ponerse al día no está hecho.
+2. **El reenganche con tres o cuatro.** Con dos ya está (ver arriba). Con más,
+   hace falta que la caída de un enlace no pare la sincronización entera, para
+   poder sustituir ese enlace sin tocar los otros. Es el trabajo de verdad que
+   queda del reenganche.
+
+3. **Volver después de cerrar la pestaña.** Ahí el mundo de quien se fue ya no
+   existe y haría falta serializar y transmitir el estado ENTERO —pools, RNG,
+   director, arsenales, obstáculos, oleadas—, que hoy no se puede: `foto()`
+   retrata para comparar diferencias, no reconstruye nada. Es más trabajo que los
+   dos puntos anteriores juntos y no está claro que valga la pena.
+
+4. **Probar el reenganche entre dos casas.** Lo medido es entre dos pestañas de
+   la misma máquina. Entre dos casas hay una pregunta que aquí no aparece: si tras
+   perder la línea el router te da otra dirección pública, el código nuevo ya la
+   trae —se genera después del corte— así que debería bastar. Debería.
 
 ## Dos cosas aprendidas que conviene no olvidar
 
