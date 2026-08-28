@@ -6,6 +6,11 @@
           {
             "type": "command",
             "command": "powershell -NoProfile -c \"[console]::beep(800, 500)\""
+          },
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "afplay /System/Library/Sounds/Glass.aiff 2>/dev/null || osascript -e 'beep' 2>/dev/null || true"
           }
         ]
       }
@@ -16,6 +21,11 @@
           {
             "type": "command",
             "command": "powershell -NoProfile -c \"[console]::beep(1000, 300); [console]::beep(1200, 300)\""
+          },
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "(afplay /System/Library/Sounds/Tink.aiff; afplay /System/Library/Sounds/Tink.aiff) 2>/dev/null || osascript -e 'beep 2' 2>/dev/null || true"
           }
         ]
       }
