@@ -711,11 +711,50 @@ lista y en qué hacía `RedConsola` al abortar un intento:
 - Y `sePuedeReenganchar()` tenía `jugadores.length === 2` a mano, que era la
   puerta cerrada del todo: con tres o cuatro el cartel ni ofrecía RECONECTAR.
 
-**Y el ESC del intento a medias ahora vuelve AL CARTEL**, no al menú de red —
-`volverDelReenganche()` en vez de `irARed()`—, porque `caidaRed` sigue puesto
-todo el rato y es donde se explica que la partida sigue congelada detrás. Antes
-de esto, cancelar un reenganche dejaba el mundo parado sin ningún cartel que lo
-dijera, a un ESC más de perderlo del todo por el menú de personajes o el título.
+**Y el ESC del intento a medias ya volvía AL CARTEL**, no al menú de red —eso
+lo resolvió `dejarElReenganche()` desde el primer día del reenganche, con dos
+jugadores—, porque `caidaRed` sigue puesto todo el rato y es donde se explica
+que la partida sigue congelada detrás.
+
+### El fallo de verdad, y por qué no se vio hasta jugarlo con Playwright
+
+Lo de arriba —`enlacesConectados()`, `cerrarIntento()`, el `>= 2`— se escribió
+primero y se dio por bueno con Node, montando la estrella a mano. Cuando por
+fin se jugó de verdad con cuatro pestañas y se abortó un reenganche a
+medias, **el jugador 2 y el jugador 4 se caían igual**, aunque nadie había
+tocado su enlace.
+
+La causa no estaba en nada de lo anterior. `dejarElReenganche()` —la función
+que de verdad atiende el ESC, comprobada un piso más arriba de las cuatro que
+se habían tocado en `entradaRed`— ya llamaba a `cerrarIntento()` desde que se
+escribió. El fallo estaba en `con.cerrar()`, en `conexion.js`:
+
+    con.cerrar = function () {
+      con._cerrado = true;
+      ...
+      cambiar(ESTADOS.CERRADO);   // <- esto no hacía nada
+    };
+
+    function cambiar(estado, error) {
+      if (con._cerrado) return;   // <- porque _cerrado ya estaba a true
+      con.estado = estado;
+      ...
+    }
+
+`cambiar()` se calla a sí mismo con su propia guarda. `con.estado` se quedaba
+clavado en CONECTADO para siempre, sin importar cuántas veces se llamara a
+`cerrar()`. Y `enlacesConectados()` —la lista que reconstruye `Sincro.reanudar`
+en cada reenganche— filtra justo por `estado === CONECTADO`, así que seguía
+contando un enlace cerrado como si estuviera vivo.
+
+Arreglado poniendo `con.estado = ESTADOS.CERRADO` directamente en `cerrar()`,
+sin pasar por la guarda que existe para otra cosa —para que un aviso de ICE que
+llega tarde, ya con la conexión mirando a otro lado, no reabra la conversación—.
+
+**Es la lección que ya estaba escrita en este documento y volvió a hacer
+falta**: un fallo que se cura solo, o que se ve con Node y no con un navegador
+de verdad, no es un fallo de la lógica que se ha revisado a mano — es un fallo
+en la pieza que nadie estaba mirando.
 
 **No hace falta tocar `Lockstep` para nada de esto.** El paso no se mueve
 mientras el mundo espera —eso ya lo resolvió el reenganche de dos—, así que ni
@@ -752,10 +791,15 @@ cortado los tres enlaces del anfitrión y no solo uno—. **Medido: caída en el
 paso 181, el anfitrión y el jugador 3 sacan el cartel; el jugador 2 y el 4 NO
 —su enlace nunca se rompió—; el mundo entero se queda quieto de todos modos,
 porque el lockstep espera a los cuatro; se reconecta solo el jugador 3, y los
-cuatro siguen desde el 181 hasta el 482 sin que el 2 y el 4 hicieran nada.** Es
-la prueba que faltaba desde que se escribió "Con tres o cuatro" arriba, y confirma
-lo que decía esa sección de memoria: el hueco nunca estuvo en `Lockstep`, estaba
-en cómo se reconstruía la lista de enlaces.
+cuatro siguen desde el 181 hasta el 482 sin que el 2 y el 4 hicieran nada.**
+
+**Y dentro de esa misma prueba, ABORTAR a medias con los otros dos esperando
+detrás.** Pulsa RECONECTAR de verdad —Enter, con el teclado, no por la
+consola—, espera a que se genere el código, y se arrepiente con ESC antes de
+pegar nada. Es el caso que delató el fallo de `con.cerrar()` de arriba: sin él,
+el jugador 2 y el 4 se caían con solo abortar. Con él arreglado, ninguno se
+entera, y el reenganche de verdad —el que sigue justo después, con el mismo
+jugador 3— funciona igual de bien que si nunca se hubiera abortado nada.
 
 **Requieren tanto Playwright (`npm install`, que baja un Chromium de ~180 MB)
 como que el proceso pueda abrir sockets UDP de verdad** —WebRTC los necesita
@@ -774,12 +818,9 @@ los bloquee por defecto, hay que lanzarlas sin esa restricción.
    falta dos líneas fijas, cada una en su casa. Ver la sección de arriba.
 
 2. **Jugar el reenganche con tres o cuatro, con personas de verdad.** El camino
-   feliz ya está comprobado con Playwright —ver "Con cuatro (hecho y
-   comprobado)" arriba: caída de un enlace, reconexión de solo ese, los otros
-   dos sin enterarse—, pero eso es UN navegador con cuatro pestañas, no cuatro
-   personas en cuatro casas. Falta además el camino de abortar a medias —ESC en
-   'pegar'/'esperando'/'error' del reenganche con otros invitados esperando
-   detrás, que `probarReengancheVarios` no ejercita todavía— y `jugar-en-red.js
+   feliz Y el de abortar a medias ya están comprobados con Playwright —ver
+   "Con cuatro (hecho y comprobado)" arriba—, pero eso es UN navegador con
+   cuatro pestañas, no cuatro personas en cuatro casas. Falta `jugar-en-red.js
    4` con alguien sacando el router de un jugador a mitad de partida.
 
 3. **Volver después de cerrar la pestaña.** Ahí el mundo de quien se fue ya no

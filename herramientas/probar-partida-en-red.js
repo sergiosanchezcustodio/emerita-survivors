@@ -386,6 +386,38 @@ async function probarReengancheVarios(A, B, otras) {
             `el mundo entero se queda quieto -- incluidos los sanos -- ` +
             `mientras se decide (paso ${quieto.paso})`);
 
+  // ABORTAR A MEDIAS, con dos invitados más esperando detrás. Es el único
+  // camino de todo el reenganche que ninguna prueba de lógica pura puede
+  // ensayar sin un DOM de verdad: hace falta pulsar RECONECTAR, esperar a que
+  // se genere el código de verdad y arrepentirse a mitad del baile con ESC.
+  //
+  // Lo que hay que comprobar no es solo que el cartel vuelva -- eso ya lo
+  // cubrió la prueba de dos-- sino que abortar NO SE LLEVE POR DELANTE a B y
+  // al cuarto jugador, que nunca han tenido nada que ver con este intento.
+  // `RedConsola.cerrarIntento()` existe justo para esto; `cerrar()` los habría
+  // desconectado a los dos.
+  await A.pagina.keyboard.press('Enter');
+  await A.pagina.waitForTimeout(1500);
+  const enPantallaRed = await A.pagina.evaluate(() => window.EMERITA.mando().pantalla);
+  comprobar(enPantallaRed === 8, `RECONECTAR lleva a la pantalla de códigos (${enPantallaRed})`);
+
+  await A.pagina.keyboard.press('Escape');
+  await A.pagina.waitForTimeout(500);
+  const devuelto = await A.pagina.evaluate(() => {
+    const m = window.EMERITA.mando();
+    return { pantalla: m.pantalla, caida: m.caida };
+  });
+  comprobar(devuelto.pantalla === 2 && devuelto.caida === 1,
+            'y ESC devuelve al cartel, con la partida todavía ahí -- no al menú de red');
+
+  const sanosTrasAbortar = [];
+  for (const p of sanos) sanosTrasAbortar.push(await estado(p));
+  comprobar(sanosTrasAbortar.every((e) => e.red === 1),
+            'abortar el intento no desconecta a los que seguían bien');
+  const cortadoTrasAbortar = await estado(cortado);
+  comprobar(cortadoTrasAbortar.caida === 1,
+            'y el jugador que se cayó sigue con SU cartel puesto, esperando otra vez');
+
   // RECONECTAR, por la consola -- el mismo baile de códigos de siempre, con
   // el jugador que se cayó y NADIE MÁS. Los otros dos enlaces del anfitrión
   // ni se tocan.

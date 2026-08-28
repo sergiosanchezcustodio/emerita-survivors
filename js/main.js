@@ -1546,8 +1546,16 @@ function tecleatIpLocal() {
 // congelada y las dos salidas de siempre —seguir en solitario o volver al menú—
 // siguen esperando. Mandarlo al menú de red desde aquí sería perderla sin
 // haberlo pedido.
+//
+// `cerrarIntento()` Y NO `cerrar()`. Con dos jugadores el enlace en curso es
+// el único que hay y da igual cuál de las dos se llame; con tres o cuatro,
+// `cerrar()` barre TODOS los enlaces del anfitrión —incluidos los que nunca
+// se habían caído— y `cerrarIntento()` solo se lleva por delante el código a
+// medias que se estaba negociando. Comprobado con Playwright: abortar el
+// reenganche del jugador 3 con el 2 y el 4 esperando detrás desconectaba a
+// los tres antes de este cambio, y a ninguno después.
 function dejarElReenganche() {
-  RedConsola.cerrar();
+  RedConsola.cerrarIntento();
   reenganchando = false;
   red.reenganche = false;
   irA(PANTALLA_JUEGO);
@@ -1601,22 +1609,15 @@ function entradaRed() {
   }
 
   if (red.fase === 'pegar') {
-    if (atras) { if (red.reenganche) volverDelReenganche(); else irARed(); return; }
+    // El ESC de un reenganche ya lo atrapa el guardián de arriba de la
+    // función, así que aquí solo queda el camino de una partida nueva.
+    if (atras) { irARed(); return; }
     if (entrada.consumirFlanco('KeyV')) unirseAPartidaEnRed();
     return;
   }
 
   if (red.fase === 'esperando') {
-    // ABORTAR UN REENGANCHE NO ES SALIR DEL COOPERATIVO. `cerrar()` barre
-    // TODOS los enlaces, y con tres o cuatro eso incluye a quien nunca se
-    // había caído. `cerrarIntento()` solo se lleva por delante el código a
-    // medias que se estaba negociando. Y se vuelve al CARTEL, no al menú de
-    // red: la partida sigue congelada detrás y ahí es donde se explica.
-    if (atras) {
-      if (red.reenganche) { RedConsola.cerrarIntento(); volverDelReenganche(); }
-      else { RedConsola.cerrar(); irARed(); }
-      return;
-    }
+    if (atras) { RedConsola.cerrar(); irARed(); return; }
     // Solo el anfitrión pega una respuesta: quien se ha unido ya no tiene nada
     // que pegar, solo esperar.
     if (red.esAnfitrion && entrada.consumirFlanco('KeyV')) aceptarRespuestaEnRed();
@@ -1624,16 +1625,7 @@ function entradaRed() {
   }
 
   if (red.fase === 'conectado') {
-    // MISMO CUIDADO AQUÍ. `salir()` manda 'adios' y cuelga DE VERDAD
-    // (`Sincro.desconectar()`), que en mitad de un reenganche con más
-    // jugadores tira también a los que seguían conectados. El canal nuevo
-    // simplemente se cierra, sin despedirse de una partida que no se ha
-    // llegado a reanudar.
-    if (atras) {
-      if (red.reenganche) { RedConsola.cerrarIntento(); volverDelReenganche(); }
-      else { RedConsola.salir(); irARed(); }
-      return;
-    }
+    if (atras) { RedConsola.salir(); irARed(); return; }
     red.conectados = RedConsola.conectados;
     // INVITAR A OTRO MÁS. Cada invitado necesita su propio par de códigos
     // —cada conexión trae sus credenciales— así que se repite el baile una vez
@@ -1655,10 +1647,7 @@ function entradaRed() {
     return;
   }
 
-  if (red.fase === 'error' && atras) {
-    if (red.reenganche) { RedConsola.cerrarIntento(); volverDelReenganche(); }
-    else { RedConsola.cerrar(); irARed(); }
-  }
+  if (red.fase === 'error' && atras) { RedConsola.cerrar(); irARed(); }
 }
 
 // LO QUE PARA EL MUNDO SIN SALIR EN NINGUNA FIRMA: la pantalla en la que se
@@ -1881,19 +1870,6 @@ function irAlReenganche() {
   irA(PANTALLA_RED);
   if (red.esAnfitrion) crearPartidaEnRed();
   else red.fase = 'pegar';
-}
-
-// ABANDONAR EL BAILE DE CÓDIGOS A MEDIAS, volviendo AL CARTEL Y NO AL MENÚ DE
-// RED. `caidaRed` no se toca aquí a propósito: sigue puesto desde que se cayó
-// la conexión, así que basta con volver a esa pantalla para que reaparezca
-// con sus opciones de siempre. Ir al menú de red en su lugar dejaría la
-// partida congelada detrás sin ningún cartel que la explique, y desde ahí un
-// ESC de más caía en el menú de personajes o el título sin haberla soltado
-// nunca como es debido.
-function volverDelReenganche() {
-  reenganchando = false;
-  red.reenganche = false;
-  irA(PANTALLA_JUEGO);
 }
 
 function entradaCaidaRed() {

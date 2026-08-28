@@ -503,13 +503,23 @@ export function crearConexion(opciones) {
   };
 
   con.cerrar = function () {
+    // NO SE PUEDE PASAR POR `cambiar()`: su guarda es justo `if (con._cerrado)
+    // return`, y aquí `_cerrado` se pone a `true` una línea antes -- así que
+    // el propio `cambiar(ESTADOS.CERRADO)` se callaba a sí mismo y `estado`
+    // se quedaba clavado en lo que fuera antes (normalmente CONECTADO) PARA
+    // SIEMPRE. `enlacesConectados()` seguía contando una conexión cerrada
+    // como conectada, y eso es lo que rompía el reenganche con tres o cuatro:
+    // el enlace recién cortado a mano (`enlace.cerrar()` en un banco de
+    // pruebas, o el propio `RedConsola.cortar()`) entraba igual en la lista
+    // de `Sincro.reanudar`, con `_pc`/`_control`/`_juego` ya a `null`.
     con._cerrado = true;
     if (con._relojFallo) { clearTimeout(con._relojFallo); con._relojFallo = 0; }
     if (con._control) { try { con._control.close(); } catch {} }
     if (con._juego) { try { con._juego.close(); } catch {} }
     if (con._pc) { try { con._pc.close(); } catch {} }
     con._control = con._juego = con._pc = null;
-    cambiar(ESTADOS.CERRADO);
+    con.estado = ESTADOS.CERRADO;
+    con.error = '';
   };
 
   return con;
