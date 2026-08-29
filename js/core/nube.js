@@ -178,3 +178,25 @@ export async function bajar() {
 
 // Para las pruebas y para poder encenderla desde la consola sin recompilar nada.
 export function apuntarA(url) { URL_NUBE = String(url || ''); }
+
+// LA URL PARA "CONECTAR CON GITHUB". Esto NO es una cuenta: solo enlaza el
+// código de esta partida a tu cuenta de GitHub para poder recuperarlo sin
+// copiarlo a mano. Ver "Recordar el código con GitHub" en nube/LEEME.md.
+//
+// El `state` lleva el código actual Y la página exacta desde la que se
+// entra —no basta el origen: el juego vive en una subruta en github.io—,
+// porque el Worker tiene que saber a dónde devolver al jugador y el juego se
+// sirve desde varios sitios. Va comprimido en base64url, el mismo alfabeto
+// que ya usa el propio código, para poder viajar como un solo parámetro.
+//
+// Devuelve cadena vacía si la nube está apagada: no tiene sentido ofrecer
+// conectar con nada.
+export function urlLoginGithub() {
+  if (!activa()) return '';
+  const pagina = location.origin + location.pathname;
+  let cruda = '';
+  for (const byte of new TextEncoder().encode(pagina)) cruda += String.fromCharCode(byte);
+  const b64 = btoa(cruda).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const state = codigo() + '.' + b64;
+  return URL_NUBE.replace(/\/$/, '') + '/auth/github/inicio?state=' + encodeURIComponent(state);
+}

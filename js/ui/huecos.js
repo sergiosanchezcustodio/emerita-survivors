@@ -155,7 +155,13 @@ export function dibujarHuecos(ctxMundo, ctx, cursor, enBorrar, nube) {
     const abajo = ALTO_UI - Math.max(0, (ALTO_UI - Capa.altoVisible) / 2) - 18;
     ctx.font = `12px ${FUENTE}`;
     ctx.fillStyle = t.apagado;
-    ctx.fillText(`Tu código de partida:  ${nube.codigo}    ·    C copiar    ·    V traer otra`,
+    // CONECTADO CON GITHUB: se enseña el @usuario en vez del código en
+    // crudo — es lo que de verdad identifica la partida para quien ha hecho
+    // login, y un código de 22 caracteres no dice nada de un vistazo.
+    const identidad = nube.login
+      ? `Conectado como @${nube.login}`
+      : `Tu código de partida:  ${nube.codigo}`;
+    ctx.fillText(`${identidad}    ·    C copiar    ·    V traer otra    ·    G con GitHub`,
                  ANCHO_UI / 2, abajo);
     if (nube.aviso) {
       ctx.font = `13px ${FUENTE}`;

@@ -30,3 +30,27 @@ CREATE TABLE IF NOT EXISTS partidas (
 
 -- Para saber cuánto se está usando sin tener que leer la tabla entera.
 CREATE INDEX IF NOT EXISTS idx_actualizado ON partidas (actualizado);
+
+-- EL ENLACE CON GITHUB, para recordar el código sin copiarlo a mano. Es una
+-- tabla de TRADUCCIÓN y nada más -"esta cuenta de GitHub -> este código"-,
+-- no una tabla de usuarios: `codigo` sigue siendo la clave de verdad de la
+-- partida, en `partidas`. Si esta tabla se borrara entera, nadie perdería su
+-- progreso, solo la comodidad de recuperarlo solo.
+--
+-- `github_id` es el id numérico de GitHub, no el @usuario -ese puede
+-- cambiar, el id no-.
+--
+-- `codigo` NO SE SOBRESCRIBE al reconectar la misma cuenta (ver el
+-- `ON CONFLICT` en worker.js): el primer enlace es el que vale, para que
+-- entrar por error desde otro navegador con la misma cuenta no cambie a qué
+-- partida apunta.
+--
+-- `login` es solo el @usuario de GitHub, para enseñarlo en pantalla
+-- ("Conectado como @fulano") en vez del código en crudo. Nada de email,
+-- nombre real ni avatar: no hace falta y sería guardar más de lo que toca.
+CREATE TABLE IF NOT EXISTS github_vinculos (
+  github_id   INTEGER PRIMARY KEY,
+  codigo      TEXT NOT NULL,
+  login       TEXT,
+  actualizado INTEGER NOT NULL DEFAULT 0
+);

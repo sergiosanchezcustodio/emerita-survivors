@@ -311,6 +311,20 @@ let nubeAviso = '';
 // decir "mi partida es la de allí". Aun así manda la misma regla de siempre —si
 // lo de aquí tiene más juego, se queda lo de aquí— para que teclear un código
 // por error no cueste veinte horas.
+// LO COMÚN DE "HA LLEGADO UNA COPIA DE FUERA, ¿SE APLICA?" — lo usan pegar un
+// código a mano, mirar la nube sola al entrar, y volver de conectar con
+// GitHub. Misma regla las tres veces: gana quien más ha jugado. Se separa
+// aquí para que el día que la regla cambie, cambie en un solo sitio.
+function traerSiHayMasJuego(copia) {
+  const aqui = Progreso.pesoDe(MetaProgreso.todosLosHuecos());
+  const mejorArriba = copia.tiempo > aqui.tiempo ||
+                      (copia.tiempo === aqui.tiempo && copia.partidas > aqui.partidas);
+  if (!mejorArriba) return { aplicado: false, mejorArriba };
+  const puestos = MetaProgreso.aplicarHuecos(copia.huecos);
+  if (puestos > 0) refrescarHuecos();
+  return { aplicado: puestos > 0, mejorArriba };
+}
+
 async function pegarCodigoDeNube() {
   const pegado = await pegarDelPortapapeles();
   if (!pegado) { nubeAviso = 'No he podido leer el portapapeles.'; return; }
@@ -321,29 +335,57 @@ async function pegarCodigoDeNube() {
   nubeAviso = 'Buscando esa partida…';
   const copia = await Nube.bajar();
   if (!copia) { nubeAviso = 'No hay ninguna partida guardada con ese código.'; return; }
-  const aqui = Progreso.pesoDe(MetaProgreso.todosLosHuecos());
-  if (copia.tiempo < aqui.tiempo) {
+  // AQUÍ SÍ SE PISA LO QUE HAY, y es lo correcto: pegar el código de otro
+  // sitio es decir "mi partida es la de allí". Aun así manda la misma regla
+  // de siempre —si lo de aquí tiene más juego, se queda lo de aquí— para que
+  // teclear un código por error no cueste veinte horas.
+  if (copia.tiempo < Progreso.pesoDe(MetaProgreso.todosLosHuecos()).tiempo) {
     nubeAviso = 'Esa partida tiene menos juego que la de aquí: no se toca nada.';
     return;
   }
-  const puestos = MetaProgreso.aplicarHuecos(copia.huecos);
-  refrescarHuecos();
-  nubeAviso = puestos > 0 ? 'Traída tu partida.' : 'Ahí no había nada que traer.';
+  const r = traerSiHayMasJuego(copia);
+  nubeAviso = r.aplicado ? 'Traída tu partida.' : 'Ahí no había nada que traer.';
 }
 
 async function mirarLaNube() {
   if (!Nube.URL_NUBE) return;
   const copia = await Nube.bajar();
   if (!copia) return;
-  const aqui = Progreso.pesoDe(MetaProgreso.todosLosHuecos());
-  const mejorArriba = copia.tiempo > aqui.tiempo ||
-                      (copia.tiempo === aqui.tiempo && copia.partidas > aqui.partidas);
-  if (!mejorArriba) return;
-  const puestos = MetaProgreso.aplicarHuecos(copia.huecos);
-  if (puestos > 0) {
-    refrescarHuecos();
-    nubeAviso = 'Recuperada tu partida de la nube.';
-  }
+  const r = traerSiHayMasJuego(copia);
+  if (r.aplicado) nubeAviso = 'Recuperada tu partida de la nube.';
+}
+
+// VOLVER DE CONECTAR CON GITHUB. Esto NO es una cuenta: si la URL trae
+// `?nube_codigo=`, es que el Worker acaba de enlazar —o recordar— el código
+// de esta cuenta de GitHub con la partida (ver `callbackGithub` en
+// nube/worker.js). Se aplica con la MISMA regla de siempre, y se limpia la
+// URL: dejar el código a la vista, o repetir esto solo con recargar la
+// página, no aporta nada.
+let nubeLogin = '';
+async function recogerRetornoDeGithub() {
+  const url = new URL(location.href);
+  const codigoVuelto = url.searchParams.get('nube_codigo');
+  if (!codigoVuelto) return;
+  const login = url.searchParams.get('nube_login') || '';
+  url.searchParams.delete('nube_codigo');
+  url.searchParams.delete('nube_login');
+  history.replaceState(null, '', url.toString());
+
+  if (!Nube.usarCodigo(codigoVuelto)) return;
+  nubeLogin = login;
+  const saludo = login ? `Conectado como @${login}.` : 'Conectado con GitHub.';
+  nubeAviso = saludo;
+  const copia = await Nube.bajar();
+  if (!copia) return;
+  const r = traerSiHayMasJuego(copia);
+  if (r.aplicado) nubeAviso = saludo + ' Traída tu partida.';
+}
+
+// EL ENLACE, no una petición que se espere: como cualquier login de verdad,
+// hace falta SALIR de la página para hablar con GitHub.
+function conectarConGithub() {
+  const url = Nube.urlLoginGithub();
+  if (url) location.href = url;
 }
 
 // La chuleta de atajos vive FUERA del lienzo (es texto del documento), así que
@@ -787,6 +829,10 @@ function entradaHuecos() {
     }
     if (entrada.consumirFlanco('KeyV')) {
       pegarCodigoDeNube();
+      return;
+    }
+    if (entrada.consumirFlanco('KeyG')) {
+      conectarConGithub();
       return;
     }
   }
@@ -2744,7 +2790,7 @@ function dibujar(alpha) {
     ocultarCodigoRed();
     if (pantalla === PANTALLA_HUECOS) {
       dibujarHuecos(ctx, Capa.ctx, cursorHueco, enBorrarHueco,
-                    Nube.URL_NUBE ? { codigo: Nube.codigo(), aviso: nubeAviso } : null);
+                    Nube.URL_NUBE ? { codigo: Nube.codigo(), aviso: nubeAviso, login: nubeLogin } : null);
       if (confirmarBorrado) {
         dibujarConfirmacion(Capa.ctx, cursorConfirmar, textoBorrado(cursorHueco));
       }
@@ -3060,6 +3106,10 @@ const RADIO_RECOGIDA_COFRE = 13;
 
 async function arrancar() {
   MetaProgreso.iniciar();
+  // VOLVER DE GITHUB, si es que se viene de ahí. No se espera: si la URL no
+  // trae nada, sale en el acto; si trae un código, sigue en segundo plano
+  // mientras el resto de arrancar() continúa.
+  recogerRetornoDeGithub();
   GestorAudio.iniciar();
   await Recursos.cargar(NIVEL);
   // Variantes de color del bestiario (la serpiente dorada). Después de cargar el

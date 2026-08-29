@@ -8,7 +8,10 @@ plan gratuito.
 
 - **No es una cuenta.** Sin correo, sin contraseña, sin registro. La identidad es
   un código aleatorio de 128 bits que el juego genera solo. Sin datos personales
-  no hay nada que proteger ni que gestionar.
+  no hay nada que proteger ni que gestionar. Hay una forma opcional de conectar
+  con GitHub para no tener que copiar el código a mano —ver más abajo—, pero
+  sigue sin ser una cuenta: solo enlaza tu código a tu cuenta de GitHub, y lo
+  único que se guarda de ti es tu id de GitHub y tu @usuario.
 - **No es la fuente de la verdad.** El juego sigue guardando donde siempre y esto
   es una copia. Si el Worker se cae, se borra o se acaba el plan gratuito, se
   juega igual que hoy y nadie pierde nada. **Esa es la condición que hace honesto
@@ -147,6 +150,84 @@ partidas diarias.
 **Confirma las cifras antes de fiarte de esta línea**: los planes gratuitos
 cambian y esto está escrito el 27 de agosto de 2026.
 
+## Recordar el código con GitHub (opcional)
+
+Esto **sigue sin ser una cuenta**. Lo único que hace es enlazar tu código de
+partida a tu cuenta de GitHub para no tener que copiarlo y pegarlo a mano
+cada vez: entras con GitHub una vez desde la pantalla de partidas (tecla
+**G**), y la próxima vez que lo hagas desde cualquier máquina recuperas tu
+partida sola. Se guarda el id numérico de tu cuenta de GitHub y tu @usuario
+—para poder enseñarlo en pantalla—, nada más: ni email, ni nombre, ni
+avatar. Se pide el scope vacío de GitHub a propósito: con eso ya alcanza.
+
+Tres pasos más, además de los cuatro comandos de arriba.
+
+### 1. Crear la OAuth App en GitHub
+
+En **github.com → Settings → Developer settings → OAuth Apps → New OAuth
+App**:
+
+| Campo | Valor |
+|---|---|
+| Homepage URL | `https://sergiosanchezcustodio.github.io/emerita-survivors/` |
+| Authorization callback URL | `https://emerita-partidas.sergiosanchezcustodio.workers.dev/auth/github/callback` |
+
+**La callback URL tiene que ser exacta**, letra por letra: el Worker la
+lleva fija en `CALLBACK_GITHUB` (`worker.js`) precisamente para que nunca
+pueda desajustarse con la que registra la petición.
+
+Copia el **Client ID** y pégalo en `nube/wrangler.toml`, donde pone
+`PEGA-AQUI-EL-CLIENT-ID-DE-GITHUB`. Genera además un **Client Secret** — no
+lo pegues en ningún fichero del repositorio, es del paso siguiente.
+
+### 2. Guardar el secreto
+
+    npx wrangler secret put GITHUB_CLIENT_SECRET --config nube/wrangler.toml
+
+Pide el valor por la terminal y no lo escribe en ningún sitio del
+repositorio: el Client ID es público —viaja en la URL de cualquier login de
+OAuth, lo ve cualquiera que mire la barra de direcciones— pero el secreto no
+debe estarlo nunca.
+
+### 3. Aplicar la tabla nueva y desplegar
+
+    npx wrangler d1 execute emerita-partidas --remote --file=nube/esquema.sql
+    npx wrangler deploy --config nube/wrangler.toml
+
+El primer comando es el mismo de siempre —es idempotente, crear una tabla
+que ya existe no hace nada— y ahora además crea `github_vinculos`.
+
+### Comprobarlo
+
+    node herramientas\probar-nube.js
+
+Cubre las dos rutas nuevas —`/auth/github/inicio` y `/auth/github/callback`—
+enteras, con un GitHub de mentira montado sustituyendo `fetch` global: que un
+origen fuera de la lista blanca no redirige a ningún sitio y no toca la base
+de datos, que la primera conexión enlaza el código con el que se vino, y que
+una segunda conexión de la MISMA cuenta desde OTRO navegador —con OTRO
+código local— recupera el código de la primera vez en vez de sustituirlo.
+
+De verdad, solo se puede probar jugando: pulsa **G** en la pantalla de
+partidas, autoriza en GitHub, y comprueba que vuelves con tu código —o con
+el que ya tuvieras enlazado, si no es la primera vez—.
+
+### Por qué el código no se sobrescribe al reconectar
+
+La primera vez que una cuenta de GitHub se conecta, ese código es el suyo
+**para siempre** —salvo que se borre la fila a mano en D1—. Si se
+sobrescribiera cada vez, conectar la misma cuenta sin querer desde un
+navegador con una partida distinta cambiaría a qué partida apunta la cuenta,
+que es justo el susto que esto existe para evitar.
+
+### Por qué solo GitHub, de momento
+
+Google exige, para publicar la aplicación fuera del modo de pruebas —que
+tiene tope de 100 usuarios y no hace falta ninguna revisión—, una política
+de privacidad propia y una revisión de Google que puede tardar días o
+semanas. GitHub no pide nada de eso: un formulario y ya está. El día que
+haga falta Google, es la misma idea con una tabla y unas rutas más.
+
 ## Y si algún día quieres apagarlo
 
 `npx wrangler delete`. Los jugadores no se enteran: el juego deja de sincronizar
@@ -158,9 +239,9 @@ eso se hizo primero.
 
 | | |
 |---|---|
-| `worker.js` | La API entera: `GET /p/<codigo>` y `PUT /p/<codigo>`. No hay listado. |
-| `esquema.sql` | La tabla. Una fila por partida. |
-| `wrangler.toml` | El despliegue. Aquí va el `database_id`. |
+| `worker.js` | La API entera: `GET /p/<codigo>`, `PUT /p/<codigo>` y el login con GitHub (`/auth/github/inicio`, `/auth/github/callback`). No hay ninguna ruta que liste nada. |
+| `esquema.sql` | Las dos tablas: `partidas` (una fila por partida) y `github_vinculos` (la traducción "cuenta de GitHub → código", opcional). |
+| `wrangler.toml` | El despliegue. Aquí van el `database_id` y el `GITHUB_CLIENT_ID`. |
 
 Y la prueba, que corre sin desplegar nada y sin cuenta:
 

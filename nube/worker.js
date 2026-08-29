@@ -161,6 +161,135 @@ const GUARDAR_FORZADO = `
     partidas = excluded.partidas, sello = excluded.sello,
     actualizado = excluded.actualizado`;
 
+// --- LOGIN CON GITHUB, solo para recordar el código -------------------------
+//
+// Esto NO es una cuenta. Sigue sin haber contraseña ni correo, y sigue sin
+// haber ninguna ruta que liste nada. Lo único que añade es una tabla de
+// TRADUCCIÓN -"esta cuenta de GitHub, este código"- para no tener que copiar
+// y pegar el código a mano cada vez. Ver la cabecera de esquema.sql.
+//
+// EL WORKER NUNCA DECIDE QUÉ PARTIDA ES MEJOR. Solo enlaza y devuelve el
+// código al navegador; la comparación de "quién tiene más juego" la hace el
+// cliente con la misma regla que ya usa para pegar un código a mano —ver
+// `pegarCodigoDeNube` en js/main.js—. Repetirla aquí sería mantenerla dos
+// veces y que un día se desincronizaran.
+
+// FIJA A PROPÓSITO, no calculada de la petición que llega: tiene que ser
+// BYTE A BYTE la misma que la Authorization callback URL registrada en la
+// OAuth App de GitHub, o el intercambio de código falla en silencio.
+const CALLBACK_GITHUB =
+  'https://emerita-partidas.sergiosanchezcustodio.workers.dev/auth/github/callback';
+
+// SOLO A ESTOS SITIOS SE REDIRIGE DE VUELTA tras hablar con GitHub. Sin esta
+// lista, cualquiera podría fabricar un `state` que mandara el código de
+// sesión a una página suya -un open redirect de manual, y aquí con un código
+// OAuth de verdad viajando dentro-. `localhost` entra para poder probar esto
+// en desarrollo sin desplegar nada.
+const ORIGENES_PERMITIDOS = [
+  'https://sergiosanchezcustodio.github.io',
+  'https://sergiosanchezcustodio.itch.io',
+  'http://localhost:8000'
+];
+
+// EL `state` LLEVA EL CÓDIGO Y LA PÁGINA EXACTA de la que se vino, porque el
+// juego se sirve desde varios sitios y el Worker tiene que saber a dónde
+// devolver al jugador -no basta el origen: el juego vive en una subruta en
+// github.io-. Lo compone `urlLoginGithub()` en js/core/nube.js; aquí solo se
+// deshace y se valida.
+function decodificarState(state) {
+  const s = String(state || '');
+  const punto = s.lastIndexOf('.');
+  if (punto < 0) return null;
+  const codigo = s.slice(0, punto);
+  if (!FORMA_CODIGO.test(codigo)) return null;
+  let b64 = s.slice(punto + 1).replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  let pagina;
+  try { pagina = atob(b64); } catch { return null; }
+  let url;
+  try { url = new URL(pagina); } catch { return null; }
+  if (!ORIGENES_PERMITIDOS.includes(url.origin)) return null;
+  return { codigo, pagina: url.toString() };
+}
+
+async function inicioGithub(url, entorno) {
+  const decodificado = decodificarState(url.searchParams.get('state'));
+  if (!decodificado) return respuesta({ error: 'Enlace de conexión no válido.' }, 400);
+  if (!entorno.GITHUB_CLIENT_ID) {
+    return respuesta({ error: 'El login con GitHub no está configurado en este servidor.' }, 501);
+  }
+  const destino = new URL('https://github.com/login/oauth/authorize');
+  destino.searchParams.set('client_id', entorno.GITHUB_CLIENT_ID);
+  destino.searchParams.set('redirect_uri', CALLBACK_GITHUB);
+  destino.searchParams.set('state', url.searchParams.get('state'));
+  // SIN SCOPE. Con `scope=` vacío, `GET /user` ya da `id` y `login`, que es
+  // lo único que hace falta. Pedir `user:email` sería guardar más de lo que
+  // se necesita, y aquí lo mínimo es la regla, no la excepción.
+  destino.searchParams.set('scope', '');
+  destino.searchParams.set('allow_signup', 'false');
+  return Response.redirect(destino.toString(), 302);
+}
+
+async function callbackGithub(url, entorno) {
+  const decodificado = decodificarState(url.searchParams.get('state'));
+  if (!decodificado) return respuesta({ error: 'Enlace de conexión no válido.' }, 400);
+
+  const code = url.searchParams.get('code');
+  if (!code) return respuesta({ error: 'GitHub no ha mandado ningún código.' }, 400);
+  if (!entorno.GITHUB_CLIENT_ID || !entorno.GITHUB_CLIENT_SECRET) {
+    return respuesta({ error: 'El login con GitHub no está configurado en este servidor.' }, 501);
+  }
+
+  let token = null;
+  try {
+    const r = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        client_id: entorno.GITHUB_CLIENT_ID,
+        client_secret: entorno.GITHUB_CLIENT_SECRET,
+        code,
+        redirect_uri: CALLBACK_GITHUB
+      })
+    });
+    const datos = await r.json();
+    token = datos && datos.access_token;
+  } catch { token = null; }
+  if (!token) return respuesta({ error: 'GitHub no ha confirmado la conexión.' }, 502);
+
+  let perfil = null;
+  try {
+    const r = await fetch('https://api.github.com/user', {
+      headers: { 'Authorization': `token ${token}`, 'User-Agent': 'emerita-survivors' }
+    });
+    perfil = await r.json();
+  } catch { perfil = null; }
+  if (!perfil || !Number.isInteger(perfil.id)) {
+    return respuesta({ error: 'No se ha podido leer tu perfil de GitHub.' }, 502);
+  }
+
+  // EL CÓDIGO NO SE SOBRESCRIBE EN EL CONFLICTO. La primera vez que esta
+  // cuenta se conecta fija su código para siempre -salvo que se borre la
+  // fila a mano-: conectar la misma cuenta desde otro navegador sin querer
+  // no debe cambiar a qué partida apunta.
+  const ahora = Math.floor(Date.now() / 1000);
+  await entorno.DB.prepare(`
+    INSERT INTO github_vinculos (github_id, codigo, login, actualizado)
+    VALUES (?1, ?2, ?3, ?4)
+    ON CONFLICT(github_id) DO UPDATE SET
+      login = excluded.login, actualizado = excluded.actualizado
+  `).bind(perfil.id, decodificado.codigo, perfil.login || '', ahora).run();
+
+  const fila = await entorno.DB.prepare(
+    'SELECT codigo, login FROM github_vinculos WHERE github_id = ?1'
+  ).bind(perfil.id).first();
+
+  const vuelta = new URL(decodificado.pagina);
+  vuelta.searchParams.set('nube_codigo', fila.codigo);
+  if (fila.login) vuelta.searchParams.set('nube_login', fila.login);
+  return Response.redirect(vuelta.toString(), 302);
+}
+
 export default {
   async fetch(peticion, entorno) {
     if (peticion.method === 'OPTIONS') return new Response(null, { headers: CABECERAS });
@@ -178,6 +307,12 @@ export default {
     }
 
     const url = new URL(peticion.url);
+
+    // EL LOGIN CON GITHUB, antes que la ruta de siempre: son rutas propias,
+    // no partidas, y `/auth/...` nunca tiene la forma de `/p/<codigo>`.
+    if (url.pathname === '/auth/github/inicio') return inicioGithub(url, entorno);
+    if (url.pathname === '/auth/github/callback') return callbackGithub(url, entorno);
+
     const trozos = url.pathname.split('/').filter(Boolean);
     if (trozos.length !== 2 || trozos[0] !== 'p') {
       return respuesta({ error: 'Ruta desconocida.' }, 404);

@@ -32,17 +32,32 @@ function comprobar(condicion, texto) {
 // dejan de coincidir, esta prueba pasa y el Worker falla. Es su límite conocido.
 function baseFalsa() {
   const filas = new Map();
+  // github_id -> {codigo, login, actualizado}. Misma tabla de mentira que
+  // `partidas`, con su propia regla: ver el `run()` de abajo para por qué el
+  // código no se sobrescribe en el conflicto.
+  const vinculos = new Map();
   return {
     filas,
+    vinculos,
     prepare(sql) {
       let atados = [];
+      const esVinculo = /github_vinculos/.test(sql);
       const api = {
         bind(...args) { atados = args; return api; },
         async first() {
-          const f = filas.get(atados[0]);
+          const mapa = esVinculo ? vinculos : filas;
+          const f = mapa.get(atados[0]);
           return f ? { ...f } : null;
         },
         async run() {
+          if (esVinculo) {
+            const [githubId, codigo, login, actualizado] = atados;
+            const antes = vinculos.get(githubId);
+            // EL CÓDIGO NO SE SOBRESCRIBE EN EL CONFLICTO: si ya había un
+            // enlace, se conserva su código y solo se refresca login/fecha.
+            vinculos.set(githubId, { codigo: antes ? antes.codigo : codigo, login, actualizado });
+            return { meta: { changes: 1 } };
+          }
           const [codigo, cuerpo, tiempo, partidas, sello, actualizado] = atados;
           const antes = filas.get(codigo);
           const forzado = !/WHERE excluded/.test(sql);
@@ -61,7 +76,37 @@ function baseFalsa() {
 }
 
 const CODIGO = 'aB3dEfGhIjKlMnOpQrStUv';        // 22 caracteres, como los de verdad
+const CODIGO_B = 'zZ9yXwVuTsRqPoNmLkJiHg';      // otro código, para el segundo navegador
 const RAIZ = 'https://nube.ejemplo/p/';
+const RAIZ_AUTH = 'https://nube.ejemplo/auth/github/';
+const ENTORNO_GITHUB = { GITHUB_CLIENT_ID: 'id-de-mentira', GITHUB_CLIENT_SECRET: 'secreto-de-mentira' };
+
+// El mismo `state` que compone `urlLoginGithub()` en js/core/nube.js: el
+// código y la página, comprimidos en base64url. Se reimplementa aquí a
+// propósito -igual que la regla de guardado más arriba- para poder construir
+// casos concretos, incluidos los que el cliente nunca mandaría a propósito
+// (un origen que no está en la lista).
+function construirState(codigo, pagina) {
+  const b64 = btoa(pagina).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return codigo + '.' + b64;
+}
+
+// EL GITHUB DE MENTIRA. El Worker habla con dos rutas de verdad -el
+// intercambio de token y el perfil- y aquí se sustituye `fetch` global por
+// esto durante el bloque de pruebas, restaurándolo al salir. Mismo patrón
+// que ya usa este fichero de al lado con `console.table`.
+function fetchFalsoGithub(perfil) {
+  return async (url) => {
+    const u = String(url);
+    if (u.startsWith('https://github.com/login/oauth/access_token')) {
+      return { json: async () => ({ access_token: 'token-de-mentira' }) };
+    }
+    if (u.startsWith('https://api.github.com/user')) {
+      return { json: async () => perfil };
+    }
+    throw new Error('fetch falso de GitHub: URL inesperada ' + u);
+  };
+}
 
 async function pedir(db, metodo, codigo, cuerpo, extra = '') {
   const opciones = { method: metodo };
@@ -199,6 +244,84 @@ console.log('\nEl freno por IP');
   _ajustarFreno(60, 30);
 }
 
+console.log('\nRecordar el código con GitHub');
+{
+  const db = baseFalsa();
+  const PAGINA = 'http://localhost:8000/index.html';
+  const OTRA_PAGINA = 'http://localhost:8000/otra-pestana.html';
+  const PERFIL = { id: 4242, login: 'octocat' };
+
+  // ORIGEN NO PERMITIDO: ni se llega a hablar con GitHub. Es la comprobación
+  // que evita el open redirect -sin ella, cualquiera podría fabricar un
+  // `state` que mandara el código de sesión a una página suya.
+  const stateMalo = construirState(CODIGO, 'https://malicioso.ejemplo/robar');
+  const rMalo = await gestor.fetch(
+    new Request(RAIZ_AUTH + 'inicio?state=' + encodeURIComponent(stateMalo)),
+    { DB: db, ...ENTORNO_GITHUB });
+  comprobar(rMalo.status === 400, 'un origen fuera de la lista blanca no redirige a ningún sitio');
+  comprobar(db.vinculos.size === 0, 'y no se ha tocado la base de datos');
+
+  // INICIO: redirige a GitHub con lo que hace falta, y nada de scope.
+  const stateBueno = construirState(CODIGO, PAGINA);
+  const rInicio = await gestor.fetch(
+    new Request(RAIZ_AUTH + 'inicio?state=' + encodeURIComponent(stateBueno)),
+    { DB: db, ...ENTORNO_GITHUB });
+  const destino = rInicio.headers.get('Location') || '';
+  comprobar(rInicio.status === 302 && destino.startsWith('https://github.com/login/oauth/authorize'),
+            'inicio redirige a GitHub de verdad');
+  comprobar(destino.includes('client_id=id-de-mentira') && destino.includes('scope='),
+            'con el client_id y sin pedir ningún scope de más');
+
+  // LA PRIMERA CONEXIÓN enlaza el código con el que se vino.
+  const fetchOriginal = globalThis.fetch;
+  globalThis.fetch = fetchFalsoGithub(PERFIL);
+  let rCallback;
+  try {
+    rCallback = await gestor.fetch(
+      new Request(RAIZ_AUTH + `callback?code=abc123&state=${encodeURIComponent(stateBueno)}`),
+      { DB: db, ...ENTORNO_GITHUB });
+  } finally {
+    globalThis.fetch = fetchOriginal;
+  }
+  const vuelta = new URL(rCallback.headers.get('Location') || 'https://x/');
+  comprobar(rCallback.status === 302 && vuelta.origin + vuelta.pathname === PAGINA,
+            'y devuelve a la MISMA página de la que se vino');
+  comprobar(vuelta.searchParams.get('nube_codigo') === CODIGO,
+            `con el código que traía el state (${vuelta.searchParams.get('nube_codigo')})`);
+  comprobar(vuelta.searchParams.get('nube_login') === 'octocat', 'y el @usuario, para enseñarlo');
+  comprobar(db.vinculos.get(4242).codigo === CODIGO, 'la base de datos enlaza esa cuenta con ese código');
+
+  // LA SEGUNDA CONEXIÓN, misma cuenta de GitHub, OTRO navegador -otro
+  // código local, otra página-: tiene que devolver el código YA enlazado,
+  // no sustituirlo por el nuevo. Esto es lo que de verdad hace la función:
+  // recordar, no volver a preguntar.
+  const stateSegundo = construirState(CODIGO_B, OTRA_PAGINA);
+  globalThis.fetch = fetchFalsoGithub(PERFIL);       // misma cuenta: mismo id
+  let rSegunda;
+  try {
+    rSegunda = await gestor.fetch(
+      new Request(RAIZ_AUTH + `callback?code=xyz789&state=${encodeURIComponent(stateSegundo)}`),
+      { DB: db, ...ENTORNO_GITHUB });
+  } finally {
+    globalThis.fetch = fetchOriginal;
+  }
+  const vuelta2 = new URL(rSegunda.headers.get('Location') || 'https://x/');
+  comprobar(vuelta2.searchParams.get('nube_codigo') === CODIGO,
+            `sigue mandando el código de la PRIMERA vez, no el nuevo ` +
+            `(${vuelta2.searchParams.get('nube_codigo')})`);
+  comprobar(db.vinculos.get(4242).codigo === CODIGO,
+            'y en la base de datos el código enlazado no ha cambiado');
+  comprobar(vuelta2.origin + vuelta2.pathname === OTRA_PAGINA,
+            'pero SÍ vuelve a la página nueva desde la que se ha conectado esta vez');
+
+  // SIN CLIENT ID NI SECRETO CONFIGURADOS, se dice claramente y no se
+  // intenta hablar con GitHub -es el estado del Worker recién desplegado,
+  // antes de que alguien rellene el secreto-.
+  const rSinConfigurar = await gestor.fetch(
+    new Request(RAIZ_AUTH + 'inicio?state=' + encodeURIComponent(stateBueno)), { DB: db });
+  comprobar(rSinConfigurar.status === 501,
+            'sin GITHUB_CLIENT_ID configurado, inicio lo dice en vez de fallar por sorpresa');
+}
 
 console.log(fallos === 0 ? '\nTODO CORRECTO.\n' : `\n${fallos} FALLO(S).\n`);
 process.exit(fallos === 0 ? 0 : 1);

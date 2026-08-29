@@ -14,3 +14,13 @@ workers_dev = true
 binding = "DB"                     # el nombre con que lo ve el codigo: entorno.DB
 database_name = "emerita-partidas"
 database_id = "7c61dd54-daf2-4684-aa16-8a3de8d46127"
+
+# EL LOGIN CON GITHUB, para recordar el código sin copiarlo a mano. Ver
+# "Recordar el código con GitHub" en nube/LEEME.md.
+#
+# El Client ID NO es secreto -viaja igual en cualquier petición de OAuth, lo
+# ve cualquiera que mire la URL- así que va aquí, en el repositorio. El
+# Client Secret sí lo es, y por eso NO está en este fichero: se guarda con
+#   npx wrangler secret put GITHUB_CLIENT_SECRET --config nube/wrangler.toml
+[vars]
+GITHUB_CLIENT_ID = "Ov23liaN55y9rRmNia4s"
