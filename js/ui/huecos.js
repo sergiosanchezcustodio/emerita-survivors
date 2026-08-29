@@ -30,6 +30,12 @@ const FILA_ALTO = 92;
 const FILA_HUECO = 14;
 const FILA_ANCHO = 430;
 
+// LA FILA DE GITHUB, más baja que una partida a propósito: no lleva
+// estadísticas, solo una frase y un estado. Ponerla del mismo alto que una
+// partida la haría pesar tanto como ellas, y no es una partida más, es una
+// forma de encontrarlas.
+const FILA_GITHUB_ALTO = 40;
+
 // EL BOTÓN DE BORRAR, a la derecha de su partida y solo si esa partida existe.
 //
 // Va fuera del panel de la fila y no dentro, porque no es un dato más de la
@@ -88,7 +94,7 @@ export function refrescarHuecos() {
   for (let i = 0; i < MetaProgreso.NUM_HUECOS; i++) cache.push(MetaProgreso.resumen(i));
 }
 
-export function dibujarHuecos(ctxMundo, ctx, cursor, enBorrar, nube) {
+export function dibujarHuecos(ctxMundo, ctx, cursor, enBorrar, nube, enGithub) {
   if (!cache) refrescarHuecos();
   const t = Tema.actual;
 
@@ -107,8 +113,13 @@ export function dibujarHuecos(ctxMundo, ctx, cursor, enBorrar, nube) {
   ctx.fillStyle = t.titulo;
   textoEspaciado(ctx, 'ELIGE TU PARTIDA', ANCHO_UI / 2, 52, 4);
 
-  const total = MetaProgreso.NUM_HUECOS * FILA_ALTO +
-                (MetaProgreso.NUM_HUECOS - 1) * FILA_HUECO;
+  const filasPartidas = MetaProgreso.NUM_HUECOS * FILA_ALTO +
+                        (MetaProgreso.NUM_HUECOS - 1) * FILA_HUECO;
+  // LA FILA DE GITHUB CUENTA EN EL HUECO SOLO SI LA NUBE ESTÁ ENCENDIDA. Con
+  // la nube apagada esta pantalla se ve exactamente como antes de que
+  // existiera el login: no hay nada que conectar, así que no hay fila.
+  const total = nube ? filasPartidas + FILA_GITHUB_ALTO + FILA_HUECO : filasPartidas;
+
   // Centrado en lo que queda por debajo del rótulo. Antes reservaba sitio abajo
   // para el pie de atajos; sin pie, esa reserva dejaba las tres filas altas.
   const ARRIBA = 76, ABAJO = 24;
@@ -122,46 +133,44 @@ export function dibujarHuecos(ctxMundo, ctx, cursor, enBorrar, nube) {
   // sobra: la fila acaba en 695 y él ocupa hasta 783 de los 960.
   const x = (ANCHO_UI - FILA_ANCHO) / 2;
 
+  // LA FILA DE GITHUB, ARRIBA DE LAS TRES PARTIDAS. Antes esto era una línea
+  // de 12px en el pie de la pantalla —"G con GitHub"— y ahí no la veía nadie
+  // que no leyera el pie: la prueba de que esto hacía falta es que Sergio
+  // mismo la usó por primera vez sin darse cuenta bien de qué hacía. Va
+  // ANTES de las partidas y no dentro de ellas: conectar con GitHub decide
+  // QUÉ partidas vas a ver, así que tiene que pasar primero, no ser una nota
+  // al pie de la que ya estás mirando.
+  if (nube) {
+    filaGithub(ctx, x, y, nube, !!enGithub, t);
+    y += FILA_GITHUB_ALTO + FILA_HUECO;
+  }
+
   for (let i = 0; i < MetaProgreso.NUM_HUECOS; i++) {
     // DOS COSAS DISTINTAS, y confundirlas era un fallo: `actual` es la fila en
     // la que está el jugador, y `elegida` es que además el cursor esté sobre la
     // fila y no sobre su botón de borrar. Antes se pasaba solo lo segundo, así
     // que al irse a BORRAR la fila perdía TODO el resaltado y ya no se veía de
     // cuál era ese botón.
-    fila(ctx, x, y, i, cache[i], i === cursor, i === cursor && !enBorrar, t);
+    const actual = !enGithub && i === cursor;
+    fila(ctx, x, y, i, cache[i], actual, actual && !enBorrar, t);
     if (cache[i]) {
       ctx.save();
-      if (i !== cursor) ctx.globalAlpha = APAGADO_OTRAS;
+      if (!actual) ctx.globalAlpha = APAGADO_OTRAS;
       botonBorrar(ctx, x + FILA_ANCHO + BORRAR_HUECO, y + (FILA_ALTO - BORRAR_ALTO) / 2,
-                  i === cursor && enBorrar, t);
+                  actual && enBorrar, t);
       ctx.restore();
     }
     y += FILA_ALTO + FILA_HUECO;
   }
 
-  // SIN PIE DE ATAJOS. Llevaba un "Enter o A jugar / Supr o X borrar" y lo quitó
-  // Sergio en cuanto el borrado dejó de ser un atajo invisible y pasó a ser un
-  // botón que se ve: explicar por escrito lo que ya está dibujado es ruido.
-  //
-  // LA NUBE SÍ SE ESCRIBE, y no es una excepción caprichosa: aquí no hay nada
-  // dibujado que la anuncie, y sobre todo hay algo que el jugador tiene que
-  // poder APUNTAR. Tu código es lo único que te devuelve tu partida en otro
-  // ordenador, y si no está a la vista no existe.
-  //
-  // En pequeño y al pie porque no es del camino normal: se usa una vez, el día
-  // que te sientas en otra máquina. Quien no lo lea juega igual y su partida se
-  // sincroniza sola.
+  // SOLO EL CÓDIGO EN CRUDO, al pie y en pequeño. La conexión con GitHub ya
+  // tiene su fila arriba, bien a la vista; esto es lo que queda para quien
+  // prefiere copiar y pegar el código a mano, que sigue funcionando igual.
   if (nube) {
     const abajo = ALTO_UI - Math.max(0, (ALTO_UI - Capa.altoVisible) / 2) - 18;
     ctx.font = `12px ${FUENTE}`;
     ctx.fillStyle = t.apagado;
-    // CONECTADO CON GITHUB: se enseña el @usuario en vez del código en
-    // crudo — es lo que de verdad identifica la partida para quien ha hecho
-    // login, y un código de 22 caracteres no dice nada de un vistazo.
-    const identidad = nube.login
-      ? `Conectado como @${nube.login}`
-      : `Tu código de partida:  ${nube.codigo}`;
-    ctx.fillText(`${identidad}    ·    C copiar    ·    V traer otra    ·    G con GitHub`,
+    ctx.fillText(`Tu código de partida:  ${nube.codigo}    ·    C copiar    ·    V traer otra`,
                  ANCHO_UI / 2, abajo);
     if (nube.aviso) {
       ctx.font = `13px ${FUENTE}`;
@@ -263,6 +272,47 @@ function fila(ctx, x, y, indice, res, actual, elegida, t) {
   ]);
 
   ctx.textAlign = 'center';
+  ctx.restore();
+}
+
+// LA FILA DE GITHUB: conectar, o decir con quién ya se está. Mismo lenguaje
+// visual que una fila de partida —panel, velo dorado y filo si está
+// elegida— pero con una sola línea centrada: aquí no hay estadísticas que
+// enseñar, solo un estado y una acción.
+function filaGithub(ctx, x, y, nube, elegida, t) {
+  ctx.save();
+
+  panel(ctx, x, y, FILA_ANCHO, FILA_GITHUB_ALTO, elegida ? t.filo : 'rgba(255,255,255,.10)');
+
+  if (elegida) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.13;
+    ctx.fillStyle = '#ffd9a0';
+    ctx.fillRect(x, y, FILA_ANCHO, FILA_GITHUB_ALTO);
+    ctx.restore();
+
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = COLOR_ORO;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x + 0.75, y + 0.75, FILA_ANCHO - 1.5, FILA_GITHUB_ALTO - 1.5);
+    ctx.restore();
+  }
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const cy = y + FILA_GITHUB_ALTO / 2;
+  ctx.font = `600 13px ${FUENTE}`;
+
+  if (nube.login) {
+    ctx.fillStyle = COLOR_ORO;
+    ctx.fillText(`Conectado con GitHub como @${nube.login}`, x + FILA_ANCHO / 2, cy);
+  } else {
+    ctx.fillStyle = elegida ? t.titulo : t.texto;
+    ctx.fillText('Conectar con GitHub, para recordar tu código', x + FILA_ANCHO / 2, cy);
+  }
+
   ctx.restore();
 }
 

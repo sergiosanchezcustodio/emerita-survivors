@@ -277,6 +277,10 @@ let cursorHueco = 0;
 // partida misma. Solo puede estarlo si la partida existe: en una vacía no hay
 // botón al que ir.
 let enBorrarHueco = false;
+// Y si el cursor está en la fila de GitHub, arriba de las tres partidas, en
+// vez de en ninguna de ellas. Solo tiene sentido con la nube encendida —sin
+// ella no hay fila que señalar—.
+let enFilaGithub = false;
 
 // Cambiar de pantalla en un solo sitio. Hay dos cosas que van fuera del lienzo
 // y que hay que mover con el estado: la chuleta de atajos del pie, que en las
@@ -863,18 +867,40 @@ function entradaHuecos() {
   }
 
   const n = MetaProgreso.NUM_HUECOS;
-  if (tAbajo || mAbajo || ejeV > 0) cursorHueco = (cursorHueco + 1) % n;
-  if (tArriba || mArriba || ejeV < 0) cursorHueco = (cursorHueco + n - 1) % n;
+  // LA FILA DE GITHUB ENTRA EN EL MISMO CICLO, arriba de la primera partida,
+  // pero solo si hay nube: sin ella no hay nada que conectar y esta pantalla
+  // se mueve exactamente como antes de que existiera. Se cuenta como una
+  // posición más —`total = n + 1`— con la fila de GitHub en la posición 0,
+  // así que subir desde la partida 1 entra en ella y subir desde ella da la
+  // vuelta a la partida 3, sin casos sueltos para cada borde.
+  if (Nube.URL_NUBE) {
+    const total = n + 1;
+    let pos = enFilaGithub ? 0 : cursorHueco + 1;
+    if (tAbajo || mAbajo || ejeV > 0) pos = (pos + 1) % total;
+    if (tArriba || mArriba || ejeV < 0) pos = (pos + total - 1) % total;
+    enFilaGithub = pos === 0;
+    if (!enFilaGithub) cursorHueco = pos - 1;
+  } else {
+    if (tAbajo || mAbajo || ejeV > 0) cursorHueco = (cursorHueco + 1) % n;
+    if (tArriba || mArriba || ejeV < 0) cursorHueco = (cursorHueco + n - 1) % n;
+  }
 
   // A la DERECHA está el botón de borrar, y solo existe si la partida existe.
   // Al cambiar de fila hay que comprobarlo otra vez: bajando de una partida
   // jugada a un hueco vacío, el cursor se quedaría sobre un botón que no está
-  // dibujado.
-  if (tDer || mDer || ejeH > 0) enBorrarHueco = true;
-  if (tIzq || mIzq || ejeH < 0) enBorrarHueco = false;
-  if (!huecoOcupado(cursorHueco)) enBorrarHueco = false;
+  // dibujado. Y nada de esto aplica en la fila de GitHub: ahí no hay nada que
+  // borrar.
+  if (!enFilaGithub) {
+    if (tDer || mDer || ejeH > 0) enBorrarHueco = true;
+    if (tIzq || mIzq || ejeH < 0) enBorrarHueco = false;
+    if (!huecoOcupado(cursorHueco)) enBorrarHueco = false;
+  }
 
   if (tEnter || tEspacio || mA) {
+    if (enFilaGithub) {
+      conectarConGithub();
+      return;
+    }
     if (enBorrarHueco) {
       confirmarBorrado = true;
       cursorConfirmar = CONFIRMAR_CANCELAR;
@@ -933,6 +959,7 @@ function entradaTitulo() {
       cursorHueco = MetaProgreso.hueco >= 0 ? MetaProgreso.hueco : 0;
       refrescarHuecos();
       enBorrarHueco = false;
+      enFilaGithub = false;
       irA(PANTALLA_HUECOS);
       break;
   }
@@ -2146,6 +2173,7 @@ function actualizar(dt) {
         cursorHueco = MetaProgreso.ultimoUsado();
         refrescarHuecos();
         enBorrarHueco = false;
+        enFilaGithub = false;
         irA(PANTALLA_HUECOS);
       }
     }
@@ -2790,7 +2818,8 @@ function dibujar(alpha) {
     ocultarCodigoRed();
     if (pantalla === PANTALLA_HUECOS) {
       dibujarHuecos(ctx, Capa.ctx, cursorHueco, enBorrarHueco,
-                    Nube.URL_NUBE ? { codigo: Nube.codigo(), aviso: nubeAviso, login: nubeLogin } : null);
+                    Nube.URL_NUBE ? { codigo: Nube.codigo(), aviso: nubeAviso, login: nubeLogin } : null,
+                    enFilaGithub);
       if (confirmarBorrado) {
         dibujarConfirmacion(Capa.ctx, cursorConfirmar, textoBorrado(cursorHueco));
       }
