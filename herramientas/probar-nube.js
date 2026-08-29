@@ -51,11 +51,12 @@ function baseFalsa() {
         },
         async run() {
           if (esVinculo) {
+            // El Worker ya ha decidido `codigoFinal` -pesando las dos
+            // partidas- antes de llegar aquí: la fila de mentira solo tiene
+            // que guardar lo que le llega, igual que hace el
+            // `ON CONFLICT ... DO UPDATE SET codigo = excluded.codigo` real.
             const [githubId, codigo, login, actualizado] = atados;
-            const antes = vinculos.get(githubId);
-            // EL CÓDIGO NO SE SOBRESCRIBE EN EL CONFLICTO: si ya había un
-            // enlace, se conserva su código y solo se refresca login/fecha.
-            vinculos.set(githubId, { codigo: antes ? antes.codigo : codigo, login, actualizado });
+            vinculos.set(githubId, { codigo, login, actualizado });
             return { meta: { changes: 1 } };
           }
           const [codigo, cuerpo, tiempo, partidas, sello, actualizado] = atados;
@@ -292,9 +293,9 @@ console.log('\nRecordar el código con GitHub');
   comprobar(db.vinculos.get(4242).codigo === CODIGO, 'la base de datos enlaza esa cuenta con ese código');
 
   // LA SEGUNDA CONEXIÓN, misma cuenta de GitHub, OTRO navegador -otro
-  // código local, otra página-: tiene que devolver el código YA enlazado,
-  // no sustituirlo por el nuevo. Esto es lo que de verdad hace la función:
-  // recordar, no volver a preguntar.
+  // código local, otra página-, y NINGUNO de los dos códigos ha subido nada
+  // todavía: EMPATE a cero, y en un empate gana el que ya estaba (no hay
+  // motivo para cambiar nada).
   const stateSegundo = construirState(CODIGO_B, OTRA_PAGINA);
   globalThis.fetch = fetchFalsoGithub(PERFIL);       // misma cuenta: mismo id
   let rSegunda;
@@ -307,12 +308,50 @@ console.log('\nRecordar el código con GitHub');
   }
   const vuelta2 = new URL(rSegunda.headers.get('Location') || 'https://x/');
   comprobar(vuelta2.searchParams.get('nube_codigo') === CODIGO,
-            `sigue mandando el código de la PRIMERA vez, no el nuevo ` +
+            `un empate a cero se queda con el que ya estaba enlazado ` +
             `(${vuelta2.searchParams.get('nube_codigo')})`);
   comprobar(db.vinculos.get(4242).codigo === CODIGO,
             'y en la base de datos el código enlazado no ha cambiado');
   comprobar(vuelta2.origin + vuelta2.pathname === OTRA_PAGINA,
             'pero SÍ vuelve a la página nueva desde la que se ha conectado esta vez');
+
+  // Y AHORA CODIGO_B SUBE UNA PARTIDA DE VERDAD -es justo lo que le faltaba
+  // al caso de arriba-. Al reconectar la MISMA cuenta desde ese código, el
+  // enlace tiene que CAMBIAR: es el fallo de producción del 28 de agosto,
+  // convertido en prueba para que no vuelva a colarse. Un enlace a una
+  // partida vacía no puede ganarle a una partida de verdad.
+  await pedir(db, 'PUT', CODIGO_B, PARTIDA(500, 3));
+  globalThis.fetch = fetchFalsoGithub(PERFIL);
+  let rTercera;
+  try {
+    rTercera = await gestor.fetch(
+      new Request(RAIZ_AUTH + `callback?code=def456&state=${encodeURIComponent(stateSegundo)}`),
+      { DB: db, ...ENTORNO_GITHUB });
+  } finally {
+    globalThis.fetch = fetchOriginal;
+  }
+  const vuelta3 = new URL(rTercera.headers.get('Location') || 'https://x/');
+  comprobar(vuelta3.searchParams.get('nube_codigo') === CODIGO_B,
+            `el código con partidas de verdad SÍ sustituye al vacío ` +
+            `(${vuelta3.searchParams.get('nube_codigo')})`);
+  comprobar(db.vinculos.get(4242).codigo === CODIGO_B,
+            'y el enlace en la base de datos se ha corregido solo');
+
+  // Y SI DESPUÉS SE RECONECTA DESDE EL CÓDIGO VIEJO -el vacío-, el enlace NO
+  // vuelve atrás: sigue ganando quien más ha jugado, sea cual sea el orden
+  // en que se conecten.
+  globalThis.fetch = fetchFalsoGithub(PERFIL);
+  let rCuarta;
+  try {
+    rCuarta = await gestor.fetch(
+      new Request(RAIZ_AUTH + `callback?code=ghi789&state=${encodeURIComponent(stateBueno)}`),
+      { DB: db, ...ENTORNO_GITHUB });
+  } finally {
+    globalThis.fetch = fetchOriginal;
+  }
+  const vuelta4 = new URL(rCuarta.headers.get('Location') || 'https://x/');
+  comprobar(vuelta4.searchParams.get('nube_codigo') === CODIGO_B,
+            'y reconectar desde el código vacío no lo vuelve a robar');
 
   // SIN CLIENT ID NI SECRETO CONFIGURADOS, se dice claramente y no se
   // intenta hablar con GitHub -es el estado del Worker recién desplegado,

@@ -268,25 +268,49 @@ async function callbackGithub(url, entorno) {
     return respuesta({ error: 'No se ha podido leer tu perfil de GitHub.' }, 502);
   }
 
-  // EL CÓDIGO NO SE SOBRESCRIBE EN EL CONFLICTO. La primera vez que esta
-  // cuenta se conecta fija su código para siempre -salvo que se borre la
-  // fila a mano-: conectar la misma cuenta desde otro navegador sin querer
-  // no debe cambiar a qué partida apunta.
+  // SE QUEDA EL CÓDIGO CON MÁS JUEGO -misma regla que usa todo lo demás en
+  // este proyecto para decidir entre dos copias, ver `traerSiHayMasJuego` en
+  // js/main.js-, NO "el primero que llegó". Antes sí era "el primero que
+  // llegó", y fue exactamente el fallo que se vio en producción: conectar
+  // por primera vez desde una ventana vacía -una prueba, una incógnito-
+  // enlazaba esa cuenta PARA SIEMPRE a una partida sin nada, y no había
+  // forma de arreglarlo salvo tocar la base de datos a mano. Con la partida
+  // pesándose en cada conexión, esto se cura solo: en cuanto esa misma
+  // cuenta se conecta desde el navegador con la partida de verdad, el
+  // enlace se corrige él solo, sin que nadie tenga que hacer nada.
+  const existente = await entorno.DB.prepare(
+    'SELECT codigo FROM github_vinculos WHERE github_id = ?1'
+  ).bind(perfil.id).first();
+
+  let codigoFinal = decodificado.codigo;
+  if (existente && existente.codigo !== decodificado.codigo) {
+    const [pesoNuevo, pesoViejo] = await Promise.all([
+      entorno.DB.prepare('SELECT tiempo, partidas FROM partidas WHERE codigo = ?1')
+        .bind(decodificado.codigo).first(),
+      entorno.DB.prepare('SELECT tiempo, partidas FROM partidas WHERE codigo = ?1')
+        .bind(existente.codigo).first()
+    ]);
+    // SIN FILA EN `partidas` PESA CERO: un código recién generado que nunca
+    // ha llegado a subir nada -como el de una ventana que solo ha entrado a
+    // conectar y no ha jugado- no puede ganarle a uno con partidas de
+    // verdad, así que se trata como el peso más bajo posible.
+    const tNuevo = pesoNuevo ? pesoNuevo.tiempo : 0, pNuevo = pesoNuevo ? pesoNuevo.partidas : 0;
+    const tViejo = pesoViejo ? pesoViejo.tiempo : 0, pViejo = pesoViejo ? pesoViejo.partidas : 0;
+    const ganaNuevo = tNuevo > tViejo || (tNuevo === tViejo && pNuevo > pViejo);
+    codigoFinal = ganaNuevo ? decodificado.codigo : existente.codigo;
+  }
+
   const ahora = Math.floor(Date.now() / 1000);
   await entorno.DB.prepare(`
     INSERT INTO github_vinculos (github_id, codigo, login, actualizado)
     VALUES (?1, ?2, ?3, ?4)
     ON CONFLICT(github_id) DO UPDATE SET
-      login = excluded.login, actualizado = excluded.actualizado
-  `).bind(perfil.id, decodificado.codigo, perfil.login || '', ahora).run();
-
-  const fila = await entorno.DB.prepare(
-    'SELECT codigo, login FROM github_vinculos WHERE github_id = ?1'
-  ).bind(perfil.id).first();
+      codigo = excluded.codigo, login = excluded.login, actualizado = excluded.actualizado
+  `).bind(perfil.id, codigoFinal, perfil.login || '', ahora).run();
 
   const vuelta = new URL(decodificado.pagina);
-  vuelta.searchParams.set('nube_codigo', fila.codigo);
-  if (fila.login) vuelta.searchParams.set('nube_login', fila.login);
+  vuelta.searchParams.set('nube_codigo', codigoFinal);
+  if (perfil.login) vuelta.searchParams.set('nube_login', perfil.login);
   return Response.redirect(vuelta.toString(), 302);
 }
 

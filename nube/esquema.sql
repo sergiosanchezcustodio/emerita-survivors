@@ -40,10 +40,12 @@ CREATE INDEX IF NOT EXISTS idx_actualizado ON partidas (actualizado);
 -- `github_id` es el id numérico de GitHub, no el @usuario -ese puede
 -- cambiar, el id no-.
 --
--- `codigo` NO SE SOBRESCRIBE al reconectar la misma cuenta (ver el
--- `ON CONFLICT` en worker.js): el primer enlace es el que vale, para que
--- entrar por error desde otro navegador con la misma cuenta no cambie a qué
--- partida apunta.
+-- `codigo` cambia al reconectar SOLO si el código nuevo tiene más juego que
+-- el enlazado (ver `callbackGithub` en worker.js) -la misma regla de "gana
+-- quien más ha jugado" que usa todo lo demás en este proyecto, y no "el
+-- primero que llegó": eso fue el fallo real que se vio en producción, y se
+-- cura solo en cuanto la cuenta se conecta desde el navegador con la
+-- partida de verdad.
 --
 -- `login` es solo el @usuario de GitHub, para enseñarlo en pantalla
 -- ("Conectado como @fulano") en vez del código en crudo. Nada de email,

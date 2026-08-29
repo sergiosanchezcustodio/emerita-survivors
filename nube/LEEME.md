@@ -212,13 +212,23 @@ De verdad, solo se puede probar jugando: pulsa **G** en la pantalla de
 partidas, autoriza en GitHub, y comprueba que vuelves con tu código —o con
 el que ya tuvieras enlazado, si no es la primera vez—.
 
-### Por qué el código no se sobrescribe al reconectar
+### Por qué el enlace cambia solo si el código nuevo tiene más juego
 
-La primera vez que una cuenta de GitHub se conecta, ese código es el suyo
-**para siempre** —salvo que se borre la fila a mano en D1—. Si se
-sobrescribiera cada vez, conectar la misma cuenta sin querer desde un
-navegador con una partida distinta cambiaría a qué partida apunta la cuenta,
-que es justo el susto que esto existe para evitar.
+**Esto no fue así desde el principio, y el cambio salió de un fallo real
+en producción** (28 de agosto de 2026): la primera versión fijaba el
+enlace en la primera conexión, para siempre. Sergio conectó una vez desde
+una ventana de incógnito sin haber jugado nada ahí, y su cuenta quedó
+enlazada para siempre a una partida vacía — la de verdad, con horas
+jugadas, se quedó sin enlazar y no había forma de arreglarlo salvo tocar la
+base de datos a mano.
+
+Ahora cada conexión **pesa las dos partidas** —la que ya estaba enlazada y
+la del navegador desde el que se conecta— con la misma regla de siempre:
+gana quien más ha jugado. Un código recién generado que nunca ha subido
+nada pesa cero, así que no puede ganarle a uno con partidas de verdad. Y
+esto es lo que lo hace **autocorregirse solo**: en cuanto esa cuenta se
+conecta desde el navegador con la partida buena, el enlace se corrige él
+mismo, sin tocar nada a mano.
 
 ### Por qué solo GitHub, de momento
 
