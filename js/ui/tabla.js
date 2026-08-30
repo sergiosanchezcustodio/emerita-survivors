@@ -172,6 +172,10 @@ export function armazon(ctxMundo, ctx, r, secciones, activa, columnas) {
   // Los denarios, a la altura de las pestañas y no flotando por encima. Ahí
   // estaba el pisotón que vio Sergio: colocados por su cuenta, se metían en la
   // cabecera de unas ventanas y en los adornos de la ilustración de otras.
+  //
+  // El @usuario de GitHub NO va aquí: la primera pestaña empieza justo en esa
+  // esquina y no hay aire arriba para una placa propia, al revés que en título,
+  // selección o mascotas.
   dibujarOro(ctx, r.pestanyas + ALTO_PESTANYA / 2);
 
   // Títulos de columna, en la romana del juego y no en la de leer: son cuatro

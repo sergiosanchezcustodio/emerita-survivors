@@ -8,6 +8,7 @@ import { COLOR_JUGADOR, dibujarIconoArma } from './hud.js';
 import { MetaProgreso } from '../core/metaProgreso.js';
 import { MASCOTAS, MAX_NIVEL_MASCOTA } from '../datos/mascotas.js';
 import { TituloVivo } from './tituloVivo.js';
+import * as Nube from '../core/nube.js';
 
 // Pantallas de TÍTULO y de SELECCIÓN DE PERSONAJE.
 //
@@ -246,6 +247,44 @@ export function dibujarOro(ctxUi, yPedida) {
   ctxUi.restore();
 }
 
+// EL @USUARIO DE GITHUB, arriba a la IZQUIERDA —espejo de la placa de denarios,
+// que va a la derecha— en toda pantalla de MENÚ. Nunca durante la partida: ahí
+// no hay HUD ajeno al combate, y conectar con GitHub es un gesto de antes de
+// jugar, no de en medio.
+//
+// No pinta nada si no hay sesión: quien no se ha conectado no tiene nada que
+// ver aquí, igual que `dibujarOro` no dibuja una cartela vacía.
+export function dibujarUsuarioGithub(ctxUi, yPedida) {
+  const login = Nube.login();
+  if (!login) return;
+
+  const y = yPedida !== undefined
+            ? yPedida
+            : Math.max(20, (ALTO_UI - Capa.altoVisible) / 2 + 15);
+  const texto = '@' + login;
+
+  ctxUi.save();
+  ctxUi.textBaseline = 'middle';
+  ctxUi.font = `700 12px ${FUENTE}`;
+
+  const anchoTexto = ctxUi.measureText(texto).width;
+  const izquierda = 16;
+  const ancho = anchoTexto + RELLENO_PLACA * 2;
+
+  ctxUi.beginPath();
+  ctxUi.roundRect(izquierda, y - ALTO_PLACA / 2, ancho, ALTO_PLACA, ALTO_PLACA / 2);
+  ctxUi.fillStyle = 'rgba(10,8,12,.62)';
+  ctxUi.fill();
+  ctxUi.lineWidth = 1;
+  ctxUi.strokeStyle = 'rgba(232,183,58,.28)';
+  ctxUi.stroke();
+
+  ctxUi.textAlign = 'left';
+  ctxUi.fillStyle = Tema.actual.texto;
+  ctxUi.fillText(texto, izquierda + RELLENO_PLACA, y + 0.5);
+  ctxUi.restore();
+}
+
 // --- Encaje de la ilustración -----------------------------------------------
 //
 // "Cubrir": se escala por el lado que se quede corto, así que la imagen llena
@@ -332,6 +371,7 @@ function dibujarTitulo(ctxMundo, ctxUi, menu, cursor) {
   }
 
   dibujarOro(ctxUi);
+  dibujarUsuarioGithub(ctxUi);
   if (!img || !menu) return;
 
   // EL BOTÓN DE LA ESQUINA. Va con los demás en la lista del menú —se llega
@@ -449,6 +489,7 @@ function dibujarSeleccion(ctxMundo, ctxUi, puestos) {
   fondo(ctxMundo, img, e);
 
   dibujarOro(ctxUi);
+  dibujarUsuarioGithub(ctxUi);
   const t = Tema.actual;
   ctxUi.save();
 
@@ -739,6 +780,7 @@ function dibujarMascotas(ctxMundo, ctxUi, disponibles, cursor, turno, puestos, e
   ctxUi.fillStyle = 'rgba(6,5,10,.72)';
   ctxUi.fillRect(0, 0, ANCHO_UI, ALTO_UI);
   dibujarOro(ctxUi);
+  dibujarUsuarioGithub(ctxUi);
 
   // Cabecera: de quién es el turno. En cooperativo es lo primero que hay que
   // saber, porque los cuatro miran la misma pantalla.

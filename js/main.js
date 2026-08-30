@@ -57,7 +57,7 @@ import { PERSONAJES, ORDEN_PERSONAJES } from './datos/personajes.js';
 import { ARMAS } from './datos/armas.js';
 import { POTENCIADORES } from './datos/potenciadores.js';
 import { Intro } from './ui/intro.js';
-import { dibujarHuecos, refrescarHuecos, huecoOcupado, textoBorrado } from './ui/huecos.js';
+import { dibujarHuecos, refrescarHuecos, huecoOcupado, textoBorrado, dibujarEsperaGithub } from './ui/huecos.js';
 
 
 // Capacidad del pool. El objetivo del plan son 800 entidades simultáneas; el
@@ -400,11 +400,13 @@ async function recogerRetornoDeGithub() {
   try { window.close(); } catch { /* no era un popup: se sigue jugando aquí */ }
 }
 
-// ¿SE ESTÁ ESPERANDO A QUE VUELVA EL POPUP DE GITHUB? Congela solo la fila
-// de GitHub —"Esperando confirmación…" en vez de "Conectar con GitHub"—, no
-// la pantalla entera: se puede seguir mirando las tres partidas mientras se
-// espera.
+// ¿SE ESTÁ ESPERANDO A QUE VUELVA EL POPUP DE GITHUB? Saca el cartel de
+// espera —ver `dibujarEsperaGithub` en ui/huecos.js— y congela la entrada de
+// esta pantalla, igual que el aviso de confirmar borrado.
 let nubeConectando = false;
+// La ventana del popup, para poder cerrarla desde ESC sin esperar a que el
+// jugador la encuentre por su cuenta entre las demás ventanas abiertas.
+let nubePopup = null;
 
 // EL POPUP, no una navegación de la propia ventana. Antes esto hacía
 // `location.href = url` y recargaba el juego entero —intro, título y
@@ -434,6 +436,7 @@ function conectarConGithub() {
   if (!popup) { location.href = url; return; }
 
   nubeConectando = true;
+  nubePopup = popup;
   nubeAviso = 'Esperando a que confirmes en GitHub…';
   const antes = { codigo: Nube.codigo(), login: Nube.login() };
 
@@ -441,6 +444,7 @@ function conectarConGithub() {
     if (!popup.closed) return;
     clearInterval(reloj);
     nubeConectando = false;
+    nubePopup = null;
     Nube.recargar();
     refrescarHuecos();
     nubeLogin = Nube.login();
@@ -876,6 +880,19 @@ function entradaHuecos() {
   const mDer = c0 ? c0.consumirBoton(15) : false;
   const mA = c0 ? c0.consumirBoton(0) : false;
   const mAtras = entrada.consumirAtras();
+
+  // CON EL CARTEL DE GITHUB PUESTO, la entrada es suya entera: solo se puede
+  // cancelar. Igual que el aviso de confirmar borrado más abajo, pero sin
+  // botones que recorrer —aquí no hay más que una salida—. Cerrar el popup a
+  // mano no hace falta limpiar nada más: el reloj de `conectarConGithub()`
+  // se entera solo en su próxima pasada y hace la misma limpieza que si se
+  // hubiera cerrado de cualquier otra forma.
+  if (nubeConectando) {
+    if (tEsc || mAtras) {
+      if (nubePopup && !nubePopup.closed) nubePopup.close();
+    }
+    return;
+  }
 
   // LA NUBE: llevarte tu código o traer el de otro sitio.
   //
@@ -2889,6 +2906,7 @@ function dibujar(alpha) {
       if (confirmarBorrado) {
         dibujarConfirmacion(Capa.ctx, cursorConfirmar, textoBorrado(cursorHueco));
       }
+      if (nubeConectando) dibujarEsperaGithub(Capa.ctx);
       return;
     }
     if (pantalla === PANTALLA_TITULO) {

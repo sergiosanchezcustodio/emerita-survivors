@@ -410,3 +410,42 @@ export function textoBorrado(indice) {
     ]
   };
 }
+
+// EL CARTEL DE ESPERA, mientras el popup de GitHub sigue abierto. Mismo
+// lenguaje que el de confirmar borrado —fondo oscurecido, panel centrado—,
+// pero sin botones que recorrer: aquí no hay nada que decidir, solo esperar
+// a que se cierre la ventana que se ha abierto, o cancelarlo con ESC.
+//
+// POR QUÉ UN CARTEL Y NO SOLO LA FILA. La fila ya decía "Esperando
+// confirmación…", pero un popup del sistema operativo es una ventana ajena
+// al juego —puede quedar detrás, minimizarse, perderse de vista— y la fila
+// sola no bastaba para que quedara claro que el juego seguía esperando algo.
+// El cartel, oscureciendo el resto de la pantalla, lo deja fuera de toda
+// duda: no se puede seguir jugando con esto sin resolverlo primero.
+export function dibujarEsperaGithub(ctx) {
+  const t = Tema.actual;
+  const ancho = 360, alto = 108;
+  const px = (ANCHO_UI - ancho) / 2;
+  const py = (ALTO_UI - alto) / 2;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(6,5,10,.78)';
+  ctx.fillRect(0, 0, ANCHO_UI, ALTO_UI);
+  panel(ctx, px, py, ancho, alto, t.filo);
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `16px ${FUENTE_TITULO}`;
+  ctx.fillStyle = t.titulo;
+  textoEspaciado(ctx, 'CONECTANDO CON GITHUB', ANCHO_UI / 2, py + 28, 3);
+
+  ctx.font = `400 12px ${FUENTE}`;
+  ctx.fillStyle = t.texto;
+  ctx.fillText('Confirma en la ventana que se ha abierto.', ANCHO_UI / 2, py + 58);
+
+  ctx.font = `400 11px ${FUENTE}`;
+  ctx.fillStyle = t.apagado;
+  ctx.fillText('ESC para cancelar', ANCHO_UI / 2, py + 84);
+
+  ctx.restore();
+}
