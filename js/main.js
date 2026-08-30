@@ -365,6 +365,13 @@ async function mirarLaNube() {
 // nube/worker.js). Se aplica con la MISMA regla de siempre, y se limpia la
 // URL: dejar el código a la vista, o repetir esto solo con recargar la
 // página, no aporta nada.
+//
+// ESTO SE EJECUTA TANTO SI EL LOGIN FUE EN UN POPUP como si fue en esta
+// misma pestaña —el popup bloqueado que cae al `location.href` de siempre—.
+// No hace falta distinguir los dos casos: en los dos hace falta aplicar la
+// vuelta, y el `window.close()` del final es un no-op inofensivo cuando esta
+// pestaña no la abrió un script —que es justo el caso de "esta misma
+// pestaña"—, así que basta con intentarlo siempre.
 let nubeLogin = '';
 async function recogerRetornoDeGithub() {
   const url = new URL(location.href);
@@ -376,20 +383,76 @@ async function recogerRetornoDeGithub() {
   history.replaceState(null, '', url.toString());
 
   if (!Nube.usarCodigo(codigoVuelto)) return;
+  Nube.fijarLogin(login);
   nubeLogin = login;
   const saludo = login ? `Conectado como @${login}.` : 'Conectado con GitHub.';
   nubeAviso = saludo;
   const copia = await Nube.bajar();
-  if (!copia) return;
-  const r = traerSiHayMasJuego(copia);
-  if (r.aplicado) nubeAviso = saludo + ' Traída tu partida.';
+  if (copia) {
+    const r = traerSiHayMasJuego(copia);
+    if (r.aplicado) nubeAviso = saludo + ' Traída tu partida.';
+  }
+  // SI ESTO ES EL POPUP, se cierra solo: la ventana principal está mirando
+  // `popup.closed` y se entera de que ha terminado. Si es esta misma
+  // pestaña —popup bloqueado—, el navegador rechaza cerrar una pestaña que
+  // no abrió un script, así que aquí no pasa nada y el juego sigue cargando
+  // como siempre.
+  try { window.close(); } catch { /* no era un popup: se sigue jugando aquí */ }
 }
 
-// EL ENLACE, no una petición que se espere: como cualquier login de verdad,
-// hace falta SALIR de la página para hablar con GitHub.
+// ¿SE ESTÁ ESPERANDO A QUE VUELVA EL POPUP DE GITHUB? Congela solo la fila
+// de GitHub —"Esperando confirmación…" en vez de "Conectar con GitHub"—, no
+// la pantalla entera: se puede seguir mirando las tres partidas mientras se
+// espera.
+let nubeConectando = false;
+
+// EL POPUP, no una navegación de la propia ventana. Antes esto hacía
+// `location.href = url` y recargaba el juego entero —intro, título y
+// vuelta—, que es justo lo que Sergio vio y no le gustó: toda la pantalla de
+// partidas desaparecía y volvía a aparecer un buen rato después.
+//
+// Con un popup, esta ventana ni se entera: sigue en la pantalla de
+// partidas, con un aviso de que se está esperando, y solo vigila cuándo se
+// cierra la ventana nueva —`popup.closed`, comprobado cada poco— para volver
+// a leer lo que el popup haya dejado escrito. El popup y esta ventana
+// comparten origen y por tanto el mismo `localStorage`, así que no hace
+// falta que se manden nada: `Nube.recargar()` es simplemente volver a leer
+// el disco.
+//
+// SI EL NAVEGADOR BLOQUEA EL POPUP —`window.open` devuelve null—, se cae al
+// comportamiento de siempre: navegar esta misma ventana. Peor experiencia,
+// pero sigue funcionando.
 function conectarConGithub() {
+  // NO DOS A LA VEZ. Con un popup ya esperando, pulsar G o Enter otra vez
+  // —por impaciencia, o porque el atajo y la fila caen en el mismo sitio—
+  // abriría un segundo popup encima del primero y dos relojes vigilando el
+  // mismo cierre.
+  if (nubeConectando) return;
   const url = Nube.urlLoginGithub();
-  if (url) location.href = url;
+  if (!url) return;
+  const popup = window.open(url, 'emerita-github-login', 'width=520,height=680');
+  if (!popup) { location.href = url; return; }
+
+  nubeConectando = true;
+  nubeAviso = 'Esperando a que confirmes en GitHub…';
+  const antes = { codigo: Nube.codigo(), login: Nube.login() };
+
+  const reloj = setInterval(() => {
+    if (!popup.closed) return;
+    clearInterval(reloj);
+    nubeConectando = false;
+    Nube.recargar();
+    refrescarHuecos();
+    nubeLogin = Nube.login();
+    // SOLO SE ANUNCIA ALGO SI DE VERDAD CAMBIÓ. Cerrar el popup sin llegar a
+    // autorizar —arrepentirse, cerrar por error— no es un fallo que haya que
+    // contar, y decir "Conectado" cuando no ha pasado nada sería mentir.
+    if (Nube.codigo() !== antes.codigo || Nube.login() !== antes.login) {
+      nubeAviso = nubeLogin ? `Conectado como @${nubeLogin}.` : 'Conectado con GitHub.';
+    } else {
+      nubeAviso = '';
+    }
+  }, 400);
 }
 
 // La chuleta de atajos vive FUERA del lienzo (es texto del documento), así que
@@ -2818,7 +2881,10 @@ function dibujar(alpha) {
     ocultarCodigoRed();
     if (pantalla === PANTALLA_HUECOS) {
       dibujarHuecos(ctx, Capa.ctx, cursorHueco, enBorrarHueco,
-                    Nube.URL_NUBE ? { codigo: Nube.codigo(), aviso: nubeAviso, login: nubeLogin } : null,
+                    Nube.URL_NUBE
+                      ? { codigo: Nube.codigo(), aviso: nubeAviso, login: nubeLogin,
+                          conectando: nubeConectando }
+                      : null,
                     enFilaGithub);
       if (confirmarBorrado) {
         dibujarConfirmacion(Capa.ctx, cursorConfirmar, textoBorrado(cursorHueco));
@@ -3135,6 +3201,11 @@ const RADIO_RECOGIDA_COFRE = 13;
 
 async function arrancar() {
   MetaProgreso.iniciar();
+  // EL @USUARIO YA CONECTADO, si lo hay —de una sesión anterior—. Sin esto,
+  // alguien que ya conectó con GitHub ayer vería "Conectar con GitHub" hoy
+  // hasta que volviera a hacerlo: el enlace sigue vivo en el servidor, pero
+  // esta pestaña no se enteraba de que ya se había usado.
+  nubeLogin = Nube.login();
   // VOLVER DE GITHUB, si es que se viene de ahí. No se espera: si la URL no
   // trae nada, sale en el acto; si trae un código, sigue en segundo plano
   // mientras el resto de arrancar() continúa.

@@ -305,7 +305,14 @@ function filaGithub(ctx, x, y, nube, elegida, t) {
   const cy = y + FILA_GITHUB_ALTO / 2;
   ctx.font = `600 13px ${FUENTE}`;
 
-  if (nube.login) {
+  // ESPERANDO AL POPUP: ni "conectar" ni "conectado", un tercer estado
+  // aparte. Va primero porque manda sobre los otros dos mientras dura —da
+  // igual si ya había alguien conectado antes, lo que se está esperando es
+  // esta conexión nueva—.
+  if (nube.conectando) {
+    ctx.fillStyle = t.apagado;
+    ctx.fillText('Esperando confirmación en GitHub…', x + FILA_ANCHO / 2, cy);
+  } else if (nube.login) {
     ctx.fillStyle = COLOR_ORO;
     ctx.fillText(`Conectado con GitHub como @${nube.login}`, x + FILA_ANCHO / 2, cy);
   } else {

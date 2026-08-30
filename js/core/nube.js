@@ -43,6 +43,13 @@ export let URL_NUBE = 'https://emerita-partidas.sergiosanchezcustodio.workers.de
 // nadie durante la simulación.
 const CLAVE_CODIGO = 'emerita-nube-codigo';
 
+// EL @USUARIO DE GITHUB, si se ha conectado. Se guarda aparte del código -es
+// solo para enseñarlo en pantalla, no identifica nada- y por la misma razón
+// que el código: para que el popup del login (ver `js/main.js`) pueda
+// escribirlo y la ventana principal, que comparte el mismo origen y el mismo
+// `localStorage`, lo recoja sin que nadie tenga que mandárselo por mensaje.
+const CLAVE_LOGIN = 'emerita-nube-login';
+
 // Cuánto se espera a que conteste el servidor. Corto a propósito: esto es una
 // comodidad, y una comodidad que hace esperar deja de serlo. Si no llega en tres
 // segundos, se sigue jugando y ya se sincronizará la próxima vez.
@@ -55,6 +62,7 @@ const AGRUPAR = 4000;
 
 const estado = {
   codigo: '',
+  login: '',
   reloj: 0,
   subiendo: false,
   pendiente: null,      // los huecos que faltan por subir
@@ -99,6 +107,35 @@ export function usarCodigo(nuevo) {
   estado.codigo = limpio;
   try { localStorage.setItem(CLAVE_CODIGO, limpio); } catch { /* da igual */ }
   return true;
+}
+
+// EL @USUARIO DE GITHUB. Se persiste igual que el código -mismo mecanismo,
+// misma razón-, y quien lo pone es `recogerRetornoDeGithub()` en main.js en
+// cuanto GitHub confirma la conexión.
+export function fijarLogin(login) {
+  estado.login = String(login || '');
+  try {
+    if (estado.login) localStorage.setItem(CLAVE_LOGIN, estado.login);
+    else localStorage.removeItem(CLAVE_LOGIN);
+  } catch { /* da igual */ }
+}
+
+export function login() {
+  if (estado.login) return estado.login;
+  try { estado.login = localStorage.getItem(CLAVE_LOGIN) || ''; } catch { /* nada */ }
+  return estado.login;
+}
+
+// VOLVER A LEER DEL DISCO. Hace falta después de que el POPUP del login haya
+// escrito su propio código y su propio @usuario: el popup y esta ventana
+// comparten origen y por tanto `localStorage`, pero cada uno tiene su propia
+// copia en memoria -esto de aquí, `estado`- que no se entera sola de que el
+// disco ha cambiado debajo. Ver `conectarConGithub()` en main.js.
+export function recargar() {
+  estado.codigo = '';
+  estado.login = '';
+  codigo();
+  login();
 }
 
 export function ultimoEstado() { return activa() ? estado.ultimo : 'apagada'; }
