@@ -1,4 +1,9 @@
 node_modules/
+.DS_Store
+
+# Secretos locales (tokens de API para generar/traer assets, etc.). Nunca al
+# repositorio: cada quien pone el suyo en su copia.
+.env
 
 # Salidas de compilación y descargas del lanzador. Son cientos de megas de
 # ejecutables y de runtime de NW.js que se regeneran con las herramientas:

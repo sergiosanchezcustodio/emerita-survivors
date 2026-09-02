@@ -146,7 +146,7 @@ export const ARMAS = {
     empuje: 130,
     color: '#ffd9a0',
     estela: '#a05a2a',
-    spriteProyectil: 'balaPistola',
+    spriteProyectil: 'balaEscopeta',
     niveles: [
       {},
       { proyectiles: 2 },
@@ -618,7 +618,7 @@ export const ARMAS = {
     danyo: 38, recarga: 1.35, proyectiles: 1, velocidad: 560, alcance: 440,
     radio: 3, perforacion: 1, dispersion: 3, empuje: 100,
     color: '#cfd6dd', estela: '#6d7480', largoTrazo: 14,
-    spriteProyectil: 'balaPistola',
+    spriteProyectil: 'balaFusil',
     niveles: [{}, { danyo: 18, rebotesPared: 1 },
               { perforacion: 1, danyo: 14, rebotesPared: 1 },
               { recarga: -0.2, danyo: 16, rebotesPared: 1 },
@@ -637,7 +637,7 @@ export const ARMAS = {
     danyo: 4, recarga: 0.22, proyectiles: 1, velocidad: 420, alcance: 260,
     radio: 2, perforacion: 0, dispersion: 9, empuje: 25,
     color: '#ffe08a', estela: '#8a6a2a', largoTrazo: 7,
-    spriteProyectil: 'balaPistola',
+    spriteProyectil: 'balaSubfusil',
     // EL DOBLE DE BALAS AL 10: de 3 a 6, una más en los niveles 3, 5, 7, 9 y 10.
     // Sube por donde es ella: el Subfusil no va de pegar fuerte —cada bala pica
     // poco y así tiene que seguir— va de no parar de escupir. Con `dispersion: 9`
@@ -655,7 +655,7 @@ export const ARMAS = {
     danyo: 30, recarga: 1.9, proyectiles: 1, velocidad: 480, alcance: 300,
     radio: 4, perforacion: 1, dispersion: 0, empuje: 190,
     color: '#ffd0a0', estela: '#8a4a2a', largoTrazo: 11,
-    spriteProyectil: 'balaPistola',
+    spriteProyectil: 'balaRevolver',
     niveles: [{}, { danyo: 10 }, { recarga: -0.2 }, { perforacion: 1 },
               { danyo: 12 }, { recarga: -0.2 }, { danyo: 14 }, { proyectiles: 1 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
@@ -750,7 +750,7 @@ export const ARMAS = {
     danyo: 11, recarga: 1.6, proyectiles: 9, velocidad: 230, alcance: 82, angulo: 78,
     radio: 3, perforacion: 0, empuje: 220,
     color: '#ffc07a', estela: '#8a4a1a',
-    spriteProyectil: 'balaPistola',
+    spriteProyectil: 'balaRecortada',
     niveles: [{}, { proyectiles: 3 }, { danyo: 3 }, { empuje: 60 },
               { proyectiles: 3 }, { danyo: 4 }, { recarga: -0.3 }, { proyectiles: 4, danyo: 6 },
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]

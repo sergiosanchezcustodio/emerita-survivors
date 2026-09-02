@@ -1225,6 +1225,51 @@
                                           "frames":  1,
                                           "plano":  true
                                       },
+                      "balaFusil":  {
+                                          "archivo":  "efectos/bala-fusil.png",
+                                          "w":  50,
+                                          "h":  13,
+                                          "anclaX":  25,
+                                          "anclaY":  6,
+                                          "frames":  1,
+                                          "plano":  true
+                                      },
+                      "balaSubfusil":  {
+                                          "archivo":  "efectos/bala-subfusil.png",
+                                          "w":  34,
+                                          "h":  15,
+                                          "anclaX":  17,
+                                          "anclaY":  7,
+                                          "frames":  1,
+                                          "plano":  true
+                                      },
+                      "balaRevolver":  {
+                                          "archivo":  "efectos/bala-revolver.png",
+                                          "w":  46,
+                                          "h":  24,
+                                          "anclaX":  23,
+                                          "anclaY":  12,
+                                          "frames":  1,
+                                          "plano":  true
+                                      },
+                      "balaEscopeta":  {
+                                          "archivo":  "efectos/bala-escopeta.png",
+                                          "w":  22,
+                                          "h":  18,
+                                          "anclaX":  11,
+                                          "anclaY":  9,
+                                          "frames":  1,
+                                          "plano":  true
+                                      },
+                      "balaRecortada":  {
+                                          "archivo":  "efectos/bala-recortada.png",
+                                          "w":  26,
+                                          "h":  17,
+                                          "anclaX":  13,
+                                          "anclaY":  8,
+                                          "frames":  1,
+                                          "plano":  true
+                                      },
                       "abrojo":  {
                                      "archivo":  "efectos/abrojo.png",
                                      "w":  24,
