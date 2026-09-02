@@ -20,6 +20,10 @@ export const ARMAS = {
     nombre: 'Pilum',
     descripcion: 'Jabalina al enemigo más cercano.',
     comportamiento: 'proyectilDirigido',
+    // Golpe de polvo al soltar el brazo, hacia ATRÁS y no hacia el vuelo -es
+    // el único dato que distingue este comportamiento del de un arma de
+    // fuego. Ver `emitirLanzamiento` en sistemas/armas.js.
+    lanzamiento: true,
     danyo: 10,
     recarga: 1.2,
     proyectiles: 1,
@@ -101,6 +105,11 @@ export const ARMAS = {
     descripcion: 'Tiro certero al más cercano. Rápida y de largo alcance.',
     comportamiento: 'proyectilDirigido',
     forma: 'bala',
+    // Fogonazo en la boca del cañón, una vez por disparo. Solo las armas de
+    // fuego lo llevan -el Pilum o la Honda también son `proyectilDirigido`
+    // pero no queman pólvora- así que es un dato de esta arma, no del
+    // comportamiento. Ver `emitirFogonazo` en sistemas/armas.js.
+    fogonazo: true,
     danyo: 7,
     recarga: 0.55,
     proyectiles: 1,
@@ -135,6 +144,7 @@ export const ARMAS = {
     descripcion: 'Abanico de perdigones. Poco alcance, mucho destrozo.',
     comportamiento: 'conoCorto',
     forma: 'bala',
+    fogonazo: true,
     danyo: 6,
     recarga: 1.1,
     proyectiles: 6,
@@ -615,6 +625,7 @@ export const ARMAS = {
     aceleraRebote: 0.10,
     rebotesPared: 0,
     forma: 'bala',
+    fogonazo: true,
     danyo: 38, recarga: 1.35, proyectiles: 1, velocidad: 560, alcance: 440,
     radio: 3, perforacion: 1, dispersion: 3, empuje: 100,
     color: '#cfd6dd', estela: '#6d7480', largoTrazo: 14,
@@ -634,6 +645,7 @@ export const ARMAS = {
     descripcion: 'Ráfaga sin pausa. Cada bala pica poco.',
     comportamiento: 'proyectilDirigido',
     forma: 'bala',
+    fogonazo: true,
     danyo: 4, recarga: 0.22, proyectiles: 1, velocidad: 420, alcance: 260,
     radio: 2, perforacion: 0, dispersion: 9, empuje: 25,
     color: '#ffe08a', estela: '#8a6a2a', largoTrazo: 7,
@@ -652,6 +664,7 @@ export const ARMAS = {
     descripcion: 'Un tiro, muy gordo, y a esperar.',
     comportamiento: 'proyectilDirigido',
     forma: 'bala',
+    fogonazo: true,
     danyo: 30, recarga: 1.9, proyectiles: 1, velocidad: 480, alcance: 300,
     radio: 4, perforacion: 1, dispersion: 0, empuje: 190,
     color: '#ffd0a0', estela: '#8a4a2a', largoTrazo: 11,
@@ -747,6 +760,7 @@ export const ARMAS = {
     descripcion: 'Dos cañones a bocajarro. Abre un pasillo.',
     comportamiento: 'conoCorto',
     forma: 'bala',
+    fogonazo: true,
     danyo: 11, recarga: 1.6, proyectiles: 9, velocidad: 230, alcance: 82, angulo: 78,
     radio: 3, perforacion: 0, empuje: 220,
     color: '#ffc07a', estela: '#8a4a1a',

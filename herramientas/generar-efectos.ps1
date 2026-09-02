@@ -37,7 +37,12 @@ param(
 
 Add-Type -AssemblyName System.Drawing
 
-Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @"
+# System.Drawing,System.Drawing.Common,System.Drawing.Primitives y no solo la
+# primera: en .NET Core la familia "System.Drawing" se parte en varios
+# ensamblados y Bitmap/BitmapData/PixelFormat/ImageLockMode/ImageFormat viven
+# en Common y Primitives. En .NET Framework compilaba igual con solo la
+# primera porque ahi todo estaba junto; aqui no.
+Add-Type -ReferencedAssemblies System.Drawing,System.Drawing.Common,System.Drawing.Primitives -TypeDefinition @"
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -474,7 +479,7 @@ public class Pirotecnia {
     public static string Tajo(string salida, int alcance, double semi,
                               int nFrames, int escala,
                               uint semilla, string paletaTxt,
-                              double grosor, double estela) {
+                              double grosor, double estela, string forma = "") {
 
         int[] pal = LeerPaleta(paletaTxt);
         int radioLog = alcance;                 // medio lado = alcance, sin margen
@@ -541,11 +546,49 @@ public class Pirotecnia {
 
                     double q = estelaRad > 0 ? atras / estelaRad : 0;   // 0 filo, 1 cola
 
+                    // SILUETA POR ARMA. Sin esto todo tajo es la MISMA cuna
+                    // barrida con otro color -medido a ojo: Hacha y Maza salian
+                    // practicamente el mismo dibujo. `angT` es DONDE dentro del
+                    // GOLPE cae este pixel (0 al empezar el arco, 1 al acabar) y
+                    // `dT` es DONDE dentro del ALCANCE, del pivote (0) a la
+                    // punta (1) -- son los dos ejes con los que se esculpe una
+                    // silueta sin tocar el resto del algoritmo.
+                    double angT = (ang + semi) / (2 * semi);
+                    double dT = d / alcance;
+                    double wMul = 1.0, dentMul = 1.0, bend = 0.0;
+
+                    if (forma == "hacha") {
+                        // Se nota mas pesada segun avanza el golpe -filo que
+                        // CRECE, no una cinta uniforme- y el filo mellado, no
+                        // ondulado: el doble de dentado de lo normal.
+                        wMul = 0.55 + 0.75 * angT;
+                        dentMul = 2.4;
+                    } else if (forma == "maza") {
+                        // Una bola pesada viajando por EL CENTRO del arco:
+                        // delgada al entrar y al salir, gorda a mitad de
+                        // camino. Lisa -una maza no tiene filo que mellar.
+                        wMul = 0.5 + 1.15 * Math.Sin(Math.PI * angT);
+                        dentMul = 0.15;
+                    } else if (forma == "latigo") {
+                        // Serpentea a lo largo del alcance en vez de trazar un
+                        // radio recto: el chasquido de una correa, no una
+                        // aguja. Suave -la banda ya es finisima (grosor 0.16)
+                        // y un `dent` grande la cierra del todo en fotogramas
+                        // con poca cola.
+                        bend = 0.045 * Math.Sin(dT * Math.PI * 2.6);
+                    } else if (forma == "guadanya") {
+                        // Astil fino y GANCHO en el ultimo tercio: la hoja
+                        // curva vive del 68% del alcance en adelante, lo de
+                        // antes es solo el paso del asta.
+                        wMul = dT > 0.68 ? 0.55 + 2.0 * ((dT - 0.68) / 0.32) : 0.35;
+                    }
+
                     // La banda es mas gruesa en el filo y se adelgaza hacia la
                     // cola: es lo que lo lee como un gesto y no como un sector.
-                    double w = grosor * Math.Pow(1 - q, 0.55);
-                    double dent = 0;
-                    for (int k = 0; k < 2; k++) dent += amp[k] * Math.Sin((3 + k * 4) * ang + fs[k]);
+                    double w = grosor * Math.Pow(1 - q, 0.55) * wMul;
+                    if (w > 0.92) w = 0.92;             // nunca cierra el hueco entero
+                    double dent = bend;
+                    for (int k = 0; k < 2; k++) dent += amp[k] * dentMul * Math.Sin((3 + k * 4) * ang + fs[k]);
                     double rIn = alcance * (1 - w) * (1 + dent);
                     if (d < rIn) continue;
 
@@ -2020,29 +2063,32 @@ foreach ($e in $CATALOGO) {
 # coincidiendo. El alcance es el del NIVEL 1: es el tamaño al que el motor
 # dibuja el caso base, así que ahí el blit sale 1:1. Al subir el arma de nivel
 # el alcance crece y la hoja se amplía, igual que ya le pasa a la Katana.
+# `forma`: qué silueta esculpe Pirotecnia.Tajo por encima de la cinta base
+# (ver el switch dentro de la función). Vacía = la cinta de siempre, que es lo
+# que siguen siendo Gladius, Motosierra y Katana -no lo pidió nadie tocarlas.
 $TAJOS = @(
     @{ id = 'gladius';    atlas = 'tajoGladius';    archivo = 'tajo-gladius.png'
-       alcance = 46; angulo = 90;  semilla = 11101
+       alcance = 46; angulo = 90;  semilla = 11101; forma = ''
        paleta = 'ffffff,eef3fb,cfdcee,a8bcd8,7d93b4,55688a'; grosor = 0.34; estela = 0.55 }
 
     @{ id = 'hacha';      atlas = 'tajoHacha';      archivo = 'tajo-hacha.png'
-       alcance = 42; angulo = 70;  semilla = 22202
+       alcance = 42; angulo = 70;  semilla = 22202; forma = 'hacha'
        paleta = 'fff6e4,f0dcb8,d8bc8a,b8945f,8d6c3f,5f4626'; grosor = 0.46; estela = 0.45 }
 
     @{ id = 'maza';       atlas = 'tajoMaza';       archivo = 'tajo-maza.png'
-       alcance = 40; angulo = 60;  semilla = 33303
+       alcance = 40; angulo = 60;  semilla = 33303; forma = 'maza'
        paleta = 'fbf4ea,e2d6c4,c2b3a0,9c8d7c,74665a,4c423a'; grosor = 0.58; estela = 0.38 }
 
     @{ id = 'latigo';     atlas = 'tajoLatigo';     archivo = 'tajo-latigo.png'
-       alcance = 74; angulo = 38;  semilla = 44404
+       alcance = 74; angulo = 38;  semilla = 44404; forma = 'latigo'
        paleta = 'fff0dc,f2d0a4,dcae74,bc8850,8f6336,5e4122'; grosor = 0.16; estela = 0.80 }
 
     @{ id = 'motosierra'; atlas = 'tajoMotosierra'; archivo = 'tajo-motosierra.png'
-       alcance = 32; angulo = 55;  semilla = 55505
+       alcance = 32; angulo = 55;  semilla = 55505; forma = ''
        paleta = 'ffe8e0,ffb49e,ff7f63,e8523a,b03422,761f13'; grosor = 0.52; estela = 0.62 }
 
     @{ id = 'guadanya';   atlas = 'tajoGuadanya';   archivo = 'tajo-guadanya.png'
-       alcance = 54; angulo = 145; semilla = 66606
+       alcance = 54; angulo = 145; semilla = 66606; forma = 'guadanya'
        paleta = 'f4fbf4,d6ecd8,aed4b4,84b48e,5c8a67,3a5c44'; grosor = 0.30; estela = 0.50 }
 )
 
@@ -2059,7 +2105,7 @@ foreach ($t in $TAJOS) {
     $alcanceFuente = [int][math]::Round([int]$t.alcance * $FUENTE_POR_LOGICO)
     $m = [Pirotecnia]::Tajo($ruta, $alcanceFuente, $semi, $FOTOGRAMAS, $DETALLE,
                             [uint32]$t.semilla, $t.paleta,
-                            [double]$t.grosor, [double]$t.estela)
+                            [double]$t.grosor, [double]$t.estela, [string]$t.forma)
 
     # Lo que tiene que cumplirse: ningun fotograma vacio (si no, el golpe
     # parpadea) y el filo AVANZANDO siempre (si no, el barrido no barre).
@@ -2777,7 +2823,11 @@ foreach ($ln in $LUNAS) {
 }
 
 $rutaFicha = Join-Path $Destino 'explosiones.json'
-[System.IO.File]::WriteAllText((Resolve-Path $Destino).Path + '\explosiones.json',
+# CON '\' A MANO Y NO $rutaFicha: en Mac/Linux el separador es '/', y la
+# concatenacion literal escribia "assets/efectos\explosiones.json" -un
+# fichero suelto con esa barra invertida en el NOMBRE, no una carpeta- en vez
+# de sobreescribir el real. $rutaFicha ya sale bien formado de Join-Path.
+[System.IO.File]::WriteAllText((Resolve-Path $Destino).Path + [System.IO.Path]::DirectorySeparatorChar + 'explosiones.json',
     ($ficha | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding $false))
 Write-Host "Ficha de atlas: $rutaFicha"
 Write-Host ""

@@ -3,7 +3,7 @@ import { Recursos } from '../core/recursos.js';
 import { ARMAS } from '../datos/armas.js';
 import { MAX_NIVEL } from './progresion.js';
 import { enemigoMasCercano, enemigosEnRadio } from './colisiones.js';
-import { Particulas, COLOR_CHISPA } from './particulas.js';
+import { Particulas, COLOR_CHISPA, COLOR_POLVO } from './particulas.js';
 import { sen, cos, atan2, hipot } from '../core/mate.js';
 
 // Motor genérico de armas.
@@ -117,6 +117,31 @@ function bocaDe(j, ang) {
   return origenDisparo;
 }
 
+// FOGONAZO: un puñado de chispas en cono, en la boca del cañón, una vez por
+// disparo -no una por proyectil, que con la Recortada serían nueve fogonazos
+// pisándose en el mismo punto y el mismo fotograma. Solo lo llaman los
+// comportamientos de arma de fuego, y solo si `arma.def.fogonazo` lo pide (ver
+// datos/armas.js): el Pilum y la Honda comparten `proyectilDirigido` y no
+// queman pólvora.
+function emitirFogonazo(arma, ctx, x, y, ang) {
+  if (!arma.def.fogonazo || Particulas.saturado()) return;
+  Particulas.chorro(x, y, cos(ang), sen(ang), 4, 130, 0.35, 0.09, 1.3,
+                     COLOR_CHISPA, 0.2, ctx.rng);
+}
+
+// LANZAMIENTO: un golpe de polvo hacia ATRÁS -en la dirección CONTRARIA al
+// tiro, no en la del vuelo- en el instante de soltar el arma. Es lo que deja
+// en el suelo el taconazo de quien arma el brazo para tirar, y es justo lo
+// que le faltaba al Pilum: se veía la jabalina volando y nada en el momento
+// de soltarla. No es un fogonazo -no hay pólvora- así que color y apertura
+// son otros: más ancho, más terroso, y la mitad de partículas porque el
+// Pilum dispara mucho más despacio que cualquier arma de fuego.
+function emitirLanzamiento(arma, ctx, x, y, ang) {
+  if (!arma.def.lanzamiento || Particulas.saturado()) return;
+  Particulas.chorro(x, y, -cos(ang), -sen(ang), 4, 55, 0.6, 0.16, 1.1,
+                     COLOR_POLVO, 0.5, ctx.rng);
+}
+
 // Cada cuánto puede un mismo escudo orbital volver a golpear al mismo enemigo.
 const ORBITAL_CADENCIA = 0.35;
 let contadorSelloOrbital = 0;
@@ -194,6 +219,11 @@ const COMPORTAMIENTOS = {
         cos(a) * s.velocidad, sen(a) * s.velocidad,
         sis.defProyectil);
     }
+    // Uno solo por disparo, en la boca central, no uno por proyectil: con
+    // varias balas a la vez (Subfusil, Fusil con rebote) se pisarían.
+    const bf = bocaDe(ctx.jugador, base);
+    emitirFogonazo(arma, ctx, bf.x, bf.y, base);
+    emitirLanzamiento(arma, ctx, bf.x, bf.y, base);
     return true;
   },
 
@@ -261,6 +291,9 @@ const COMPORTAMIENTOS = {
       ctx.proyectiles.lanzar(b.x, b.y, cos(a) * v, sen(a) * v,
                              sis.defProyectil);
     }
+    // Uno solo por disparo, no uno por perdigón: la Recortada dispara nueve.
+    const bf = bocaDe(j, base);
+    emitirFogonazo(arma, ctx, bf.x, bf.y, base);
     return true;
   },
 
