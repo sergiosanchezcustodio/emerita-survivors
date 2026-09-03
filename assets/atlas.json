@@ -1732,11 +1732,9 @@
                                             "h":  72,
                                             "anclaX":  36,
                                             "anclaY":  36,
-                                            "frames":  12,
+                                            "frames":  1,
                                             "plano":  true,
                                             "aditivo":  false,
-                                            "bucle":  true,
-                                            "fps":  24,
                                             "radioDibujo":  9
                                         },
                       "auraRoja":  {
