@@ -179,6 +179,31 @@ export class Zonas {
 
   get activas() { return this.pool.activos; }
 
+  // ¿Cabe una mina en (x, y) sin pisar ninguna de las que ya hay? Lo pregunta
+  // la siembra antes de plantar cada una: las minas se dibujan a TAMAÑO FIJO
+  // —el `radioDibujo` del atlas, que no crece con el nivel— así que dos centros
+  // a menos de un diámetro se solapan el dibujo, y un montón de chapas
+  // superpuestas se lee como una sola. Y lo que cobra es la que pisas, no las
+  // que hay debajo: apilarlas es tirar minas.
+  //
+  // Mira TODAS las minas vivas y no solo las de la tanda en curso, porque el
+  // arma vuelve a sembrar cada recarga sobre el campo que ya está puesto.
+  //
+  // Recorrido lineal, sin hash espacial: son unas decenas de zonas vivas y esto
+  // se pregunta un puñado de veces por recarga, no una vez por fotograma.
+  minaLibre(x, y, separacion) {
+    const items = this.pool.items;
+    const n = this.pool.activos;
+    const minimo = separacion * separacion;
+    for (let k = 0; k < n; k++) {
+      const z = items[k];
+      if (z.modo !== 'mina') continue;
+      const dx = z.x - x, dy = z.y - y;
+      if (dx * dx + dy * dy < minimo) return false;
+    }
+    return true;
+  }
+
   crear(def) {
     const z = this.pool.obtener();
     if (!z) return null;
@@ -634,6 +659,20 @@ export class Zonas {
     // de la partida no depende de cuándo mira el reloj el navegador.
     {
       const CICLO_LUZ = 2.2, DURA_LUZ = 0.5;
+      // DÓNDE VA LA LUZ: en el círculo rojo del dibujo, no en el centro del
+      // cuadro. El sprite mide 72x72 con el ancla en (36, 36), y ese círculo
+      // está pintado alrededor de (34, 23) -medido sobre el PNG-, o sea dos
+      // píxeles a la izquierda y trece MÁS ARRIBA que el ancla. Puesta en el
+      // ancla, la luz latía por debajo del punto rojo, sobre la chapa.
+      //
+      // En fracciones del radio de dibujo porque el blit escala los 72 píxeles
+      // del sprite a 2r: un píxel del dibujo son r/36 de pantalla.
+      const DESVIO_LUZ_X = -2 / 36, DESVIO_LUZ_Y = -13 / 36;
+      // Y el disco de luz se estrecha dos píxeles de diámetro —píxeles del
+      // lienzo interno, los de 480x270— para que quepa DENTRO del punto rojo
+      // en vez de desbordarlo: el dibujo ya es la luz apagada, y lo que pone
+      // esta capa encima es solo el destello.
+      const RECORTE_LUZ = 1;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = '#ff4a35';
@@ -651,7 +690,9 @@ export class Zonas {
         const r = meta.radioDibujo || 9;
         ctx.globalAlpha = brillo * 0.8;
         ctx.beginPath();
-        ctx.arc(z.x, z.y, r * 0.22, 0, Math.PI * 2);
+        const radioLuz = r * 0.22 - RECORTE_LUZ;
+        if (radioLuz <= 0) continue;
+        ctx.arc(z.x + r * DESVIO_LUZ_X, z.y + r * DESVIO_LUZ_Y, radioLuz, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();

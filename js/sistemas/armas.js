@@ -522,12 +522,33 @@ const COMPORTAMIENTOS = {
     // pisa nada más aparecer- y encima es el sitio que el propio jugador va
     // a pisar el siguiente al moverse. `20` es el mismo mínimo que ya tenían
     // las demás.
+    //
+    // Y NINGUNA ENCIMA DE OTRA. La apertura reparte, pero repartir al azar no
+    // impide que dos caigan en el mismo sitio: con veinticuatro tiradas pasa
+    // seguro. Así que el sitio se sortea y se RECHAZA si ya está ocupado, hasta
+    // `INTENTOS` tiradas por mina. Si ninguna encuentra hueco es que el campo
+    // está lleno de verdad, y esa mina no se siembra: plantarla sobre otra no
+    // añade una trampa, tapa la que había.
+    //
+    // Gastar un número variable de tiradas del RNG es determinista igual: todos
+    // los clientes corren este mismo bucle sobre el mismo estado, así que el
+    // lockstep no se entera.
+    const metaMina = Recursos.meta(arma.def.sprite);
+    const separacion = 2 * ((metaMina && metaMina.radioDibujo) || 9);
+    const INTENTOS = 12;
     for (let i = 0; i < s.charcos; i++) {
-      const a = ctx.rng() * Math.PI * 2;
-      const d = 20 + ctx.rng() * apertura;
+      let x = 0, y = 0, libre = false;
+      for (let intento = 0; intento < INTENTOS && !libre; intento++) {
+        const a = ctx.rng() * Math.PI * 2;
+        const d = 20 + ctx.rng() * apertura;
+        x = j.x + cos(a) * d;
+        y = j.y + sen(a) * d;
+        libre = ctx.zonas.minaLibre(x, y, separacion);
+      }
+      if (!libre) continue;
       ctx.zonas.crear({
         duenyo: ctx.jugador,
-        x: j.x + cos(a) * d, y: j.y + sen(a) * d,
+        x, y,
         // `radio` es el de la EXPLOSIÓN; el gatillo es mucho más chico, para
         // que haya que pisarla de verdad y no basta con rozarla.
         radio: areaDe(s.radio, j),
