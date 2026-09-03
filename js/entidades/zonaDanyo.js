@@ -616,6 +616,47 @@ export class Zonas {
       ctx.restore();
     }
 
+    // 1.ter EL OJO DEL DETONADOR, respirando encima del disco.
+    //
+    // El dibujo horneado es plano y estático -es el sprite de Sergio, no la
+    // tira de 12 fotogramas que generaba el parpadeo por código- así que la
+    // luz vuelve como una capa aparte: un círculo liso en aditivo sobre el
+    // punto rojo del centro, sin `createRadialGradient` -eso asigna, y esto se
+    // pinta una vez por mina y por frame- porque a esta escala un disco con
+    // alfa ya se lee como brillo.
+    //
+    // INTERMITENTE Y SUAVE: aparece un tramo corto del ciclo (el resto
+    // apagado, que es lo que hace que "intermitente" no sea "siempre
+    // encendido a media potencia") y dentro de ese tramo sube y baja con un
+    // seno, no de golpe. Sale de `vivido` -tiempo desde que se plantó, no
+    // reloj real- por lo mismo que ya usaba el parpadeo antiguo: dos minas
+    // sembradas en el mismo fotograma laten a la vez, y la reproducibilidad
+    // de la partida no depende de cuándo mira el reloj el navegador.
+    {
+      const CICLO_LUZ = 2.2, DURA_LUZ = 0.5;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = '#ff4a35';
+      for (let k = 0; k < n; k++) {
+        const z = items[k];
+        if (z.modo !== 'mina' || !z.hoja) continue;
+        const meta = Recursos.meta(z.hoja);
+        if (!meta) continue;
+
+        const vivido = z.vidaMax - z.vida;
+        const t = vivido % CICLO_LUZ;
+        if (t >= DURA_LUZ) continue;
+        const brillo = sen((t / DURA_LUZ) * Math.PI);   // sube y baja, nunca de golpe
+
+        const r = meta.radioDibujo || 9;
+        ctx.globalAlpha = brillo * 0.8;
+        ctx.beginPath();
+        ctx.arc(z.x, z.y, r * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
     // 2. Y las que NO la tienen, con el círculo aditivo de siempre. Es el
     //    repliegue: mientras el catálogo de calcomanías no esté completo, la
     //    mayoría de las armas de zona pasan por aquí y se ven igual que antes.

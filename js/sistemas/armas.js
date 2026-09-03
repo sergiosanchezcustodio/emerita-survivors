@@ -516,9 +516,15 @@ const COMPORTAMIENTOS = {
     // El tope está para que no se siembre fuera de cámara: regalar minas donde
     // no las ve nadie es tirarlas.
     const apertura = Math.min(45 * Math.sqrt(s.charcos / 2), 110);
+    // SIEMPRE A DISTANCIA, NINGUNA A d=0: la primera mina de la siembra
+    // caía exactamente bajo los pies de quien la plantaba -mala jugada por
+    // partida doble, porque el gatillo (38% del radio) prácticamente la
+    // pisa nada más aparecer- y encima es el sitio que el propio jugador va
+    // a pisar el siguiente al moverse. `20` es el mismo mínimo que ya tenían
+    // las demás.
     for (let i = 0; i < s.charcos; i++) {
       const a = ctx.rng() * Math.PI * 2;
-      const d = i === 0 ? 0 : 20 + ctx.rng() * apertura;
+      const d = 20 + ctx.rng() * apertura;
       ctx.zonas.crear({
         duenyo: ctx.jugador,
         x: j.x + cos(a) * d, y: j.y + sen(a) * d,
