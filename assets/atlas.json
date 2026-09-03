@@ -1538,6 +1538,31 @@
                                                            1
                                                        ]
                                         },
+                      "ondaAullido":  {
+                                          "archivo":  "efectos/onda-aullido.png",
+                                          "w":  1296,
+                                          "h":  1296,
+                                          "anclaX":  648,
+                                          "anclaY":  648,
+                                          "frames":  12,
+                                          "plano":  true,
+                                          "margen":  1.35,
+                                          "aditivo":  true,
+                                          "radios":  [
+                                                         0.15,
+                                                         0.20275,
+                                                         0.25816,
+                                                         0.31673,
+                                                         0.37905,
+                                                         0.44583,
+                                                         0.51791,
+                                                         0.59628,
+                                                         0.68213,
+                                                         0.77686,
+                                                         0.88216,
+                                                         1
+                                                     ]
+                                      },
                       "reventonChispa":  {
                                              "archivo":  "efectos/reventon-chispa.png",
                                              "w":  304,

@@ -105,9 +105,29 @@ export const JEFES = {
   //   - Cada gemelo que cae la ENFURECE: más rápida y más dañina un rato. Es el
   //     control de DPS que el plan pedía para la hidra, pero contado con una
   //     imagen en vez de con una regla de cabezas.
+  //   - AULLIDO: a diferencia de Cerbero e Hidra no tenía NINGÚN ataque a
+  //     distancia -toda su amenaza era de contacto, apoyada en los gemelos.
+  //     Un golpe de área centrado en ELLA, no un cono dirigido: es un aullido,
+  //     no un mordisco, así que no apunta a nadie y castiga por igual a quien
+  //     se queda pegado a su cuerpo esperando abrir hueco de daño. `radio` 120
+  //     es grande a propósito -cubre buena parte de la pantalla- compensado
+  //     con un aviso largo (0.9s) para que sea esquivable de verdad y no un
+  //     mordisco que no se ve venir.
   loba: {
     regenFraccion: 0.009,          // fracción de vida máxima curada por segundo
-    furia: { duracion: 6, multDanyo: 1.6, multVelocidad: 1.3 }
+    furia: { duracion: 6, multDanyo: 1.6, multVelocidad: 1.3 },
+    aullido: {
+      cadencia: 6.5,
+      // Más seguido MIENTRAS dura la furia -acaba de perder un gemelo, y
+      // encima aúlla más- sin ser otro interruptor: se lee de `furiaRestante`
+      // en sistemas/jefes.js, no hace falta un dato nuevo aquí.
+      cadenciaFuria: 3.8,
+      aviso: 0.9,
+      radio: 120,
+      danyo: 16,
+      color: '#b96eff',
+      spriteReventon: 'ondaAullido'
+    }
   }
 };
 

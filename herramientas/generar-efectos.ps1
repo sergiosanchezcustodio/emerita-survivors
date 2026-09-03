@@ -1888,6 +1888,19 @@ $CATALOGO = @(
     @{ id = 'chispazo'; atlas = 'reventonChispa'; archivo = 'reventon-chispa.png'; semilla = 224466
        paleta = 'ffffff,eaf6ff,b9e2ff,7ec2ff,4f8ce8,3352b4'
        radioRef = 28; chispas = 52; huecoIni = 0.08; hueco = 0.62; rugosidad = 1.70; anillo = 0.70; nucleo = 0.80; chispaTam = 1.3 }
+
+    # AULLIDO DE LA LOBA (datos/jefes.js). De la familia ONDA -cascara, no bola
+    # llena- porque es fuerza pura y no fuego ni veneno: no deja nada ardiendo
+    # en el suelo. Paleta plata-lavanda a propósito, para no repetir el azul de
+    # `choque` (Onda expansiva) ni el verde de `veneno`: un aullido bajo la luna,
+    # no una detonación. `radioRef` 120 porque es un radio de jefe, no de arma
+    # del jugador -hornear a otro tamaño habría ampliado el pixel en caliente.
+    @{ id = 'aullido'; atlas = 'ondaAullido'; archivo = 'onda-aullido.png'; semilla = 505050
+       # MAS SATURADA que el primer intento (que salía gris-lavanda casi
+       # invisible sobre el suelo verdoso del mapa): violeta espectral de
+       # verdad, para que se lea a la primera contra cualquier terreno.
+       paleta = 'ffffff,f0dcff,d9a8ff,b96eff,8c3fd6,5a2496'
+       radioRef = 120; chispas = 16; huecoIni = 0.60; hueco = 0.88; rugosidad = 0.45; anillo = 0.95; nucleo = 0.40; chispaTam = 1.2 }
 )
 
 # --- Charcos ----------------------------------------------------------------

@@ -1,6 +1,6 @@
 import { JEFES } from '../datos/jefes.js';
 import { masCercano } from '../entidades/enemigo.js';
-import { Particulas, COLOR_CHISPA, COLOR_POLVO, COLOR_SANGRE } from './particulas.js';
+import { Particulas, COLOR_CHISPA, COLOR_POLVO, COLOR_SANGRE, COLOR_VENENO } from './particulas.js';
 import { VFX } from './vfx.js';
 import { GestorAudio } from './audio.js';
 import { sen, cos, atan2, hipot } from '../core/mate.js';
@@ -38,6 +38,7 @@ const estadoHidra = {
 const estadoLoba = {
   activo: false, nombre: '', entidad: null,
   iniciado: false, escoltasPrev: 0, furiaRestante: 0,
+  relojAullido: 0,
   velBase: 0, danyoBase: 0
 };
 
@@ -97,10 +98,15 @@ function actualizarFuego(dt, e, objetivo, disparos, rng) {
     const d = 26 + p * cfg.paso;
     disparos.charco(e.x + cx * d, e.y + cy * d, defCharco);
   }
+  // DIRIGIDO al cono y no un estallido a los cuatro vientos: esto es un
+  // escupitajo, no una chispa que salta sola. `chorro` es lo mismo que usa
+  // el fogonazo de las armas de fuego del jugador (sistemas/armas.js), y aquí
+  // hace el mismo trabajo -decir "el golpe viene de AQUÍ, hacia ALLÁ"- con más
+  // alcance porque la boca de un jefe no es la de una pistola.
   if (!Particulas.saturado()) {
-    Particulas.estallido(e.x, e.y - 10, 5, 70, 0.3, 1.5, COLOR_CHISPA, 0.5, rng);
+    Particulas.chorro(e.x, e.y - 10, cx, cy, 9, 100, 0.3, 0.32, 1.8, COLOR_CHISPA, 0.3, rng);
   }
-  VFX.sacudir(1.6);
+  VFX.sacudir(2.1);
 }
 
 // Lanza UNA embestida de la cadena en curso: fija dirección y velocidad y
@@ -246,10 +252,13 @@ function actualizarVeneno(dt, e, objetivo, disparos, rng) {
     const d = 24 + p * cfg.paso;
     disparos.charco(e.x + cx * d, e.y + cy * d, defCharco);
   }
+  // Mismo cambio que el fuego de Cerbero: chorro dirigido al cono, con
+  // COLOR_VENENO -verde de veras, no el chispazo genérico- porque esto es
+  // ponzoña saliendo de la boca, no una chispa de impacto.
   if (!Particulas.saturado()) {
-    Particulas.estallido(e.x, e.y - 10, 5, 60, 0.3, 1.5, COLOR_CHISPA, 0.4, rng);
+    Particulas.chorro(e.x, e.y - 10, cx, cy, 8, 85, 0.3, 0.3, 1.7, COLOR_VENENO, 0.3, rng);
   }
-  VFX.sacudir(1.4);
+  VFX.sacudir(1.8);
 }
 
 function actualizarHidra(dt, enemigos, jugadores, disparos, rng) {
@@ -287,7 +296,37 @@ function actualizarHidra(dt, enemigos, jugadores, disparos, rng) {
 
 // --- La Loba --------------------------------------------------------------
 
-function actualizarLoba(dt, enemigos, rng) {
+// AULLIDO: un golpe de área centrado en ELLA MISMA, no un cono dirigido -es
+// un aullido, no un mordisco, así que no apunta a nadie y castiga por igual a
+// quien se queda pegado a su cuerpo. Reutiliza `disparos.charco()`, el mismo
+// mecanismo del fuego de Cerbero y el veneno de la Hidra, pero como UN solo
+// círculo grande con `duracion`/`intervalo` iguales -un único tic- en vez de
+// una mancha que se queda ardiendo: es fuerza pura, no deja nada en el suelo.
+function actualizarAullido(dt, e, disparos, rng) {
+  const est = estadoLoba;
+  const cfg = JEFES.loba.aullido;
+  const cadencia = est.furiaRestante > 0 ? cfg.cadenciaFuria : cfg.cadencia;
+  est.relojAullido -= dt;
+  if (est.relojAullido > 0) return;
+  est.relojAullido = cadencia;
+
+  defCharco.danyo = cfg.danyo;
+  defCharco.radio = cfg.radio;
+  defCharco.aviso = cfg.aviso;
+  defCharco.duracion = 0.15;
+  defCharco.intervalo = 0.2;      // más largo que `duracion`: un solo tic
+  defCharco.color = cfg.color;
+  defCharco.spriteReventon = cfg.spriteReventon;
+  defCharco.sprite = null;        // fuerza pura: no deja mancha en el suelo
+
+  disparos.charco(e.x, e.y, defCharco);
+  if (!Particulas.saturado()) {
+    Particulas.estallido(e.x, e.y - 12, 10, 110, 0.35, 2, COLOR_CHISPA, 0.2, rng);
+  }
+  VFX.sacudir(3.4);
+}
+
+function actualizarLoba(dt, enemigos, disparos, rng) {
   const est = estadoLoba;
   const e = est.entidad;
   if (!e || e.tipo !== 'loba' || e.vida <= 0) { est.activo = false; return; }
@@ -322,6 +361,8 @@ function actualizarLoba(dt, enemigos, rng) {
       e.danyo = est.danyoBase;
     }
   }
+
+  actualizarAullido(dt, e, disparos, rng);
 }
 
 // --- API pública ------------------------------------------------------------
@@ -372,6 +413,7 @@ export const Jefes = {
     estadoLoba.iniciado = false;
     estadoLoba.escoltasPrev = 0;
     estadoLoba.furiaRestante = 0;
+    estadoLoba.relojAullido = 0;
     estadoLoba.velBase = 0;
     estadoLoba.danyoBase = 0;
   },
@@ -416,6 +458,9 @@ export const Jefes = {
       est.nombre = nombre;
       est.iniciado = false;
       est.furiaRestante = 0;
+      // No inmediato, igual que el resto de jefes: que se la vea entrar antes
+      // de que empiece a aullar.
+      est.relojAullido = JEFES.loba.aullido.cadencia * 0.6;
       est.velBase = entidad.velocidad;
       est.danyoBase = entidad.danyo;
     }
@@ -425,7 +470,7 @@ export const Jefes = {
   actualizar(dt, enemigos, jugadores, disparos) {
     if (estadoCerbero.activo) actualizarCerbero(dt, enemigos, jugadores, disparos, this._rng);
     if (estadoHidra.activo) actualizarHidra(dt, enemigos, jugadores, disparos, this._rng);
-    if (estadoLoba.activo) actualizarLoba(dt, enemigos, this._rng);
+    if (estadoLoba.activo) actualizarLoba(dt, enemigos, disparos, this._rng);
   },
 
   // Info para la barra de jefe (ui/hud.js). Devuelve el mismo objeto siempre
