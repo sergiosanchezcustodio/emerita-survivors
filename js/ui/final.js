@@ -229,8 +229,9 @@ function dibujarFicha(ctx, f, indice, x, y, ancho, altoCarta) {
   // Retrato, el mismo que usa su ficha en partida. Se tiñe el aro con el color
   // del jugador: en cooperativo es lo que dice de quién es la columna sin tener
   // que leer el nombre.
-  const meta = Recursos.meta(f.id + 'Cara');
-  const img = Recursos.imagen(f.id + 'Cara');
+  const idArte = f.sprite || f.id;
+  const meta = Recursos.meta(idArte + 'Cara');
+  const img = Recursos.imagen(idArte + 'Cara');
   const yCara = y + 40;
   if (meta && img) {
     ctx.save();

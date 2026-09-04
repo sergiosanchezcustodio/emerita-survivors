@@ -319,8 +319,10 @@ function filasPersonajes(ctx, cursor, r) {
 
     // El retrato, el mismo que usa su ficha, recortado en círculo.
     ctx.globalAlpha = tuyo ? 1 : 0.4;
-    const meta = Recursos.meta(id + 'Cara');
-    const img = Recursos.imagen(id + 'Cara');
+    // `def.sprite` y no `id`: un héroe con dibujo prestado no tiene retrato
+    // propio todavía (ver `provisional` en datos/personajes.js).
+    const meta = Recursos.meta(def.sprite + 'Cara');
+    const img = Recursos.imagen(def.sprite + 'Cara');
     if (meta && img) {
       ctx.save();
       ctx.beginPath();

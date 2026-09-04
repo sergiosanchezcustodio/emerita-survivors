@@ -209,6 +209,15 @@ let pantalla;
 // maneja siempre el puesto 3 aunque el 2 esté vacío.
 const puestos = new Array(4).fill(null);
 
+// A QUIÉN SIGUE LA TIRA de la pantalla de selección. Con más héroes que arcos,
+// los cuatro que se ven son una ventana sobre la lista (ver ui/pantallas.js), y
+// la ventana la manda el último que se ha movido: es lo único que funciona con
+// cuatro jugadores compartiendo una pantalla.
+//
+// Vive aquí y no en `pantallas.js` porque sale de la ENTRADA —quién ha pulsado
+// qué— y allí solo se dibuja.
+let focoSeleccion = 0;
+
 // Tienda. TRES SECCIONES —potenciadores, mascotas y jugadores— con izquierda y
 // derecha para cambiar y arriba/abajo para moverse dentro. Ver ui/tienda.js.
 //
@@ -294,6 +303,13 @@ function irA(nueva) {
   // —todavía no hay partida elegida— y además es por donde se pasa siempre al
   // abrir el juego. Con la nube apagada esto no hace nada.
   if (nueva === PANTALLA_HUECOS) mirarLaNube();
+  // Y AL ENTRAR EN LA DE PERSONAJES, la tira se coloca de golpe sobre el del
+  // jugador 1. Sin esto se entra viendo el carrusel correr solo desde donde se
+  // quedó la vez anterior, que parece que se está moviendo alguien.
+  if (nueva === PANTALLA_SELECCION) {
+    focoSeleccion = puestos[0] ? puestos[0].personaje : 0;
+    Pantallas.centrarSeleccion(focoSeleccion);
+  }
 }
 
 // Lo que se enseña al pie de la pantalla de partidas. Vacío = no decir nada,
@@ -546,6 +562,10 @@ const activo = { suelo: true, particulas: true, numeros: true, efectos: true, de
 function anyadirJugador(idPersonaje, idMascota, meta) {
   if (jugadores.length >= MAX_JUGADORES) return null;
   const i = jugadores.length;
+  // El reparto por orden se queda SIEMPRE en los cuatro primeros —`i` no pasa
+  // de MAX_JUGADORES— y eso solo es correcto porque los cuatro primeros de
+  // ORDEN_PERSONAJES son los gratis. Si algún día se cuela uno de pago ahí, esto
+  // regalaría un héroe sin pagarlo.
   const j = new Jugador(idPersonaje || ORDEN_PERSONAJES[i % ORDEN_PERSONAJES.length],
                         idMascota || '', rng, meta || MetaProgreso);
 
@@ -1303,18 +1323,28 @@ function entradaTienda() {
 // llevar el mismo: cada personaje tiene su arma exclusiva (ver
 // datos/personajes.js), así que repetir dejaría a dos con el mismo arsenal de
 // salida y rompería lo que hace que el cooperativo se juegue distinto.
+//
+// POR LOS BLOQUEADOS SÍ SE PASA, y es lo que hace que el carrusel sirva de
+// algo. Se probó al revés —el cursor los saltaba— y el resultado era que quien
+// no había comprado a nadie no podía mover la tira ni un arco: los cuatro de
+// pago existían en una pantalla que nadie podía llegar a ver. Se recorren, se
+// ven en penumbra con su precio, y lo único que no se puede es confirmarlos.
 function personajeLibre(indice, desde, paso) {
   const n = ORDEN_PERSONAJES.length;
   for (let k = 1; k <= n; k++) {
     const p = (desde + paso * k + n * n) % n;
     if (ocupantePersonaje(puestos, p) < 0) return p;
   }
-  return desde;                       // los cuatro cogidos: no se mueve
+  return desde;                       // todos cogidos: no se mueve
 }
 
+// Dónde se planta un jugador que acaba de sumarse: el primero que esté libre Y
+// sea suyo. Aquí sí manda el desbloqueo, al revés que en el cursor — a nadie se
+// le puede dejar empezado encima de un héroe que no ha comprado.
 function primerLibre() {
   for (let p = 0; p < ORDEN_PERSONAJES.length; p++) {
-    if (ocupantePersonaje(puestos, p) < 0) return p;
+    if (ocupantePersonaje(puestos, p) < 0 &&
+        MetaProgreso.heroeDesbloqueado(ORDEN_PERSONAJES[p])) return p;
   }
   return -1;
 }
@@ -1335,12 +1365,19 @@ function entradaSeleccion() {
       const c = entrada.controles[i];
       if (c && c.conectado && (c.consumirBoton(0) || c.consumirBoton(9))) {
         puestos[i] = { personaje: hueco, listo: false };
+        focoSeleccion = hueco;
         break;
       }
     }
     if (entrada.consumirFlanco('KeyJ')) {
       for (let i = 1; i < puestos.length; i++) {
-        if (!puestos[i]) { puestos[i] = { personaje: primerLibre(), listo: false }; break; }
+        if (!puestos[i]) {
+          const libre = primerLibre();
+          if (libre < 0) break;         // no queda ninguno suelto que sea suyo
+          puestos[i] = { personaje: libre, listo: false };
+          focoSeleccion = libre;
+          break;
+        }
       }
     }
   }
@@ -1378,15 +1415,21 @@ function entradaSeleccion() {
 
     // El stick se lee UNA vez por paso: flancoEje consume estado.
     const eje = c ? c.flancoEje(true) : 0;
+    // La tira sigue a quien acaba de moverse: ver `focoSeleccion`.
     if ((teclado && entrada.consumirFlanco('ArrowRight')) || (c && c.consumirBoton(15)) || eje > 0) {
       puesto.personaje = personajeLibre(i, puesto.personaje, 1);
+      focoSeleccion = puesto.personaje;
     }
     if ((teclado && entrada.consumirFlanco('ArrowLeft')) || (c && c.consumirBoton(14)) || eje < 0) {
       puesto.personaje = personajeLibre(i, puesto.personaje, -1);
+      focoSeleccion = puesto.personaje;
     }
+    // CONFIRMAR, y solo si es suyo. Un héroe de pago se recorre pero no se
+    // coge: la pantalla lo dice con su precio dentro del arco y con el renglón
+    // del pie (ver dibujarSeleccion en ui/pantallas.js).
     if ((teclado && (entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space'))) ||
         (c && c.consumirBoton(0))) {
-      puesto.listo = true;
+      if (MetaProgreso.heroeDesbloqueado(ORDEN_PERSONAJES[puesto.personaje])) puesto.listo = true;
     }
   }
 
@@ -2135,6 +2178,9 @@ function capturarStats() {
     monedero: MetaProgreso.denarios,
     jugadores: jugadores.map((j) => ({
       id: j.id,
+      // De qué dibujo sale, que no siempre es su id: ver `provisional` en
+      // datos/personajes.js. El resumen pinta su cara y necesita el del arte.
+      sprite: j.personaje,
       nombre: j.def.nombre,
       nivel: j.nivel,
       bajas: j.bajas,
@@ -2919,7 +2965,7 @@ function dibujar(alpha) {
     } else if (pantalla === PANTALLA_CONFIG) {
       dibujarConfig(ctx, Capa.ctx, CONFIG, cursorConfig);
     }
-    else Pantallas.seleccion(ctx, Capa.ctx, puestos);
+    else Pantallas.seleccion(ctx, Capa.ctx, puestos, focoSeleccion);
     return;
   }
 

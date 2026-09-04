@@ -77,10 +77,19 @@ function normalizar(datos) {
   const personajes = {};
   const pj = (datos.personajes && typeof datos.personajes === 'object') ? datos.personajes : null;
   for (const id of ORDEN_PERSONAJES) {
-    // Sin nada guardado, TODOS desbloqueados. Ver la nota de `coste` en
-    // datos/personajes.js: hoy los cuatro son gratis y esto respeta a quien ya
-    // venía jugando con ellos.
-    personajes[id] = pj ? !!pj[id] : true;
+    // SIN NADA GUARDADO, LOS GRATIS Y NADA MÁS.
+    //
+    // Aquí ponía `true` a secas, y era correcto mientras los cuatro que había
+    // valían cero: daba igual lo que dijera esta línea porque `heroeDesbloqueado`
+    // ya regala los de coste 0. Desde que hay héroes de pago (ver `coste` en
+    // datos/personajes.js) ese `true` los regalaba TODOS a quien estrenara
+    // partida — que es justo la primera persona que los ve.
+    //
+    // Y un guardado viejo, con solo los cuatro primeros dentro, deja a los de
+    // pago en `false` por el mismo camino: `!!undefined`. No hay migración que
+    // escribir.
+    const def = PERSONAJES[id];
+    personajes[id] = pj ? !!pj[id] : !(def && def.coste);
   }
 
   return {
@@ -97,13 +106,24 @@ function normalizar(datos) {
   };
 }
 
+// SIEMPRE NORMALIZADO, también lo que sale de `estadoPorDefecto`.
+//
+// Antes el hueco vacío se devolvía crudo, con `personajes: null`, y eso llegaba
+// tal cual a `MetaProgreso.personajes`. No se notaba porque los cuatro héroes
+// que había eran gratis y `heroeDesbloqueado` los daba por buenos antes de
+// mirar el mapa. Con el primer héroe de pago, la pantalla de selección reventaba
+// en el primer fotograma: leer `null.quinto`.
+//
+// Un estado por defecto que no pasa por la misma puerta que lo guardado es un
+// estado con otra forma, y la diferencia aparece el día que alguien la mira.
 function cargar(hueco) {
   try {
     const crudo = localStorage.getItem(claveDe(hueco));
-    if (!crudo) return estadoPorDefecto();
+    if (!crudo) return normalizar(estadoPorDefecto());
     return normalizar(JSON.parse(crudo));
   } catch {
-    return estadoPorDefecto();     // JSON corrupto o localStorage no disponible
+    // JSON corrupto o localStorage no disponible
+    return normalizar(estadoPorDefecto());
   }
 }
 
@@ -319,7 +339,11 @@ export const MetaProgreso = {
   heroeDesbloqueado(id) {
     const def = PERSONAJES[id];
     if (def && !def.coste) return true;
-    return this.personajes[id] === true;
+    // El `?` no sobra: `personajes` es público y hay quien lo sustituye entero
+    // —la prueba de determinismo lo pone a cero y lo devuelve (ver
+    // core/determinismo.js)—, y esto lo llama el bucle de dibujo sesenta veces
+    // por segundo. Un hueco entre las dos asignaciones tumbaría la pantalla.
+    return this.personajes ? this.personajes[id] === true : false;
   },
 
   costeHeroe(id) {

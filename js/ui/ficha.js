@@ -481,7 +481,10 @@ export function dibujarFicha(ctx, jugadores, indice) {
   ctx.fill();
   ctx.clip();
 
-  const img = Recursos.imagen(j.id + 'Cuerpo');
+  // Del ARTE del personaje (`j.personaje` = `def.sprite`) y no de su id: ver
+  // dibujarCabeza en ui/hud.js. Un héroe con dibujo prestado los tiene
+  // distintos.
+  const img = Recursos.imagen(j.personaje + 'Cuerpo');
   if (img) {
     // Se dibuja CON suavizado, al revés que el mundo: esto es interfaz y puede
     // permitirse todo el detalle que traiga la ilustración de origen.

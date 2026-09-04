@@ -590,8 +590,13 @@ export function dibujarIconoPasivo(ctx, x, y, r, idPasivo, color, escala = 1) {
 // Se dibuja CON suavizado, al revés que el mundo. El juego es pixel art y va a
 // vecino más próximo; el retrato es interfaz y puede permitirse todo el detalle
 // que tenga la ilustración.
+//
+// `jugador.personaje` y no `jugador.id`: el id dice QUIÉN es —quinto— y
+// `personaje` dice de qué DIBUJO sale, que es `def.sprite`. Mientras un héroe
+// lleve arte prestada (ver `provisional` en datos/personajes.js) los dos no
+// coinciden, y preguntando por el id el retrato salía vacío.
 function dibujarCabeza(ctx, x, y, ancho, alto, jugador) {
-  const img = Recursos.imagen(jugador.id + 'Cara');
+  const img = Recursos.imagen(jugador.personaje + 'Cara');
   if (!img) return;
 
   ctx.save();
