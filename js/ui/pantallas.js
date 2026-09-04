@@ -78,10 +78,8 @@ const K = ANCHO_FISICO / ANCHO_UI;
 // 321, 325 y 314,5 de distancia: son marcos pintados a mano y no cuadran al
 // píxel. Con un paso único, el tercer retrato caía seis píxeles descentrado
 // dentro de su marco — poco, pero de los que se ven cuando los cuatro están en
-// fila. El paso medio sigue haciendo falta para lo que entra y sale por los
-// lados, que no tiene marco donde encajar.
+// fila.
 const ARCO_CENTRO = [375, 696, 1021, 1335.5];
-const ARCO_PASO = 320.2;
 const ARCO_ANCHO = 209;
 const ARCO_Y = 305;
 const ARCO_ALTO = 395;
@@ -168,17 +166,29 @@ export const Pantallas = {
   },
 
   titulo(ctxMundo, ctxUi, menu, cursor) { dibujarTitulo(ctxMundo, ctxUi, menu, cursor); },
-  // `foco` es el personaje que acaba de tocar alguien: la tira se desplaza para
-  // dejarlo a la vista. -1 (o nada) deja la ventana donde esté.
+  // `foco` es el personaje que acaba de tocar alguien: es del que se lee el
+  // arma y la frase al pie. -1 (o nada) no escribe nada ahí.
   seleccion(ctxMundo, ctxUi, puestos, foco) { dibujarSeleccion(ctxMundo, ctxUi, puestos, foco); },
 
-  // AL ENTRAR en la pantalla: la tira se planta de golpe donde toca, sin
-  // deslizarse desde donde se quedó la última vez. Un carrusel que arranca
-  // corriendo solo parece que se ha movido alguien.
-  centrarSeleccion(foco) {
-    encuadrar(foco | 0);
-    carrusel.vista = carrusel.desde;
-    carrusel.reloj = 0;
+  // EL CARRUSEL DE UN JUGADOR SE MUEVE. Lo llama main.js al cambiar de héroe,
+  // con `dir` a 1 o a -1: es lo único que aquí no se puede deducir, porque con
+  // la lista filtrada el índice puede saltar de 6 a 1 yendo hacia la derecha.
+  deslizarPuesto(indice, dir, previo) {
+    const d = deslices[indice];
+    if (!d) return;
+    d.previo = previo;
+    d.dir = dir;
+    d.t = 1;
+  },
+
+  // AL ENTRAR en la pantalla: las figuras se plantan de golpe en su sitio, sin
+  // entrar deslizándose desde donde se quedó la vez anterior.
+  centrarSeleccion() {
+    for (let i = 0; i < deslices.length; i++) {
+      deslices[i].t = 0;
+      deslices[i].previo = -1;
+    }
+    relojDeslices = 0;
   },
   mascotas(ctxMundo, ctxUi, disponibles, cursor, turno, puestos, elegidas) {
     dibujarMascotas(ctxMundo, ctxUi, disponibles, cursor, turno, puestos, elegidas);
@@ -506,94 +516,84 @@ export function dibujarDespedida(ctxUi) {
 // jugador no se ha sumado, y si no `{ personaje, listo }`. El array lo lleva
 // main.js —es estado de partida, no de dibujo— y aquí solo se pinta.
 //
-// LOS CUATRO ARCOS SON VENTANAS, NO PERSONAJES. La ilustración trae cuatro
-// arcos y el catálogo tiene ocho héroes, así que lo que se mueve es la TIRA:
-// los arcos se quedan clavados donde los pintó Sergio y por detrás pasan los
-// personajes, cada uno con su retrato de cuerpo entero —`<arte>Cuerpo`, el
-// mismo dibujo que enseña la ficha—. Cuatro a la vista, los que hagan falta en
-// total.
+// UN MARCO POR JUGADOR, Y SIEMPRE EL MISMO. El primer marco es P1, el segundo
+// P2 y así: los cuatro huecos que pintó Sergio dejan de ser el catálogo de
+// héroes y pasan a ser los cuatro sitios en la mesa. Lo pidió él y arregla de
+// raíz lo que la tira compartida hacía mal — que la ventana la mandara el
+// último que se hubiera movido y a los demás se les fuera el personaje de la
+// pantalla, con una chapita en el borde diciendo por dónde andaba.
 //
-// EL RECORTE VA POR ARCO Y NO POR LA BANDA ENTERA. Entre arco y arco hay
-// pilastra de piedra, y un cuerpo deslizándose por encima de la columna se lee
-// como una calcomanía pegada delante. Recortando cada arco por su cuenta, la
-// figura entra y sale POR DETRÁS de la piedra: se ve como mirar por una
-// ventana, que es lo que son.
+// EL MARCO DE UN JUGADOR QUE NO ESTÁ, SE VE VACÍO. No se rellena con nadie: un
+// hueco apagado que dice "pulsa A o Start" cuenta a la vez cuántos podéis ser y
+// qué hay que hacer para entrar, que es justo lo que había que explicar en el
+// renglón del pie.
 //
-// EL VELO DEL INTERIOR YA CASI NO HACE FALTA. Durante un tiempo la ilustración
-// traía cuatro figuras pintadas dentro y el velo estaba para taparlas; Sergio
-// repintó la lámina con los marcos VACÍOS y ahora dentro solo hay piedra
-// oscura. Lo que queda es un velo suave, y no es adorno: asienta al retrato
-// sobre un fondo parejo en los cuatro marcos —el grano de la piedra no es igual
-// en todos— y le da al blanco de las zapatillas contra qué recortarse.
+// Y CADA MARCO TIENE SU PROPIO CARRUSEL. Cambiar de héroe desliza SU figura
+// dentro de SU hueco, sin mover nada de los demás. La lista que recorre cada
+// uno se filtra: un héroe que ya lleva otro jugador no aparece en el carrusel
+// del resto —no es que esté y no se pueda coger, es que no está— porque cada
+// personaje tiene su arma exclusiva y dos jugadores no pueden llevar la misma
+// (ver `personajeLibre` en main.js, que es quien aplica la regla al moverse).
 const VISIBLES = 4;
 const VELO_ARCO = 'rgba(6,5,10,.35)';
 
-// La tira. `desde` es el personaje que le toca al primer arco y `vista` es por
-// dónde va de verdad mientras se desliza. Vive en el módulo y no en main.js
-// porque es estado de DIBUJO: la partida no cambia porque la tira esté a medio
-// camino, y meterla en `puestos` la habría metido en el saludo de la red.
-const carrusel = { desde: 0, vista: 0, reloj: 0 };
+// Lo que se le suma encima a la figura de un héroe que no es tuyo todavía, y a
+// los marcos de los jugadores que no se han sumado.
+const VELO_BLOQUEADO = 'rgba(6,5,10,.60)';
+const VELO_VACIO = 'rgba(6,5,10,.55)';
 
-function topeCarrusel() {
-  return Math.max(0, ORDEN_PERSONAJES.length - VISIBLES);
-}
-
-// Deja a la vista al personaje `foco` moviendo la tira LO MÍNIMO.
+// Cuánta luz se le suma al héroe elegido, y cuánta se reparte alrededor para
+// que parezca que la figura alumbra en vez de estar simplemente más clara.
 //
-// Con cuatro jugadores mirando la misma pantalla no hay otra: la ventana es
-// una y la sigue quien acaba de moverse. A quien se le queda el suyo fuera se
-// le marca en el borde (ver `dibujarBordes`), que es lo que evita que un
-// jugador desaparezca sin más porque otro se haya ido al otro extremo.
-function encuadrar(foco) {
-  if (foco >= 0) {
-    if (foco < carrusel.desde) carrusel.desde = foco;
-    else if (foco > carrusel.desde + VISIBLES - 1) carrusel.desde = foco - VISIBLES + 1;
-  }
-  carrusel.desde = Math.max(0, Math.min(topeCarrusel(), carrusel.desde));
-}
+// Se subieron a 0,20 y 0,09 y Sergio las mandó volver: con la luz alta, un
+// personaje de ropa clara —Lucy y su vestido blanco— se quemaba y perdía los
+// pliegues. Lo que hay que ver es que ESE es el elegido, no un foco de teatro.
+const LUZ_SILUETA = 0.08;
+const LUZ_HALO = 0.035;
+const HALO_PX = 3;
 
-// Acercamiento exponencial al sitio, medido en TIEMPO y no en fotogramas: esta
-// pantalla no simula nada y el monitor puede ir a 60 o a 144 (mismo criterio
-// que `latido`). Con 0,0005 de constante, un salto de una casilla está hecho en
-// algo más de un tercio de segundo: se ve moverse y no se hace esperar.
-function deslizar() {
+// La misma luz, en el filo del cartel del nombre y del cuadro del arma.
+const LUZ_FILO = 0.28;
+
+// EL CARRUSEL DE CADA MARCO, uno por jugador.
+//
+// `t` va de 1 a 0 mientras la figura entra: a 1 acaba de pulsarse y la nueva
+// está fuera del marco; a 0 está en su sitio. `dir` es hacia dónde se movió el
+// jugador, y lo manda main.js al mover el cursor (`Pantallas.deslizarPuesto`)
+// porque es lo único que aquí no se puede deducir: con la lista filtrada, el
+// índice puede saltar de 6 a 1 yendo hacia la derecha.
+//
+// Vive en el módulo y no en `puestos` porque es estado de DIBUJO: la partida no
+// cambia porque una figura esté a medio entrar, y metiéndolo en `puestos` se
+// habría colado en el saludo de la red.
+const deslices = [];
+for (let i = 0; i < VISIBLES; i++) deslices.push({ previo: -1, t: 0, dir: 1 });
+
+function avanzarDeslices() {
   const ahora = performance.now();
-  const dt = carrusel.reloj ? Math.min(0.1, (ahora - carrusel.reloj) / 1000) : 0;
-  carrusel.reloj = ahora;
-  carrusel.vista += (carrusel.desde - carrusel.vista) * (1 - Math.pow(0.0005, dt));
-  if (Math.abs(carrusel.desde - carrusel.vista) < 0.002) carrusel.vista = carrusel.desde;
+  const dt = relojDeslices ? Math.min(0.1, (ahora - relojDeslices) / 1000) : 0;
+  relojDeslices = ahora;
+  // Acercamiento exponencial, medido en TIEMPO y no en fotogramas: esta
+  // pantalla no simula nada y el monitor puede ir a 60 o a 144 (mismo criterio
+  // que `latido`). Con 0,0005 de constante, una figura entra en algo más de un
+  // tercio de segundo: se ve moverse y no se hace esperar.
+  for (let i = 0; i < deslices.length; i++) {
+    const d = deslices[i];
+    if (d.t <= 0) continue;
+    d.t *= Math.pow(0.0005, dt);
+    if (d.t < 0.002) { d.t = 0; d.previo = -1; }
+  }
 }
+let relojDeslices = 0;
 
-// Dónde cae el centro de la posición `pos` de la tira, contada en marcos y con
-// decimales mientras se desliza.
-//
-// Entre los cuatro marcos se INTERPOLA entre sus centros medidos, así que en
-// reposo cada retrato cae exactamente en el suyo; fuera de ellos se sigue con
-// el paso medio, que es lo único que se puede hacer donde no hay marco.
-function centroEn(pos) {
-  const i = Math.floor(pos);
-  return centroDe(i) + (centroDe(i + 1) - centroDe(i)) * (pos - i);
-}
-
-function centroDe(k) {
-  if (k >= 0 && k < ARCO_CENTRO.length) return ARCO_CENTRO[k];
-  const borde = k < 0 ? 0 : ARCO_CENTRO.length - 1;
-  return ARCO_CENTRO[borde] + (k - borde) * ARCO_PASO;
-}
-
-// El marco número `s`, que es fijo —lo pintó Sergio ahí—, y el sitio donde cae
-// el personaje `p`, que es móvil. Los dos en unidades de interfaz.
+// El hueco del jugador `s`, que es fijo: lo pintó Sergio ahí.
 function ventanaDe(e, s) {
   return enUi(e, ARCO_CENTRO[s] - ARCO_ANCHO / 2, ARCO_Y, ARCO_ANCHO, ARCO_ALTO);
 }
 
-function rectoDe(e, p) {
-  return enUi(e, centroEn(p - carrusel.vista) - ARCO_ANCHO / 2,
-              ARCO_Y, ARCO_ANCHO, ARCO_ALTO);
-}
-
-function seSolapa(r, v) {
-  return r.x < v.x + v.w && r.x + r.w > v.x;
+// El mismo rectángulo corrido `dx`, para la figura que entra y la que sale.
+function corrido(r, dx) {
+  return { x: r.x + dx, y: r.y, w: r.w, h: r.h };
 }
 
 function dibujarSeleccion(ctxMundo, ctxUi, puestos, foco = -1) {
@@ -604,117 +604,144 @@ function dibujarSeleccion(ctxMundo, ctxUi, puestos, foco = -1) {
   dibujarOro(ctxUi);
   dibujarUsuarioGithub(ctxUi);
   const t = Tema.actual;
-  const n = ORDEN_PERSONAJES.length;
-  encuadrar(foco);
-  deslizar();
+  avanzarDeslices();
   ctxUi.save();
 
-  // 1. EL INTERIOR DE LOS ARCOS. Un recorte por arco, y dentro todo lo que
-  //    asome por esa ventana: el velo, los retratos y el marco del jugador que
-  //    haya cogido a alguno de ellos.
-  for (let s = 0; s < VISIBLES; s++) {
-    const v = ventanaDe(e, s);
+  for (let i = 0; i < VISIBLES; i++) {
+    const v = ventanaDe(e, i);
     ctxUi.save();
+    // EL RECORTE SE ESTIRA HACIA ARRIBA lo que ocupa el nombre. La ventana
+    // medida es el HUECO del marco (ver medir-marcos.ps1) y el cartel del
+    // nombre asoma por encima de su borde; sin este estirón, el recorte le
+    // cortaba la fila de arriba. A lo ancho no se toca: por los lados sigue
+    // mandando la pilastra, y es lo que hace que la figura que entra o sale
+    // pase por DETRÁS de la piedra en vez de por delante.
     ctxUi.beginPath();
-    ctxUi.rect(v.x, v.y, v.w, v.h);
+    ctxUi.rect(v.x, v.y - ASOMO_NOMBRE, v.w, v.h + ASOMO_NOMBRE);
     ctxUi.clip();
-    ctxUi.fillStyle = VELO_ARCO;
-    ctxUi.fillRect(v.x, v.y, v.w, v.h);
 
-    for (let p = 0; p < n; p++) {
-      const r = rectoDe(e, p);
-      if (!seSolapa(r, v)) continue;
-      dibujarRetrato(ctxUi, r, p, ocupantePersonaje(puestos, p), t);
+    // EL VELO EMPIEZA DEBAJO DEL NOMBRE, no en el borde del hueco: es el
+    // sombreado de LA IMAGEN del personaje, así que sombrea la imagen y nada
+    // más. El nombre queda fuera, sobre la piedra del arco.
+    ctxUi.fillStyle = VELO_ARCO;
+    ctxUi.fillRect(v.x, v.y + BANDA_NOMBRE, v.w, v.h - BANDA_NOMBRE);
+
+    const puesto = puestos[i];
+    if (!puesto) {
+      dibujarHuecoVacio(ctxUi, v, i, t);
+      ctxUi.restore();
+      continue;
     }
-    for (let i = 0; i < puestos.length; i++) {
-      if (!puestos[i]) continue;
-      const r = rectoDe(e, puestos[i].personaje);
-      if (!seSolapa(r, v)) continue;
-      dibujarPuesto(ctxUi, r, i, puestos[i]);
+
+    // La figura que entra y, mientras dura el deslizamiento, la que sale.
+    const d = deslices[i];
+    const dxNuevo = d.t > 0 ? d.dir * v.w * d.t : 0;
+    if (d.t > 0 && d.previo >= 0) {
+      const rViejo = corrido(v, dxNuevo - d.dir * v.w);
+      dibujarHeroe(ctxUi, rViejo, d.previo, i, false, t);
     }
+    dibujarHeroe(ctxUi, corrido(v, dxNuevo), puesto.personaje, i, puesto.listo, t);
+
     ctxUi.restore();
   }
 
-  // 2. LAS CARTELAS, colgadas encima y debajo de cada arco. Estas van FUERA del
-  //    arco —el nombre sobre la cornisa, el arma bajo el zócalo— así que no
-  //    pueden recortarse por ventana: se recortan a la BANDA entera del
-  //    carrusel, y lo que se sale por los lados no se pinta.
-  const izq = ventanaDe(e, 0);
-  const der = ventanaDe(e, VISIBLES - 1);
-  const banda = { x: izq.x - 2, w: der.x + der.w - izq.x + 4 };
-  ctxUi.save();
-  ctxUi.beginPath();
-  ctxUi.rect(banda.x, 0, banda.w, ALTO_UI);
-  ctxUi.clip();
-  for (let p = 0; p < n; p++) {
-    const r = rectoDe(e, p);
-    if (!seSolapa(r, banda)) continue;
-    dibujarTarjeta(ctxUi, r, p, puestos, t);
+  // El héroe que se está mirando, con letra: su arma y su frase.
+  if (foco >= 0 && foco < ORDEN_PERSONAJES.length) {
+    dibujarPieHeroe(ctxUi, foco, ALTO_UI - 36, t);
   }
-  ctxUi.restore();
-
-  // 3. Que la tira sigue a los lados: flechas, quién se ha quedado fuera y la
-  //    cuenta de héroes.
-  dibujarBordes(ctxUi, izq, der, puestos, n, t);
-
-  // 4. Y el héroe que se está mirando, con letra: su arma y su frase.
-  dibujarPieHeroe(ctxUi, Math.max(0, Math.min(n - 1, foco)), ALTO_UI - 36, t);
 
   // Pie: qué se puede hacer, en UNA sola línea.
   //
-  // UNA de ayuda, y es la de más abajo del todo. Encima de ella van los otros
-  // dos renglones del pie —el arma y la frase del héroe que se está mirando,
-  // ver dibujarPieHeroe— y encima de esos, la cuenta de puntos. Los cuatro
-  // caben porque desde que los rótulos se metieron dentro de los marcos, entre
-  // el zócalo de la arquería y el borde inferior hay unas ciento veinte
-  // unidades libres.
+  // Una sola porque más renglones debajo de cuatro marcos ya no son ayuda, son
+  // ruido — y porque el lienzo mide 1080 de alto FIJOS: en una ventana más baja
+  // se recorta centrado (ver ESCALA_ARTE en core/constantes.js), así que el
+  // segundo renglón sería lo primero que dejaría de verse.
   //
-  // La de ayuda dice UNA cosa y la más urgente de las tres que puede haber:
-  // ver el orden justo debajo.
+  // Lo de sumarse con A o Start ya no se dice aquí: lo dice cada marco vacío,
+  // que es donde se mira cuando alguien pregunta si puede jugar.
   const presentes = puestos.filter(Boolean);
-  const faltan = presentes.some((p) => !p.listo);
-  const hueco = presentes.length < puestos.length;
+  const faltan = presentes.some((q) => !q.listo);
   ctxUi.textAlign = 'center';
   ctxUi.textBaseline = 'middle';
   ctxUi.font = `600 11px ${FUENTE}`;
-  // Solo se dice lo que NO se adivina. Mover, confirmar y volver se dan por
-  // sabidos —Sergio quitó esos renglones de todos los menús—, pero que el
-  // segundo jugador entra pulsando A o Start en SU mando no hay forma de
-  // deducirlo mirando la pantalla, y es justo lo que hace falta saber para que
-  // el cooperativo exista.
-  //
-  // Y por delante de todo eso, lo de un héroe que no es tuyo: ahí SÍ hay que
-  // explicar por qué pulsar A no hace nada, que es la única forma que tiene
-  // esta pantalla de quedarse muda sin motivo aparente.
   const enBloqueado = presentes.some(
-    (p) => !p.listo && !MetaProgreso.heroeDesbloqueado(ORDEN_PERSONAJES[p.personaje]));
-  let pie = 'Empezando...';
+    (q) => !q.listo && !MetaProgreso.heroeDesbloqueado(ORDEN_PERSONAJES[q.personaje]));
+  let pie = '';
   if (enBloqueado) pie = 'Ese héroe se compra en la tienda';
-  else if (faltan && hueco) pie = 'A o Start en otro mando  ·  se suma un jugador';
-  else if (faltan) pie = '';
+  else if (!faltan) pie = 'Empezando...';
   if (pie) {
     ctxUi.globalAlpha = faltan ? 0.9 : latido(700, 0.4);
-    // A 20 del borde, debajo de la frase. Es una nota al pie sobre cómo se suma
-    // otro mando o sobre por qué un héroe no se deja coger: va la última porque
-    // es la que se deja de leer en cuanto se ha entendido una vez.
     textoBorde(ctxUi, pie, ANCHO_UI / 2, ALTO_UI - 20, t.texto, 3.5);
   }
   ctxUi.restore();
 }
 
-// EL RETRATO DENTRO DEL ARCO. El de cuerpo entero de la ficha, que es el único
-// dibujo del personaje que da la talla a este tamaño: el muñeco del mundo mide
-// 26 unidades de alto y aquí hay cerca de 285, o sea que habría que ampliarlo
-// once veces.
+// UN HÉROE DENTRO DE SU MARCO: figura, nombre y arma. Todo lo que se desliza.
+function dibujarHeroe(ctxUi, r, personaje, jugador, listo, t) {
+  dibujarRetrato(ctxUi, r, personaje, jugador, t);
+  dibujarTarjeta(ctxUi, r, personaje, jugador, listo, t);
+}
+
+// EL MARCO DE UN JUGADOR QUE TODAVÍA NO ESTÁ.
 //
-// Tres estados y se distinguen por la LUZ, no por un rótulo: a plena luz el que
-// ha cogido alguien, a media luz el que está libre, y en penumbra el que
-// todavía no es tuyo.
+// Apagado y con la instrucción dentro. No se deja del todo negro —el arco se
+// vería roto en la fila de cuatro— sino velado: se lee que ahí cabe alguien.
+function dibujarHuecoVacio(ctxUi, v, indice, t) {
+  ctxUi.save();
+  ctxUi.fillStyle = VELO_VACIO;
+  ctxUi.fillRect(v.x, v.y + BANDA_NOMBRE, v.w, v.h - BANDA_NOMBRE);
+
+  ctxUi.textAlign = 'center';
+  ctxUi.textBaseline = 'middle';
+  const cx = v.x + v.w / 2;
+
+  // El número del puesto, arriba y donde va el nombre de los que sí están: los
+  // cuatro rótulos caen a la misma altura y se cuenta de un vistazo quién falta.
+  ctxUi.font = `700 12px ${FUENTE_TITULO}`;
+  ctxUi.globalAlpha = 0.45;
+  textoBorde(ctxUi, `P${indice + 1}`, cx, v.y - 1 + ALTO_CARTEL / 2, t.titulo, 3);
+  ctxUi.globalAlpha = 1;
+
+  // Y la invitación, en mitad del hueco, latiendo despacio.
+  ctxUi.globalAlpha = latido(1600, 0.5);
+  ctxUi.font = `700 10px ${FUENTE}`;
+  textoEspaciado(ctxUi, 'PULSA A o START', cx, v.y + v.h * 0.46, 1.2);
+  ctxUi.globalAlpha = 0.55;
+  ctxUi.font = `500 9px ${FUENTE}`;
+  ctxUi.fillStyle = t.apagado;
+  ctxUi.fillText('para sumarte', cx, v.y + v.h * 0.46 + 14);
+  ctxUi.restore();
+}
+
 function dibujarRetrato(ctxUi, r, p, ocupante, t) {
   const id = ORDEN_PERSONAJES[p];
   const def = PERSONAJES[id];
   const bloqueado = !MetaProgreso.heroeDesbloqueado(id);
   const img = Recursos.imagen(def.sprite + 'Cuerpo');
+
+  // EL ELEGIDO ENCENDIDO Y LOS DEMÁS APAGADOS, que es lo que pidió Sergio.
+  //
+  // No basta con bajarle el alfa al retrato: sobre la piedra oscura del marco,
+  // una figura al 55% sigue leyéndose casi igual de brillante que al 100%, y lo
+  // que se pierde es el contraste, no la atención. Lo que de verdad enciende un
+  // marco es que los OTROS TRES se oscurezcan, así que cada héroe sin dueño se
+  // pinta bajo su propio velo — el suyo, del ancho de su hueco, no el del arco,
+  // porque mientras la tira se desliza el velo tiene que viajar con él.
+  //
+  // Los huecos van a 320 de distancia y miden 209: nunca se solapan, así que
+  // dos velos no pueden sumarse sobre el mismo píxel.
+  // El velo se levanta solo para el elegido, y solo si es SUYO: al bloqueado se
+  // le deja el suyo aunque tenga el cursor encima, un punto más suave.
+  if (ocupante < 0 || bloqueado) {
+    ctxUi.save();
+    ctxUi.fillStyle = bloqueado
+      ? (ocupante >= 0 ? 'rgba(6,5,10,.38)' : VELO_BLOQUEADO)
+      : VELO_LIBRE;
+    // Desde `BANDA_NOMBRE` hacia abajo, igual que el velo del arco: lo que se
+    // apaga es la figura, no su nombre.
+    ctxUi.fillRect(r.x, r.y + BANDA_NOMBRE, r.w, r.h - BANDA_NOMBRE);
+    ctxUi.restore();
+  }
 
   if (img) {
     // Encaje "contener" y APOYADO EN EL SUELO del hueco que le queda, que no es
@@ -726,13 +753,57 @@ function dibujarRetrato(ctxUi, r, p, ocupante, t) {
     const esc = Math.min(r.w * 0.94 / img.width, hueco / img.height);
     const w = img.width * esc;
     const h = img.height * esc;
+    const x = r.x + (r.w - w) / 2;
+    const y = r.y + BANDA_NOMBRE + hueco - h;
+
     ctxUi.save();
-    ctxUi.globalAlpha = bloqueado ? 0.3 : (ocupante >= 0 ? 1 : 0.72);
     ctxUi.imageSmoothingEnabled = true;
     ctxUi.imageSmoothingQuality = 'high';
-    ctxUi.drawImage(img, r.x + (r.w - w) / 2, r.y + BANDA_NOMBRE + hueco - h, w, h);
+
+    // LA LUZ VA EN LA SILUETA, NO EN EL RECUADRO.
+    //
+    // Antes al elegido se le sumaba un baño de color sobre todo su hueco, y eso
+    // es un rectángulo de luz encima de una hornacina con el arco redondo: se
+    // veía el canto recto de la luz sobre la piedra. Lo dijo Sergio y tiene
+    // razón. Ahora se enciende SU FIGURA, dibujando el mismo retrato otra vez
+    // en `lighter` —sumando luz— así que lo único que se aclara son los píxeles
+    // que el dibujo tiene pintados: el alfa del PNG hace de máscara y no hay
+    // que recortar ninguna silueta a mano.
+    //
+    // El halo son cuatro copias desplazadas tres píxeles, cada una a un tercio
+    // de la luz. Es lo que separa "esta figura está más clara" de "esta figura
+    // alumbra": sin él, un personaje de ropa oscura —Vicky, Livia— apenas se
+    // encendía, porque sumar luz sobre un píxel oscuro sigue dando oscuro. El
+    // halo lo pone alrededor, contra la piedra, que es donde se ve.
+    // A MEDIA LUZ SI NO ES TUYO. Un héroe de pago con el cursor encima tiene que
+    // verse —es donde estás mirando— pero no puede encenderse igual que uno que
+    // ya es tuyo: la pantalla estaría diciendo "elegido" de algo que no se puede
+    // elegir, con su propio precio pintado al lado.
+    const luz = ocupante >= 0 ? (bloqueado ? 0.5 : 1) : 0;
+
+    if (luz > 0) {
+      ctxUi.globalCompositeOperation = 'lighter';
+      ctxUi.globalAlpha = LUZ_HALO * luz;
+      ctxUi.drawImage(img, x - HALO_PX, y, w, h);
+      ctxUi.drawImage(img, x + HALO_PX, y, w, h);
+      ctxUi.drawImage(img, x, y - HALO_PX, w, h);
+      ctxUi.drawImage(img, x, y + HALO_PX, w, h);
+      ctxUi.globalCompositeOperation = 'source-over';
+    }
+
+    ctxUi.globalAlpha = bloqueado ? (ocupante >= 0 ? 0.55 : 0.34)
+                                  : (ocupante >= 0 ? 1 : 0.62);
+    ctxUi.drawImage(img, x, y, w, h);
+
+    if (luz > 0) {
+      ctxUi.globalCompositeOperation = 'lighter';
+      ctxUi.globalAlpha = LUZ_SILUETA * luz;
+      ctxUi.drawImage(img, x, y, w, h);
+    }
     ctxUi.restore();
   }
+
+
 
   // EL AVISO DE ARTE PRESTADA, dentro del arco y a media voz. Mientras un héroe
   // salga con el dibujo de otro (ver `provisional` en datos/personajes.js) hay
@@ -794,94 +865,6 @@ function placaBloqueo(ctxUi, r, coste, t) {
   ctxUi.restore();
 }
 
-// LO QUE HAY A LOS LADOS. Tres cosas que solo tienen sentido con la tira más
-// larga que la ventana, y las tres se apagan solas cuando no la hay.
-function dibujarBordes(ctxUi, izq, der, puestos, n, t) {
-  const cy = izq.y + izq.h / 2;
-  const pulso = latido(1100, 0.35);
-
-  ctxUi.save();
-  ctxUi.textAlign = 'center';
-  ctxUi.textBaseline = 'middle';
-
-  if (carrusel.desde > 0) flecha(ctxUi, izq.x - 15, cy, -1, pulso, t);
-  if (carrusel.desde < topeCarrusel()) flecha(ctxUi, der.x + der.w + 15, cy, 1, pulso, t);
-
-  // QUIÉN SE HA QUEDADO FUERA. En cooperativo la ventana la manda quien acaba
-  // de moverse, así que el personaje de otro jugador puede salirse de los
-  // cuatro arcos. Sin esto, ese jugador desaparece de la pantalla y no hay
-  // forma de saber si sigue ahí.
-  let aIzquierda = 0;
-  let aDerecha = 0;
-  for (let i = 0; i < puestos.length; i++) {
-    if (!puestos[i]) continue;
-    const pj = puestos[i].personaje;
-    const antes = pj < carrusel.desde;
-    const despues = pj > carrusel.desde + VISIBLES - 1;
-    if (!antes && !despues) continue;
-    const x = antes ? izq.x - 15 : der.x + der.w + 15;
-    const y = cy + 26 + (antes ? aIzquierda++ : aDerecha++) * 21;
-    const color = COLOR_JUGADOR[i % COLOR_JUGADOR.length];
-    ctxUi.beginPath();
-    ctxUi.roundRect(x - 12, y - 9, 24, 18, 5);
-    ctxUi.fillStyle = 'rgba(6,5,10,.82)';
-    ctxUi.fill();
-    ctxUi.lineWidth = 1.2;
-    ctxUi.strokeStyle = color;
-    ctxUi.stroke();
-    ctxUi.font = `700 10px ${FUENTE}`;
-    ctxUi.fillStyle = color;
-    ctxUi.fillText('P' + (i + 1), x, y + 0.5);
-  }
-
-  // LA CUENTA, un punto por héroe. Dice a la vez cuántos hay y por dónde va la
-  // ventana, que es lo que una flecha sola no cuenta: con ocho puntos y cuatro
-  // encendidos se ve que queda tanto detrás como delante.
-  //
-  // Y el punto del que ha cogido alguien va de SU color: en cooperativo eso
-  // basta para saber que el que falta está dos casillas a la derecha.
-  const paso = 11;
-  const x0 = ANCHO_UI / 2 - (n - 1) * paso / 2;
-  for (let p = 0; p < n; p++) {
-    const dentro = p >= carrusel.desde && p <= carrusel.desde + VISIBLES - 1;
-    const oc = ocupantePersonaje(puestos, p);
-    // CON RIBETE OSCURO. Los puntos caen sobre el empedrado, que es claro y con
-    // grano: sin el ribete, los apagados —los héroes que quedan fuera de la
-    // ventana— desaparecían del todo y la cuenta dejaba de contar nada.
-    ctxUi.beginPath();
-    ctxUi.arc(x0 + p * paso, ALTO_UI - 66, dentro ? 3.2 : 2.4, 0, Math.PI * 2);
-    ctxUi.fillStyle = oc >= 0 ? COLOR_JUGADOR[oc % COLOR_JUGADOR.length]
-                              : (dentro ? t.filo : 'rgba(230,235,240,.55)');
-    ctxUi.fill();
-    ctxUi.lineWidth = 1.2;
-    ctxUi.strokeStyle = 'rgba(6,5,10,.75)';
-    ctxUi.stroke();
-  }
-  ctxUi.restore();
-}
-
-// Punta de flecha maciza CON RIBETE. El ribete no es adorno: a los lados de los
-// marcos hay antorchas encendidas, columnas y estandartes rojos, y una punta
-// lisa del color del filo se perdía contra ese revoltijo — se probó sin él y
-// desde el sofá no se veía que hubiera más héroes a los lados, que es justo lo
-// único que esta flecha tiene que decir.
-function flecha(ctxUi, x, y, sentido, pulso, t) {
-  ctxUi.save();
-  ctxUi.globalAlpha = pulso;
-  ctxUi.beginPath();
-  ctxUi.moveTo(x + 7 * sentido, y);
-  ctxUi.lineTo(x - 6 * sentido, y - 11);
-  ctxUi.lineTo(x - 6 * sentido, y + 11);
-  ctxUi.closePath();
-  ctxUi.fillStyle = t.filo;
-  ctxUi.lineWidth = 3;
-  ctxUi.lineJoin = 'round';
-  ctxUi.strokeStyle = 'rgba(6,5,10,.8)';
-  ctxUi.stroke();
-  ctxUi.fill();
-  ctxUi.restore();
-}
-
 // Índice del puesto que tiene cogido el personaje `p`, o -1.
 export function ocupantePersonaje(puestos, p) {
   for (let i = 0; i < puestos.length; i++) {
@@ -912,32 +895,113 @@ const BANDA_NOMBRE = 22;      // lo que se reserva arriba, dentro del marco
 const BANDA_ARMA = 38;        // y abajo, para el cuadro del arma
 const LADO_ARMA = 30;
 
-function dibujarTarjeta(ctxUi, r, p, puestos, t) {
+// EL CARTEL DEL JUGADOR: un rectángulo de esquinas redondeadas alrededor del
+// NOMBRE, y su número dentro.
+//
+// Antes el color del jugador era un marco que rodeaba al héroe ENTERO, de la
+// cabeza a los pies, y la etiqueta "P1" iba suelta por debajo. Lo cambió
+// Sergio: el recuadro se acota al nombre y se lleva el número dentro. Sale
+// ganando el dibujo —un rectángulo de 230 unidades de alto alrededor de una
+// ilustración es una jaula— y sale ganando la lectura, porque el color y el
+// número quedan pegados al único sitio donde ya estabas mirando para saber
+// quién es.
+//
+// CONFIRMAR ES RELLENARLO. Mientras se elige, el cartel es un contorno que
+// late; al confirmar se rellena del color del jugador y deja de latir. Es la
+// diferencia que hay que ver desde el otro lado del sofá sin leer nada, y ocupa
+// lo mismo — que es lo que permitió quitar la palabra "LISTO" de la etiqueta y
+// que quepa el nombre entero al lado del número.
+const ALTO_CARTEL = 17;
+const AIRE_CARTEL = 9;        // a cada lado del texto
+
+// Lo que el cartel del nombre asoma por encima del hueco del marco, y por tanto
+// lo que hay que estirar el recorte de la ventana para que no se lo coma. Sobra
+// un poco a propósito: si algún día el cartel crece de alto, sigue cabiendo.
+const ASOMO_NOMBRE = 14;
+
+function dibujarTarjeta(ctxUi, r, p, ocupante, listo, t) {
   const def = PERSONAJES[ORDEN_PERSONAJES[p]];
   const arma = ARMAS[def.arma];
   const cx = r.x + r.w / 2;
-  const ocupante = ocupantePersonaje(puestos, p);
   const color = ocupante >= 0 ? COLOR_JUGADOR[ocupante % COLOR_JUGADOR.length] : null;
 
   ctxUi.save();
   ctxUi.textAlign = 'center';
   ctxUi.textBaseline = 'middle';
 
-  // EL NOMBRE, arriba y del color de quien lo ha cogido. Con reborde y no con
-  // cartela: sobre el interior del marco, un reborde de tres píxeles ya separa
-  // la letra de la piedra, y no hay caja que tape nada.
-  ctxUi.font = `700 12px ${FUENTE_TITULO}`;
+  // CINCO ARRIBA Y FUERA DEL SOMBREADO. El cartel colgaba dentro del hueco, a
+  // cuatro del borde; ahora se apoya en ese borde y asoma por encima, que es
+  // donde acaba el sombreado de la figura (ver ASOMO_NOMBRE y el velo, arriba).
+  const yNombre = r.y - 1 + ALTO_CARTEL / 2;
   const nombre = def.nombre.toUpperCase();
-  // `textoEspaciado` no acepta reborde, así que el espaciado se hace a mano
-  // aquí: se mide el conjunto y se pinta letra a letra, cada una con su borde.
-  const espaciado = 1.5;
-  let ancho = -espaciado;
-  for (const c of nombre) ancho += ctxUi.measureText(c).width + espaciado;
-  let x = cx - ancho / 2;
-  for (const c of nombre) {
-    const w = ctxUi.measureText(c).width;
-    textoBorde(ctxUi, c, x + w / 2, r.y + 13, color || t.titulo, 3);
-    x += w + espaciado;
+
+  if (color) {
+    // CON DUEÑO: número y nombre dentro del cartel.
+    //
+    // La letra se encoge hasta que el conjunto quepa en el marco. "P4 · OCTAVIA"
+    // es el peor caso del catálogo de hoy y entra a 11; si algún día llega un
+    // nombre más largo, se apretará solo en vez de desbordarse por los lados.
+    const texto = `P${ocupante + 1}  ·  ${nombre}`;
+    let tam = 11;
+    let ancho = 0;
+    while (tam >= 8) {
+      ctxUi.font = `700 ${tam}px ${FUENTE_TITULO}`;
+      ancho = ctxUi.measureText(texto).width;
+      if (ancho + AIRE_CARTEL * 2 <= r.w - 6) break;
+      tam -= 0.5;
+    }
+    const anchoCartel = Math.min(r.w - 6, ancho + AIRE_CARTEL * 2);
+
+    ctxUi.beginPath();
+    ctxUi.roundRect(cx - anchoCartel / 2, yNombre - ALTO_CARTEL / 2,
+                    anchoCartel, ALTO_CARTEL, ALTO_CARTEL / 2);
+    if (listo) {
+      ctxUi.fillStyle = color;
+      ctxUi.fill();
+    } else {
+      ctxUi.fillStyle = 'rgba(6,5,10,.78)';
+      ctxUi.fill();
+      ctxUi.globalAlpha = latido(900, 0.45);
+    }
+    ctxUi.lineWidth = listo ? 1.6 : 1.4;
+    ctxUi.strokeStyle = listo ? 'rgba(255,255,255,.55)' : color;
+    ctxUi.stroke();
+    ctxUi.globalAlpha = 1;
+
+    // Y EL FILO ENCENDIDO, del color del jugador y sumando luz. Es la misma luz
+    // que lleva la silueta, puesta en el borde para que el cartel pertenezca al
+    // mismo foco: el nombre, el número y el arma son lo que Sergio pidió que se
+    // iluminara, y los tres se encienden igual.
+    ctxUi.save();
+    ctxUi.globalCompositeOperation = 'lighter';
+    ctxUi.globalAlpha = LUZ_FILO;
+    ctxUi.lineWidth = 2.4;
+    ctxUi.strokeStyle = color;
+    ctxUi.stroke();
+    ctxUi.restore();
+
+    // Relleno claro sobre el color, oscuro cuando el color es el relleno: en
+    // los dos casos el que manda es el contraste, no el color del jugador.
+    ctxUi.fillStyle = listo ? '#0b0a10' : color;
+    ctxUi.fillText(texto, cx, yNombre + 0.5);
+  } else {
+    // SIN DUEÑO: el nombre solo, con reborde y a media luz. Apagado como el
+    // retrato que hay debajo — es el mismo héroe, y encender su nombre mientras
+    // su figura está en penumbra contaría dos cosas distintas.
+    ctxUi.font = `700 12px ${FUENTE_TITULO}`;
+    const espaciado = 1.5;
+    let ancho = -espaciado;
+    for (const c of nombre) ancho += ctxUi.measureText(c).width + espaciado;
+    let x = cx - ancho / 2;
+    ctxUi.globalAlpha = 0.72;
+    // `textoEspaciado` no acepta reborde, así que el espaciado se hace a mano
+    // aquí: se mide el conjunto y se pinta letra a letra, cada una con su borde.
+    for (const c of nombre) {
+      const w = ctxUi.measureText(c).width;
+      textoBorde(ctxUi, c, x + w / 2, yNombre, t.titulo, 3);
+      x += w + espaciado;
+    }
+    ctxUi.globalAlpha = 1;
   }
 
   // EL ARMA, abajo: su dibujo sobre el mismo cuadro blanco que en la ficha y en
@@ -946,6 +1010,10 @@ function dibujarTarjeta(ctxUi, r, p, puestos, t) {
   // pie, con su frase.
   if (arma) {
     const yArma = r.y + r.h - BANDA_ARMA + 3;
+    // El de un héroe apagado se apaga con él: es un cuadro BLANCO sobre piedra
+    // oscura, o sea lo más brillante del marco, y a plena luz los cuatro se
+    // leían como cuatro faroles en fila.
+    ctxUi.globalAlpha = ocupante >= 0 ? 1 : 0.72;
     ctxUi.beginPath();
     ctxUi.roundRect(cx - LADO_ARMA / 2, yArma, LADO_ARMA, LADO_ARMA, 4);
     ctxUi.fillStyle = 'rgba(255,255,255,.92)';
@@ -957,6 +1025,20 @@ function dibujarTarjeta(ctxUi, r, p, puestos, t) {
     // ui/hud.js): por debajo saldría de la hoja de 32 ampliada y con el canto
     // roto, que es lo que se veía en el menú de subida de nivel.
     dibujarIconoArma(ctxUi, cx, yArma + LADO_ARMA / 2, 13, def.arma, arma.color);
+    ctxUi.globalAlpha = 1;
+
+    // El mismo filo encendido que el cartel del nombre. No se toca el relleno
+    // blanco: sumarle luz a un blanco no lo enciende, lo revienta y se lleva por
+    // delante el dibujo del arma, que es justo lo que hay que poder reconocer.
+    if (color) {
+      ctxUi.save();
+      ctxUi.globalCompositeOperation = 'lighter';
+      ctxUi.globalAlpha = LUZ_FILO;
+      ctxUi.lineWidth = 2.4;
+      ctxUi.strokeStyle = color;
+      ctxUi.stroke();
+      ctxUi.restore();
+    }
   }
 
   ctxUi.restore();
@@ -997,63 +1079,6 @@ function dibujarPieHeroe(ctxUi, foco, y, t) {
     ctxUi.font = `700 10px ${FUENTE}`;
     textoBorde(ctxUi, arma.nombre.toUpperCase(), ANCHO_UI / 2, y - 15, t.apagado, 3);
   }
-  ctxUi.restore();
-}
-
-// EL MARCO DE UN JUGADOR Y SU ETIQUETA, dentro del arco.
-//
-// Va aparte del nombre y del arma, y recortado por la ventana (ver
-// dibujarSeleccion):
-// es lo único que se mueve con el personaje elegido, y si se saliera del arco
-// al deslizar la tira quedaría un recuadro de color flotando sobre la pilastra.
-function dibujarPuesto(ctxUi, r, indice, puesto) {
-  const color = COLOR_JUGADOR[indice % COLOR_JUGADOR.length];
-
-  ctxUi.save();
-  ctxUi.textAlign = 'center';
-  ctxUi.textBaseline = 'middle';
-
-  // Marco del color del jugador. Mientras elige PARPADEA y al confirmar se
-  // queda fijo y más grueso: es la diferencia que hay que poder ver desde el
-  // otro lado del sofá sin leer nada.
-  // POR DENTRO DEL RECORTE, no encima de su línea. El marco se dibuja dentro de
-  // la ventana recortada (ver dibujarSeleccion), así que un trazo centrado en el
-  // borde pierde su mitad de fuera: quedaba un hilo de un píxel que no se veía
-  // desde el sofá. Metiéndolo medio grosor hacia dentro se ve entero.
-  const grosor = puesto.listo ? 3 : 2;
-  ctxUi.globalAlpha = puesto.listo ? 1 : latido(900, 0.45);
-  ctxUi.strokeStyle = color;
-  ctxUi.lineWidth = grosor;
-  ctxUi.strokeRect(r.x + grosor / 2, r.y + grosor / 2, r.w - grosor, r.h - grosor);
-  ctxUi.globalAlpha = 1;
-
-  // --- Etiqueta del puesto, DENTRO del marco ------------------------------
-  //
-  // Quién eres y si ya has decidido son la misma pregunta —"¿falta alguien?"— y
-  // se responde de un vistazo por los cuatro marcos, sin bajar la vista a
-  // ninguna otra parte.
-  //
-  // A LA IZQUIERDA Y BAJO EL NOMBRE. Estuvo pegada al borde de arriba mientras
-  // el nombre iba en una cartela colgada fuera; desde que el nombre se metió
-  // dentro (ver dibujarTarjeta), ese sitio es suyo y la etiqueta se le echaba
-  // encima al llevar el "LISTO" detrás. Bajarla un renglón la deja sobre el
-  // hombro del personaje, que es fondo oscuro y no molesta a nadie.
-  const et = puesto.listo ? `P${indice + 1}  ·  LISTO` : `P${indice + 1}`;
-  ctxUi.font = `700 11px ${FUENTE}`;
-  const anchoEt = ctxUi.measureText(et).width + 12;
-  const ALTO_ET = 17;
-  const xEt = r.x + 4;
-  const yEt = r.y + BANDA_NOMBRE + 2;
-  ctxUi.fillStyle = 'rgba(6,5,10,.82)';
-  ctxUi.beginPath();
-  ctxUi.roundRect(xEt, yEt, anchoEt, ALTO_ET, 4);
-  ctxUi.fill();
-  ctxUi.strokeStyle = color;
-  ctxUi.lineWidth = 1.2;
-  ctxUi.stroke();
-  ctxUi.fillStyle = color;
-  ctxUi.fillText(et, xEt + anchoEt / 2, yEt + ALTO_ET / 2 + 0.5);
-
   ctxUi.restore();
 }
 

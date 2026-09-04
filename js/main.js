@@ -209,10 +209,10 @@ let pantalla;
 // maneja siempre el puesto 3 aunque el 2 esté vacío.
 const puestos = new Array(4).fill(null);
 
-// A QUIÉN SIGUE LA TIRA de la pantalla de selección. Con más héroes que arcos,
-// los cuatro que se ven son una ventana sobre la lista (ver ui/pantallas.js), y
-// la ventana la manda el último que se ha movido: es lo único que funciona con
-// cuatro jugadores compartiendo una pantalla.
+// DE QUIÉN SE LEE EL ARMA Y LA FRASE al pie de la pantalla de selección: del
+// último héroe que ha tocado alguien. Cada jugador tiene su propio marco y su
+// propio carrusel (ver ui/pantallas.js), así que al pie solo cabe uno y el que
+// interesa es el que se acaba de mirar.
 //
 // Vive aquí y no en `pantallas.js` porque sale de la ENTRADA —quién ha pulsado
 // qué— y allí solo se dibuja.
@@ -303,12 +303,12 @@ function irA(nueva) {
   // —todavía no hay partida elegida— y además es por donde se pasa siempre al
   // abrir el juego. Con la nube apagada esto no hace nada.
   if (nueva === PANTALLA_HUECOS) mirarLaNube();
-  // Y AL ENTRAR EN LA DE PERSONAJES, la tira se coloca de golpe sobre el del
-  // jugador 1. Sin esto se entra viendo el carrusel correr solo desde donde se
-  // quedó la vez anterior, que parece que se está moviendo alguien.
+  // Y AL ENTRAR EN LA DE PERSONAJES, las figuras se plantan de golpe en su
+  // sitio. Sin esto se entra viendo los carruseles correr solos desde donde se
+  // quedaron la vez anterior, que parece que se está moviendo alguien.
   if (nueva === PANTALLA_SELECCION) {
     focoSeleccion = puestos[0] ? puestos[0].personaje : 0;
-    Pantallas.centrarSeleccion(focoSeleccion);
+    Pantallas.centrarSeleccion();
   }
 }
 
@@ -1415,13 +1415,20 @@ function entradaSeleccion() {
 
     // El stick se lee UNA vez por paso: flancoEje consume estado.
     const eje = c ? c.flancoEje(true) : 0;
-    // La tira sigue a quien acaba de moverse: ver `focoSeleccion`.
+    // CADA MARCO TIENE SU CARRUSEL, y se le avisa de hacia dónde ha ido el
+    // cursor: la dirección es lo único que el dibujado no puede deducir, porque
+    // con los héroes que llevan otros jugadores fuera de la lista, el índice
+    // puede saltar de 6 a 1 yendo hacia la derecha.
     if ((teclado && entrada.consumirFlanco('ArrowRight')) || (c && c.consumirBoton(15)) || eje > 0) {
-      puesto.personaje = personajeLibre(i, puesto.personaje, 1);
+      const previo = puesto.personaje;
+      puesto.personaje = personajeLibre(i, previo, 1);
+      if (puesto.personaje !== previo) Pantallas.deslizarPuesto(i, 1, previo);
       focoSeleccion = puesto.personaje;
     }
     if ((teclado && entrada.consumirFlanco('ArrowLeft')) || (c && c.consumirBoton(14)) || eje < 0) {
-      puesto.personaje = personajeLibre(i, puesto.personaje, -1);
+      const previo = puesto.personaje;
+      puesto.personaje = personajeLibre(i, previo, -1);
+      if (puesto.personaje !== previo) Pantallas.deslizarPuesto(i, -1, previo);
       focoSeleccion = puesto.personaje;
     }
     // CONFIRMAR, y solo si es suyo. Un héroe de pago se recorre pero no se

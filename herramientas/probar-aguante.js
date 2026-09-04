@@ -223,7 +223,13 @@ try {
   comprobar(informe.minuto >= MINUTOS * 0.90,
             `el reloj avanza hasta el final sin atascarse: minuto ` +
             `${informe.minuto.toFixed(1)} de ${MINUTOS} (el resto es hitstop)`);
-  comprobar(informe.bajas > 1000, `la horda muere de verdad (${informe.bajas} bajas)`);
+  // El minimo va POR MINUTO y no como cifra fija: la prueba se lanza tambien con
+  // tres o cinco minutos para mirar algo concreto, y un umbral pensado para
+  // veinte fallaba siempre en esas. Medido: unas 195 bajas por minuto con un
+  // jugador quieto y 434 con cuatro, asi que 60 es un suelo que solo se rompe si
+  // la horda ha dejado de morir de verdad.
+  comprobar(informe.bajas > MINUTOS * 60,
+            `la horda muere de verdad (${informe.bajas} bajas en ${MINUTOS} min)`);
   for (const [k, p] of Object.entries(informe.pools)) {
     // El de gemas es la excepcion, y a proposito: cuando se llena, la
     // experiencia de la siguiente gema se le SUMA a una que ya existe
