@@ -642,6 +642,11 @@ function dibujarSeleccion(ctxMundo, ctxUi, puestos, foco = -1) {
     }
     dibujarHeroe(ctxUi, corrido(v, dxNuevo), puesto.personaje, i, puesto.listo, t);
 
+    // Y las flechas, DESPUÉS y sin deslizarse: son del marco, no de la figura.
+    // Si viajaran con ella se irían detrás de la pilastra justo cuando están
+    // diciendo que se puede seguir moviendo.
+    dibujarFlechasPuesto(ctxUi, v, i, puesto, puestos);
+
     ctxUi.restore();
   }
 
@@ -680,6 +685,71 @@ function dibujarSeleccion(ctxMundo, ctxUi, puestos, foco = -1) {
 function dibujarHeroe(ctxUi, r, personaje, jugador, listo, t) {
   dibujarRetrato(ctxUi, r, personaje, jugador, t);
   dibujarTarjeta(ctxUi, r, personaje, jugador, listo, t);
+}
+
+// LAS FLECHAS DE UN JUGADOR, a los lados de su personaje y de su color.
+//
+// Las pidió Sergio y resuelven algo que la pantalla no decía en ninguna parte
+// desde que cada jugador tiene su propio marco: que ahí dentro hay más héroes y
+// que se pasa con izquierda y derecha. Antes lo contaban las flechas de los
+// lados de la tira y la fila de puntos, pero las dos hablaban del carrusel
+// compartido, que ya no existe.
+//
+// DEL COLOR DEL JUGADOR, que es lo que las ata a quien puede usarlas: con
+// cuatro marcos en fila, unas flechas neutras serían cuatro pares iguales y
+// cada uno tendría que averiguar cuáles son las suyas.
+//
+// PARPADEAN, y las dos a la vez. Se probó alternándolas —una y luego la otra—
+// y se lee como una instrucción de "primero aquí y luego allí" en vez de como
+// "por los dos lados hay más".
+//
+// NO SALEN SI YA HA CONFIRMADO: quien ha pulsado A ya no se mueve, y una flecha
+// encendida al lado de un héroe cerrado invita a algo que no va a pasar.
+// Tampoco si no hay a dónde ir — con todos los demás cogidos por otros, este
+// jugador tiene un solo héroe posible y las flechas mentirían.
+const FLECHA_ANCHO = 6;
+const FLECHA_ALTO = 9;
+const FLECHA_MARGEN = 11;     // desde el borde del hueco hasta la punta
+
+function dibujarFlechasPuesto(ctxUi, v, indice, puesto, puestos) {
+  if (puesto.listo) return;
+
+  // ¿Hay más de uno al que ir? Cuenta los que no lleva OTRO jugador, que es la
+  // misma lista que recorre el cursor (ver `personajeLibre` en main.js).
+  let disponibles = 0;
+  for (let p = 0; p < ORDEN_PERSONAJES.length; p++) {
+    const oc = ocupantePersonaje(puestos, p);
+    if (oc < 0 || oc === indice) disponibles++;
+    if (disponibles > 1) break;
+  }
+  if (disponibles < 2) return;
+
+  const color = COLOR_JUGADOR[indice % COLOR_JUGADOR.length];
+  const cy = v.y + BANDA_NOMBRE + (v.h - BANDA_NOMBRE - BANDA_ARMA) * 0.5;
+  const pulso = latido(900, 0.15);
+
+  flecha(ctxUi, v.x + FLECHA_MARGEN, cy, -1, pulso, color);
+  flecha(ctxUi, v.x + v.w - FLECHA_MARGEN, cy, 1, pulso, color);
+}
+
+// Punta maciza CON RIBETE. El ribete no es adorno: dentro del marco hay una
+// figura y detrás piedra, y una punta lisa se perdía contra las dos. Con el
+// contorno oscuro se lee esté delante lo que esté.
+function flecha(ctxUi, x, y, sentido, pulso, color) {
+  ctxUi.save();
+  ctxUi.globalAlpha = pulso;
+  ctxUi.beginPath();
+  ctxUi.moveTo(x + FLECHA_ANCHO * sentido, y);
+  ctxUi.lineTo(x - FLECHA_ANCHO * sentido, y - FLECHA_ALTO);
+  ctxUi.lineTo(x - FLECHA_ANCHO * sentido, y + FLECHA_ALTO);
+  ctxUi.closePath();
+  ctxUi.lineWidth = 3;
+  ctxUi.lineJoin = 'round';
+  ctxUi.strokeStyle = 'rgba(6,5,10,.8)';
+  ctxUi.stroke();
+  ctxUi.fillStyle = color;
+  ctxUi.fill();
+  ctxUi.restore();
 }
 
 // EL MARCO DE UN JUGADOR QUE TODAVÍA NO ESTÁ.
