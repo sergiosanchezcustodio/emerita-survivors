@@ -49,8 +49,9 @@ const RELAJACION = 0.8;
 const MAX_CORRECCION = 4;
 
 // Pasadas del solucionador por paso de lógica. Es la palanca directa entre "no
-// se solapan" y coste de CPU: cada pasada recorre TODOS los pares vecinos, y con
-// los valores por defecto son cinco recorridos por paso.
+// se solapan" y coste de CPU: con los valores por defecto son cinco pasadas
+// sobre la lista de pares cercanos (ver `juntarPares`, que es quien la arma en
+// un único recorrido de la rejilla).
 //
 // Ajustables en caliente desde la consola (`window.EMERITA.ajustes`) para poder
 // medir su coste real en una máquina concreta, que es algo que no se puede
@@ -160,17 +161,71 @@ function separarDuro(a, b) {
   b.y += ny * cb;
 }
 
-// Todos los pares entre dos celdas distintas.
-function paresEntre(items, indices, iniA, finA, iniB, finB, fn) {
-  for (let p = iniA; p < finA; p++) {
-    const a = items[indices[p]];
-    for (let q = iniB; q < finB; q++) fn(a, items[indices[q]]);
-  }
+// --- LA LISTA DE PARES CERCANOS ---------------------------------------------
+//
+// La rejilla se recorría CINCO VECES por paso —dos pasadas blandas y tres
+// duras— y cada recorrido volvía a generar los mismos pares desde cero. Medido
+// con 811 enemigos en el minuto 15:
+//
+//   29.254 pares candidatos por recorrido  x5 = 146.270 visitas por paso
+//    4.137 de ellos (14%) lo bastante cerca para que la cuenta sirva de algo
+//    1.857 solapados de verdad en separación, 388 en cuerpo
+//
+// O sea que el 86% del trabajo era mirar parejas que estaban lejos, y encima
+// se miraba cinco veces. En el perfil de CPU eso era el 78% de la lógica.
+//
+// Ahora la rejilla se recorre UNA vez, se apuntan los pares que están cerca, y
+// las cinco pasadas van sobre esa lista. Mismo resultado y una quinta parte del
+// recorrido: 29.254 + 5x4.137 = 49.939 visitas en vez de 146.270.
+//
+// SE GUARDAN ÍNDICES DEL POOL, no objetos: los índices no cambian durante la
+// separación —el pool no se reordena hasta `retirarMuertos`, que va mucho
+// después— y así no se asigna un solo objeto. Dos Int32Array preasignados, como
+// la propia rejilla.
+//
+// Y EN EL MISMO ORDEN en que los visitaba el recorrido. No es un detalle: la
+// pasada dura es Gauss-Seidel —mueve dentro del bucle— así que el resultado
+// depende del orden de los pares. Manteniéndolo, la partida sale exactamente
+// igual que antes, bit a bit (comprobado con la huella de 3600 fotogramas).
+const MAX_PARES = 32000;
+const paresA = new Int32Array(MAX_PARES);
+const paresB = new Int32Array(MAX_PARES);
+let nPares = 0;
+
+// Cuánto puede acercarse un par DURANTE las pasadas, y por tanto cuánto margen
+// hay que dejar al apuntar la lista.
+//
+// Ni `empujar` ni `separarDuro` acercan a nadie: los dos separan. Lo único que
+// puede meter a dos enemigos el uno hacia el otro es la corrección que cada uno
+// recibe de SUS OTROS vecinos, y esa está topada a MAX_CORRECCION por pasada
+// blanda y por cuerpo: dos cuerpos por dos pasadas son 16 px. Los ocho de
+// propina cubren lo que puede mover una pasada dura, que solo actúa sobre los
+// pocos que ya están solapados —y esos ya están en la lista.
+//
+// SE CALCULA CON LAS ITERACIONES DE VERDAD y no con un 2 escrito aquí, porque
+// `ajustes.iteraciones` se toca en caliente desde la consola para medir su
+// coste. Con el 2 fijo, subirlo a cuatro dejaba el margen a la mitad de lo que
+// hacía falta y la separación empezaba a perder pares sin que nada avisara.
+//
+// El techo lo pone la rejilla, no este número: la consulta de media vecindad
+// encuentra pares hasta 64 px (ver CELDA en core/rejilla.js), así que pedir más
+// margen del que cabe ahí no añade nada. Con los valores por defecto son 24, y
+// el par más exigente del bestiario —dos cíclopes— se toca a 44,8.
+function margenPar() {
+  return 2 * MAX_CORRECCION * ajustes.iteraciones + 8;
 }
 
-// Recorre cada par de enemigos vecinos EXACTAMENTE UNA VEZ y le aplica `fn`.
-// `fn` es una referencia a función de módulo, no una closure: no se asigna nada.
-function recorrerPares(items, rejilla, fn) {
+// Recorre cada par de enemigos vecinos EXACTAMENTE UNA VEZ y apunta los que
+// están cerca.
+//
+// El filtro va ESCRITO A MANO dentro de los dos bucles en vez de en una función
+// `anotar(a, b)` compartida, y no es por gusto: así la posición y el radio de
+// `a` se leen UNA VEZ POR FILA en vez de una vez por par. Son tres lecturas de
+// propiedad menos en las 29.000 parejas que se miran por paso, y en el perfil
+// esa función suelta salía al 7,6% ella sola.
+function juntarPares(items, rejilla) {
+  let n = 0;                       // local: `nPares` es de módulo y se paga
+  const MARGEN_PAR = margenPar();  // una vez por paso, no por par
   const inicio = rejilla.inicio;
   const indices = rejilla.indices;
   const columnas = rejilla.columnas;
@@ -190,24 +245,79 @@ function recorrerPares(items, rejilla, fn) {
 
       // Pares dentro de la propia celda
       for (let p = ini; p < fin; p++) {
-        const a = items[indices[p]];
-        for (let q = p + 1; q < fin; q++) fn(a, items[indices[q]]);
+        const ia = indices[p];
+        const a = items[ia];
+        const ax = a.x, ay = a.y, ar = a.radioSep + MARGEN_PAR;
+        for (let q = p + 1; q < fin; q++) {
+          const ib = indices[q];
+          const b = items[ib];
+          const dx = b.x - ax;
+          const dy = b.y - ay;
+          const r = ar + b.radioSep;
+          if (dx * dx + dy * dy > r * r || n >= MAX_PARES) continue;
+          paresA[n] = ia;
+          paresB[n] = ib;
+          n++;
+        }
       }
 
       // Derecha
       if (cx + 1 < columnas) {
         const d = c + 1;
-        paresEntre(items, indices, ini, fin, inicio[d], inicio[d + 1], fn);
+        n = paresEntre(items, indices, ini, fin, inicio[d], inicio[d + 1], n);
       }
       if (ultimaFila) continue;
 
       const base = c + columnas;
       // Abajo-izquierda, abajo, abajo-derecha
-      if (cx > 0)            paresEntre(items, indices, ini, fin, inicio[base - 1], inicio[base], fn);
-      paresEntre(items, indices, ini, fin, inicio[base], inicio[base + 1], fn);
-      if (cx + 1 < columnas) paresEntre(items, indices, ini, fin, inicio[base + 1], inicio[base + 2], fn);
+      if (cx > 0)            n = paresEntre(items, indices, ini, fin, inicio[base - 1], inicio[base], n);
+      n = paresEntre(items, indices, ini, fin, inicio[base], inicio[base + 1], n);
+      if (cx + 1 < columnas) n = paresEntre(items, indices, ini, fin, inicio[base + 1], inicio[base + 2], n);
     }
   }
+  nPares = n;
+}
+
+// Todos los pares entre dos celdas distintas. Devuelve cuántos van apuntados.
+//
+// El tope de MAX_PARES no se alcanza jugando —son 32 vecinos cercanos por
+// enemigo con el pool lleno, y un cuerpo sólido no admite ni la mitad a su
+// alrededor— pero se comprueba igual: es lo que garantiza que nunca se escriba
+// fuera del array si algún día crece el bestiario.
+function paresEntre(items, indices, iniA, finA, iniB, finB, n) {
+  const MARGEN_PAR = margenPar();
+  for (let p = iniA; p < finA; p++) {
+    const ia = indices[p];
+    const a = items[ia];
+    const ax = a.x, ay = a.y, ar = a.radioSep + MARGEN_PAR;
+    for (let q = iniB; q < finB; q++) {
+      const ib = indices[q];
+      const b = items[ib];
+      const dx = b.x - ax;
+      const dy = b.y - ay;
+      const r = ar + b.radioSep;
+      if (dx * dx + dy * dy > r * r || n >= MAX_PARES) continue;
+      paresA[n] = ia;
+      paresB[n] = ib;
+      n++;
+    }
+  }
+  return n;
+}
+
+// Las dos pasadas, cada una sobre la lista.
+//
+// Son dos funciones y no una con la función como parámetro, y esa es la
+// segunda mitad de la optimización: con un solo destino posible, el motor
+// puede meter `empujar` y `separarDuro` dentro del bucle (monomórfico). Con el
+// parámetro, cada par pagaba una llamada indirecta que no se puede inlinear —
+// eran 146.270 llamadas por paso.
+function pasadaBlanda(items) {
+  for (let i = 0; i < nPares; i++) empujar(items[paresA[i]], items[paresB[i]]);
+}
+
+function pasadaDura(items) {
+  for (let i = 0; i < nPares; i++) separarDuro(items[paresA[i]], items[paresB[i]]);
 }
 
 // Vuelca lo acumulado sobre las posiciones.
@@ -537,7 +647,14 @@ export function separacion(enemigos, jugadores) {
   // La rejilla se construyó antes y NO se reconstruye entre pasadas: cada una
   // mueve 4px como mucho, y entre el alcance real de un par (44,8 con dos
   // cíclopes) y los 64 que cubre la consulta 3x3 hay 19px de holgura de sobra.
+  // Por lo mismo la lista de pares se arma una vez y vale para las cinco.
   const rejilla = enemigos.rejilla;
+
+  // UN SOLO RECORRIDO DE LA REJILLA para las cinco pasadas. Ver la cabecera de
+  // `juntarPares`: los pares no cambian entre pasadas —la rejilla tampoco se
+  // reconstruye— así que volver a generarlos cinco veces era trabajo repetido.
+  juntarPares(items, rejilla);
+
   for (let iter = 0; iter < ajustes.iteraciones; iter++) {
     for (let k = 0; k < n; k++) {
       const e = items[k];
@@ -545,7 +662,7 @@ export function separacion(enemigos, jugadores) {
       e.sepY = 0;
       e.contactos = 0;
     }
-    recorrerPares(items, rejilla, empujar);
+    pasadaBlanda(items);
     aplicarCorrecciones(items, n);
   }
 
@@ -562,9 +679,7 @@ export function separacion(enemigos, jugadores) {
   // El empuje del jugador puede volver a meter a alguien dentro de otro enemigo,
   // pero solo a los pocos que le tocan, y el frame siguiente lo deshace.
   topeAcercamiento(items, n);
-  for (let iter = 0; iter < ajustes.pasadasDuras; iter++) {
-    recorrerPares(items, rejilla, separarDuro);
-  }
+  for (let iter = 0; iter < ajustes.pasadasDuras; iter++) pasadaDura(items);
   // Cada jugador aparta lo suyo. El último en tocar manda, y como los cuerpos
   // de dos jugadores nunca se solapan entre sí, no compiten por lo mismo.
   for (let i = 0; i < jugadores.length; i++) {

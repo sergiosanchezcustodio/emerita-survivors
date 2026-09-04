@@ -147,11 +147,22 @@ donde se quedó, sin reiniciar nada.
 
 ---
 
-## Los cuatro
+## Los héroes
 
 Cada personaje lleva **su** arma, la que nadie más puede llevar. En cooperativo
 eso garantiza que los cuatro arrancan jugando distinto, y el sorteo de subida de
 nivel se encarga de que sigan sin repetirse.
+
+Los cuatro de siempre —Eric, Lucy, Sara y Vicky— son gratis y lo seguirán
+siendo. Detrás hay **cuatro más que se desbloquean en la tienda**, y la pantalla
+de selección se recorre como un carrusel: los cuatro marcos de la ilustración
+son una ventana sobre la lista, no la lista entera, y los héroes pasan por
+detrás de la piedra como quien mira por una ventana. Los que todavía no son
+tuyos se ven en penumbra con su precio, que es la única forma de saber que
+están ahí.
+
+> Esos cuatro llevan **arte prestada** mientras Sergio los dibuja: nombre, arma,
+> precio y estadísticas son definitivos, el dibujo no. La pantalla lo dice.
 
 ![Selección de personaje](docs/capturas/menu_seleccion_jugadores.jpg)
 
@@ -368,6 +379,20 @@ Todas offline, en PowerShell y sin dependencias. Ninguna forma parte del juego.
 | `empaquetar.ps1` | Genera la aplicación de escritorio |
 | `empaquetar-web.ps1` | Genera el zip para itch.io (o cualquier host estático) |
 | `publicar-itch.ps1` | Sube ese zip a itch.io con `butler` |
+| `medir-lapida.ps1` | Dónde caen los renglones del menú del título, sobre la lámina |
+| `medir-marcos.ps1` | Dónde caen los cuatro marcos de la pantalla de selección |
+
+Y las pruebas, que abren un navegador de verdad y se contestan solas:
+
+| Prueba | Qué comprueba |
+|---|---|
+| `npm run probar` | Las siete de siempre: matemáticas deterministas, códigos de invitación, búfer de pulsaciones, sincronización, progreso y nube |
+| `probar-determinismo.js` | Que la misma partida sale igual dos veces, que los pools sucios de otra partida no la cambian, y que la huella de 3600 fotogramas sigue siendo la de siempre |
+| `probar-aguante.js` | Veinte minutos de partida seguidos (`[minutos] [jugadores]`): que nada se vuelve NaN, que ningún pool se agota, que los contadores no se desvían y que la memoria no crece |
+| `probar-navegacion.js` | Que se llega a cada pantalla y, sobre todo, que se puede volver |
+| `probar-heroes.js` | Que los héroes de pago se compran, se cobran y solo entonces se pueden elegir |
+| `probar-partida-en-red.js` | Dos o cuatro navegadores jugando la misma partida por WebRTC, con caída de red y reenganche |
+| `medir-rendimiento.js` | Qué cuesta un paso con 800 enemigos, y el perfil de CPU por función (`logica`, `dibujo`, `memoria`) |
 
 ---
 
