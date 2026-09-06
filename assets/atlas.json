@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260906213826",
+    "version":  "20260906214325",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -418,9 +418,9 @@
                                      },
                       "sofi":  {
                                    "archivo":  "personajes/sofi.png",
-                                   "w":  38,
+                                   "w":  42,
                                    "h":  112,
-                                   "anclaX":  19,
+                                   "anclaX":  21,
                                    "anclaY":  112,
                                    "frames":  18,
                                    "clips":  {
