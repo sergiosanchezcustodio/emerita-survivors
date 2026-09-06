@@ -3064,7 +3064,7 @@ $CATALOGO = @(
     # donde el ataud dice a quien hay que ir a levantar. Cuando existan, son
     # cuatro filas mas en la tabla de ATAUDES de aqui abajo.
     @{ src='characters\Helen.png'; dst='personajes\helen.png'; id='helen'; alto=23; anchoFijo=0; tol=0
-       gifAnim='characters\Helen.gif'; idle=0; nQuieto=2; fpsAndar=14 }
+       gifAnim='characters\Helen.gif'; idle=0; nQuieto=2; fpsAndar=14; caraMargen=0.68 }
     @{ src='characters\Julie.png'; dst='personajes\julie.png'; id='julie'; alto=25; anchoFijo=0; tol=0
        gifAnim='characters\Julie.gif'; idle=0; nQuieto=2; fpsAndar=14 }
     @{ src='characters\Say.png';   dst='personajes\say.png';   id='say';   alto=26; anchoFijo=0; tol=0
@@ -3447,7 +3447,21 @@ foreach ($e in $CATALOGO) {
             # fraccionAlto 0.30 sigue siendo la franja que se usa para ENCUADRAR
             # (centroide y ancho de la cabeza); el alto de la caja sale despues
             # de la proporcion pedida y baja hasta el pecho.
-            [Procesador]::RecortarCabeza($fuenteRetrato, $rutaCara, $CARA_W, $CARA_H, 0.30, 0.22) | Out-Null
+            # EL ENCUADRE, AJUSTABLE POR PERSONAJE.
+            #
+            # `caraMargen` es cuanto se abre la caja alrededor de la cabeza:
+            # subirlo aleja el plano y entra mas cuerpo. El 0,22 de siempre vale
+            # para siete de los ocho, y el que no es Helen — esta dibujada con
+            # la cabeza mas grande en proporcion al cuerpo, asi que la misma
+            # cuenta le encuadra un primer plano donde a las demas les coge
+            # hasta los hombros. Sergio lo pidio hasta el pecho, como el resto.
+            #
+            # Es un numero por personaje y no una regla automatica a proposito:
+            # "cuanto cuerpo se ve" es una decision de encuadre, y una formula
+            # que la adivine acertaria en unas y fallaria en otras sin que nadie
+            # pueda corregirla sin tocar el algoritmo.
+            $margenCara = if ($null -ne $e.caraMargen) { [double]$e.caraMargen } else { 0.22 }
+            [Procesador]::RecortarCabeza($fuenteRetrato, $rutaCara, $CARA_W, $CARA_H, 0.30, $margenCara) | Out-Null
             $atlas[$e.id + 'Cara'] = [ordered]@{
                 archivo = "personajes/$($e.id)-cara.png"
                 w = $CARA_W; h = $CARA_H; anclaX = [int]($CARA_W/2); anclaY = $CARA_H; frames = 1

@@ -129,11 +129,16 @@ export const PERSONAJES = {
   sofi: {
     nombre: 'Sofi',
     sprite: 'sofi',
-    descripcion: 'Una piedra bien puesta vale por una legión.',
-    // Honda balear: piedra lenta que REBOTA de un enemigo a otro —tres saltos
-    // al 10— y empuja como ninguna. Premia el bulto, no la puntería, así que
-    // pide correr por delante de la horda: de ahí la velocidad más alta.
-    arma: 'honda',
+    descripcion: 'No hace falta apuntar cuando el suelo entero se mueve.',
+    // Onda expansiva: un anillo que se abre desde ella en TODAS las
+    // direcciones, sin apuntar a nada. Encaja con sus `mods`, que ya eran los
+    // de un personaje rápido y frágil: el anillo despeja el hueco por el que
+    // salir y la velocidad es lo que te saca por él.
+    //
+    // Llevaba la honda balear, que también premiaba el bulto sobre la
+    // puntería, pero desde fuera: la piedra iba a buscar a la horda. Esto es lo
+    // contrario — la horda tiene que venir a ella.
+    arma: 'ondaExpansiva',
     coste: 5000,
     mods: { vidaMaxima: 0.9, velocidad: 1.2, radioRecogida: 1.0 }
   }
