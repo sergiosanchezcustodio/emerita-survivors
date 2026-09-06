@@ -114,7 +114,7 @@ export const PERSONAJES = {
   say: {
     nombre: 'Say',
     sprite: 'say',
-    descripcion: 'Que giren ellas. Yo miro.',
+    descripcion: 'Cada libro que abre ya no vuelve a cerrarse.',
     // Códice Infernal: un libro orbitando al empezar y diez al nivel 10, cada
     // vez más rápidos. Se juega colocándose, no disparando, y con la recogida
     // alta para que el nivel llegue sin tener que ir a por las gemas — que en

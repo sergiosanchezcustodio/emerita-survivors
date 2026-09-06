@@ -79,9 +79,11 @@ release. Con `-Zip` sale además el comprimido listo para enviar (200 MB).
 ## Al arrancar
 
 Dos pantallas antes del menú. La primera es la ficha del proyecto —con qué está
-hecho, la licencia y el aviso de que se ha usado IA—, y la segunda cuenta de
-dónde sale la horda, con el texto subiendo por el hueco de una placa de piedra
-que lleva la bandera de Extremadura envolviéndola.
+hecho, la licencia y el aviso de que se ha usado IA—, y la segunda **presenta el
+juego**: dónde pasa, qué se ha despertado, qué hay y qué se te pide, con el
+texto subiendo por el hueco de una placa de piedra que lleva la bandera de
+Extremadura envolviéndola. La historia de cada sitio no va aquí: se cuenta al
+elegirlo, justo antes de jugarlo.
 
 Las dos se pasan sin esperar: `Start`, `Esc` o `Enter` van a la siguiente, y
 **manteniendo `A`** se salta la intro entera de una vez. Los dos atajos salen
@@ -207,6 +209,25 @@ Se compran una vez con denarios y se quedan desbloqueadas para siempre.
 
 ---
 
+## Elegir dónde se juega
+
+Lo último antes de empezar, cuando ya se ha decidido con quién. La pantalla
+enseña **la región entera**: Emerita Augusta arriba y, debajo, los cinco sitios
+que quedan por escribir —Cáceres, Trujillo, Monfragüe, Guadalupe y Alcántara—
+apagados y con «próximamente». Un mapa que solo muestra donde ya puedes ir no es
+un mapa. Cada nivel se abre al **ganar** en el anterior: morir en el minuto 28
+no abre nada.
+
+![Elegir nivel](docs/capturas/menu_seleccion_nivel.jpg)
+
+Y elegido el sitio, **su historia** sube por la misma placa de piedra antes del
+primer fotograma. Cada nivel cuenta la suya y vive en su propio archivo de
+datos; se salta con cualquier tecla, como la intro.
+
+![Historia del nivel](docs/capturas/historia_nivel.jpg)
+
+---
+
 ## La ficha
 
 En cualquier momento de la partida, `Tab` abre la ficha del jugador: vida,
@@ -284,7 +305,7 @@ Tres secciones:
 <tr>
 <td width="33%"><img src="docs/capturas/tienda_potenciadores.jpg" alt="Potenciadores"><p align="center"><b>Potenciadores</b><br><sub>mejoras permanentes</sub></p></td>
 <td width="33%"><img src="docs/capturas/tienda_mascotas.jpg" alt="Mascotas"><p align="center"><b>Mascotas</b><br><sub>se desbloquean</sub></p></td>
-<td width="33%"><img src="docs/capturas/tienda_jugadores.jpg" alt="Jugadores"><p align="center"><b>Jugadores</b><br><sub>los cuatro, gratis</sub></p></td>
+<td width="33%"><img src="docs/capturas/tienda_jugadores.jpg" alt="Jugadores"><p align="center"><b>Jugadores</b><br><sub>ocho, cuatro gratis</sub></p></td>
 </tr>
 </table>
 
