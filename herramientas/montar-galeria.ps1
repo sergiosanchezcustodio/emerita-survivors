@@ -333,27 +333,49 @@ foreach ($b in $bichos) {
 Guardar $o 'bestiario.png'
 
 # --- 3. PERSONAJES ----------------------------------------------------------
+#
+# LAS OCHO, EN DOS FILAS. Eran cuatro en una sola fila mientras los otros
+# cuatro llevaban arte prestado: ensenar a Quinto con el cuerpo de Eric habria
+# sido ensenar a Eric dos veces. Ya estan dibujadas.
+#
+# Y se ven CON SU ESTATURA, que es medio motivo para mirar esta lamina: todas
+# se pegan al suelo de su celda -no se centran a media altura- porque una
+# diferencia de tres pixeles entre Helen y Sofi solo se lee si las dos apoyan
+# los pies en la misma linea.
 $gente = @(
     @{ id = 'eric';  nombre = 'ERIC';  arma = 'Scutum';          nota = 'Escudos que orbitan' }
     @{ id = 'lucy';  nombre = 'LUCY';  arma = 'Recortada';       nota = 'A bocajarro' }
     @{ id = 'sara';  nombre = 'SARA';  arma = 'Campo electrico'; nota = 'Nadie se acerca gratis' }
     @{ id = 'vicky'; nombre = 'VICKY'; arma = 'Katana';          nota = 'Barrido de 360' }
+    @{ id = 'helen'; nombre = 'HELEN'; arma = 'Arco corto';      nota = 'Nueve flechas a la vez' }
+    @{ id = 'julie'; nombre = 'JULIE'; arma = 'Lanzallamas';     nota = 'Hay que entrar y quedarse' }
+    @{ id = 'say';   nombre = 'SAY';   arma = 'Satelites';       nota = 'Dos lunas en orbita' }
+    @{ id = 'sofi';  nombre = 'SOFI';  arma = 'Honda balear';    nota = 'La piedra rebota' }
 )
 $escG = 2.0
 $celda = 300
-$ancho = $celda * $gente.Count
-$alto = 380
+$altoFila = 380
+$porFila = 4
+$nFilas = [math]::Ceiling($gente.Count / $porFila)
+$ancho = $celda * $porFila
+$alto = $altoFila * $nFilas
 $o = Nuevo $ancho $alto
 Degradado $o.g $ancho $alto
+# La linea del suelo dentro de cada fila: los pies de todas caen aqui, mida lo
+# que mida cada una.
+$suelo = 244
 $i = 0
 foreach ($p2 in $gente) {
     $e = $atlas.entidades.($p2.id)
     $w = [int]([math]::Round($e.w * $escG)); $h = [int]([math]::Round($e.h * $escG))
-    $cx = $celda * $i + $celda / 2
-    Fotograma $o.g $p2.id ([int]($cx - $w / 2)) 40 $escG | Out-Null
-    Texto $o.g $p2.nombre $cx 268 15 $ORO $true $true
-    Texto $o.g $p2.arma $cx 300 11 $HUESO $false $true
-    Texto $o.g $p2.nota $cx 326 9 $APAGADO $false $true
+    $col = $i % $porFila
+    $fila = [math]::Floor($i / $porFila)
+    $cx = $celda * $col + $celda / 2
+    $y0 = $altoFila * $fila
+    Fotograma $o.g $p2.id ([int]($cx - $w / 2)) ([int]($y0 + $suelo - $h)) $escG | Out-Null
+    Texto $o.g $p2.nombre $cx ($y0 + 268) 15 $ORO $true $true
+    Texto $o.g $p2.arma $cx ($y0 + 300) 11 $HUESO $false $true
+    Texto $o.g $p2.nota $cx ($y0 + 326) 9 $APAGADO $false $true
     $i++
 }
 Guardar $o 'personajes.png'

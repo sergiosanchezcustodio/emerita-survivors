@@ -2997,24 +2997,34 @@ $CATALOGO = @(
     # nombre, Livia era Lucy, y asi. Sergio las ha dibujado y esos nombres de
     # relleno se han ido con el arte prestado.
     #
-    # MISMOS NUMEROS QUE LAS CUATRO DE ARRIBA, y a proposito: el GIF viene con
-    # el mismo formato -1024x1024, 16 fotogramas, alfa binaria- asi que no hay
-    # nada que ajustar. Si alguna pidiera otro `alto` seria porque esta dibujada
-    # a otra escala, y entonces lo que hay que arreglar es el dibujo: ocho
-    # heroes con ocho alturas distintas no se leen como el mismo juego.
+    # CADA UNA CON SU ESTATURA, y esto es una decision de Sergio, no un ajuste
+    # tecnico: Helen es la mas baja de las ocho, Julie un poco mas baja que
+    # Sara, Say mide lo que Vicky y Sofi es la mas alta de todas, un poco por
+    # encima de Lucy. Los cuatro de arriba se quedan los cuatro en 26, que es de
+    # donde salen las referencias.
+    #
+    # NO TOCA NADA DEL JUEGO. `alto` es el tamano del DIBUJO; el circulo de
+    # colision del jugador es una constante fija (`radio: 8` en BASE, ver
+    # entidades/jugador.js) y no se deriva del sprite. Una heroina mas alta no
+    # recibe mas golpes ni ocupa mas sitio: solo se ve mas alta.
+    #
+    # Los numeros salen de las propias ilustraciones. Sergio las redibujo sobre
+    # el mismo lienzo -408x612 las tres, 435x573 Helen- y ahi la altura del
+    # contenido ES la estatura: Helen 501, Julie 527, Say 559, Sofi 594. Con Say
+    # anclada al 26 de Vicky, las demas caen solas en 23, 25 y 28.
     #
     # TODAVIA SIN ATAUD: no hay `<Nombre>_ataud.png` para estas cuatro. El juego
     # aguanta -ver `dibujar` en entidades/jugador.js, que sin ataud sigue
     # pintando el reloj de la reanimacion- pero se nota en cooperativo, que es
     # donde el ataud dice a quien hay que ir a levantar. Cuando existan, son
     # cuatro filas mas en la tabla de ATAUDES de aqui abajo.
-    @{ src='characters\Helen.png'; dst='personajes\helen.png'; id='helen'; alto=26; anchoFijo=0; tol=0
+    @{ src='characters\Helen.png'; dst='personajes\helen.png'; id='helen'; alto=23; anchoFijo=0; tol=0
        gifAnim='characters\Helen.gif'; idle=0; nQuieto=2; fpsAndar=14 }
-    @{ src='characters\Julie.png'; dst='personajes\julie.png'; id='julie'; alto=26; anchoFijo=0; tol=0
+    @{ src='characters\Julie.png'; dst='personajes\julie.png'; id='julie'; alto=25; anchoFijo=0; tol=0
        gifAnim='characters\Julie.gif'; idle=0; nQuieto=2; fpsAndar=14 }
     @{ src='characters\Say.png';   dst='personajes\say.png';   id='say';   alto=26; anchoFijo=0; tol=0
        gifAnim='characters\Say.gif';   idle=0; nQuieto=2; fpsAndar=14 }
-    @{ src='characters\Sofi.png';  dst='personajes\sofi.png';  id='sofi';  alto=26; anchoFijo=0; tol=0
+    @{ src='characters\Sofi.png';  dst='personajes\sofi.png';  id='sofi';  alto=28; anchoFijo=0; tol=0
        gifAnim='characters\Sofi.gif';  idle=0; nQuieto=2; fpsAndar=14 }
 
     # ATAUDES. Uno por personaje, y cada uno cuenta quien iba dentro: el del

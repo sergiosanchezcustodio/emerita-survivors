@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260906202226",
+    "version":  "20260906213826",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -292,10 +292,10 @@
                                       },
                       "helen":  {
                                     "archivo":  "personajes/helen.png",
-                                    "w":  79,
-                                    "h":  104,
-                                    "anclaX":  40,
-                                    "anclaY":  104,
+                                    "w":  70,
+                                    "h":  92,
+                                    "anclaX":  35,
+                                    "anclaY":  92,
                                     "frames":  18,
                                     "clips":  {
                                                   "andar":  {
@@ -311,9 +311,9 @@
                                               },
                                     "solido":  [
                                                    8,
-                                                   15,
+                                                   13,
                                                    24,
-                                                   74
+                                                   65
                                                ]
                                 },
                       "julieCara":  {
@@ -334,10 +334,10 @@
                                       },
                       "julie":  {
                                     "archivo":  "personajes/julie.png",
-                                    "w":  45,
-                                    "h":  104,
+                                    "w":  44,
+                                    "h":  100,
                                     "anclaX":  22,
-                                    "anclaY":  104,
+                                    "anclaY":  100,
                                     "frames":  18,
                                     "clips":  {
                                                   "andar":  {
@@ -355,7 +355,7 @@
                                                    7,
                                                    13,
                                                    26,
-                                                   80
+                                                   77
                                                ]
                                 },
                       "sayCara":  {
@@ -394,10 +394,10 @@
                                                            }
                                             },
                                   "solido":  [
-                                                 7,
+                                                 8,
                                                  13,
                                                  26,
-                                                 76
+                                                 80
                                              ]
                               },
                       "sofiCara":  {
@@ -418,10 +418,10 @@
                                      },
                       "sofi":  {
                                    "archivo":  "personajes/sofi.png",
-                                   "w":  36,
-                                   "h":  104,
-                                   "anclaX":  18,
-                                   "anclaY":  104,
+                                   "w":  38,
+                                   "h":  112,
+                                   "anclaX":  19,
+                                   "anclaY":  112,
                                    "frames":  18,
                                    "clips":  {
                                                  "andar":  {
@@ -436,10 +436,10 @@
                                                             }
                                              },
                                    "solido":  [
-                                                  5,
-                                                  15,
-                                                  22,
-                                                  77
+                                                  6,
+                                                  16,
+                                                  28,
+                                                  83
                                               ]
                                },
                       "ericAtaud":  {

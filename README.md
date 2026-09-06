@@ -161,11 +161,16 @@ detrás de la piedra como quien mira por una ventana. Los que todavía no son
 tuyos se ven en penumbra con su precio, que es la única forma de saber que
 están ahí.
 
-Los cuatro de pago son **Helen, Julie, Say y Sofi**, y ya están dibujados: cada
+Los cuatro de pago son **Helen, Julie, Say y Sofi**, y ya están dibujadas: cada
 una con su GIF de dieciséis fotogramas, su retrato y su cuerpo entero para la
-ficha, como los cuatro de siempre. Lo único que les falta todavía es su ataúd
-—el dibujo que en cooperativo dice a quién hay que ir a levantar—; mientras no
-lo tengan, quien cae deja en su sitio el reloj de la reanimación.
+ficha, como las cuatro de siempre. **Y cada una con su estatura**: Helen es la
+más baja de las ocho, Julie un poco más baja que Sara, Say mide lo que Vicky y
+Sofi es la más alta. Es solo el dibujo — el círculo de colisión es el mismo para
+todo el mundo, así que ser más alta no es recibir más golpes.
+
+Lo único que les falta todavía es su ataúd —el dibujo que en cooperativo dice a
+quién hay que ir a levantar—; mientras no lo tengan, quien cae deja en su sitio
+el reloj de la reanimación.
 
 ![Selección de personaje](docs/capturas/menu_seleccion_jugadores.jpg)
 
