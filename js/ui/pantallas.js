@@ -842,7 +842,7 @@ function dibujarRetrato(ctxUi, r, p, ocupante, t) {
     //
     // El halo son cuatro copias desplazadas tres píxeles, cada una a un tercio
     // de la luz. Es lo que separa "esta figura está más clara" de "esta figura
-    // alumbra": sin él, un personaje de ropa oscura —Vicky, Livia— apenas se
+    // alumbra": sin él, un personaje de ropa oscura —Vicky, Julie— apenas se
     // encendía, porque sumar luz sobre un píxel oscuro sigue dando oscuro. El
     // halo lo pone alrededor, contra la piedra, que es donde se ve.
     // A MEDIA LUZ SI NO ES TUYO. Un héroe de pago con el cursor encima tiene que

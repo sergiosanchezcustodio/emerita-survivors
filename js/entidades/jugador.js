@@ -575,15 +575,22 @@ export class Jugador {
     // Se dibuja SIN parpadeo de i-frames y sin espejo: un ataúd no mira a
     // ningún lado y no está recibiendo golpes.
     if (this.abatido) {
+      // SIN ATAÚD DIBUJADO SE SIGUE ADELANTE, y esto no es una precaución: hay
+      // cuatro héroes que todavía no tienen el suyo (ver datos/personajes.js).
+      // Antes se salía aquí mismo, y salirse se llevaba por delante también el
+      // reloj de la reanimación de más abajo: quien caía desaparecía del mapa
+      // entero, sin ataúd y sin nada que dijera que ahí había alguien a quien
+      // ir a levantar. Sin dibujo se pierde el dibujo, no la mecánica.
       const metaAtaud = Recursos.meta(this.personaje + 'Ataud');
       const imgAtaud = Recursos.imagen(this.personaje + 'Ataud');
-      if (!metaAtaud || !imgAtaud) return;
       const axF = Math.round(this.xVista * ESCALA_ARTE);
       const ayF = Math.round(this.yVista * ESCALA_ARTE);
-      ctx.drawImage(imgAtaud,
-        0, 0, metaAtaud.w, metaAtaud.h,
-        (axF - (metaAtaud.w >> 1)) / ESCALA_ARTE, (ayF - metaAtaud.h) / ESCALA_ARTE,
-        metaAtaud.w / ESCALA_ARTE, metaAtaud.h / ESCALA_ARTE);
+      if (metaAtaud && imgAtaud) {
+        ctx.drawImage(imgAtaud,
+          0, 0, metaAtaud.w, metaAtaud.h,
+          (axF - (metaAtaud.w >> 1)) / ESCALA_ARTE, (ayF - metaAtaud.h) / ESCALA_ARTE,
+          metaAtaud.w / ESCALA_ARTE, metaAtaud.h / ESCALA_ARTE);
+      }
 
       // Cuánto queda para levantarse, en un arco a los pies del ataúd. Va en el
       // MUNDO y no en el panel de la esquina a propósito: lo que hay que decidir

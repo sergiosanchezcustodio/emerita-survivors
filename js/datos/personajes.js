@@ -66,33 +66,33 @@ export const PERSONAJES = {
     mods: { vidaMaxima: 0.95, velocidad: 1.05, radioRecogida: 1.0 }
   },
 
-  // --- LOS CUATRO DE PAGO, TODAVIA CON ARTE PRESTADO -------------------------
+  // --- LAS CUATRO DE PAGO ----------------------------------------------------
   //
-  // Estos cuatro existen para que el desbloqueo y el carrusel se puedan jugar
-  // HOY, antes de que Sergio dibuje a nadie. Todo lo suyo es definitivo menos
-  // el dibujo: nombre, arma, `mods` y precio se quedan como están; `sprite`
-  // apunta al arte de otro y `provisional: true` es lo que hace que la pantalla
-  // de selección lo diga en voz alta, para que nadie se crea que Quinto es Eric.
-  //
-  // SUSTITUIRLOS ES CAMBIAR UNA LÍNEA CADA UNO. Cuando llegue el dibujo:
-  //
-  //   1. `resources/characters/Quinto.gif` y `Quinto_ataud.png`.
-  //   2. Dos filas en la tabla `$PERSONAJES` de herramientas/procesar-assets.ps1
-  //      —la del personaje y la del ataúd—, copiadas de las de Eric.
-  //   3. Aqui: `sprite: 'quinto'` y fuera el `provisional`.
+  // YA DIBUJADAS. Estos cuatro huecos existían antes de que hubiera arte, con
+  // arte prestado y nombres de relleno —Quinto era Eric con otro nombre, Livia
+  // era Lucy— y `provisional: true` para que la pantalla de selección lo dijera
+  // en voz alta. Sergio las ha dibujado y los nombres de relleno se han ido con
+  // el arte prestado; lo que NO se ha tocado es el arma, los `mods` y el precio,
+  // que ya estaban puestos y jugados.
   //
   // De `sprite` cuelga TODO el arte —el muñeco del mundo, el retrato de la
   // ficha, la cara del HUD y el ataúd— porque los cuatro salen del mismo id del
-  // atlas. Por eso basta con esa palabra: ver `personaje` en entidades/jugador.js.
+  // atlas. Ver `personaje` en entidades/jugador.js.
+  //
+  // TODAVÍA SIN ATAÚD. Estas cuatro no tienen `<Nombre>_ataud.png` dibujado, y
+  // el ataúd es lo que en cooperativo dice a quién hay que ir a levantar sin
+  // leer un nombre. Mientras no lo haya, quien caiga deja en su sitio el reloj
+  // de la reanimación y nada más (ver `dibujar` en entidades/jugador.js). El
+  // día que existan son cuatro filas en la tabla de ataúdes de
+  // herramientas/procesar-assets.ps1 y ni una línea aquí.
   //
   // EL PRECIO SUBE CON LA LISTA (1500 / 2500 / 3500 / 5000). Una partida deja
   // unos dos mil denarios, así que el primero cae en la segunda o tercera y el
   // último se nota. Están por encima de la mascota más cara —1500— a propósito:
   // un héroe cambia con qué juegas, una mascota te da un porcentaje.
-  quinto: {
-    nombre: 'Quinto',
-    sprite: 'eric',
-    provisional: true,
+  helen: {
+    nombre: 'Helen',
+    sprite: 'helen',
     descripcion: 'Nunca falla el primer tiro. El segundo tampoco.',
     // Arco corto: la andanada. Al 10 son nueve flechas rectas a la vez, así que
     // se juega mirando de lejos y sin dejar de moverse.
@@ -100,22 +100,20 @@ export const PERSONAJES = {
     coste: 1500,
     mods: { vidaMaxima: 0.9, velocidad: 1.1, radioRecogida: 1.15 }
   },
-  livia: {
-    nombre: 'Livia',
-    sprite: 'lucy',
-    provisional: true,
+  julie: {
+    nombre: 'Julie',
+    sprite: 'julie',
     descripcion: 'El fuego no pregunta, y ella tampoco.',
-    // Lanzallamas: 78 de alcance y sin descanso. Es el reverso de Quinto —hay
+    // Lanzallamas: 78 de alcance y sin descanso. Es el reverso de Helen —hay
     // que meterse dentro y quedarse—, y por eso lleva la vida más alta de los
     // ocho y la velocidad más baja.
     arma: 'lanzallamas',
     coste: 2500,
     mods: { vidaMaxima: 1.2, velocidad: 0.9, radioRecogida: 1.0 }
   },
-  octavia: {
-    nombre: 'Octavia',
-    sprite: 'sara',
-    provisional: true,
+  say: {
+    nombre: 'Say',
+    sprite: 'say',
     descripcion: 'Que giren ellas. Yo miro.',
     // Satélites: dos lunas en órbita ancha que no apuntan a nada. Se juega
     // colocándose, no disparando, y con la recogida alta para que el nivel
@@ -124,10 +122,9 @@ export const PERSONAJES = {
     coste: 3500,
     mods: { vidaMaxima: 1.1, velocidad: 1.0, radioRecogida: 1.2 }
   },
-  casio: {
-    nombre: 'Casio',
-    sprite: 'vicky',
-    provisional: true,
+  sofi: {
+    nombre: 'Sofi',
+    sprite: 'sofi',
     descripcion: 'Una piedra bien puesta vale por una legión.',
     // Honda balear: piedra lenta que REBOTA de un enemigo a otro —tres saltos
     // al 10— y empuja como ninguna. Premia el bulto, no la puntería, así que
@@ -145,4 +142,4 @@ export const PERSONAJES = {
 // con `i % 4` cuando nadie ha elegido (ver `jugar` en red/consola.js), así que
 // las cuatro primeras casillas tienen que ser las que todo el mundo tiene.
 export const ORDEN_PERSONAJES = ['eric', 'lucy', 'sara', 'vicky',
-                                 'quinto', 'livia', 'octavia', 'casio'];
+                                 'helen', 'julie', 'say', 'sofi'];

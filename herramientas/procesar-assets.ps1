@@ -32,6 +32,29 @@ public class Procesador {
     public static string Procesar(string entrada, string salida, int altoLog,
                                   int escala, int tol, int anchoLogFijo,
                                   bool dominante, bool centrado, bool huecos) {
+        return Procesar(entrada, salida, altoLog, escala, tol, anchoLogFijo,
+                        dominante, centrado, huecos, null);
+    }
+
+    // `alfaSalida`: ademas del sprite, guarda la ilustracion A TAMANO COMPLETO
+    // con el fondo ya recortado. Null para no guardarla, que es lo normal.
+    //
+    // Existe por los RETRATOS. RecortarCabeza y RecortarCuerpo miden la silueta
+    // por el canal alfa de la ilustracion ORIGINAL, y hay dibujos que llegan
+    // opacos, con el fondo pintado de blanco en vez de vacio: Helen y Say. En
+    // esos, la "silueta" es el rectangulo entero, el encuadre sale del centro
+    // de la imagen y con el ancho de la imagen, y el retrato acaba siendo la
+    // ilustracion entera vista de lejos en vez de un busto. Se veia al lado de
+    // los otros seis en la tienda: dos caras diminutas entre seis bustos.
+    //
+    // El recorte por color YA FUNCIONA aqui —a Helen le quita el 76% del
+    // lienzo—, asi que lo que faltaba no era saber recortar, era poder mirar
+    // ese resultado a resolucion completa. En vez de repetir la inundacion en
+    // las funciones de retrato, esta escribe lo que ya ha calculado.
+    public static string Procesar(string entrada, string salida, int altoLog,
+                                  int escala, int tol, int anchoLogFijo,
+                                  bool dominante, bool centrado, bool huecos,
+                                  string alfaSalida) {
 
         // --- 1. Carga normalizada a 32bpp ARGB -----------------------------
         Contexto c = new Contexto();
@@ -123,6 +146,23 @@ public class Procesador {
             }
         }
         if (maxX < 0) return "VACIA";
+
+        // La ilustracion con su alfa, a tamano completo, para quien tenga que
+        // medir la silueta de verdad (ver la nota de `alfaSalida` arriba).
+        // IsNullOrEmpty y no `!= null`: PowerShell convierte un $null a CADENA
+        // VACIA al pasarlo a un parametro string, asi que las entradas que no
+        // piden retrato -ataudes, mascotas, objetos- llegaban aqui con "" y se
+        // iban a guardar en una ruta vacia. Reventaron todas de golpe.
+        if (!string.IsNullOrEmpty(alfaSalida)) {
+            using (Bitmap conAlfa = new Bitmap(w, h, PixelFormat.Format32bppArgb)) {
+                BitmapData da = conAlfa.LockBits(new Rectangle(0, 0, w, h),
+                    ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+                for (int y = 0; y < h; y++)
+                    Marshal.Copy(b, y * stride, (IntPtr)(da.Scan0.ToInt64() + y * da.Stride), w * 4);
+                conAlfa.UnlockBits(da);
+                conAlfa.Save(alfaSalida, ImageFormat.Png);
+            }
+        }
 
         int silW = maxX - minX + 1, silH = maxY - minY + 1;
         double ratio = (double)silW / silH;
@@ -2952,6 +2992,31 @@ $CATALOGO = @(
     @{ src='characters\Vicky.png'; dst='personajes\vicky.png'; id='vicky'; alto=26; anchoFijo=0; tol=0
        gifAnim='characters\Vicky.gif'; idle=0; nQuieto=2; fpsAndar=14 }
 
+    # LAS CUATRO DE PAGO, YA DIBUJADAS. Ocupan los cuatro huecos que hasta ahora
+    # llevaban arte prestado (ver datos/personajes.js): Quinto era Eric con otro
+    # nombre, Livia era Lucy, y asi. Sergio las ha dibujado y esos nombres de
+    # relleno se han ido con el arte prestado.
+    #
+    # MISMOS NUMEROS QUE LAS CUATRO DE ARRIBA, y a proposito: el GIF viene con
+    # el mismo formato -1024x1024, 16 fotogramas, alfa binaria- asi que no hay
+    # nada que ajustar. Si alguna pidiera otro `alto` seria porque esta dibujada
+    # a otra escala, y entonces lo que hay que arreglar es el dibujo: ocho
+    # heroes con ocho alturas distintas no se leen como el mismo juego.
+    #
+    # TODAVIA SIN ATAUD: no hay `<Nombre>_ataud.png` para estas cuatro. El juego
+    # aguanta -ver `dibujar` en entidades/jugador.js, que sin ataud sigue
+    # pintando el reloj de la reanimacion- pero se nota en cooperativo, que es
+    # donde el ataud dice a quien hay que ir a levantar. Cuando existan, son
+    # cuatro filas mas en la tabla de ATAUDES de aqui abajo.
+    @{ src='characters\Helen.png'; dst='personajes\helen.png'; id='helen'; alto=26; anchoFijo=0; tol=0
+       gifAnim='characters\Helen.gif'; idle=0; nQuieto=2; fpsAndar=14 }
+    @{ src='characters\Julie.png'; dst='personajes\julie.png'; id='julie'; alto=26; anchoFijo=0; tol=0
+       gifAnim='characters\Julie.gif'; idle=0; nQuieto=2; fpsAndar=14 }
+    @{ src='characters\Say.png';   dst='personajes\say.png';   id='say';   alto=26; anchoFijo=0; tol=0
+       gifAnim='characters\Say.gif';   idle=0; nQuieto=2; fpsAndar=14 }
+    @{ src='characters\Sofi.png';  dst='personajes\sofi.png';  id='sofi';  alto=26; anchoFijo=0; tol=0
+       gifAnim='characters\Sofi.gif';  idle=0; nQuieto=2; fpsAndar=14 }
+
     # ATAUDES. Uno por personaje, y cada uno cuenta quien iba dentro: el del
     # Atleti con su balon, el del hamster, el del capibara y el de la katana.
     # Es lo que hace que valga la pena dibujar cuatro en vez de uno generico —
@@ -3273,8 +3338,19 @@ foreach ($e in $CATALOGO) {
     }
 
     $tolAsset = if ($e.tol -gt 0) { $e.tol } else { $TOL }
+
+    # SOLO PARA LOS PERSONAJES: ademas del sprite, la ilustracion entera con el
+    # fondo ya recortado. De ella salen el retrato y el cuerpo de la ficha unas
+    # lineas mas abajo, y tiene que salir de AQUI y no del original porque hay
+    # ilustraciones que llegan opacas -Helen, Say-, sin un alfa que medir. Ver
+    # el comentario de `alfaSalida` en Procesar.
+    $rutaAlfa = $null
+    if ($null -ne $e.cadera -or $null -ne $e.gifAnim) {
+        $rutaAlfa = Join-Path ([System.IO.Path]::GetTempPath()) ("emerita-alfa-" + $e.id + ".png")
+    }
+
     try {
-        $r = [Procesador]::Procesar($rutaSrc, $rutaDst, $e.alto, $ESCALA, $tolAsset, $e.anchoFijo, [bool]$e.dominante, [bool]$e.centrado, [bool]$e.huecos)
+        $r = [Procesador]::Procesar($rutaSrc, $rutaDst, $e.alto, $ESCALA, $tolAsset, $e.anchoFijo, [bool]$e.dominante, [bool]$e.centrado, [bool]$e.huecos, $rutaAlfa)
     } catch {
         $informe += [PSCustomObject]@{ Id=$e.id; Silueta='-'; Ratio='-'; Sprite='-'; Quitado='-'; Estado='ERROR' }
         continue
@@ -3306,12 +3382,17 @@ foreach ($e in $CATALOGO) {
     # llevan: con la comprobacion vieja los cuatro se quedaban de golpe sin
     # retrato ni cuerpo, y la ficha de jugador con dos huecos vacios.
     if ($null -ne $e.cadera -or $null -ne $e.gifAnim) {
+        # La copia con alfa que acaba de dejar Procesar, si la dejo. El original
+        # solo como ultimo recurso: con una ilustracion opaca, la silueta que
+        # mide RecortarCabeza es el rectangulo entero y el "retrato" acaba
+        # siendo el dibujo completo visto de lejos.
+        $fuenteRetrato = if ($rutaAlfa -and (Test-Path $rutaAlfa)) { $rutaAlfa } else { $rutaSrc }
         $rutaCara = Join-Path $DESTINO ("personajes\" + $e.id + "-cara.png")
         try {
             # fraccionAlto 0.30 sigue siendo la franja que se usa para ENCUADRAR
             # (centroide y ancho de la cabeza); el alto de la caja sale despues
             # de la proporcion pedida y baja hasta el pecho.
-            [Procesador]::RecortarCabeza($rutaSrc, $rutaCara, $CARA_W, $CARA_H, 0.30, 0.22) | Out-Null
+            [Procesador]::RecortarCabeza($fuenteRetrato, $rutaCara, $CARA_W, $CARA_H, 0.30, 0.22) | Out-Null
             $atlas[$e.id + 'Cara'] = [ordered]@{
                 archivo = "personajes/$($e.id)-cara.png"
                 w = $CARA_W; h = $CARA_H; anclaX = [int]($CARA_W/2); anclaY = $CARA_H; frames = 1
@@ -3323,7 +3404,7 @@ foreach ($e in $CATALOGO) {
         # Cuerpo entero para la ficha de jugador.
         $rutaCuerpo = Join-Path $DESTINO ("personajes\" + $e.id + "-cuerpo.png")
         try {
-            [Procesador]::RecortarCuerpo($rutaSrc, $rutaCuerpo, $CUERPO_W, $CUERPO_H) | Out-Null
+            [Procesador]::RecortarCuerpo($fuenteRetrato, $rutaCuerpo, $CUERPO_W, $CUERPO_H) | Out-Null
             $atlas[$e.id + 'Cuerpo'] = [ordered]@{
                 archivo = "personajes/$($e.id)-cuerpo.png"
                 w = $CUERPO_W; h = $CUERPO_H; anclaX = [int]($CUERPO_W/2); anclaY = $CUERPO_H; frames = 1
@@ -3331,6 +3412,9 @@ foreach ($e in $CATALOGO) {
         } catch {
             Write-Host "  aviso: no se pudo recortar el cuerpo de $($e.id)"
         }
+
+        # La copia con alfa era para esto y nada mas: fuera.
+        if ($rutaAlfa -and (Test-Path $rutaAlfa)) { Remove-Item $rutaAlfa -Force }
     }
 
     $nFrames = 1

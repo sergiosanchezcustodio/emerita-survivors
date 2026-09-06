@@ -43,22 +43,22 @@ try {
 
   comprobar(await pagina.evaluate(() => window.EMERITA.meta.heroeDesbloqueado('eric')),
             'los cuatro gratis salen desbloqueados de fábrica');
-  comprobar(!(await pagina.evaluate(() => window.EMERITA.meta.heroeDesbloqueado('quinto'))),
+  comprobar(!(await pagina.evaluate(() => window.EMERITA.meta.heroeDesbloqueado('helen'))),
             'y los de pago NO, con la partida recién estrenada');
 
   // Sin dinero no se compra.
   await pagina.evaluate(() => { window.EMERITA.meta.denarios = 100; });
   await pulsar('KeyT', 500);
   await pulsar('ArrowRight'); await pulsar('ArrowRight');   // pestaña JUGADORES
-  for (let i = 0; i < 4; i++) await pulsar('ArrowDown');    // hasta Quinto
+  for (let i = 0; i < 4; i++) await pulsar('ArrowDown');    // hasta Helen
   await pulsar('Enter', 400);
-  comprobar(!(await pagina.evaluate(() => window.EMERITA.meta.heroeDesbloqueado('quinto'))),
-            'con 100 denarios, Quinto sigue sin ser tuyo');
+  comprobar(!(await pagina.evaluate(() => window.EMERITA.meta.heroeDesbloqueado('helen'))),
+            'con 100 denarios, Helen sigue sin ser tuya');
 
   // Con dinero, sí.
   await pagina.evaluate(() => { window.EMERITA.meta.denarios = 6000; });
   await pulsar('Enter', 400);
-  comprobar(await pagina.evaluate(() => window.EMERITA.meta.heroeDesbloqueado('quinto')),
+  comprobar(await pagina.evaluate(() => window.EMERITA.meta.heroeDesbloqueado('helen')),
             'con 6000, comprado');
   comprobar(await pagina.evaluate(() => window.EMERITA.meta.denarios) === 4500,
             'y se ha cobrado el precio: quedan 4500');
@@ -67,10 +67,10 @@ try {
   await pulsar('Enter', 600);   // JUGAR
   comprobar(await donde() === 1, 'de vuelta en la selección');
 
-  // Cuatro a la derecha: eric -> lucy -> sara -> vicky -> quinto.
+  // Cuatro a la derecha: eric -> lucy -> sara -> vicky -> helen.
   for (let i = 0; i < 4; i++) await pulsar('ArrowRight', 220);
   comprobar(await pagina.evaluate(() => window.EMERITA.puestos[0].personaje) === 4,
-            'el cursor llega hasta Quinto, que ahora es el quinto de la tira');
+            'el cursor llega hasta Helen, que ahora es la quinta de la tira');
   // Confirmar con un solo jugador y sin mascotas arranca la partida: que la
   // pantalla se vaya ES la prueba de que se ha podido confirmar.
   await pulsar('Enter', 900);
@@ -83,7 +83,7 @@ try {
   comprobar(await donde() === 1, 'y se vuelve a entrar a la selección');
   for (let i = 0; i < 7; i++) await pulsar('ArrowRight', 220);
   comprobar(await pagina.evaluate(() => window.EMERITA.puestos[0].personaje) === 7,
-            'el cursor SÍ pasa por los bloqueados: llega a Casio');
+            'el cursor SÍ pasa por los bloqueados: llega a Sofi');
   await pulsar('Enter', 500);
   comprobar(!(await pagina.evaluate(() => window.EMERITA.puestos[0].listo)),
             'pero confirmar un héroe que no es tuyo no hace nada');

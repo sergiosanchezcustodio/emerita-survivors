@@ -61,6 +61,21 @@ function estadoPorDefecto() {
 
 // Convierte lo guardado al formato de hoy. Es la función que permite cambiar el
 // formato sin que nadie pierda lo que llevaba.
+// CÓMO SE LLAMABAN LOS CUATRO DE PAGO ANTES DE ESTAR DIBUJADOS.
+//
+// Fueron Quinto, Livia, Octavia y Casio mientras llevaban arte prestado, y al
+// dibujarlos Sergio pasaron a ser Helen, Julie, Say y Sofi. El id es la clave
+// con la que se guarda una compra, así que sin esto quien hubiera pagado los
+// 5000 denarios de Casio abriría el juego sin Sofi y sin su dinero.
+//
+// Se lee al normalizar y no se vuelve a escribir con el nombre viejo: al primer
+// guardado la compra queda apuntada ya con el nombre nuevo y esta tabla deja de
+// hacer nada. Se queda igualmente —es una línea— porque un guardado sin abrir
+// desde entonces puede aparecer en cualquier momento.
+const NOMBRE_VIEJO = {
+  helen: 'quinto', julie: 'livia', say: 'octavia', sofi: 'casio'
+};
+
 function normalizar(datos) {
   const mascotas = {};
   const crudas = (datos.mascotas && typeof datos.mascotas === 'object') ? datos.mascotas : {};
@@ -89,7 +104,7 @@ function normalizar(datos) {
     // pago en `false` por el mismo camino: `!!undefined`. No hay migración que
     // escribir.
     const def = PERSONAJES[id];
-    personajes[id] = pj ? !!pj[id] : !(def && def.coste);
+    personajes[id] = pj ? !!pj[id] || !!pj[NOMBRE_VIEJO[id]] : !(def && def.coste);
   }
 
   return {

@@ -161,8 +161,11 @@ detrás de la piedra como quien mira por una ventana. Los que todavía no son
 tuyos se ven en penumbra con su precio, que es la única forma de saber que
 están ahí.
 
-> Esos cuatro llevan **arte prestada** mientras Sergio los dibuja: nombre, arma,
-> precio y estadísticas son definitivos, el dibujo no. La pantalla lo dice.
+Los cuatro de pago son **Helen, Julie, Say y Sofi**, y ya están dibujados: cada
+una con su GIF de dieciséis fotogramas, su retrato y su cuerpo entero para la
+ficha, como los cuatro de siempre. Lo único que les falta todavía es su ataúd
+—el dibujo que en cooperativo dice a quién hay que ir a levantar—; mientras no
+lo tengan, quien cae deja en su sitio el reloj de la reanimación.
 
 ![Selección de personaje](docs/capturas/menu_seleccion_jugadores.jpg)
 
