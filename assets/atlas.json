@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260906220757",
+    "version":  "20260906221537",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -383,9 +383,9 @@
                                     },
                       "say":  {
                                   "archivo":  "personajes/say.png",
-                                  "w":  51,
+                                  "w":  45,
                                   "h":  104,
-                                  "anclaX":  26,
+                                  "anclaX":  22,
                                   "anclaY":  104,
                                   "frames":  18,
                                   "clips":  {
