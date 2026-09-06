@@ -12,7 +12,7 @@ tres armas cada vez, y acaba con la Loba Capitolina.
 [![ES6](https://img.shields.io/badge/JavaScript-m%C3%B3dulos%20ES6-f7df1e?style=flat-square)](#)
 [![Sin dependencias](https://img.shields.io/badge/dependencias-cero-2ea043?style=flat-square)](#)
 [![Sin build](https://img.shields.io/badge/build-ninguno-2ea043?style=flat-square)](#)
-[![Armas](https://img.shields.io/badge/armas-57-e2c27a?style=flat-square)](#)
+[![Armas](https://img.shields.io/badge/armas-58-e2c27a?style=flat-square)](#)
 [![Cooperativo](https://img.shields.io/badge/cooperativo-hasta%204-e2c27a?style=flat-square)](#)
 [![Licencia: GPL v3](https://img.shields.io/badge/licencia-GPLv3-blue?style=flat-square)](LICENSE)
 
@@ -32,7 +32,7 @@ Sin instalar nada, en el navegador:
 
 Se recomienda mando, pero con teclado se juega igual. Y hay
 **[manual de jugador](https://sergiosanchezcustodio.github.io/emerita-survivors/manual/manual-jugador.html)**:
-controles, los cuatro personajes, el arsenal, el bestiario y los tres jefes.
+controles, los ocho personajes, el arsenal, el bestiario y los tres jefes.
 
 <details>
 <summary><b>En local, para desarrollar</b></summary>
@@ -233,14 +233,16 @@ que huyen en vez de perseguir.
 
 ## El arsenal
 
-**57 armas**, tres opciones cada vez que subes de nivel, y evoluciones que piden
+**58 armas**, tres opciones cada vez que subes de nivel, y evoluciones que piden
 un arma al 8 más su pasivo y un cofre de élite.
 
 ![Arsenal](docs/arsenal.png)
 
 Desde el pilum y el gladius hasta el lanzallamas, las minas de proximidad, los
-satélites en órbita y la tormenta de rayos de Júpiter. La ambientación va
-mezclada a propósito: honda balear junto a subfusil. Es una decisión tomada, no
+satélites en órbita y la tormenta de rayos de Júpiter. El **Códice Infernal**,
+que es el arma de Say, es la única que crece contándose: un libro orbitando al
+empezar y diez al nivel 10, cada subida despierta uno nuevo y todos giran más
+rápido. La ambientación va mezclada a propósito: honda balear junto a subfusil. Es una decisión tomada, no
 un descuido — Mérida es una ciudad romana en la que vive gente hoy.
 
 ---

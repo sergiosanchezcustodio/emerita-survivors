@@ -115,10 +115,14 @@ export const PERSONAJES = {
     nombre: 'Say',
     sprite: 'say',
     descripcion: 'Que giren ellas. Yo miro.',
-    // Satélites: dos lunas en órbita ancha que no apuntan a nada. Se juega
-    // colocándose, no disparando, y con la recogida alta para que el nivel
-    // llegue sin tener que ir a por las gemas.
-    arma: 'satelites',
+    // Códice Infernal: un libro orbitando al empezar y diez al nivel 10, cada
+    // vez más rápidos. Se juega colocándose, no disparando, y con la recogida
+    // alta para que el nivel llegue sin tener que ir a por las gemas — que en
+    // ella no es un lujo, es su arma: cada subida es un libro más.
+    //
+    // Los Satélites, que llevaba antes, se quedan en el catálogo como un arma
+    // más del sorteo. Eran suyos porque eran el orbital que había.
+    arma: 'codiceInfernal',
     coste: 3500,
     mods: { vidaMaxima: 1.1, velocidad: 1.0, radioRecogida: 1.2 }
   },

@@ -1055,10 +1055,24 @@ export class Armas {
         const fases = metaOrb.frames || 1;
         const vuelta = Math.PI * 2;
 
+        // UN DIBUJO DISTINTO POR ORBITAL, la otra manera de repartir la hoja.
+        //
+        // Es la del Códice Infernal: sube de nivel y aparece OTRO libro, no uno
+        // más igual que el anterior. Su hoja trae los diez, y lo que elige cuál
+        // es el número de orbital, no dónde está en la órbita — cada libro es
+        // el mismo libro siempre, dé las vueltas que dé. Si la fase la pusiera
+        // el ángulo, como en las lunas, los diez libros estarían cambiando de
+        // portada todo el rato y no habría ninguno que fuera el tuyo.
+        const porEscudo = !!arma.def.fotogramaPorEscudo;
+
         for (let k = 0; k < s.escudos; k++) {
           const a = arma.anguloOrbital + k * paso;
           let f = 0;
-          if (fases > 1) {
+          if (porEscudo) {
+            // El módulo es la red de seguridad: si algún día hay más orbitales
+            // que dibujos en la hoja, se repiten en vez de indexar fuera.
+            f = k % fases;
+          } else if (fases > 1) {
             // El doble módulo es para los ángulos negativos: en JavaScript
             // (-0.3 % 1) es -0.3, no 0.7, y eso indexaría fuera de la tira.
             const t = (((a / vuelta) % 1) + 1) % 1;

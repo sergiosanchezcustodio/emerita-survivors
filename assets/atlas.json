@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260906221537",
+    "version":  "20260906223511",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -1272,7 +1272,7 @@
                                           "h":  32,
                                           "anclaX":  16,
                                           "anclaY":  16,
-                                          "frames":  52,
+                                          "frames":  53,
                                           "plano":  true,
                                           "orden":  [
                                                         "pilum",
@@ -1326,7 +1326,8 @@
                                                         "satelites",
                                                         "discosDeSierra",
                                                         "katana",
-                                                        "sierrasVotivas"
+                                                        "sierrasVotivas",
+                                                        "codiceInfernal"
                                                     ]
                                       },
                       "iconosArmasHd":  {
@@ -1335,7 +1336,7 @@
                                             "h":  96,
                                             "anclaX":  48,
                                             "anclaY":  48,
-                                            "frames":  52,
+                                            "frames":  53,
                                             "plano":  true,
                                             "orden":  [
                                                           "pilum",
@@ -1389,9 +1390,31 @@
                                                           "satelites",
                                                           "discosDeSierra",
                                                           "katana",
-                                                          "sierrasVotivas"
+                                                          "sierrasVotivas",
+                                                          "codiceInfernal"
                                                       ]
                                         },
+                      "orbCodice":  {
+                                        "archivo":  "efectos/orb-codice.png",
+                                        "w":  128,
+                                        "h":  128,
+                                        "anclaX":  64,
+                                        "anclaY":  64,
+                                        "frames":  10,
+                                        "plano":  true,
+                                        "orden":  [
+                                                      "libro1",
+                                                      "libro2",
+                                                      "libro3",
+                                                      "libro4",
+                                                      "libro5",
+                                                      "libro6",
+                                                      "libro7",
+                                                      "libro8",
+                                                      "libro9",
+                                                      "libro10"
+                                                  ]
+                                    },
                       "balaPistola":  {
                                           "archivo":  "efectos/bala-pistola.png",
                                           "w":  43,

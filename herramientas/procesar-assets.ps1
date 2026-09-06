@@ -2753,6 +2753,44 @@ public class Procesador {
         return anchoSal + "|" + altoSal + "|" + silW + "|" + silH;
     }
 
+    // ---------------------------------------------------------------------
+    // UNA CELDA DE UNA HOJA, A UN ARCHIVO SUELTO
+    // ---------------------------------------------------------------------
+    //
+    // Existe por la PORTADA del Codice Infernal. Los diez libros vienen en una
+    // sola lamina y el icono del arma tiene que ser el primero de ellos, pero
+    // la tira de iconos se monta desde ARCHIVOS SUELTOS, uno por arma (ver
+    // RecortarIconosSueltos). Esto saca la celda que haga falta a un PNG
+    // aparte, que es lo unico que faltaba para que las dos cosas encajen.
+    //
+    // CORTE RECTANGULAR y no por islas, al reves que RecortarIconos: aqui la
+    // lamina tiene los diez libros con calles limpias entre ellos -medidas: las
+    // columnas opacas van 18-227, 249-461, 479-688, 710-920 y 942-1156 sobre
+    // celdas de 233- asi que ninguna celda puede robarle un pixel a la vecina.
+    // Y quien recibe este archivo recorta la silueta por su cuenta.
+    public static string ExtraerCelda(string entrada, string salida,
+                                      int cols, int filas, int celda) {
+        byte[] px; int w, h, stride;
+        CargarPx(entrada, out px, out w, out h, out stride);
+
+        int cw = w / cols, ch = h / filas;
+        int x0 = (celda % cols) * cw, y0 = (celda / cols) * ch;
+
+        int dStride = cw * 4;
+        byte[] dst = new byte[dStride * ch];
+        EscalarBloque(px, stride, w, h, x0, y0, cw, ch, dst, dStride, 0, 0, cw, ch);
+
+        using (Bitmap sal = new Bitmap(cw, ch, PixelFormat.Format32bppArgb)) {
+            BitmapData dd = sal.LockBits(new Rectangle(0, 0, cw, ch),
+                                         ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            for (int y = 0; y < ch; y++)
+                Marshal.Copy(dst, y * dStride, (IntPtr)(dd.Scan0.ToInt64() + y * dd.Stride), dStride);
+            sal.UnlockBits(dd);
+            sal.Save(salida, ImageFormat.Png);
+        }
+        return cw + "|" + ch;
+    }
+
     static void SembrarBlanco(byte[] px, int stride, int w, bool[] fondo,
                               Queue<int> cola, int x, int y, int umbral) {
         int i = y * w + x;
@@ -3584,7 +3622,7 @@ $ICONOS_ARMAS = @(
     'hacha','maza','latigo','motosierra','guadanya','lanzallamas','recortada','aspa',
     'enfilada','agujas','muroDeLanzas','enjambre','molotov','lanzacohetes','artilleria','lluviaDeFlechas',
     'gritoDeGuerra','sismo','aceiteHirviendo','minas','alquitran','campoElectrico','laser','aspaDeLuz',
-    'satelites','discosDeSierra','katana','sierrasVotivas'
+    'satelites','discosDeSierra','katana','sierrasVotivas','codiceInfernal'
 )
 
 # Un archivo por arma, en resources/armas/. Se resuelve con -Filter, así que
@@ -3645,6 +3683,30 @@ $LADO_ICONO = 32
 # y la grande contiene exactamente la misma silueta, sin decisiones nuevas.
 $LADO_ICONO_HD = 96
 
+# LOS DIEZ LIBROS DEL CODICE INFERNAL, en una sola lamina de 5x2.
+#
+# No son iconos: es el SPRITE del arma, el libro que orbita al personaje. Va por
+# aqui porque el recorte que hace falta es exactamente el de una hoja en
+# rejilla -cada libro a su celda, recortado a su silueta y centrado- y montarlo
+# en una tira de fotogramas es lo que espera dibujarOrbitales (ver `frames` en
+# sistemas/armas.js).
+#
+# 128 como las lunas de los Satelites (orbLuna), que es el otro orbital con
+# hoja propia: a ese tamano un libro dibujado a 29 unidades logicas todavia va
+# sobrado y no hay que ampliar nada.
+$LADO_LIBRO = 128
+
+# Los nombres son para el informe y para `orden` en el atlas: el motor elige el
+# libro por el NUMERO de orbital, no por el nombre (ver `fotogramaPorEscudo`).
+$LIBROS_CODICE = @('libro1','libro2','libro3','libro4','libro5',
+                   'libro6','libro7','libro8','libro9','libro10')
+
+# La PORTADA de un arma que no tiene archivo propio, sino una celda de una hoja.
+# Se extrae a un temporal antes de montar la tira de iconos. Ver ExtraerCelda.
+$ICONO_DESDE_HOJA = @{
+    codiceInfernal = @{ hoja = 'armas\libros.png'; cols = 5; filas = 2; celda = 0 }
+}
+
 $HOJAS_ICONOS = @(
     # `modo` rejilla: la hoja trae alfa y los iconos caen en celdas iguales.
     @{ src='objetos\objetos.png'; dst='iconos\objetos.png'; id='iconosObjetos'
@@ -3655,9 +3717,15 @@ $HOJAS_ICONOS = @(
        ids=$ICONOS_ARMAS;   modo='sueltos'; cols=0; filas=0; lado=$LADO_ICONO }
     @{ src='armas';               dst='iconos\armas-hd.png'; id='iconosArmasHd'
        ids=$ICONOS_ARMAS;   modo='sueltos'; cols=0; filas=0; lado=$LADO_ICONO_HD }
+    # El sprite del Codice: diez libros, uno por nivel del arma.
+    @{ src='armas\libros.png';    dst='efectos\orb-codice.png'; id='orbCodice'
+       ids=$LIBROS_CODICE;  modo='rejilla'; cols=5; filas=2; lado=$LADO_LIBRO }
 )
 
-New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'iconos') | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'iconos')  | Out-Null
+# La hoja de libros sale a efectos/, con los demas orbitales, y este bucle corre
+# antes de que la seccion de efectos cree esa carpeta.
+New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'efectos') | Out-Null
 
 $informeIconos = @()
 foreach ($hoja in $HOJAS_ICONOS) {
@@ -3675,6 +3743,16 @@ foreach ($hoja in $HOJAS_ICONOS) {
             # cuenta como FALTA y deja su hueco vacío, que es lo que hay que ver
             # en el informe. Saltárselo aquí correría los iconos siguientes.
             $entradas = foreach ($id in $hoja.ids) {
+                # Portada sacada de una celda de una lamina, no de un archivo
+                # propio. Se extrae a un temporal y se pasa como si lo fuera.
+                $deHoja = $ICONO_DESDE_HOJA[$id]
+                if ($deHoja) {
+                    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) "emerita-portada-$id.png"
+                    [Procesador]::ExtraerCelda((Join-Path $ORIGEN $deHoja.hoja), $tmp,
+                                               $deHoja.cols, $deHoja.filas, $deHoja.celda) | Out-Null
+                    $tmp
+                    continue
+                }
                 $patron = $ARCHIVO_ICONO_ARMA[$id]
                 $f = $null
                 if ($patron) {

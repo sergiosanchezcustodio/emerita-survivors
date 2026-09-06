@@ -1193,6 +1193,73 @@ export const ARMAS = {
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
   },
 
+  // --- El arma de Say: el Códice Infernal --------------------------------
+  //
+  // Pedida por Sergio, y es un orbital que crece EN NÚMERO DE LIBROS: uno al
+  // nivel 1 y uno más en cada subida, hasta los diez de la lámina. Es la única
+  // arma del juego en la que subir de nivel se ve antes de leer nada — hay un
+  // libro más dando vueltas.
+  //
+  // CADA LIBRO ES UN LIBRO DISTINTO, no diez copias del mismo. La lámina trae
+  // los diez y el motor reparte uno por orbital (`fotogramaPorEscudo`, ver
+  // dibujarOrbitales en sistemas/armas.js), así que la biblioteca se va
+  // abriendo según se sube: el que sale al nivel 7 no lo habías visto nunca.
+  //
+  // Y GIRAN MÁS DEPRISA CON EL NIVEL. `velocidadAngular` sube en casi todas las
+  // subidas, de 1,6 a 4,4 rad/s: al 1 es un libro paseando y al 10 son diez
+  // rodeándote a la carrera. Es lo que evita que el arma sea solo "más cosas":
+  // la última subida no añade un décimo del daño, cambia cómo se siente.
+  //
+  // EL DAÑO SUBE POCO A POCO Y EL RADIO CASI NADA, a propósito. Con diez
+  // orbitales, cada punto de daño se cobra diez veces por vuelta: la cuenta que
+  // importa aquí no es el golpe, es cuántos hay dando vueltas y a qué
+  // velocidad. Por eso arranca en 9 —por debajo de los Satélites, que solo
+  // llevan dos— y llega a 40 y no a 72.
+  //
+  // `radioOrbita` 46: entre los Discos de sierra (26, pegados al cuerpo) y los
+  // Satélites (68, guardando el perímetro). Un libro a media distancia es lo
+  // que deja pasar a un enemigo por dentro y por fuera, que es lo que hace que
+  // colocarse importe.
+  codiceInfernal: {
+    nombre: 'Códice Infernal',
+    descripcion: 'Diez libros que no deberían abrirse. Cada nivel despierta a otro.',
+    comportamiento: 'orbital',
+    danyo: 9, recarga: 1.0, escudos: 1, radioOrbita: 46, radioEscudo: 6,
+    velocidadAngular: 1.6, empuje: 55, color: '#b07de0',
+    spriteOrbital: 'orbCodice',
+    // El libro por número de orbital y no por posición en la órbita: ver la
+    // nota larga de `porEscudo` en dibujarOrbitales.
+    fotogramaPorEscudo: true,
+    // 1,15 sobre el radio de daño. Un poco por encima, como las lunas, porque el
+    // libro es ALTO Y ESTRECHO y su dibujo entra en un cuadro: lo que sobresale
+    // del círculo es el alto del libro, no filo — el daño sigue siendo el
+    // círculo de `radioEscudo`, como en todos los orbitales.
+    //
+    // Llegó a estar en 1,7 y era demasiado: con el radio al máximo, cada libro
+    // salía más alto que la propia Say —34 unidades contra 26— y diez de esos
+    // dando vueltas tapaban a quien los llevaba. Un libro tiene que leerse como
+    // un objeto que ella maneja, no como un decorado con una niña dentro.
+    escalaOrbital: 1.15,
+    // SIN `giroOrbital`. Mismo motivo que las lunas y que el escudo del Scutum:
+    // un libro tiene derecho y revés, y rotándolo se lee del revés media vuelta
+    // de cada dos. Lo que da la sensación de magia aquí es que sean muchos y
+    // vayan rápido, no que volteen.
+    // EL RADIO DE DAÑO CRECE POCO —de 6 a 8— y no por tacañería: son DIEZ
+    // círculos girando. Cada unidad de radio se multiplica por diez alrededor
+    // del jugador, así que lo que en un arma de dos orbitales es un ajuste
+    // menor, aquí es cerrar el paso del todo.
+    niveles: [{},
+              { escudos: 1, velocidadAngular: 0.35, danyo: 3 },
+              { escudos: 1, velocidadAngular: 0.3, danyo: 3, radioEscudo: 1 },
+              { escudos: 1, velocidadAngular: 0.3, danyo: 3 },
+              { escudos: 1, velocidadAngular: 0.3, danyo: 4, radioOrbita: 6 },
+              { escudos: 1, velocidadAngular: 0.3, danyo: 3 },
+              { escudos: 1, velocidadAngular: 0.3, danyo: 4 },
+              { escudos: 1, velocidadAngular: 0.3, danyo: 4, radioEscudo: 1 },
+              { escudos: 1, velocidadAngular: 0.3, danyo: 3, radioOrbita: 6 },
+              { escudos: 1, velocidadAngular: 0.4, danyo: 4, recarga: -0.15 }]
+  },
+
   // --- Barrido completo: la katana --------------------------------------
   // Pedida por Sergio. Es un arcoMelee con la apertura al máximo: 360 grados,
   // así que no hay que orientarse ni acercarse por un lado concreto — barre todo
