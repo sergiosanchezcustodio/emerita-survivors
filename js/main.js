@@ -52,12 +52,13 @@ import { Director, aparecerTanda } from './sistemas/director.js';
 import { Mascotas } from './sistemas/mascotas.js';
 import { MASCOTAS, ORDEN_MASCOTAS } from './datos/mascotas.js';
 import { Jefes } from './sistemas/jefes.js';
-import { NIVEL } from './datos/niveles/merida.js';
+import { Niveles } from './datos/niveles/indice.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from './datos/personajes.js';
 import { ARMAS } from './datos/armas.js';
 import { POTENCIADORES } from './datos/potenciadores.js';
 import { Intro } from './ui/intro.js';
 import { dibujarHuecos, refrescarHuecos, huecoOcupado, textoBorrado, dibujarEsperaGithub } from './ui/huecos.js';
+import { dibujarNiveles } from './ui/niveles.js';
 
 
 // Capacidad del pool. El objetivo del plan son 800 entidades simultáneas; el
@@ -198,6 +199,14 @@ const PANTALLA_HUECOS = 7;
 // cuatro opciones vienen pintadas en la ilustración y añadir una quinta es
 // repintar la lápida.
 const PANTALLA_RED = 8;
+// ELEGIR NIVEL. Va entre el menú y la selección de personaje: primero DÓNDE se
+// juega y después con QUIÉN, que es el orden en que se decide.
+//
+// SOLO SE PASA POR AQUÍ SI HAY MÁS DE UNO ABIERTO, igual que la de mascotas
+// —con una sola fila, la pantalla no ofrece una decisión: obliga a pulsar otra
+// vez—. Hoy, con Mérida sola, no se ve nunca; el día que exista Cáceres,
+// aparece sin tocar una línea de aquí.
+const PANTALLA_NIVELES = 9;
 // Sin valor de arranque: lo pone `irA` al final de este bloque, porque el
 // estado de pantalla no es solo esta variable — arrastra la clase del body, y
 // dejarlos puestos por separado es tener dos verdades que se desincronizan.
@@ -266,6 +275,42 @@ let cursorMascota = 0;
 // elige la suya; DOS NO PUEDEN LLEVAR LA MISMA, así que las ya cogidas se
 // saltan al mover el cursor.
 let turnoMascota = 0;
+
+// --- Elección de nivel ------------------------------------------------------
+// EL NIVEL EN CURSO. No es una constante importada de un archivo concreto: es
+// el que se haya elegido (o el primero, al arrancar). Todo lo que antes leía
+// `NIVEL` lee esto, y `usarNivel` es el ÚNICO sitio donde cambia.
+let nivelActual = null;
+let cursorNivel = 0;
+// Mientras se carga el suelo del nivel elegido. Es medio segundo con una imagen
+// grande, y sin decirlo la pantalla se queda muda tras pulsar. Además hace de
+// cerrojo: dos pulsaciones seguidas lanzarían dos cargas a la vez.
+let cambiandoNivel = false;
+
+// CAMBIAR DE NIVEL. Lo único que hay que llamar para que el mundo entero pase a
+// ser otro sitio: el suelo, el tema de la interfaz, las oleadas y la decoración.
+//
+// Es asíncrono porque el suelo es una imagen. Nadie lo llama a mitad de
+// partida: se hace al arrancar y al elegir en la pantalla de niveles, que son
+// los dos momentos en que no hay mundo que romper.
+async function usarNivel(nivel) {
+  nivelActual = nivel;
+  await Recursos.cargarNivel(nivel);
+  // El aspecto de pausa, derrota y subida de nivel lo pone el NIVEL. Se inyecta
+  // en vez de importarlo desde ui/: si la interfaz importara merida.js, añadir
+  // un nivel obligaría a tocar la interfaz, y el contrato dice que un nivel
+  // nuevo es escribir un archivo de datos/niveles/ y nada más.
+  Tema.usar(nivel);
+  // El director reparte las oleadas del nivel y los obstáculos su decoración.
+  // Los dos reservan sus arrays aquí, fuera de la partida: durante ella no se
+  // hace un solo `new`.
+  //
+  // El director COMPARTE EL RNG con todo lo demás, así que con la misma semilla
+  // salen las mismas oleadas: es el criterio 10 del plan y sin él no se puede
+  // comparar un ajuste de balance con el anterior.
+  Director.iniciar(nivel, rng);
+  Obstaculos.iniciar(nivel);
+}
 
 // --- Configuración ----------------------------------------------------------
 let cursorConfig = 0;
@@ -1035,9 +1080,13 @@ function entradaTitulo() {
 
   switch (MENU[cursorMenu].id) {
     case 'jugar':
-      puestos.fill(null);
-      puestos[0] = { personaje: primeroDesbloqueado(), listo: false };
-      irA(PANTALLA_SELECCION);
+      // PRIMERO DÓNDE, DESPUÉS CON QUIÉN — pero solo si hay dónde elegir. Con
+      // un único nivel abierto no hay decisión que tomar y la pantalla se salta
+      // entera, igual que la de mascotas cuando no se ha comprado ninguna.
+      if (Niveles.abiertos(MetaProgreso.fases).length > 1) {
+        cursorNivel = Math.max(0, Niveles.lista.indexOf(nivelActual));
+        irA(PANTALLA_NIVELES);
+      } else irASeleccion();
       break;
     case 'red':
       irARed(PANTALLA_TITULO);
@@ -1063,6 +1112,69 @@ function entradaTitulo() {
       irA(PANTALLA_HUECOS);
       break;
   }
+}
+
+// Entrar a elegir personaje con la mesa limpia. Se llega desde el menú (con un
+// solo nivel abierto) y desde la pantalla de niveles, y las dos tienen que
+// dejar los puestos igual: si una de las dos se olvidara de vaciarlos, la
+// partida arrancaría con los jugadores de la anterior.
+function irASeleccion() {
+  puestos.fill(null);
+  puestos[0] = { personaje: primeroDesbloqueado(), listo: false };
+  irA(PANTALLA_SELECCION);
+}
+
+// --- Elegir nivel ------------------------------------------------------------
+// La lista tal y como la quiere la pantalla: el nivel, si está abierto y —si no
+// lo está— el NOMBRE de lo que hay que terminar para abrirlo. El nombre se
+// resuelve aquí y no en ui/ porque es el índice quien sabe qué nivel es cuál;
+// la pantalla solo lo escribe.
+function listaDeNiveles() {
+  return Niveles.lista.map((nivel) => {
+    const abierto = Niveles.abierto(nivel, MetaProgreso.fases);
+    const previo = nivel.requiere ? Niveles.por(nivel.requiere) : null;
+    return { nivel, abierto, requiereNombre: previo ? previo.nombre : '' };
+  });
+}
+
+function entradaNiveles() {
+  // Mientras carga el suelo no se atiende a nada: la pulsación que llegara aquí
+  // se quedaría en la cola y dispararía sola en la pantalla siguiente.
+  if (cambiandoNivel) return;
+
+  const c = entrada.controles[0];
+  const eje = c ? c.flancoEje(false) : 0;
+  const n = Niveles.lista.length;
+
+  if (entrada.consumirFlanco('ArrowDown') || (c && c.consumirBoton(13)) || eje > 0) {
+    cursorNivel = (cursorNivel + 1) % n;
+  }
+  if (entrada.consumirFlanco('ArrowUp') || (c && c.consumirBoton(12)) || eje < 0) {
+    cursorNivel = (cursorNivel + n - 1) % n;
+  }
+
+  if (entrada.consumirFlanco('Escape') || entrada.consumirAtras()) {
+    irA(PANTALLA_TITULO);
+    return;
+  }
+
+  const acepta = entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space') ||
+                 (c && c.consumirBoton(0));
+  if (!acepta) return;
+
+  const elegido = Niveles.lista[cursorNivel];
+  // Un nivel cerrado se puede señalar —para leer qué hace falta— pero no entrar.
+  if (!Niveles.abierto(elegido, MetaProgreso.fases)) return;
+
+  // Ya cargado: se pasa de largo sin esperar a nada. Es el caso normal, porque
+  // el nivel en curso es el que viene señalado al entrar.
+  if (elegido === nivelActual) { irASeleccion(); return; }
+
+  cambiandoNivel = true;
+  usarNivel(elegido).then(() => {
+    cambiandoNivel = false;
+    irASeleccion();
+  });
 }
 
 // SALIR de un juego que corre en una pestaña.
@@ -1887,7 +1999,7 @@ function mandoActual() {
   };
 }
 
-function empezarPartidaEnRed(conexion, cfg) {
+async function empezarPartidaEnRed(conexion, cfg) {
   // CADA JUGADOR CON SUS PROPIAS MEJORAS, las suyas de verdad.
   //
   // Antes se jugaba con el progreso a cero en las dos máquinas. Era la forma
@@ -1907,6 +2019,13 @@ function empezarPartidaEnRed(conexion, cfg) {
   for (let i = 0; i < cfg.personajes.length; i++) {
     metasDeRed[i] = i === cfg.jugadorLocal ? MetaProgreso : metaAjena(metas[i]);
   }
+  // EL NIVEL DEL ANFITRIÓN, antes de tocar nada más. Los dos tienen que jugar
+  // el mismo sitio o no hay lockstep que valga: cambian el suelo, las oleadas y
+  // la decoración, y con ellos el mundo entero. Si es el que ya está cargado
+  // —el caso normal— esto no espera a nada.
+  const suyo = cfg.nivel ? Niveles.por(cfg.nivel) : null;
+  if (suyo && suyo !== nivelActual) await usarNivel(suyo);
+
   rng.sembrar(cfg.semilla >>> 0);
   volverAlMenu();
   rng.sembrar(cfg.semilla >>> 0);
@@ -2313,6 +2432,7 @@ function actualizar(dt) {
     else if (pantalla === PANTALLA_HUECOS) entradaHuecos();
     else if (pantalla === PANTALLA_RED) entradaRed();
     else if (pantalla === PANTALLA_TITULO) entradaTitulo();
+    else if (pantalla === PANTALLA_NIVELES) entradaNiveles();
     else if (pantalla === PANTALLA_TIENDA) entradaTienda();
     else if (pantalla === PANTALLA_MASCOTAS) entradaMascotas();
     else if (pantalla === PANTALLA_CONFIG) entradaConfig(() => irA(PANTALLA_TITULO));
@@ -2683,7 +2803,7 @@ function actualizar(dt) {
     refrescarChuleta();
     MetaProgreso.anotarPartida(Director.t);
     // Y la fase queda superada. Solo aquí: la derrota no supera nada.
-    MetaProgreso.superarFase(NIVEL.id);
+    MetaProgreso.superarFase(nivelActual.id);
   } else if (!finalMostrado && derrota) {
     statsFinal = capturarStats();
     finalMostrado = 'derrota';
@@ -2964,6 +3084,9 @@ function dibujar(alpha) {
     }
     if (pantalla === PANTALLA_TITULO) {
       Pantallas.titulo(ctx, Capa.ctx, MENU, cursorMenu);
+    }
+    else if (pantalla === PANTALLA_NIVELES) {
+      dibujarNiveles(ctx, Capa.ctx, listaDeNiveles(), cursorNivel, cambiandoNivel);
     }
     else if (pantalla === PANTALLA_TIENDA) dibujarTienda(ctx, Capa.ctx, cursorTienda, pestanyaTienda);
     else if (pantalla === PANTALLA_MASCOTAS) {
@@ -3282,7 +3405,12 @@ async function arrancar() {
   // mientras el resto de arrancar() continúa.
   recogerRetornoDeGithub();
   GestorAudio.iniciar();
-  await Recursos.cargar(NIVEL);
+  // Los datos de TODOS los niveles, antes que nada: la pantalla de selección
+  // necesita el nombre y la duración de cada uno para pintar la lista, y son
+  // unos pocos KB de literales. El arte de cada uno —el suelo— NO se carga
+  // aquí, solo el del que se va a jugar. Ver datos/niveles/indice.js.
+  await Niveles.cargar();
+  await Recursos.cargar();
   // Variantes de color del bestiario (la serpiente dorada). Después de cargar el
   // atlas y antes del primer frame: teñir un sprite en caliente sería un canvas
   // nuevo por enemigo.
@@ -3292,12 +3420,6 @@ async function arrancar() {
   // un lienzo nuevo a mitad de partida. Solo los personajes y no el atlas
   // entero — ver prepararTinteDanyo en core/recursos.js.
   for (const id of ORDEN_PERSONAJES) Recursos.prepararTinteDanyo(PERSONAJES[id].sprite);
-
-  // El aspecto de pausa, derrota y subida de nivel lo pone el NIVEL. Se inyecta
-  // en vez de importarlo desde ui/: si la interfaz importara merida.js, añadir
-  // un nivel obligaría a tocar la interfaz, y el contrato dice que un nivel
-  // nuevo es copiar un archivo de datos/niveles/ y nada más.
-  Tema.usar(NIVEL);
 
   // Todos los pools se preasignan aquí, antes del primer frame.
   enemigos = new Enemigos(CAPACIDAD_ENEMIGOS, rng);
@@ -3337,11 +3459,10 @@ async function arrancar() {
     } else usarConsumible(jugador, tipo);
   };
 
-  // Comparte el RNG con todo lo demás, así que con la misma semilla salen las
-  // mismas oleadas: es el criterio 10 del plan y sin él no se puede comparar un
-  // ajuste de balance con el anterior.
-  Director.iniciar(NIVEL, rng);
-  Obstaculos.iniciar(NIVEL);
+  // EL NIVEL DE ARRANQUE es el primero de la lista. Deja listos el suelo, el
+  // tema de la interfaz, el director y la decoración; elegir otro en la
+  // pantalla de niveles vuelve a llamar aquí mismo (ver `usarNivel`).
+  await usarNivel(Niveles.lista[0]);
   // El director decide cuándo cae un consumible; los objetos del suelo saben
   // dibujarse y dejarse recoger. Ninguno de los dos sabe del otro más que esto.
   Director.objetos = cofres;
@@ -3384,6 +3505,9 @@ async function arrancar() {
   RedConsola.enganchar({
     empezar: empezarPartidaEnRed,
     terminar: terminarPartidaEnRed,
+    // En qué nivel juega esta máquina. Lo pregunta el anfitrión para poder
+    // decirlo en el saludo; quien se una cargará ese mismo.
+    nivel: () => nivelActual.id,
     // ESTO NO ES `Sincro.activo`, y la diferencia es un bloqueo permanente.
     //
     // Lo usa `medirYPonerRetardo` para no mover el retardo con la partida en
@@ -3419,7 +3543,12 @@ async function arrancar() {
     get pestanyaTienda() { return pestanyaTienda; },
     PANTALLA: { intro: PANTALLA_INTRO, huecos: PANTALLA_HUECOS,
                 titulo: PANTALLA_TITULO, seleccion: PANTALLA_SELECCION,
-                juego: PANTALLA_JUEGO, tienda: PANTALLA_TIENDA },
+                juego: PANTALLA_JUEGO, tienda: PANTALLA_TIENDA,
+                niveles: PANTALLA_NIVELES },
+    // En qué nivel se está. Sirve para lo mismo que `PANTALLA`: poder
+    // comprobar desde fuera que elegir un sitio en la lista ha cargado ese
+    // sitio, sin tener que mirar el dibujo del suelo.
+    nivel: () => nivelActual.id,
     // Progreso META y mascotas. Se exponen para poder probar desde la consola
     // sin jugar veinte partidas para reunir denarios, y para poder mirar qué
     // hay guardado sin abrir el inspector de localStorage.

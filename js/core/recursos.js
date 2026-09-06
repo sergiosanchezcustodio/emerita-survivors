@@ -63,9 +63,14 @@ export const Recursos = {
   sustituidos: [],          // ids que acabaron con placeholder
   paleta: null,
 
-  async cargar(nivel) {
-    this.paleta = nivel.paleta;
-
+  // EL ARTE COMÚN A TODOS LOS NIVELES: el atlas y sus entidades. No sabe de
+  // niveles y se hace UNA VEZ al arrancar.
+  //
+  // Estaba junto a la carga del suelo, en un solo `cargar(nivel)`. Se partió al
+  // haber más de un nivel: cambiar de nivel volvía a pedir el atlas entero y a
+  // recortar cada sprite otra vez, cuando lo único que cambia entre Mérida y
+  // Cáceres es el suelo y la paleta. Ver `cargarNivel`.
+  async cargar() {
     try {
       // `no-cache` OBLIGA A REVALIDAR el atlas contra el servidor. Es el único
       // fichero que se pide así, y es el que lo arregla todo: dentro viene el
@@ -95,7 +100,14 @@ export const Recursos = {
       cargas.push(this._cargarEntidad(id));
     }
     await Promise.all(cargas);
+  },
 
+  // LO QUE SÍ CAMBIA DE UN NIVEL A OTRO: el suelo y la paleta. Se puede llamar
+  // tantas veces como niveles se visiten, y siempre después de `cargar` — el
+  // sello anticaché de las URL sale del atlas, así que sin él la imagen del
+  // suelo se pediría sin sello y el navegador podría servir la vieja.
+  async cargarNivel(nivel) {
+    this.paleta = nivel.paleta;
     await this._generarSuelo(nivel);
   },
 

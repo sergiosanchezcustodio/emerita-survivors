@@ -179,7 +179,13 @@ function nueva(servidores) {
 let pendienteMeta = null;
 
 // Lo recibe quien se ha unido: el anfitrión ha dado el pistoletazo.
-function empezarPorInvitacion(texto) {
+//
+// Es asíncrona porque EMPEZAR PUEDE TENER QUE CARGAR UN NIVEL: el anfitrión
+// manda en qué sitio se juega, y si esta máquina tenía otro cargado hay que
+// traer su suelo antes de que exista mundo. Nadie espera el resultado —el
+// saludo llega por el canal de control y no hay a quién contestarle—, pero
+// dentro sí se espera a la carga antes de arrancar la simulación.
+async function empezarPorInvitacion(texto) {
   let cfg;
   try { cfg = JSON.parse(texto.slice('inicio '.length)); }
   catch { console.error('El saludo del anfitrión no se ha podido leer.'); return; }
@@ -191,12 +197,16 @@ function empezarPorInvitacion(texto) {
   }
   if (!juego) { console.error('El juego todavía no está listo.'); return; }
   const puesto = cfg.tuPuesto | 0 || 1;
-  juego.empezar([sesion], {
+  await juego.empezar([sesion], {
     esAnfitrion: false,
     jugadorLocal: puesto,
     personajes: cfg.personajes,
     semilla: cfg.semilla >>> 0,
-    metas: cfg.metas
+    metas: cfg.metas,
+    // EN QUÉ NIVEL. Lo decide el anfitrión, igual que la semilla y los
+    // personajes: si cada máquina jugara el suyo, serían dos mundos distintos
+    // desde el primer fotograma —otro suelo, otras oleadas, otra decoración—.
+    nivel: cfg.nivel
   });
   console.log(`Partida en red empezada con ${cfg.personajes.length} jugadores ` +
               `(semilla ${(cfg.semilla >>> 0).toString(16)}). ` +
@@ -567,9 +577,9 @@ export const RedConsola = {
 
   // EMPEZAR LA PARTIDA. Lo hace el anfitrión; la otra máquina se entera sola.
   //
-  // Todo lo que decide cómo va a ser la partida se manda desde aquí: la semilla
-  // del azar y qué personaje lleva cada puesto. Si cada máquina eligiera lo
-  // suyo, serían dos partidas distintas desde el primer fotograma.
+  // Todo lo que decide cómo va a ser la partida se manda desde aquí: el nivel,
+  // la semilla del azar y qué personaje lleva cada puesto. Si cada máquina
+  // eligiera lo suyo, serían dos partidas distintas desde el primer fotograma.
   async jugar(personajes) {
     if (!sesion || sesion.estado !== ESTADOS.CONECTADO) {
       console.error('No hay conexión abierta.');
@@ -584,6 +594,9 @@ export const RedConsola = {
       ? personajes.slice(0, cuantos)
       : Array.from({ length: cuantos }, (_, i) => i % 4);
     const semilla = (Math.random() * 0xffffffff) >>> 0;
+    // El nivel que tiene cargado el anfitrión. Va en el saludo para que quien
+    // se una cargue el mismo antes de empezar.
+    const nivel = juego.nivel();
 
     const invitados = enlaces.filter((e) => e.estado === ESTADOS.CONECTADO);
     if (invitados.length === 0) {
@@ -627,11 +640,11 @@ export const RedConsola = {
     // para todos salvo ese número.
     for (let i = 0; i < invitados.length; i++) {
       invitados[i].enviarControl('inicio ' + JSON.stringify({
-        version: VERSION_JUEGO, semilla, personajes: pers, metas, tuPuesto: i + 1
+        version: VERSION_JUEGO, semilla, personajes: pers, metas, nivel, tuPuesto: i + 1
       }));
     }
-    juego.empezar(invitados, {
-      esAnfitrion: true, jugadorLocal: 0, personajes: pers, semilla, metas
+    await juego.empezar(invitados, {
+      esAnfitrion: true, jugadorLocal: 0, personajes: pers, semilla, metas, nivel
     });
     console.log(`Partida en red empezada con ${pers.length} jugadores ` +
                 `(semilla ${semilla.toString(16)}). Eres el jugador 1.`);

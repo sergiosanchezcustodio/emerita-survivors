@@ -116,12 +116,12 @@ gratis:
    etc.), no solo dejar caer los PNG en una carpeta y esperar a que el
    script los encuentre solo.
 
-3. **Hoy solo se carga un nivel: no hay selector.** `js/main.js` importa
-   `NIVEL` de un único sitio fijo (`import { NIVEL } from
-   './datos/niveles/merida.js'`). Con un segundo archivo de datos ya
-   escrito, jugarlo hoy es cambiar esa línea de import; construir un menú
-   de selección de nivel de verdad es trabajo aparte, no incluido en el
-   contrato de datos.
+3. **Un nivel nuevo hay que darlo de alta en el índice.** Ya no es tocar un
+   import de `main.js` —eso se acabó—, pero tampoco basta con dejar caer el
+   archivo en la carpeta: `js/datos/niveles/indice.js` lleva la lista de los
+   que existen y en qué orden se recorre la región, y ahí hay que añadir una
+   línea. Es la única de todo el proyecto fuera de `datos/niveles/`. Ver
+   **El índice y el selector**, más abajo.
 
 ## Ejemplo comentado: añadir Cáceres como nivel 2
 
@@ -168,6 +168,47 @@ export const NIVEL = {
 ```
 
 Para jugarlo: `herramientas/procesar-assets.ps1` necesita sus propias
-entradas para `stages\2\...` (ver el aviso 2 de arriba), y `js/main.js`
-necesita importar `NIVEL` desde `caceres.js` en vez de `merida.js` (aviso 3)
-hasta que exista un selector de nivel de verdad.
+entradas para `stages\2\...` (ver el aviso 2 de arriba), y hay que dar de alta
+`caceres.js` en el índice.
+
+## El índice y el selector
+
+`js/datos/niveles/indice.js` es la lista de los niveles que existen. Añadir uno
+es una línea:
+
+```js
+const MODULOS = [
+  () => import('./merida.js'),
+  () => import('./caceres.js')      // <- lo único que hay que escribir fuera
+];                                  //    de datos/niveles/<el nivel>.js
+```
+
+A partir de ahí el juego se ocupa solo:
+
+- **La pantalla de elegir nivel** (`js/ui/niveles.js`) se pinta con el
+  `nombre`, el `subtitulo` y la `duracion` que traiga cada archivo de datos. No
+  hay ninguna lista de nombres escrita a mano en la interfaz: si Cáceres cambia
+  de nombre, la pantalla lo dice sin que nadie la toque.
+- **Se salta sola cuando sobra.** Con un solo nivel abierto, JUGAR va directo a
+  elegir personaje, igual que la pantalla de mascotas cuando no se ha comprado
+  ninguna. Hoy, con Mérida sola, esa pantalla no se ve nunca.
+- **Cerrar un nivel hasta terminar el anterior** es un campo del propio nivel:
+
+  ```js
+  requiere: 'merida'    // no se puede entrar hasta ganar en Mérida
+  ```
+
+  Se comprueba contra `MetaProgreso.fases`, que solo apunta las VICTORIAS:
+  morir en el minuto 28 de Mérida no abre Cáceres. Un nivel sin `requiere` está
+  siempre abierto, que es el caso de Mérida.
+- **En cooperativo online lo elige el anfitrión.** El id del nivel viaja en el
+  saludo junto a la semilla y los personajes, y quien se une carga ese mismo
+  antes de empezar. Es obligatorio, no una comodidad: dos máquinas con niveles
+  distintos son dos mundos distintos desde el primer fotograma, y ahí no hay
+  lockstep que valga.
+
+Cambiar de nivel NO vuelve a cargar el atlas. `Recursos.cargar()` trae el arte
+común una vez al arrancar y `Recursos.cargarNivel(nivel)` solo el suelo y la
+paleta, que es lo único que distingue a un sitio de otro. Lo que cuesta al
+cambiar es esa imagen de suelo, y por eso la pantalla dice «Cargando el mapa…»
+mientras llega.
