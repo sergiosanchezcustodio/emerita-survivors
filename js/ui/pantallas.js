@@ -783,6 +783,31 @@ function dibujarHuecoVacio(ctxUi, v, indice, t) {
   ctxUi.restore();
 }
 
+// LA ESTATURA DE UN HÉROE, DE 0 A 1, con la más alta valiendo 1.
+//
+// Sale del alto de su sprite del mundo, que es donde vive la estatura de
+// verdad (`alto` en la tabla $PERSONAJES de herramientas/procesar-assets.ps1:
+// Helen 23, Julie 25, Say y los cuatro de siempre 26, Sofi 28). No se escribe
+// aquí una segunda tabla con las mismas ocho alturas: dos listas de lo mismo
+// se separan a la primera que se toque una.
+//
+// Se normaliza contra la MÁS ALTA y no contra un número fijo para que la más
+// alta llene su hueco entera. Con un valor fijo, el día que alguien crezca por
+// encima de él se saldría del marco.
+let _estaturaMayor = 0;
+
+function factorEstatura(def) {
+  const meta = Recursos.meta(def.sprite);
+  if (!meta) return 1;
+  if (!_estaturaMayor) {
+    for (let i = 0; i < ORDEN_PERSONAJES.length; i++) {
+      const otro = Recursos.meta(PERSONAJES[ORDEN_PERSONAJES[i]].sprite);
+      if (otro && otro.h > _estaturaMayor) _estaturaMayor = otro.h;
+    }
+  }
+  return _estaturaMayor ? meta.h / _estaturaMayor : 1;
+}
+
 function dibujarRetrato(ctxUi, r, p, ocupante, t) {
   const id = ORDEN_PERSONAJES[p];
   const def = PERSONAJES[id];
@@ -814,16 +839,38 @@ function dibujarRetrato(ctxUi, r, p, ocupante, t) {
   }
 
   if (img) {
-    // Encaje "contener" y APOYADO EN EL SUELO del hueco que le queda, que no es
-    // el marco entero: arriba manda el nombre y abajo el cuadro del arma (ver
-    // dibujarTarjeta). El retrato viene a 340x760 y el marco es de proporción
-    // más ancha, así que manda el alto y sobra aire a los lados. No se estira
-    // nunca, y si algún día llega un dibujo más ancho, se estrechará solo.
+    // APOYADO EN EL SUELO del hueco que le queda, que no es el marco entero:
+    // arriba manda el nombre y abajo el cuadro del arma (ver dibujarTarjeta).
+    //
+    // Y CADA UNA CON SU ESTATURA. Antes se encajaba el lienzo del retrato en el
+    // hueco, y eso igualaba a las ocho: el lienzo mide 340x760 para todas, así
+    // que todas salían llenándolo. Con Helen —que es la más baja de las ocho—
+    // puesta al lado de Sofi —la más alta— la pantalla decía lo contrario de lo
+    // que dice el juego.
+    //
+    // Peor todavía: lo que decidía el tamaño no era la estatura, era LO ANCHA
+    // que fuera cada una. El recorte encaja la figura en el lienzo por el lado
+    // que se quede corto, así que a una figura ancha manda su ancho y le sobra
+    // aire arriba: Sara ocupaba 680 de los 760 y salía un 10% más baja que las
+    // demás sin que nadie lo hubiera decidido.
+    //
+    // Se arregla con los dos datos de verdad, los dos del atlas: `alto` de la
+    // entrada Cuerpo dice cuánto mide la FIGURA dentro del lienzo, y el alto
+    // del sprite del mundo es la estatura. La más alta llena el hueco y las
+    // demás bajan en proporción.
     const hueco = r.h - BANDA_NOMBRE - BANDA_ARMA;
-    const esc = Math.min(r.w * 0.94 / img.width, hueco / img.height);
+    const metaCuerpo = Recursos.meta(def.sprite + 'Cuerpo');
+    const figura = (metaCuerpo && metaCuerpo.alto) || img.height;
+    let esc = hueco * factorEstatura(def) / figura;
+    // Y que no se salga por los lados. Con estas ilustraciones no llega a
+    // pasar —son todas más altas que anchas— pero un dibujo futuro más ancho
+    // se estrecharía solo en vez de invadir el marco de al lado.
+    esc = Math.min(esc, r.w * 0.94 / img.width);
     const w = img.width * esc;
     const h = img.height * esc;
     const x = r.x + (r.w - w) / 2;
+    // El lienzo del retrato trae la figura apoyada en su borde de abajo, así
+    // que el borde de abajo del lienzo ES la línea del suelo.
     const y = r.y + BANDA_NOMBRE + hueco - h;
 
     ctxUi.save();

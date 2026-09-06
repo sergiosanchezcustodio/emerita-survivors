@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260906214325",
+    "version":  "20260906220757",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -120,7 +120,8 @@
                                          "h":  760,
                                          "anclaX":  170,
                                          "anclaY":  760,
-                                         "frames":  1
+                                         "frames":  1,
+                                         "alto":  760
                                      },
                       "eric":  {
                                    "archivo":  "personajes/eric.png",
@@ -162,7 +163,8 @@
                                          "h":  760,
                                          "anclaX":  170,
                                          "anclaY":  760,
-                                         "frames":  1
+                                         "frames":  1,
+                                         "alto":  760
                                      },
                       "lucy":  {
                                    "archivo":  "personajes/lucy.png",
@@ -204,7 +206,8 @@
                                          "h":  760,
                                          "anclaX":  170,
                                          "anclaY":  760,
-                                         "frames":  1
+                                         "frames":  1,
+                                         "alto":  680
                                      },
                       "sara":  {
                                    "archivo":  "personajes/sara.png",
@@ -246,7 +249,8 @@
                                           "h":  760,
                                           "anclaX":  170,
                                           "anclaY":  760,
-                                          "frames":  1
+                                          "frames":  1,
+                                          "alto":  736
                                       },
                       "vicky":  {
                                     "archivo":  "personajes/vicky.png",
@@ -288,13 +292,14 @@
                                           "h":  760,
                                           "anclaX":  170,
                                           "anclaY":  760,
-                                          "frames":  1
+                                          "frames":  1,
+                                          "alto":  760
                                       },
                       "helen":  {
                                     "archivo":  "personajes/helen.png",
-                                    "w":  70,
+                                    "w":  41,
                                     "h":  92,
-                                    "anclaX":  35,
+                                    "anclaX":  20,
                                     "anclaY":  92,
                                     "frames":  18,
                                     "clips":  {
@@ -330,13 +335,14 @@
                                           "h":  760,
                                           "anclaX":  170,
                                           "anclaY":  760,
-                                          "frames":  1
+                                          "frames":  1,
+                                          "alto":  760
                                       },
                       "julie":  {
                                     "archivo":  "personajes/julie.png",
-                                    "w":  44,
+                                    "w":  42,
                                     "h":  100,
-                                    "anclaX":  22,
+                                    "anclaX":  21,
                                     "anclaY":  100,
                                     "frames":  18,
                                     "clips":  {
@@ -372,7 +378,8 @@
                                         "h":  760,
                                         "anclaX":  170,
                                         "anclaY":  760,
-                                        "frames":  1
+                                        "frames":  1,
+                                        "alto":  760
                                     },
                       "say":  {
                                   "archivo":  "personajes/say.png",
@@ -414,7 +421,8 @@
                                          "h":  760,
                                          "anclaX":  170,
                                          "anclaY":  760,
-                                         "frames":  1
+                                         "frames":  1,
+                                         "alto":  760
                                      },
                       "sofi":  {
                                    "archivo":  "personajes/sofi.png",

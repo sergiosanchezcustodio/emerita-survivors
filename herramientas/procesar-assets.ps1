@@ -444,7 +444,14 @@ public class Procesador {
             sal.UnlockBits(dd);
             sal.Save(salida, ImageFormat.Png);
         }
-        return anchoSal + "|" + altoSal + "|1";
+        // El tercer numero es LO QUE MIDE LA FIGURA DENTRO del lienzo, que no
+        // es el lienzo: el encaje "contener" deja aire arriba en cuanto el
+        // dibujo es mas ancho de la cuenta -Sara ocupa 624 de los 760- y sin
+        // este dato quien la dibuje no tiene forma de saberlo. Lo necesita la
+        // pantalla de seleccion para que las ocho salgan con SU estatura y no
+        // con la que les toque segun lo anchas que sean. Ver `alto` en la
+        // entrada <id>Cuerpo del atlas.
+        return anchoSal + "|" + altoSal + "|1|" + dh;
     }
 
     // ---------------------------------------------------------------------
@@ -3414,10 +3421,15 @@ foreach ($e in $CATALOGO) {
         # Cuerpo entero para la ficha de jugador.
         $rutaCuerpo = Join-Path $DESTINO ("personajes\" + $e.id + "-cuerpo.png")
         try {
-            [Procesador]::RecortarCuerpo($fuenteRetrato, $rutaCuerpo, $CUERPO_W, $CUERPO_H) | Out-Null
+            $rc = [Procesador]::RecortarCuerpo($fuenteRetrato, $rutaCuerpo, $CUERPO_W, $CUERPO_H)
+            $pc = $rc -split '\|'
+            # `alto`: lo que mide la FIGURA dentro del lienzo, apoyada abajo. El
+            # lienzo siempre mide $CUERPO_H; la figura, no. Ver el comentario
+            # del retorno de RecortarCuerpo.
             $atlas[$e.id + 'Cuerpo'] = [ordered]@{
                 archivo = "personajes/$($e.id)-cuerpo.png"
                 w = $CUERPO_W; h = $CUERPO_H; anclaX = [int]($CUERPO_W/2); anclaY = $CUERPO_H; frames = 1
+                alto = [int]$pc[3]
             }
         } catch {
             Write-Host "  aviso: no se pudo recortar el cuerpo de $($e.id)"
