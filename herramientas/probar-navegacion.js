@@ -20,7 +20,8 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PUERTO = 8127;
 
 const NOMBRE = { 0: 'titulo', 1: 'seleccion', 2: 'juego', 3: 'tienda',
-                 4: 'mascotas', 5: 'config', 6: 'intro', 7: 'huecos', 8: 'red' };
+                 4: 'mascotas', 5: 'config', 6: 'intro', 7: 'huecos', 8: 'red',
+                 9: 'niveles', 10: 'historia' };
 
 let fallos = 0;
 function comprobar(condicion, texto) {
@@ -129,6 +130,29 @@ async function principal() {
               'y ESC vuelve a personajes (sin rebotar de vuelta a mascotas)');
     await pulsar('Escape', 600);
     comprobar(await donde() === 'titulo', 'y otra vez al título: la cadena entera');
+
+    // --- LO ÚLTIMO ANTES DE JUGAR: dónde, y la historia del sitio ------------
+    //
+    // Elegir nivel es la única pantalla del recorrido de la que NO se sale al
+    // título: se retrocede un paso, a volver a elegir héroe. Y de ella no se
+    // entra a la partida directamente, sino a la placa que cuenta el sitio.
+    await pulsar('Enter', 600);
+    await pulsar('Enter', 700);
+    await pulsar('Enter', 700);
+    comprobar(await donde() === 'niveles', 'confirmar mascota lleva a elegir nivel');
+    await pulsar('Escape', 700);
+    comprobar(await donde() === 'seleccion',
+              'y ESC vuelve a personajes, no al título');
+
+    await pulsar('Enter', 700);
+    await pulsar('Enter', 700);
+    comprobar(await donde() === 'niveles', 'y se vuelve a llegar a elegir nivel');
+    await pulsar('Enter', 900);
+    comprobar(await donde() === 'historia',
+              'elegir el nivel cuenta primero su historia');
+    await pulsar('Enter', 900);
+    comprobar(await donde() === 'juego',
+              'y de la historia se sale A LA PARTIDA, con una tecla');
 
     comprobar(excepciones.length === 0,
               excepciones.length === 0 ? 'sin excepciones por el camino'

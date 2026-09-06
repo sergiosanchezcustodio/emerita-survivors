@@ -416,10 +416,15 @@ el puente de Alcántara — añadiendo un nivel a la vez. El contrato para escri
 uno está en **[docs/anadir-un-nivel.md](docs/anadir-un-nivel.md)**, con lo que es
 copiar un fichero de datos y lo que todavía obliga a tocar código.
 
-El juego ya sabe tener más de uno: hay un índice de niveles, una pantalla para
-elegir sitio —que se salta sola mientras solo haya uno abierto—, niveles que se
-cierran hasta ganar en el anterior, y en cooperativo online el nivel lo elige el
-anfitrión y viaja en el saludo. Falta escribirlos.
+El juego ya sabe tener más de uno. Después de elegir héroe y mascota se elige
+**dónde**, en una pantalla que enseña la región entera —los cinco sitios que
+faltan salen apagados, con «próximamente»— y donde un nivel se abre al ganar en
+el anterior. Elegido el sitio, **su historia** sube por la placa de piedra antes
+del primer fotograma: cada nivel cuenta la suya, escrita en su propio archivo de
+datos. Y la intro del arranque ya no cuenta Mérida, presenta el juego entero.
+
+En cooperativo online el nivel lo elige el anfitrión y viaja en el saludo con la
+semilla y los personajes. Falta escribir los cinco que quedan.
 
 ---
 

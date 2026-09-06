@@ -13,6 +13,40 @@ export const NIVEL = {
   // ajustó— y el tramo 20-30 es nuevo, por debajo.
   duracion: 1800,                      // segundos
 
+  // LA HISTORIA DE ESTE SITIO. Se cuenta en la placa de piedra al elegirlo y
+  // antes de jugarlo (ver ui/historia.js). Estaba en la intro, cuando Mérida
+  // era el único nivel y presentar el juego era presentarla a ella; la intro
+  // presenta ahora el juego entero y cada sitio cuenta lo suyo aquí.
+  //
+  // Las líneas van PARTIDAS A MANO: el corte de cada renglón es parte del ritmo
+  // al que se lee, porque se lee según entra. Una cadena vacía es un renglón en
+  // blanco, '#' es titular y '@' antetítulo.
+  historia: [
+    '@CAPÍTULO I',
+    '#LA HORDA',
+    '#DE EMERITA',
+    '',
+    '',
+    'Hace veinte siglos Roma levantó',
+    'Emerita Augusta sobre el Guadiana',
+    'y la nombró capital de Lusitania.',
+    '',
+    'Su teatro, su anfiteatro, su',
+    'acueducto y su puente siguen hoy',
+    'en pie, en la ciudad de Mérida.',
+    '',
+    'Pero algo se ha despertado bajo',
+    'las piedras. Cuando cae la noche,',
+    'la horda sale del foro y de las',
+    'cloacas, y no deja de crecer.',
+    '',
+    'Treinta minutos. Ni uno menos.',
+    'Sube de nivel, elige tus armas',
+    'y llega hasta la Loba Capitolina.',
+    '',
+    'Nadie ha aguantado tanto.'
+  ],
+
   // Ocres, arena tostada, piedra caliza, mármol roto, oliva y púrpura imperial.
   paleta: {
     arena:      '#b99b6b',

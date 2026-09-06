@@ -19,6 +19,10 @@ export const NIVEL = {
   subtitulo: 'Las ruinas del Imperio',
   duracion: 1800,               // segundos que dura la partida (30 min)
 
+  historia: [ '@CAPÍTULO I', '#LA HORDA', /* ... */ ],  // el relato del sitio,
+                                // en la placa de piedra, antes de jugarlo.
+                                // Opcional — ver "La historia de cada nivel"
+
   paleta: { arena: '#b99b6b', /* ... */ },      // colores del suelo procedural
                                                   // de emergencia (sin PNG)
   interfaz: {                                    // tema visual de menús: pausa,
@@ -189,9 +193,16 @@ A partir de ahí el juego se ocupa solo:
   `nombre`, el `subtitulo` y la `duracion` que traiga cada archivo de datos. No
   hay ninguna lista de nombres escrita a mano en la interfaz: si Cáceres cambia
   de nombre, la pantalla lo dice sin que nadie la toque.
-- **Se salta sola cuando sobra.** Con un solo nivel abierto, JUGAR va directo a
-  elegir personaje, igual que la pantalla de mascotas cuando no se ha comprado
-  ninguna. Hoy, con Mérida sola, esa pantalla no se ve nunca.
+- **Va al final del recorrido**, después de elegir héroe y mascota: primero con
+  quién se va, después adónde. Y se ve SIEMPRE, enseñando la región entera,
+  también lo cerrado. Es lo contrario del criterio de la pantalla de mascotas
+  —que se salta cuando no hay ninguna comprada— a propósito: allí lo que no se
+  ha comprado no existe, y aquí lo que no se ha desbloqueado es justo lo que
+  hay que enseñar.
+- **Los sitios todavía sin escribir** salen apagados y con «PRÓXIMAMENTE».
+  Están en `PROXIMOS`, en el mismo índice, y son solo nombres: ni oleadas, ni
+  paleta, ni jefes. Al escribir uno de verdad se le añade su `import` arriba y
+  se le quita el renglón de `PROXIMOS`.
 - **Cerrar un nivel hasta terminar el anterior** es un campo del propio nivel:
 
   ```js
@@ -206,6 +217,39 @@ A partir de ahí el juego se ocupa solo:
   antes de empezar. Es obligatorio, no una comodidad: dos máquinas con niveles
   distintos son dos mundos distintos desde el primer fotograma, y ahí no hay
   lockstep que valga.
+
+## La historia de cada nivel
+
+`historia` es un campo más del archivo de datos: las líneas del relato que sube
+por la placa de piedra al elegir el sitio y antes de jugarlo (`js/ui/historia.js`
+lo enseña, `js/ui/relato.js` lo dibuja). Van **partidas a mano** —el corte de
+cada renglón es parte del ritmo, porque se lee según entra—, una cadena vacía es
+un renglón en blanco, `'#'` es titular y `'@'` antetítulo:
+
+```js
+historia: [
+  '@CAPÍTULO II',
+  '#LA CIUDAD',
+  '#AMURALLADA',
+  '',
+  'Aquí lo que pasó en Cáceres.'
+],
+historiaImagen: 'menus/caceres-placa.jpg'   // opcional: otra lámina de fondo
+```
+
+Un nivel **sin** `historia` no pasa por esa pantalla y entra directo a jugar. No
+es un error: es que todavía no tiene nada que contar.
+
+La lámina es la de la intro salvo que se declare `historiaImagen`, que se hornea
+al cargar el nivel (no al abrir la pantalla: una imagen que se empieza a pedir
+cuando ya se está leyendo el relato se pone de fondo a media lectura).
+
+Y la **intro** del arranque (`js/ui/intro.js`) NO cuenta ya el nivel 1: presenta
+el juego entero. Contaba Mérida porque Mérida era todo lo que había, y meter
+los seis relatos ahí sería un cuarto de hora de lectura antes de tocar el juego,
+cinco sextos de ella sobre sitios donde no se puede entrar.
+
+## Rendimiento del cambio de nivel
 
 Cambiar de nivel NO vuelve a cargar el atlas. `Recursos.cargar()` trae el arte
 común una vez al arrancar y `Recursos.cargarNivel(nivel)` solo el suelo y la

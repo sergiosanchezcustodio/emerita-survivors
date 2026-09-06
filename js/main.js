@@ -52,13 +52,14 @@ import { Director, aparecerTanda } from './sistemas/director.js';
 import { Mascotas } from './sistemas/mascotas.js';
 import { MASCOTAS, ORDEN_MASCOTAS } from './datos/mascotas.js';
 import { Jefes } from './sistemas/jefes.js';
-import { Niveles } from './datos/niveles/indice.js';
+import { Niveles, PROXIMOS } from './datos/niveles/indice.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from './datos/personajes.js';
 import { ARMAS } from './datos/armas.js';
 import { POTENCIADORES } from './datos/potenciadores.js';
 import { Intro } from './ui/intro.js';
 import { dibujarHuecos, refrescarHuecos, huecoOcupado, textoBorrado, dibujarEsperaGithub } from './ui/huecos.js';
 import { dibujarNiveles } from './ui/niveles.js';
+import { Historia } from './ui/historia.js';
 
 
 // Capacidad del pool. El objetivo del plan son 800 entidades simultáneas; el
@@ -199,14 +200,19 @@ const PANTALLA_HUECOS = 7;
 // cuatro opciones vienen pintadas en la ilustración y añadir una quinta es
 // repintar la lápida.
 const PANTALLA_RED = 8;
-// ELEGIR NIVEL. Va entre el menú y la selección de personaje: primero DÓNDE se
-// juega y después con QUIÉN, que es el orden en que se decide.
+// ELEGIR NIVEL. Va DESPUÉS de elegir héroe y mascota, que es lo último que se
+// decide antes de jugar: primero con quién se va, después adónde.
 //
-// SOLO SE PASA POR AQUÍ SI HAY MÁS DE UNO ABIERTO, igual que la de mascotas
-// —con una sola fila, la pantalla no ofrece una decisión: obliga a pulsar otra
-// vez—. Hoy, con Mérida sola, no se ve nunca; el día que exista Cáceres,
-// aparece sin tocar una línea de aquí.
+// SE VE SIEMPRE, y enseña LA REGIÓN ENTERA —también lo que todavía está
+// cerrado—. Es lo contrario del criterio de la pantalla de mascotas, que se
+// salta cuando no hay ninguna comprada, y a propósito: allí lo que no se ha
+// comprado no existe, y aquí lo que no se ha desbloqueado es justo lo que hay
+// que enseñar. Un mapa que solo muestra donde ya puedes ir no es un mapa.
 const PANTALLA_NIVELES = 9;
+// LA HISTORIA DEL SITIO ELEGIDO: la placa de piedra de la intro con el relato
+// del nivel, entre elegirlo y jugarlo. Ver ui/historia.js. Un nivel sin
+// `historia` en sus datos no pasa por aquí.
+const PANTALLA_HISTORIA = 10;
 // Sin valor de arranque: lo pone `irA` al final de este bloque, porque el
 // estado de pantalla no es solo esta variable — arrastra la clase del body, y
 // dejarlos puestos por separado es tener dos verdades que se desincronizan.
@@ -310,6 +316,10 @@ async function usarNivel(nivel) {
   // comparar un ajuste de balance con el anterior.
   Director.iniciar(nivel, rng);
   Obstaculos.iniciar(nivel);
+  // Y la lámina de su historia, si trae una propia. Aquí y no al abrir la
+  // pantalla: una imagen que se empieza a pedir cuando ya se está leyendo el
+  // relato se pone de fondo a media lectura.
+  await Historia.cargarPlaca(nivel);
 }
 
 // --- Configuración ----------------------------------------------------------
@@ -1080,13 +1090,7 @@ function entradaTitulo() {
 
   switch (MENU[cursorMenu].id) {
     case 'jugar':
-      // PRIMERO DÓNDE, DESPUÉS CON QUIÉN — pero solo si hay dónde elegir. Con
-      // un único nivel abierto no hay decisión que tomar y la pantalla se salta
-      // entera, igual que la de mascotas cuando no se ha comprado ninguna.
-      if (Niveles.abiertos(MetaProgreso.fases).length > 1) {
-        cursorNivel = Math.max(0, Niveles.lista.indexOf(nivelActual));
-        irA(PANTALLA_NIVELES);
-      } else irASeleccion();
+      irASeleccion();
       break;
     case 'red':
       irARed(PANTALLA_TITULO);
@@ -1124,17 +1128,57 @@ function irASeleccion() {
   irA(PANTALLA_SELECCION);
 }
 
+// VOLVER A ELEGIR HÉROE, desde mascotas o desde la lista de niveles.
+//
+// Hay que DESCONFIRMAR A TODOS, y sin eso no se volvía. La pantalla de
+// personajes sale sola en cuanto todos están listos —esa es su condición de
+// salida— y al llegar más adelante todos lo estaban: se volvía a personajes y
+// en el mismo fotograma la salida disparaba otra vez hacia delante. ESC parecía
+// no hacer nada, cuando lo que pasaba era que ibas y volvías sin ver nada.
+//
+// Se desconfirman TODOS y no solo el primero porque eso es lo que significa
+// salir de donde se sale: volver a elegir héroes.
+function volverAElegirPersonajes() {
+  for (let i = 0; i < puestos.length; i++) {
+    if (puestos[i]) puestos[i].listo = false;
+  }
+  mascotasElegidas.fill('');
+  irA(PANTALLA_SELECCION);
+}
+
+// LO ÚLTIMO ANTES DE JUGAR: elegir dónde. Se llega aquí desde mascotas, o
+// directamente desde personajes cuando no hay ninguna mascota comprada.
+//
+// Viene señalado el nivel EN CURSO —el de la partida anterior, o el primero al
+// arrancar—, que es el que casi siempre se va a volver a jugar.
+function irAElegirNivel() {
+  cursorNivel = Math.max(0, Niveles.lista.indexOf(nivelActual));
+  irA(PANTALLA_NIVELES);
+}
+
 // --- Elegir nivel ------------------------------------------------------------
 // La lista tal y como la quiere la pantalla: el nivel, si está abierto y —si no
 // lo está— el NOMBRE de lo que hay que terminar para abrirlo. El nombre se
 // resuelve aquí y no en ui/ porque es el índice quien sabe qué nivel es cuál;
 // la pantalla solo lo escribe.
 function listaDeNiveles() {
-  return Niveles.lista.map((nivel) => {
-    const abierto = Niveles.abierto(nivel, MetaProgreso.fases);
+  const filas = Niveles.lista.map((nivel) => {
     const previo = nivel.requiere ? Niveles.por(nivel.requiere) : null;
-    return { nivel, abierto, requiereNombre: previo ? previo.nombre : '' };
+    return {
+      nivel,
+      nombre: nivel.nombre,
+      subtitulo: nivel.subtitulo,
+      minutos: Math.round(nivel.duracion / 60),
+      abierto: Niveles.abierto(nivel, MetaProgreso.fases),
+      requiereNombre: previo ? previo.nombre : ''
+    };
   });
+  // Y detrás, el camino que queda. `nivel` a null es lo que distingue un sitio
+  // anunciado de uno escrito: no hay adónde entrar.
+  for (let i = 0; i < PROXIMOS.length; i++) {
+    filas.push({ nivel: null, nombre: PROXIMOS[i].nombre, abierto: false });
+  }
+  return filas;
 }
 
 function entradaNiveles() {
@@ -1144,7 +1188,11 @@ function entradaNiveles() {
 
   const c = entrada.controles[0];
   const eje = c ? c.flancoEje(false) : 0;
-  const n = Niveles.lista.length;
+  // EL CURSOR PASA POR TODO, también por lo cerrado y por lo que todavía no
+  // existe: es la única forma de leer qué hace falta para abrirlo. Lo que no se
+  // puede es ENTRAR, y de eso se encarga la comprobación de más abajo. Mismo
+  // criterio que la pantalla de héroes con los que no están desbloqueados.
+  const n = listaDeNiveles().length;
 
   if (entrada.consumirFlanco('ArrowDown') || (c && c.consumirBoton(13)) || eje > 0) {
     cursorNivel = (cursorNivel + 1) % n;
@@ -1153,8 +1201,10 @@ function entradaNiveles() {
     cursorNivel = (cursorNivel + n - 1) % n;
   }
 
+  // Atrás: a volver a elegir héroes. No al título — de aquí no se sale del
+  // recorrido de una partida, se retrocede un paso dentro de él.
   if (entrada.consumirFlanco('Escape') || entrada.consumirAtras()) {
-    irA(PANTALLA_TITULO);
+    volverAElegirPersonajes();
     return;
   }
 
@@ -1162,19 +1212,30 @@ function entradaNiveles() {
                  (c && c.consumirBoton(0));
   if (!acepta) return;
 
-  const elegido = Niveles.lista[cursorNivel];
-  // Un nivel cerrado se puede señalar —para leer qué hace falta— pero no entrar.
-  if (!Niveles.abierto(elegido, MetaProgreso.fases)) return;
+  const fila = listaDeNiveles()[cursorNivel];
+  // Un sitio cerrado —o uno que todavía no está escrito— se puede señalar, para
+  // leer qué hace falta, pero no se entra.
+  if (!fila.nivel || !fila.abierto) return;
+  const elegido = fila.nivel;
 
   // Ya cargado: se pasa de largo sin esperar a nada. Es el caso normal, porque
   // el nivel en curso es el que viene señalado al entrar.
-  if (elegido === nivelActual) { irASeleccion(); return; }
+  if (elegido === nivelActual) { contarLaHistoria(); return; }
 
   cambiandoNivel = true;
   usarNivel(elegido).then(() => {
     cambiandoNivel = false;
-    irASeleccion();
+    contarLaHistoria();
   });
+}
+
+// La historia del sitio, y después la partida. Un nivel que no tenga nada
+// escrito se salta la pantalla: una placa vacía subiendo por la piedra durante
+// veinte segundos es peor que no enseñarla.
+function contarLaHistoria() {
+  if (!Historia.hay(nivelActual)) { empezarPartida(); return; }
+  Historia.iniciar(nivelActual);
+  irA(PANTALLA_HISTORIA);
 }
 
 // SALIR de un juego que corre en una pestaña.
@@ -1241,11 +1302,7 @@ function entradaMascotas() {
       // significa salir de aquí: volver a elegir héroes. Para cambiar solo el
       // tuyo sin tocar el de nadie ya está el atrás de dentro de esta pantalla,
       // que va al jugador anterior.
-      for (let i = 0; i < puestos.length; i++) {
-        if (puestos[i]) puestos[i].listo = false;
-      }
-      mascotasElegidas.fill('');
-      irA(PANTALLA_SELECCION);
+      volverAElegirPersonajes();
     }
     return;
   }
@@ -1267,7 +1324,7 @@ function entradaMascotas() {
   mascotasElegidas[turnoMascota] = cursorMascota < n ? disponibles[cursorMascota] : '';
 
   const siguiente = turnoSiguiente(turnoMascota);
-  if (siguiente < 0) empezarPartida();
+  if (siguiente < 0) irAElegirNivel();
   else { turnoMascota = siguiente; cursorMascota = 0; }
 }
 
@@ -1576,7 +1633,7 @@ function entradaSeleccion() {
       irA(PANTALLA_MASCOTAS);
     } else {
       mascotasElegidas.fill('');
-      empezarPartida();
+      irAElegirNivel();
     }
   }
 }
@@ -2433,6 +2490,11 @@ function actualizar(dt) {
     else if (pantalla === PANTALLA_RED) entradaRed();
     else if (pantalla === PANTALLA_TITULO) entradaTitulo();
     else if (pantalla === PANTALLA_NIVELES) entradaNiveles();
+    else if (pantalla === PANTALLA_HISTORIA) {
+      // La placa corre sola y se salta con cualquier tecla. Al acabarse, la
+      // partida empieza: es la última pantalla del recorrido.
+      if (Historia.actualizar(dt, entrada)) empezarPartida();
+    }
     else if (pantalla === PANTALLA_TIENDA) entradaTienda();
     else if (pantalla === PANTALLA_MASCOTAS) entradaMascotas();
     else if (pantalla === PANTALLA_CONFIG) entradaConfig(() => irA(PANTALLA_TITULO));
@@ -3064,6 +3126,7 @@ function dibujar(alpha) {
     Capa.limpiar();
     if (despedida) { Pantallas.titulo(ctx, Capa.ctx, null, 0); dibujarDespedida(Capa.ctx); return; }
     if (pantalla === PANTALLA_INTRO) { Intro.dibujar(ctx, Capa.ctx); return; }
+    if (pantalla === PANTALLA_HISTORIA) { Historia.dibujar(ctx, Capa.ctx); return; }
     if (pantalla === PANTALLA_RED) { dibujarRed(ctx, Capa.ctx, red); return; }
     // Fuera de esa pantalla, la caja del código no puede quedarse flotando: es
     // un elemento de verdad encima del lienzo, no un dibujo que se borre solo
@@ -3544,7 +3607,7 @@ async function arrancar() {
     PANTALLA: { intro: PANTALLA_INTRO, huecos: PANTALLA_HUECOS,
                 titulo: PANTALLA_TITULO, seleccion: PANTALLA_SELECCION,
                 juego: PANTALLA_JUEGO, tienda: PANTALLA_TIENDA,
-                niveles: PANTALLA_NIVELES },
+                niveles: PANTALLA_NIVELES, historia: PANTALLA_HISTORIA },
     // En qué nivel se está. Sirve para lo mismo que `PANTALLA`: poder
     // comprobar desde fuera que elegir un sitio en la lista ha cargado ese
     // sitio, sin tener que mirar el dibujo del suelo.

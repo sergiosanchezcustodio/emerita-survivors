@@ -19,6 +19,23 @@ const MODULOS = [
   () => import('./merida.js')
 ];
 
+// LO QUE FALTA DE LA REGIÓN: los sitios anunciados y todavía sin escribir.
+//
+// Salen en la pantalla de elegir nivel, apagados y sin poder entrar. No son
+// niveles a medias ni datos de mentira —aquí no hay oleadas, ni paleta, ni
+// jefes—: son NOMBRES, y están por lo que enseña una lista con el camino
+// entero. Un mapa que solo muestra donde ya puedes ir no es un mapa.
+//
+// Cuando uno de estos se escriba de verdad, se le añade su `import` arriba y se
+// le quita el renglón de aquí. La pantalla no se entera: dibuja lo que le den.
+export const PROXIMOS = [
+  { nombre: 'Cáceres' },
+  { nombre: 'Trujillo' },
+  { nombre: 'Monfragüe' },
+  { nombre: 'Guadalupe' },
+  { nombre: 'Alcántara' }
+];
+
 export const Niveles = {
   // Los NIVEL de cada módulo, en el orden de MODULOS. Vacío hasta `cargar`.
   lista: [],

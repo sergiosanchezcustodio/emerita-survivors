@@ -32,13 +32,14 @@ export function dibujarNiveles(ctxMundo, ctx, lista, cursor, cargando) {
   const r = rejilla(lista.length, ALTO_FILA);
 
   ctx.save();
-  // La TERCERA columna va sin rótulo a propósito: solo lleva algo en los
-  // niveles cerrados, y una cabecera con nueve filas vacías debajo rotula aire.
+  // La TERCERA columna va sin rótulo a propósito: solo lleva algo en las filas
+  // a las que no se puede entrar, y una cabecera con las demás vacías debajo
+  // rotula aire.
   armazon(ctxMundo, ctx, r, NOMBRES, 0, ['NIVEL', 'AMBIENTACIÓN', '', 'DURACIÓN']);
 
   const t = Tema.actual;
   for (let i = 0; i < lista.length; i++) {
-    const { nivel, abierto } = lista[i];
+    const f = lista[i];
     const elegida = i === cursor;
     const y = r.filas + i * r.alto;
     const yc = y + r.alto / 2 - 2;
@@ -49,27 +50,34 @@ export function dibujarNiveles(ctxMundo, ctx, lista, cursor, cargando) {
     // es el hueco del icono de cada fila, y aquí no hay icono. Empezando donde
     // empieza su propio rótulo, la columna queda a plomo.
     //
-    // UN NIVEL CERRADO SE VE, PERO APAGADO: sale en su sitio, para que se sepa
-    // que la región sigue más allá, y el renglón de abajo dice qué hay que
-    // terminar para abrirlo.
-    nombreFila(ctx, nivel.nombre, MARGEN, yc,
-               !abierto ? APAGADO : elegida ? '#ffffff' : t.titulo);
+    // LO QUE NO SE PUEDE JUGAR SE VE, PERO APAGADO: sale en su sitio, para que
+    // se sepa que la región sigue más allá, y el renglón de abajo dice por qué
+    // no se puede entrar todavía.
+    nombreFila(ctx, f.nombre, MARGEN, yc,
+               !f.abierto ? APAGADO : elegida ? '#ffffff' : t.titulo);
 
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.font = `500 11px ${FUENTE}`;
-    ctx.fillStyle = abierto ? t.texto : APAGADO;
-    // Recortado a su columna. Un subtítulo largo se metía encima de la
-    // duración y las dos cosas quedaban ilegibles a la vez.
-    //
-    // Y la columna es MÁS ANCHA cuando el nivel está abierto: la de al lado
-    // solo lleva algo en los cerrados, así que en los demás el subtítulo puede
-    // seguir hasta donde empieza la duración en vez de cortarse contra una
-    // columna vacía.
-    const tope = abierto ? X_VALOR - 70 : X_EFECTO - 12;
-    recortado(ctx, nivel.subtitulo, X_NIVEL, yc, tope - X_NIVEL);
+    ctx.fillStyle = f.abierto ? t.texto : APAGADO;
 
-    if (!abierto) {
+    if (!f.nivel) {
+      // Un sitio anunciado y sin escribir. No tiene ambientación que contar ni
+      // duración que prometer: lo único cierto de él es que va a estar.
+      textoEspaciado(ctx, 'PRÓXIMAMENTE', X_NIVEL, yc, 1);
+    } else {
+      // Recortado a su columna. Un subtítulo largo se metía encima de la
+      // duración y las dos cosas quedaban ilegibles a la vez.
+      //
+      // Y la columna es MÁS ANCHA cuando el nivel está abierto: la de al lado
+      // solo lleva algo en los cerrados, así que en los demás el subtítulo
+      // puede seguir hasta donde empieza la duración en vez de cortarse contra
+      // una columna vacía.
+      const tope = f.abierto ? X_VALOR - 70 : X_EFECTO - 12;
+      recortado(ctx, f.subtitulo, X_NIVEL, yc, tope - X_NIVEL);
+    }
+
+    if (f.nivel && !f.abierto) {
       ctx.font = `600 11px ${FUENTE}`;
       ctx.fillStyle = APAGADO;
       textoEspaciado(ctx, 'CERRADO', X_EFECTO, yc, 1);
@@ -77,20 +85,25 @@ export function dibujarNiveles(ctxMundo, ctx, lista, cursor, cargando) {
 
     // La duración EN MINUTOS: nadie decide dónde jugar leyendo 1800. Y en la
     // de palo seco, como los precios de la tienda — es una cifra para comparar
-    // con la de al lado, no un nombre.
+    // con la de al lado, no un nombre. Una raya donde todavía no hay nivel: es
+    // más honesto que dejar el hueco en blanco, que se lee como un fallo.
     ctx.textAlign = 'right';
     ctx.font = `600 12px ${FUENTE}`;
-    ctx.fillStyle = abierto ? t.titulo : APAGADO;
-    ctx.fillText(`${Math.round(nivel.duracion / 60)} min`, X_VALOR, yc);
+    ctx.fillStyle = f.abierto ? t.titulo : APAGADO;
+    ctx.fillText(f.nivel ? `${f.minutos} min` : '—', X_VALOR, yc);
   }
 
   // El renglón de abajo: mientras se carga el suelo, lo que se está haciendo;
-  // el resto del tiempo, qué es el sitio señalado.
+  // el resto del tiempo, qué es el sitio señalado o por qué no se puede ir.
   const sel = lista[cursor];
-  descripcion(ctx, r, cargando ? 'Cargando el mapa…'
-              : sel.abierto ? sel.nivel.subtitulo
-              : `Se abre al terminar ${sel.requiereNombre || 'el nivel anterior'}.`);
+  descripcion(ctx, r, cargando ? 'Cargando el mapa…' : pie(sel));
   ctx.restore();
+}
+
+function pie(f) {
+  if (!f.nivel) return 'La región sigue. Este sitio todavía no está en pie.';
+  if (f.abierto) return f.subtitulo;
+  return `Se abre al terminar ${f.requiereNombre || 'el nivel anterior'}.`;
 }
 
 // Un texto que no se sale de su columna: si no cabe, se le come el final y se
