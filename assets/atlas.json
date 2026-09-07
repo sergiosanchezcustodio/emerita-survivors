@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260907230817",
+    "version":  "20260907232803",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -1272,7 +1272,7 @@
                                           "h":  32,
                                           "anclaX":  16,
                                           "anclaY":  16,
-                                          "frames":  58,
+                                          "frames":  59,
                                           "plano":  true,
                                           "orden":  [
                                                         "pilum",
@@ -1332,7 +1332,8 @@
                                                         "petanca",
                                                         "cartasEspanolas",
                                                         "cayadoSanIsidro",
-                                                        "campanaSilencio"
+                                                        "campanaSilencio",
+                                                        "arosRitmica"
                                                     ]
                                       },
                       "iconosArmasHd":  {
@@ -1341,7 +1342,7 @@
                                             "h":  96,
                                             "anclaX":  48,
                                             "anclaY":  48,
-                                            "frames":  58,
+                                            "frames":  59,
                                             "plano":  true,
                                             "orden":  [
                                                           "pilum",
@@ -1401,7 +1402,8 @@
                                                           "petanca",
                                                           "cartasEspanolas",
                                                           "cayadoSanIsidro",
-                                                          "campanaSilencio"
+                                                          "campanaSilencio",
+                                                          "arosRitmica"
                                                       ]
                                         },
                       "orbCodice":  {
@@ -1467,6 +1469,27 @@
                                                        "carta10"
                                                    ]
                                      },
+                      "proyAros":  {
+                                       "archivo":  "efectos/proy-aros.png",
+                                       "w":  72,
+                                       "h":  72,
+                                       "anclaX":  36,
+                                       "anclaY":  36,
+                                       "frames":  10,
+                                       "plano":  true,
+                                       "orden":  [
+                                                     "aro1",
+                                                     "aro2",
+                                                     "aro3",
+                                                     "aro4",
+                                                     "aro5",
+                                                     "aro6",
+                                                     "aro7",
+                                                     "aro8",
+                                                     "aro9",
+                                                     "aro10"
+                                                 ]
+                                   },
                       "balaPistola":  {
                                           "archivo":  "efectos/bala-pistola.png",
                                           "w":  43,

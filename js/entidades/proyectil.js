@@ -92,6 +92,22 @@ function crearProyectil() {
     // vueltas por el aire. Para esas, orientar el dibujo al rumbo lo deja
     // clavado y rígido, que es justo lo contrario de lo que hacen de verdad.
     giro: 0,
+    // BUMERÁN: sale, frena, se para y vuelve. Cero = vuela recto, que es lo
+    // normal.
+    //
+    // La velocidad no se toca al lanzar: lo que se guarda es la de salida
+    // (`vx0`/`vy0`) y en cada paso se multiplica por un factor que va de +1 a
+    // -1 según la vida gastada. Con ese reparto la integral del recorrido es
+    // cero, o sea que vuelve EXACTAMENTE al punto desde el que salió, y sin
+    // integrar aceleraciones: dos partidas con la misma semilla trazan la misma
+    // curva hasta el último píxel.
+    //
+    // Vuelve al SITIO desde el que se lanzó, no al jugador. Es lo que hace un
+    // bumerán de verdad, y perseguir al dueño obligaría a guardarle una
+    // referencia y a curvar la trayectoria cada paso — más código para algo que
+    // se nota menos que el propio ir y venir.
+    bumeran: 0,
+    vx0: 0, vy0: 0,
     // EL ARMA QUE LO DISPARÓ, para apuntarle el daño y las bajas en el resumen.
     // Viaja con el proyectil por el mismo motivo que `duenyo`: quien mira la
     // colisión tiene el proyectil delante y el arma ya no.
@@ -160,6 +176,9 @@ export class Proyectiles {
     p.escala = def.escala || 1;
     p.fotograma = def.fotograma || 0;
     p.arma = def.arma || null;
+    p.bumeran = def.bumeran ? 1 : 0;
+    p.vx0 = p.vx;
+    p.vy0 = p.vy;
     p.radioExplosion = def.radioExplosion || 0;
     p.danyoExplosion = def.danyoExplosion || 0;
     p.estallaAlExpirar = !!def.estallaAlExpirar;
@@ -187,6 +206,21 @@ export class Proyectiles {
       const p = items[k];
       p.xPrev = p.x;
       p.yPrev = p.y;
+
+      // EL BUMERÁN, antes de mover: de +1 a -1 según la vida gastada. A media
+      // vida el factor es cero —el aro se para en el aire, que es el momento
+      // que lo hace reconocible— y de ahí en adelante desanda lo andado.
+      //
+      // Se reescribe `vx`/`vy` y no se mueve por otro camino porque todo lo
+      // demás lee esos dos números: el dibujo se orienta con ellos, el empuje
+      // al golpear sale de ellos y el rebote los invierte. Un bumerán que
+      // volviera por su cuenta pegaría hacia donde ya no va.
+      if (p.bumeran) {
+        const f = 1 - 2 * (p.vidaMax - p.vida) / p.vidaMax;
+        p.vx = p.vx0 * f;
+        p.vy = p.vy0 * f;
+      }
+
       p.x += p.vx * dt;
       p.y += p.vy * dt;
 

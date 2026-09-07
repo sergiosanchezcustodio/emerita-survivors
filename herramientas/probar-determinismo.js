@@ -55,7 +55,11 @@ const PUERTO = 8143;
 // perforacion, dano de contacto y denarios- y esos numeros entran en la foto
 // del mundo desde el primer fotograma, aunque valgan cero. Es la misma firma
 // que dejo el contador de dano de la semana pasada.
-const HUELLA_ESPERADA = '4837249a 4875a3a0 7e981868 b5967e65 83b3a255 f5fa713b b874d5ad';
+// Y al entrar los Aros de ritmica: un arma mas en el sorteo. Se movio UN SOLO
+// grupo de los siete, el sexto — o sea que la partida de la prueba solo se
+// desvia en un tramo y vuelve a coincidir despues. Es lo normal cuando lo que
+// cambia es el reparto del azar y no lo que se hace con el.
+const HUELLA_ESPERADA = '4837249a 4875a3a0 7e981868 b5967e65 83b3a255 fe10a79f b874d5ad';
 
 let fallos = 0;
 function comprobar(condicion, texto) {

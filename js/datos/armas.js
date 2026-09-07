@@ -1321,6 +1321,51 @@ export const ARMAS = {
               { danyoExplosion: 10, recarga: -0.2, radioExplosion: 5 }]
   },
 
+  // --- Aros de rítmica ---------------------------------------------------
+  //
+  // Pedidos por Sergio: como las RainbowMazas pero aros — más área y menos
+  // daño— y VOLVIENDO COMO UN BUMERÁN, que es lo que los separa de verdad de
+  // su hermana. Sin eso serían las mazas con otro dibujo, y dos armas iguales
+  // pueden salirte las dos en el mismo sorteo y sentirse igual.
+  //
+  // Y no es un detalle de adorno: la maza se gasta yendo y el aro pasa DOS
+  // VECES por el mismo sitio. Con perforación 1 —dos enemigos por aro, como la
+  // maza— eso significa que un aro lanzado a un claro puede coger a alguien a
+  // la vuelta, así que el arma perdona la mala suerte que la maza cobra. A
+  // cambio pega menos y tarda más en volver a lanzar.
+  //
+  // UN ARO POR NIVEL, no dos: las mazas salen de dos en dos y así se
+  // distinguen también en cuántos hay volando. Diez al máximo, uno de cada
+  // dibujo de la lámina.
+  arosRitmica: {
+    nombre: 'Aros de rítmica',
+    descripcion: 'Aros que salen girando y vuelven. Cubren mucho y pegan poco.',
+    comportamiento: 'direccionAleatoria',
+    danyo: 12, recarga: 1.5, proyectiles: 1, velocidad: 130, alcance: 150,
+    // RADIO 9 CONTRA LOS 5 DE LA MAZA: es el arma de área de las dos, y el
+    // radio es lo que lo cumple. Un aro es un aro precisamente porque lo que
+    // pilla es el círculo entero.
+    radio: 9, perforacion: 1, empuje: 60,
+    color: '#7ee0c8', estela: '#2a7a6a', largoTrazo: 6,
+    spriteProyectil: 'proyAros',
+    proyectilesPorFotograma: 1,
+    bumeran: true,
+    // Gira despacio: un aro de rítmica ROTA en su plano mientras vuela, no
+    // voltea como una maza. Cinco radianes por segundo es menos de una vuelta
+    // por segundo, que es lo que deja verlo girar sin que se vuelva un borrón.
+    giroProyectil: 5,
+    niveles: [{},
+              { proyectiles: 1, danyo: 2 },
+              { proyectiles: 1, danyo: 2, radio: 1 },
+              { proyectiles: 1, danyo: 2 },
+              { proyectiles: 1, danyo: 3, recarga: -0.12 },
+              { proyectiles: 1, danyo: 2, radio: 1 },
+              { proyectiles: 1, danyo: 3 },
+              { proyectiles: 1, danyo: 3, radio: 1 },
+              { proyectiles: 1, danyo: 3, alcance: 20 },
+              { proyectiles: 1, danyo: 4, recarga: -0.18, radio: 1 }]
+  },
+
   // --- Petanca -----------------------------------------------------------
   //
   // Pedida por Sergio. Bolas de acero que RUEDAN hacia donde miras y van

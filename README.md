@@ -12,7 +12,7 @@ tres armas cada vez, y acaba con la Loba Capitolina.
 [![ES6](https://img.shields.io/badge/JavaScript-m%C3%B3dulos%20ES6-f7df1e?style=flat-square)](#)
 [![Sin dependencias](https://img.shields.io/badge/dependencias-cero-2ea043?style=flat-square)](#)
 [![Sin build](https://img.shields.io/badge/build-ninguno-2ea043?style=flat-square)](#)
-[![Armas](https://img.shields.io/badge/armas-63-e2c27a?style=flat-square)](#)
+[![Armas](https://img.shields.io/badge/armas-64-e2c27a?style=flat-square)](#)
 [![Cooperativo](https://img.shields.io/badge/cooperativo-hasta%204-e2c27a?style=flat-square)](#)
 [![Licencia: GPL v3](https://img.shields.io/badge/licencia-GPLv3-blue?style=flat-square)](LICENSE)
 
@@ -260,7 +260,7 @@ que huyen en vez de perseguir.
 
 ## El arsenal
 
-**63 armas**, tres opciones cada vez que subes de nivel, y evoluciones que piden
+**64 armas**, tres opciones cada vez que subes de nivel, y evoluciones que piden
 un arma al 8 más su pasivo y un cofre de élite.
 
 ![Arsenal](docs/arsenal.png)

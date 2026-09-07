@@ -3637,7 +3637,7 @@ $ICONOS_ARMAS = @(
     'enfilada','agujas','muroDeLanzas','enjambre','molotov','lanzacohetes','artilleria','lluviaDeFlechas',
     'gritoDeGuerra','sismo','aceiteHirviendo','minas','alquitran','campoElectrico','laser','aspaDeLuz',
     'satelites','discosDeSierra','katana','sierrasVotivas','codiceInfernal','rainbowMazas',
-    'petanca','cartasEspanolas','cayadoSanIsidro','campanaSilencio'
+    'petanca','cartasEspanolas','cayadoSanIsidro','campanaSilencio','arosRitmica'
 )
 
 # Un archivo por arma, en resources/armas/. Se resuelve con -Filter, así que
@@ -3752,12 +3752,24 @@ $LADO_CARTA = 44
 $CARTAS_BARAJA = @('carta1','carta2','carta3','carta4','carta5',
                    'carta6','carta7','carta8','carta9','carta10')
 
+# LOS DIEZ AROS DE RITMICA, cuarta lamina de 5x2 con el mismo tratamiento.
+#
+# 72 y no 56 como las mazas: el aro es el arma de AREA de las dos, asi que su
+# dibujo tiene que ser visiblemente mas grande que el de la maza o la promesa
+# no se cumple mirandolo. A 72 mide 18 unidades logicas, dos tercios de un
+# personaje.
+$LADO_ARO = 72
+
+$AROS_RITMICA = @('aro1','aro2','aro3','aro4','aro5',
+                  'aro6','aro7','aro8','aro9','aro10')
+
 # La PORTADA de un arma que no tiene archivo propio, sino una celda de una hoja.
 # Se extrae a un temporal antes de montar la tira de iconos. Ver ExtraerCelda.
 $ICONO_DESDE_HOJA = @{
     codiceInfernal = @{ hoja = 'armas\libros.png'; cols = 5; filas = 2; celda = 0 }
     rainbowMazas   = @{ hoja = 'armas\mazas.png';  cols = 5; filas = 2; celda = 0 }
     cartasEspanolas = @{ hoja = 'armas\cartas.png'; cols = 5; filas = 2; celda = 0 }
+    arosRitmica     = @{ hoja = 'armas\aros.png';   cols = 5; filas = 2; celda = 0 }
 }
 
 $HOJAS_ICONOS = @(
@@ -3779,6 +3791,9 @@ $HOJAS_ICONOS = @(
     # Y las diez cartas de la baraja espanola.
     @{ src='armas\cartas.png';    dst='efectos\proy-cartas.png'; id='proyCartas'
        ids=$CARTAS_BARAJA;  modo='rejilla'; cols=5; filas=2; lado=$LADO_CARTA }
+    # Y los diez aros de ritmica.
+    @{ src='armas\aros.png';      dst='efectos\proy-aros.png'; id='proyAros'
+       ids=$AROS_RITMICA;   modo='rejilla'; cols=5; filas=2; lado=$LADO_ARO }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'iconos')  | Out-Null

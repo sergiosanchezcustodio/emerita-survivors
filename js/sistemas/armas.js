@@ -942,6 +942,8 @@ export class Armas {
     // `defProyectil` es compartido, y lo que no se escriba se queda con lo del
     // disparo anterior — de otra arma.
     d.arma = arma;
+    // Ida y vuelta, si el arma lo pide. Hoy solo los Aros de rítmica.
+    d.bumeran = !!arma.def.bumeran;
     // La FORMA con que se dibuja. Sale del comportamiento salvo que el arma diga
     // otra cosa: ver FORMA_POR_COMPORTAMIENTO, aquí arriba.
     d.forma = formaDe(arma);
