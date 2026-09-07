@@ -966,7 +966,7 @@ export function impactosProyectiles(proyectiles, enemigos, alEstallar) {
 
           e.ultimoSello = p.sello;
           const v = hipot(p.vx, p.vy) || 1;
-          enemigos.danyar(e, p.danyo, p.vx / v, p.vy / v, p.empuje, p.duenyo);
+          enemigos.danyar(e, p.danyo, p.vx / v, p.vy / v, p.empuje, p.duenyo, p.arma);
 
           if (p.perforacion > 0) { p.perforacion--; continue; }
 

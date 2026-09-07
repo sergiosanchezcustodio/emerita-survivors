@@ -65,6 +65,8 @@ function crearZona() {
     // De quién es la zona, para apuntarle las bajas. Ver el campo del mismo
     // nombre en entidades/proyectil.js.
     duenyo: null,
+    // El arma que la creó, para el recuento del resumen. Ver `danyar`.
+    arma: null,
     // Cuánto se sube la zona sobre la posición de aquel al que sigue. La `y` de
     // un jugador es su LÍNEA DE PIES, así que una zona centrada ahí deja medio
     // cuerpo fuera por arriba; subiéndola media altura del sprite, la figura
@@ -227,6 +229,7 @@ export class Zonas {
     z.modo = def.modo || 'zona';
     z.seguir = def.seguir || null;
     z.duenyo = def.duenyo || null;
+    z.arma = def.arma || null;
     z.color = def.color;
     z.relleno = def.relleno === undefined ? 0.18 : def.relleno;
     // Un efecto puede venir de la hoja compartida (una celda de un catálogo) o
@@ -394,7 +397,7 @@ export class Zonas {
       // `danyar` devuelve true SOLO en el golpe que lo mata, así que sirve de
       // aviso de muerte con posición sin tener que inventar ninguno: el sistema
       // de zonas ya está mirando al enemigo justo cuando cae.
-      const muerto = enemigos.danyar(e, z.danyo, dx / d, dy / d, z.empuje, z.duenyo);
+      const muerto = enemigos.danyar(e, z.danyo, dx / d, dy / d, z.empuje, z.duenyo, z.arma);
       if (muerto && z.propaga > 0 && z.brotes > 0) this._propagar(z, e.x, e.y);
       if (z.ralentiza > 0) e.frenado = Math.max(e.frenado, z.ralentiza);
     }

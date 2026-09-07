@@ -80,7 +80,16 @@ try {
   while (await donde() === 6 && v++ < 8) await pulsar('Enter', 700);
   await pulsar('Enter', 600);    // hueco -> titulo
   await pulsar('Enter', 700);    // JUGAR -> seleccion
-  await pulsar('Enter', 900);    // confirmar -> partida
+  // Y DE AHI A LA PARTIDA, pulsando hasta llegar en vez de contando pulsaciones.
+  //
+  // Entre confirmar el heroe y el primer fotograma hay ahora dos pantallas mas
+  // —elegir nivel y la placa que cuenta su historia— y esta prueba se quedaba
+  // clavada en la primera de ellas: los dos Enter contados que habia llegaban a
+  // la lista de niveles y no a la partida, asi que no habia jugadores y el
+  // bloque de aguante reventaba sin decir por que. Es la misma leccion que ya
+  // aprendio probar-navegacion con la intro: contar pulsaciones ata la prueba a
+  // cuantas pantallas hay hoy.
+  for (let i = 0; i < 8 && await donde() !== 2; i++) await pulsar('Enter', 900);
   comprobar(await donde() === 2, 'la partida arranca');
   for (let j = 1; j < JUGADORES; j++) await pulsar('KeyJ', 250);
   comprobar(await pagina.evaluate(() => window.EMERITA.jugadores().length) === JUGADORES,

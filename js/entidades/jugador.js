@@ -109,6 +109,12 @@ export class Jugador {
     // eso vive sin índices que mantener es el propio jugador. Lo sube
     // `Enemigos.danyar` cuando el golpe que remata trae dueño.
     this.bajas = 0;
+    // PUNTOS DE DAÑO QUE HA HECHO, contando todo: sus armas y el mordisco de su
+    // mascota. Lo enseña el resumen final. Va aparte del recuento por arma
+    // (ver `danyoHecho` en sistemas/armas.js) justamente por eso: el total del
+    // jugador incluye lo que no sale de un arma, así que sumar la lista no da
+    // este número y no debe darlo.
+    this.danyoHecho = 0;
     this.def = def;
     this.personaje = def.sprite;
     this.arsenal = null;          // lo enchufa quien crea al jugador

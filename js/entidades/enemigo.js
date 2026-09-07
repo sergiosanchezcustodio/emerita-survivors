@@ -828,8 +828,25 @@ export class Enemigos {
   // `duenyo` es el jugador que ha metido el golpe, o null si no se le puede
   // atribuir a nadie. Solo se usa para apuntarle la baja: el daño es el mismo
   // venga de quien venga.
-  danyar(e, cantidad, dirX, dirY, fuerza, duenyo) {
+  // `fuente` es EL ARMA que pega, cuando la hay: el objeto del arsenal, no su
+  // id. Sirve para el resumen de partida, que enseña cuánto ha hecho cada una y
+  // a cuántos se ha llevado por delante.
+  //
+  // Es opcional a propósito. Hay daño que no sale de un arma —el mordisco de
+  // una mascota— y ese suma al total del jugador pero no tiene fila propia en
+  // la lista: una mascota no es un arma y ponerla en esa columna diría que se
+  // puede subir de nivel como las demás.
+  danyar(e, cantidad, dirX, dirY, fuerza, duenyo, fuente) {
     if (e.vida <= 0) return false;          // ya muerto este paso
+
+    // SE APUNTA LO QUE SE QUITA DE VERDAD, no lo que se pide. Un golpe de 56 a
+    // un enemigo con 7 de vida son 7 puntos de daño hecho, no 56: contar la
+    // petición infla el número justo con las armas que rematan a la horda de un
+    // toque, que son la mitad del catálogo, y entonces la lista deja de servir
+    // para compararlas entre ellas, que es para lo que está.
+    const efectivo = Math.min(cantidad, e.vida);
+    if (duenyo) duenyo.danyoHecho += efectivo;
+    if (fuente) fuente.danyoHecho += efectivo;
 
     e.vida -= cantidad;
     e.destello = DURACION_DESTELLO;
@@ -892,6 +909,10 @@ export class Enemigos {
       // propósito: romper una antorcha no es matar un enemigo, y colarla aquí
       // inflaría la cuenta de quien pasara rompiendo el atrezo.
       if (duenyo) duenyo.bajas++;
+      // Y a QUÉ arma se la apunta, para la lista del resumen. Aquí abajo y no
+      // arriba con el daño por el mismo motivo que la del jugador: romper una
+      // antorcha no es matar, y arriba todavía no se ha descartado el atrezo.
+      if (fuente) fuente.bajas++;
       MetaProgreso.ganar(denariosPorBaja(e.def));
       GestorAudio.muerteEnemigo();
       if (e.def.cofre) this.elitesVivos--;

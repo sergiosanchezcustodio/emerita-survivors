@@ -437,7 +437,7 @@ const COMPORTAMIENTOS = {
       }
 
       ctx.zonas.crear({
-        duenyo: ctx.jugador,
+        duenyo: ctx.jugador, arma, arma,
         x, y, radio, radioIni: radio * 0.15, duracion: s.duracion,
         danyo, empuje: s.empuje, modo: 'onda', color: arma.def.color,
         relleno: 0.3, sprite: arma.def.spriteOnda
@@ -452,7 +452,7 @@ const COMPORTAMIENTOS = {
     const s = arma.stats;
     const j = ctx.jugador;
     ctx.zonas.crear({
-      duenyo: ctx.jugador,
+      duenyo: ctx.jugador, arma,
       x: j.x, y: j.y - 6,
       radio: areaDe(s.radio, j), radioIni: 6,
       duracion: s.duracion,
@@ -475,7 +475,7 @@ const COMPORTAMIENTOS = {
       const a = ctx.rng() * Math.PI * 2;
       const d = i === 0 ? 0 : 20 + ctx.rng() * 45;
       ctx.zonas.crear({
-        duenyo: ctx.jugador,
+        duenyo: ctx.jugador, arma, arma,
         x: j.x + cos(a) * d, y: j.y + sen(a) * d,
         radio: areaDe(s.radio, j), duracion: s.duracion,
         danyo: danyoDe(s, j), intervalo: s.intervalo,
@@ -558,7 +558,7 @@ const COMPORTAMIENTOS = {
       }
       if (!libre) continue;
       ctx.zonas.crear({
-        duenyo: ctx.jugador,
+        duenyo: ctx.jugador, arma, arma,
         x, y,
         // `radio` es el de la EXPLOSIÓN; el gatillo es mucho más chico, para
         // que haya que pisarla de verdad y no basta con rozarla.
@@ -618,7 +618,7 @@ const COMPORTAMIENTOS = {
     // `opacidad` lo es —sale de la definición, no de las stats— y por eso vale.
     const desvio = medioAlto(j);
     arma.zona = ctx.zonas.crear({
-      duenyo: ctx.jugador,
+      duenyo: ctx.jugador, arma,
       x: j.x, y: j.y - desvio, desvioY: desvio,
       radio: areaDe(s.radio, j), duracion: 1.0,
       danyo: danyoDe(s, j), intervalo: s.intervalo,
@@ -687,7 +687,7 @@ const COMPORTAMIENTOS = {
         if (proy < 0) continue;                       // detrás del jugador
         const perp = Math.abs(dx * uy - dy * ux);     // distancia a la recta
         if (perp > s.grosor + e.radioCuerpo) continue;
-        ctx.enemigos.danyar(e, danyo, ux, uy, s.empuje, ctx.jugador);
+        ctx.enemigos.danyar(e, danyo, ux, uy, s.empuje, ctx.jugador, arma);
       }
       sis._anotarRayo(bx, by, a, s.alcance, s.grosor, arma.def.color, giro,
                       arma.def.duracionRayo);
@@ -825,6 +825,11 @@ export class Armas {
   _rellenarProyectil(arma, s, danyo, duenyo) {
     const d = this.defProyectil;
     d.duenyo = duenyo || null;
+    // Y QUIÉN DISPARA, para que el resumen pueda decir cuánto ha hecho cada
+    // arma. Va por aquí y no a mano en cada comportamiento por lo de siempre:
+    // `defProyectil` es compartido, y lo que no se escriba se queda con lo del
+    // disparo anterior — de otra arma.
+    d.arma = arma;
     // La FORMA con que se dibuja. Sale del comportamiento salvo que el arma diga
     // otra cosa: ver FORMA_POR_COMPORTAMIENTO, aquí arriba.
     d.forma = formaDe(arma);
@@ -893,7 +898,7 @@ export class Armas {
     // no se queda quemando.
     const radio = areaDe(s.radio, j);
     ctx.zonas.crear({
-      duenyo: ctx.jugador,
+      duenyo: ctx.jugador, arma,
       x, y,
       radio, radioIni: radio * 0.18,
       duracion: 0.26, danyo: danyoDe(s, j),
@@ -978,7 +983,7 @@ export class Armas {
           e.ultimoSello = arma.selloOrbital;
           const dx = e.x - j.x, dy = e.y - j.y;
           const d = hipot(dx, dy) || 1;
-          ctx.enemigos.danyar(e, danyo, dx / d, dy / d, s.empuje, ctx.jugador);
+          ctx.enemigos.danyar(e, danyo, dx / d, dy / d, s.empuje, ctx.jugador, arma);
         }
       }
     }
@@ -1162,6 +1167,11 @@ export class Armas {
     if (!def) return null;
     const arma = {
       id, def, nivel: 1,
+      // LO QUE HA HECHO ESTA ARMA EN ESTA PARTIDA. Lo enseña el resumen final,
+      // que lista cada una con su daño y sus bajas. Se pone a cero al equipar y
+      // no se toca en las subidas de nivel: la cuenta es del arma en la partida,
+      // no del nivel al que llegó.
+      danyoHecho: 0, bajas: 0,
       temporizador: 0,
       golpesPendientes: 0,
       demoraGolpe: 0,
@@ -1320,7 +1330,7 @@ export class Armas {
       if (Math.abs(d) > semi) continue;
 
       const m = hipot(dx, dy) || 1;
-      ctx.enemigos.danyar(e, danyo, dx / m, dy / m, s.empuje, ctx.jugador);
+      ctx.enemigos.danyar(e, danyo, dx / m, dy / m, s.empuje, ctx.jugador, arma);
     }
 
     // Centro visual del jugador, no su línea de pies: el área de un arma tiene

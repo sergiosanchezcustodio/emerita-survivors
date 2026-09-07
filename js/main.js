@@ -2363,6 +2363,10 @@ function capturarStats() {
     // pasarle la cadena hecha ata las dos cosas por ninguna razón.
     tiempo: Director.t,
     bajas: enemigos.bajas,
+    // PUNTOS DE DAÑO DEL EQUIPO. Se suma de los jugadores y no se lleva un
+    // contador global aparte: dos sitios donde apuntar lo mismo acaban dando
+    // números distintos, y el que se lee en la ficha de cada uno es este.
+    danyo: jugadores.reduce((n, j) => n + j.danyoHecho, 0),
     // Lo GANADO en esta partida, no el montón entero. El total sigue estando
     // (MONEDERO, al lado), pero lo que quiere saber quien acaba de jugar es qué
     // le ha rentado ESTA partida, y ese número no estaba en ninguna parte: el
@@ -2378,11 +2382,20 @@ function capturarStats() {
       nombre: j.def.nombre,
       nivel: j.nivel,
       bajas: j.bajas,
+      danyo: j.danyoHecho,
       golpes: j.golpesRecibidos,
       resurrecciones: j.resurreccionesUsadas,
       enPie: !j.abatido,
       mascota: j.mascotaId && MASCOTAS[j.mascotaId] ? MASCOTAS[j.mascotaId].corto : '',
-      armas: j.arsenal ? j.arsenal.equipadas.map((a) => ({ id: a.id, nivel: a.nivel })) : [],
+      // Cada arma con lo que ha hecho, ORDENADAS DE MÁS A MENOS DAÑO. El orden
+      // se decide aquí y no al dibujar porque es parte de lo que se cuenta: la
+      // lista contesta "cuál me ha ganado la partida", y esa pregunta se lee
+      // mirando la primera fila, no comparando cuatro números sueltos.
+      armas: j.arsenal
+        ? j.arsenal.equipadas
+            .map((a) => ({ id: a.id, nivel: a.nivel, danyo: a.danyoHecho, bajas: a.bajas }))
+            .sort((a, b) => b.danyo - a.danyo)
+        : [],
       pasivos: { ...j.pasivos }
     }))
   };

@@ -99,6 +99,22 @@ function formatoTiempo(segundos) {
 // Etiqueta pequeña arriba, cifra grande debajo. Es el bloque de las cifras de
 // equipo, que van centradas y sin caja: son cuatro números y el ojo los agrupa
 // solo si están alineados.
+// Los puntos de daño de una partida entera se cuentan por decenas de miles, y
+// "184730" en crudo se lee de izquierda a derecha contando dígitos. Con el punto
+// de los miles se lee de un vistazo, que es de lo que va una pantalla de
+// resumen. Se separa a mano y no con toLocaleString: eso da un separador
+// distinto por idioma del navegador, y la misma partida enseñaría un número
+// distinto en dos máquinas.
+function numeroLargo(n) {
+  const s = String(Math.round(n));
+  let salida = '';
+  for (let i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 === 0) salida += '.';
+    salida += s[i];
+  }
+  return salida;
+}
+
 function cifra(ctx, x, y, etiqueta, valor, color) {
   const t = Tema.actual;
   ctx.textAlign = 'center';
@@ -131,7 +147,13 @@ function filaEstadistica(ctx, x, y, w, etiqueta, valor, color) {
 // baja se recorta por arriba y por abajo (ver Capa.altoVisible). Con medidas
 // fijas, el titular y la línea de "pulsa para volver al menú" se cortaban.
 const HUECO_CARTA = 18;
-const ALTO_MAXIMO_CARTA = 308;
+// SUBE DE 308 A 344 al entrar la lista de armas. Con cuatro armas, sus cuatro
+// filas más el rótulo de OBJETOS y su fila de iconos no cabían: la rejilla de
+// iconos que había antes ocupaba dos filas de 26 y esto ocupa cuatro de 16 más
+// otra de iconos. El hueco disponible da hasta 366 en una ventana normal (ver
+// `rejilla`), así que sigue sobrando; en una más baja, el mínimo de 150 y el
+// recorte de arriba y abajo mandan igual que antes.
+const ALTO_MAXIMO_CARTA = 344;
 
 function rejilla() {
   const recorte = Math.max(0, (ALTO_UI - Capa.altoVisible) / 2);
@@ -150,6 +172,12 @@ function rejilla() {
 
 const RADIO_ICONO = 11;
 const PASO_ICONO = 26;
+// Ancho reservado a la columna de BAJAS en la lista de armas. El daño va justo
+// a su izquierda, así que este número decide cuánto le queda al nombre.
+const COL_BAJAS = 41;
+// Alto de cada fila de la lista de armas. Cuatro armas es el máximo, así que
+// esto por cuatro es lo que hay que reservar debajo de las estadísticas.
+const PASO_ARMA = 16;
 
 // `stats` sale de main.js, capturado UNA vez en el instante en que termina la
 // partida (ver capturarStats):
@@ -181,11 +209,17 @@ export function dibujarFinal(ctx, alto, victoria, stats) {
   // --- Cifras de equipo ----------------------------------------------------
   // Van arriba y separadas de las fichas porque son de todos: el tiempo que
   // aguantó la partida, la horda entera que cayó y lo que se llevan a la tienda.
-  const etiquetas = ['TIEMPO', 'BAJAS', 'DENARIOS', 'MONEDERO'];
+  //
+  // EL DAÑO VA JUNTO A LAS BAJAS, y no en las fichas solamente: son las dos
+  // caras de la misma pregunta —cuánto habéis pegado y a cuántos os habéis
+  // llevado— y separarlas obliga a buscar una en la cabecera y la otra abajo.
+  const etiquetas = ['TIEMPO', 'BAJAS', 'DAÑO', 'DENARIOS', 'MONEDERO'];
   const valores = [formatoTiempo(stats.tiempo), String(stats.bajas),
+                   numeroLargo(stats.danyo || 0),
                    '+' + stats.denarios, String(stats.monedero)];
-  const colores = [null, null, '#e8b73a', '#e8b73a'];
-  const pasoCifra = 190;
+  const colores = [null, null, '#ff9a6a', '#e8b73a', '#e8b73a'];
+  // 165 y no 190: con cinco cifras, el paso de cuatro se salía de la pantalla.
+  const pasoCifra = 165;
   const x0Cifra = ANCHO_UI / 2 - (etiquetas.length - 1) * pasoCifra / 2;
   for (let i = 0; i < etiquetas.length; i++) {
     cifra(ctx, x0Cifra + i * pasoCifra, r.cifras, etiquetas[i], valores[i], colores[i]);
@@ -274,50 +308,99 @@ function dibujarFicha(ctx, f, indice, x, y, ancho, altoCarta) {
   // otra pregunta, que es la que se discute al terminar: cuántos cayeron por mí.
   filaEstadistica(ctx, xIzq, yFila, anchoFila, 'ENEMIGOS ELIMINADOS', String(f.bajas));
   yFila += PASO_FILA;
+  // Y CUÁNTO HA PEGADO. Va pegada a las bajas porque es la pregunta gemela: hay
+  // quien mata mucho a base de rematar y quien hace el daño gordo y no remata
+  // nada, y con los dos números juntos se ve cuál de los dos ha sido cada uno.
+  //
+  // Incluye lo que haya hecho su mascota, así que NO tiene por qué cuadrar con
+  // la suma de la lista de armas de abajo. Es a propósito: ver `danyoHecho` en
+  // entidades/jugador.js.
+  filaEstadistica(ctx, xIzq, yFila, anchoFila, 'DAÑO INFLIGIDO',
+                  numeroLargo(f.danyo || 0), '#ff9a6a');
+  yFila += PASO_FILA;
   filaEstadistica(ctx, xIzq, yFila, anchoFila, 'GOLPES RECIBIDOS', String(f.golpes));
   yFila += PASO_FILA;
   filaEstadistica(ctx, xIzq, yFila, anchoFila, 'RESURRECCIONES', String(f.resurrecciones));
   yFila += PASO_FILA;
   filaEstadistica(ctx, xIzq, yFila, anchoFila, 'MASCOTA', f.mascota || '—');
 
-  // --- Arsenal --------------------------------------------------------------
-  // Armas primero y objetos después, con el nivel de cada arma encima: es el
-  // retrato de la partida que se acaba de jugar, y lo que decide si la siguiente
-  // se monta igual o distinta.
+  // --- Lo que ha hecho cada arma ---------------------------------------------
+  //
+  // Una fila por arma, con SU daño y SUS bajas, y ordenadas de más a menos
+  // (el orden lo pone capturarStats en main.js). Antes aquí había una rejilla
+  // de iconos con el nivel de cada cosa: decía CON QUÉ se jugó y no decía nada
+  // de cómo fue. Y esa es justo la conversación de después de una partida — no
+  // "llevaba el látigo", sino "el látigo no hizo nada".
+  //
+  // Los pasivos se quedan en iconos debajo, que es lo que son: no pegan, así
+  // que no tienen fila que llenar.
   ctx.textAlign = 'left';
   ctx.font = `600 9px ${FUENTE}`;
   ctx.fillStyle = t.apagado;
-  textoEspaciado(ctx, 'ARSENAL', xIzq, y + 202, 1.4);
+  textoEspaciado(ctx, 'ARMAS', xIzq, y + 218, 1.4);
+  // Los dos rótulos SIN espaciado entre letras, al revés que los demás de la
+  // carta: son dos palabras seguidas en una columna estrecha, y espaciadas se
+  // tocaban entre ellas —"DAÑOBAJAS" se leía como una sola.
+  ctx.textAlign = 'right';
+  ctx.fillText('DAÑO', xIzq + anchoFila - COL_BAJAS - 4, y + 218);
+  ctx.fillText('BAJAS', xIzq + anchoFila, y + 218);
 
-  const porFila = Math.max(1, Math.floor(anchoFila / PASO_ICONO));
-  let k = 0;
-  const situar = () => {
-    const fila = Math.floor(k / porFila);
-    const col = k % porFila;
-    const enFila = Math.min(porFila, totalIconos - fila * porFila);
-    const anchoUsado = enFila * PASO_ICONO - (PASO_ICONO - RADIO_ICONO * 2);
-    return {
-      x: cx - anchoUsado / 2 + RADIO_ICONO + col * PASO_ICONO,
-      y: y + 226 + fila * PASO_ICONO
-    };
-  };
-
-  const idsPasivos = Object.keys(f.pasivos || {});
-  const totalIconos = f.armas.length + idsPasivos.length;
-
-  for (let i = 0; i < f.armas.length; i++, k++) {
+  const RADIO_MINI = 7;
+  let yArma = y + 234;
+  for (let i = 0; i < f.armas.length; i++) {
     const a = f.armas[i];
     const def = ARMAS[a.id];
-    const p = situar();
-    dibujarIconoArma(ctx, p.x, p.y, RADIO_ICONO, a.id, def ? def.color : '#ccc');
-    if (a.nivel > 1) insignia(ctx, p.x + RADIO_ICONO - 1, p.y + RADIO_ICONO - 2, a.nivel);
+    dibujarIconoArma(ctx, xIzq + RADIO_MINI, yArma, RADIO_MINI, a.id, def ? def.color : '#ccc');
+
+    // El nombre, recortado a su hueco. Con cuatro columnas en una carta de 208
+    // no cabe "Códice Infernal" entero, y cortarlo con puntos es mejor que
+    // dejarlo pisar la cifra de al lado.
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font = `500 10px ${FUENTE}`;
+    ctx.fillStyle = t.texto;
+    const xNombre = xIzq + RADIO_MINI * 2 + 5;
+    recortado(ctx, def ? def.nombre : a.id, xNombre, yArma,
+              anchoFila - (xNombre - xIzq) - COL_BAJAS - 8);
+
+    ctx.textAlign = 'right';
+    ctx.font = `700 10px ${FUENTE}`;
+    ctx.fillStyle = '#ff9a6a';
+    ctx.fillText(numeroLargo(a.danyo || 0), xIzq + anchoFila - COL_BAJAS, yArma);
+    ctx.fillStyle = t.titulo;
+    ctx.fillText(String(a.bajas || 0), xIzq + anchoFila, yArma);
+
+    yArma += PASO_ARMA;
   }
-  for (let i = 0; i < idsPasivos.length; i++, k++) {
-    const p = situar();
-    dibujarIconoPasivo(ctx, p.x, p.y, RADIO_ICONO, idsPasivos[i], '#9fd0e8');
-    const nivel = f.pasivos[idsPasivos[i]];
-    if (nivel > 1) insignia(ctx, p.x + RADIO_ICONO - 1, p.y + RADIO_ICONO - 2, nivel);
+
+  // --- Objetos ---------------------------------------------------------------
+  const idsPasivos = Object.keys(f.pasivos || {});
+  if (idsPasivos.length > 0) {
+    ctx.textAlign = 'left';
+    ctx.font = `600 9px ${FUENTE}`;
+    ctx.fillStyle = t.apagado;
+    textoEspaciado(ctx, 'OBJETOS', xIzq, yArma + 4, 1.4);
+
+    const yIconos = yArma + 22;
+    const paso = Math.min(PASO_ICONO, Math.floor(anchoFila / idsPasivos.length));
+    for (let i = 0; i < idsPasivos.length; i++) {
+      const px = xIzq + RADIO_ICONO + i * paso;
+      dibujarIconoPasivo(ctx, px, yIconos, RADIO_ICONO, idsPasivos[i], '#9fd0e8');
+      const nivel = f.pasivos[idsPasivos[i]];
+      if (nivel > 1) insignia(ctx, px + RADIO_ICONO - 1, yIconos + RADIO_ICONO - 2, nivel);
+    }
   }
+}
+
+// Un texto que no se sale de su hueco: si no cabe, se le come el final y se
+// remata con puntos suspensivos.
+function recortado(ctx, texto, x, y, ancho) {
+  if (ctx.measureText(texto).width <= ancho) { ctx.fillText(texto, x, y); return; }
+  let corte = texto;
+  while (corte.length > 1 && ctx.measureText(corte + '…').width > ancho) {
+    corte = corte.slice(0, -1);
+  }
+  ctx.fillText(corte + '…', x, y);
 }
 
 // Nivel del arma, pegado a su icono. Con reborde y no con caja: una caja por

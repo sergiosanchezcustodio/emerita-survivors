@@ -92,6 +92,10 @@ function crearProyectil() {
     // vueltas por el aire. Para esas, orientar el dibujo al rumbo lo deja
     // clavado y rígido, que es justo lo contrario de lo que hacen de verdad.
     giro: 0,
+    // EL ARMA QUE LO DISPARÓ, para apuntarle el daño y las bajas en el resumen.
+    // Viaja con el proyectil por el mismo motivo que `duenyo`: quien mira la
+    // colisión tiene el proyectil delante y el arma ya no.
+    arma: null,
     // QUÉ FOTOGRAMA DE SU HOJA DIBUJA. 0 en todos menos uno, porque casi todas
     // las hojas de proyectil traen un solo dibujo.
     //
@@ -155,6 +159,7 @@ export class Proyectiles {
     p.giro = def.giro || 0;
     p.escala = def.escala || 1;
     p.fotograma = def.fotograma || 0;
+    p.arma = def.arma || null;
     p.radioExplosion = def.radioExplosion || 0;
     p.danyoExplosion = def.danyoExplosion || 0;
     p.estallaAlExpirar = !!def.estallaAlExpirar;
