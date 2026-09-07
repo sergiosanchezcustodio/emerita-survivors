@@ -2027,8 +2027,19 @@ public class Procesador {
     }
 
     // Devuelve: n|lado|informe por icono
+    // `huecos` = el dibujo tiene AGUJEROS CERRADOS de verdad y hay que
+    // respetarlos. Es el mismo parametro que ya tenia Procesar y por el mismo
+    // motivo, solo que aqui costo mas verlo: `Rematar` rellena con la media de
+    // sus vecinos todo lo transparente que no toque el borde, porque se escribio
+    // para tapar los boquetes que la REDUCCION abre en mitad de un cuerpo.
+    //
+    // Un aro de ritmica es todo agujero. Su centro salia relleno de un magenta
+    // oscuro -la media del propio aro- y el sprite era un disco macizo, aunque
+    // la lamina de Sergio lo trae vacio y bien vacio. Lo mismo le pasaria a una
+    // rosquilla, a una herradura o a una llave.
     public static string RecortarIconos(string entrada, string salida, int n,
-                                        int lado, string modo, int cols, int filas) {
+                                        int lado, string modo, int cols, int filas,
+                                        bool huecos) {
         byte[] px; int w, h, stride;
         CargarPx(entrada, out px, out w, out h, out stride);
 
@@ -2182,7 +2193,7 @@ public class Procesador {
 
         // Mismo remate que los sprites del mundo: alfa dura y agujeros tapados.
         // Un icono de 32 píxeles con el borde a medio gas se lee como sucio.
-        Rematar(dst, tiraW, lado, dStride);
+        Rematar(dst, tiraW, lado, dStride, !huecos);
 
         using (Bitmap sal = new Bitmap(tiraW, lado, PixelFormat.Format32bppArgb)) {
             BitmapData dd = sal.LockBits(new Rectangle(0, 0, tiraW, lado),
@@ -2220,7 +2231,8 @@ public class Procesador {
     // Las dos pasadas de erosion son las de RecortarCeldas y por lo mismo: el
     // blanco del original no es blanco puro en el contorno y sin erosionarlo
     // queda una orla clara pegada al icono, que a 96 se ve como un halo.
-    public static string RecortarIconosSueltos(string[] entradas, string salida, int lado) {
+    public static string RecortarIconosSueltos(string[] entradas, string salida, int lado,
+                                               bool huecos) {
         int n = entradas.Length;
         int tiraW = lado * n;
         int dStride = tiraW * 4;
@@ -2308,7 +2320,7 @@ public class Procesador {
             hallados++;
         }
 
-        Rematar(dst, tiraW, lado, dStride);
+        Rematar(dst, tiraW, lado, dStride, !huecos);
 
         using (Bitmap sal = new Bitmap(tiraW, lado, PixelFormat.Format32bppArgb)) {
             BitmapData dd = sal.LockBits(new Rectangle(0, 0, tiraW, lado),
@@ -2342,9 +2354,13 @@ public class Procesador {
     //    orden de la tira es el orden en que se piden.
     //
     // Devuelve: pedidas|lado|detalle por celda
+    // `huecos`, igual que en las otras dos. Esta no la llama nadie hoy —quedo de
+    // reserva para el proximo catalogo, ver su cabecera— pero se le pone el
+    // mismo parametro para que no vuelva a nacer con el mismo fallo.
     public static string RecortarCeldas(string entrada, string salida,
                                         int cols, int filas, string indices,
-                                        int lado, int umbral, bool estirar) {
+                                        int lado, int umbral, bool estirar,
+                                        bool huecos) {
         byte[] px; int w, h, stride;
         CargarPx(entrada, out px, out w, out h, out stride);
 
@@ -2543,7 +2559,7 @@ public class Procesador {
             informe.Append(k + ":" + silW + "x" + silH + " ");
         }
 
-        Rematar(dst, tiraW, lado, dStride);
+        Rematar(dst, tiraW, lado, dStride, !huecos);
 
         using (Bitmap sal = new Bitmap(tiraW, lado, PixelFormat.Format32bppArgb)) {
             BitmapData dd = sal.LockBits(new Rectangle(0, 0, tiraW, lado),
@@ -3792,8 +3808,12 @@ $HOJAS_ICONOS = @(
     @{ src='armas\cartas.png';    dst='efectos\proy-cartas.png'; id='proyCartas'
        ids=$CARTAS_BARAJA;  modo='rejilla'; cols=5; filas=2; lado=$LADO_CARTA }
     # Y los diez aros de ritmica.
+    # `huecos`: UN ARO ES TODO AGUJERO. Sin esto, `Rematar` le rellena el centro
+    # con la media de sus vecinos -se escribio para tapar los boquetes que abre la
+    # reduccion en mitad de un cuerpo- y el sprite sale disco macizo.
     @{ src='armas\aros.png';      dst='efectos\proy-aros.png'; id='proyAros'
-       ids=$AROS_RITMICA;   modo='rejilla'; cols=5; filas=2; lado=$LADO_ARO }
+       ids=$AROS_RITMICA;   modo='rejilla'; cols=5; filas=2; lado=$LADO_ARO
+       huecos=$true }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'iconos')  | Out-Null
@@ -3835,10 +3855,12 @@ foreach ($hoja in $HOJAS_ICONOS) {
                 }
                 if ($f) { $f.FullName } else { Join-Path $rutaSrc "$id.NO-DECLARADO" }
             }
-            $r = [Procesador]::RecortarIconosSueltos([string[]]$entradas, $rutaDst, $hoja.lado)
+            $r = [Procesador]::RecortarIconosSueltos([string[]]$entradas, $rutaDst, $hoja.lado,
+                                                     [bool]$hoja.huecos)
         } else {
             $r = [Procesador]::RecortarIconos($rutaSrc, $rutaDst, $n, $hoja.lado,
-                                              $hoja.modo, $hoja.cols, $hoja.filas)
+                                              $hoja.modo, $hoja.cols, $hoja.filas,
+                                              [bool]$hoja.huecos)
         }
     } catch {
         $informeIconos += [PSCustomObject]@{ Hoja=$hoja.id; Pedidos=$n; Hallados='-'; Tira='-'; Estado='ERROR' }
