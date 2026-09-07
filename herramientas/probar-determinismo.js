@@ -49,7 +49,13 @@ const PUERTO = 8143;
 // —Cartas, Cayado y Campana—: mas candidatos en el sorteo, el azar se gasta en
 // otro orden a partir de la primera subida de nivel. Los cuatro primeros grupos
 // no se mueven, que es la firma de este tipo de cambio.
-const HUELLA_ESPERADA = '1875877c a06c217e 5f36a14b 9cc6c71c 444adae4 e233f281 23be03e4';
+// Y otra vez el 7 de septiembre, al entrar siete objetos nuevos. Esta se movio
+// ENTERA, desde el primer grupo, no solo la cola: los objetos traen SEIS CAMPOS
+// NUEVOS en el jugador -alcance, velocidad de proyectil, duracion de zona,
+// perforacion, dano de contacto y denarios- y esos numeros entran en la foto
+// del mundo desde el primer fotograma, aunque valgan cero. Es la misma firma
+// que dejo el contador de dano de la semana pasada.
+const HUELLA_ESPERADA = '4837249a 4875a3a0 7e981868 b5967e65 83b3a255 f5fa713b b874d5ad';
 
 let fallos = 0;
 function comprobar(condicion, texto) {

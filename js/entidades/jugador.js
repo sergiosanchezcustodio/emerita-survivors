@@ -228,7 +228,26 @@ export class Jugador {
     // nivel y si no se acumularían sobre sí mismos.
     this.escudoMax = 0;
     this.resurreccionesMax = 0;
-    this.bonusXp = 0;              // Plinio el Búho
+    this.bonusXp = 0;              // Plinio el Búho y la Musa
+
+    // --- Bonos que NO son estadísticas del cuerpo -------------------------
+    //
+    // Los de arriba describen al personaje: cuánto aguanta, cuánto corre,
+    // cuánto pega. Estos describen lo que hacen SUS ARMAS y lo que le pasa al
+    // mundo, así que no se leen aquí sino allí donde toca —al lanzar un
+    // proyectil, al crear una zona, al recibir un golpe—. Viven en el jugador
+    // por el mismo motivo que `bonusArea`: es lo que lleva encima quien
+    // dispara, y el arma es la misma para todos.
+    //
+    // Todos arrancan a cero y todos se rellenan por el mismo bucle de
+    // `campo`/`tipo`/`valor` que ya usan pasivos, potenciadores y mascotas. No
+    // hay mecanismo nuevo: hay campos nuevos.
+    this.bonusAlcance = 0;         // Campana Milagrosa
+    this.bonusVelProyectil = 0;    // Ala de Mercurio
+    this.bonusDuracionZona = 0;    // Amuleto de azogue
+    this.bonusPerforacion = 0;     // Asta del Escornao
+    this.reduccionContacto = 0;    // Lagarto de Calzadilla
+    this.bonusDenarios = 0;        // Becerro de Oro
 
     // MASCOTA de ESTE jugador (datos/mascotas.js). Cada uno lleva la suya, y la
     // elige en la pantalla de mascotas; `mascotaId` lo pone main.js al crearlo.
@@ -317,7 +336,21 @@ export class Jugador {
   // se moviera.
   recibirDanyo(cantidad, dirX = 0, dirY = 0) {
     if (this.abatido || this.invulnerable > 0 || this.inmortal) return false;
-    let danyo = Math.max(1, cantidad - this.armadura);
+
+    // EL LAGARTO DE CALZADILLA quita un PORCENTAJE, y la armadura una cantidad
+    // fija. Por eso conviven sin ser lo mismo: contra la horda que pica de tres
+    // en tres manda la armadura —tres menos dos es uno, casi nada— y contra el
+    // mordisco de un jefe manda el porcentaje, que a cuarenta le quita ocho y a
+    // tres no le quita ni uno.
+    //
+    // Va ANTES de la armadura porque es lo que hace la piel, no la coraza: la
+    // escama amortigua el golpe y lo que llega después es lo que la placa
+    // detiene. Al revés, con armadura alta, el porcentaje no tendría casi nada
+    // sobre lo que morder.
+    const entrada = this.reduccionContacto > 0
+      ? cantidad * (1 - Math.min(0.8, this.reduccionContacto))
+      : cantidad;
+    let danyo = Math.max(1, entrada - this.armadura);
 
     // El ESCUDO se come el golpe antes que la vida, y cualquier impacto corta
     // su recarga. Es lo contrario que la armadura: la armadura quita una

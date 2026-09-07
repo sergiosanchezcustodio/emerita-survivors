@@ -31,6 +31,20 @@ const GRADOS = Math.PI / 180;
 // alguien coge un anillo.
 function danyoDe(s, j) { return Math.round(s.danyo * (1 + j.bonusDanyo)); }
 function areaDe(v, j)  { return v * (1 + j.bonusArea); }
+// LO LEJOS QUE LLEGA UN ARMA, con la Campana Milagrosa aplicada. Aparte de
+// `areaDe` a propósito: el área es lo ANCHO que pega una cosa y el alcance lo
+// LEJOS que va, y hay armas —una onda circular— donde subir lo uno sin lo otro
+// es justo lo que se quiere.
+function alcanceDe(s, j) { return s.alcance * (1 + j.bonusAlcance); }
+// Y lo deprisa que sale lo que se lanza (Ala de Mercurio). Solo afecta al
+// vuelo: la vida del proyectil se calcula con el alcance dividido por ESTA
+// velocidad, así que una bala más rápida llega igual de lejos, solo que antes.
+function velocidadDe(s, j) { return s.velocidad * (1 + j.bonusVelProyectil); }
+// Y lo que TARDA EN APAGARSE lo que se queda en el suelo: el charco de
+// alquitrán, el fuego griego, las minas (Amuleto de azogue). Es la tercera
+// manera de hacer más fuerte a un arma de zona sin tocar su daño ni su radio —
+// la misma zona, más rato— y por eso va aparte de las otras dos.
+function duracionDe(v, j) { return v * (1 + j.bonusDuracionZona); }
 function recargaDe(s, j) {
   const r = s.recarga * (1 - j.reduccionRecarga);
   return r < 0.08 ? 0.08 : r;
@@ -210,7 +224,7 @@ const COMPORTAMIENTOS = {
       // `largoTrazo`, que las siete armas de esta familia ya declaraban y que
       // esta rama se estaba comiendo.
       sis._rellenarProyectil(arma, s, danyoDe(s, ctx.jugador), ctx.jugador);
-      sis.defProyectil.vida = s.alcance / s.velocidad;
+      sis.defProyectil.vida = alcanceDe(s, ctx.jugador) / velocidadDe(s, ctx.jugador);
 
       const b = bocaDe(ctx.jugador, a);
       let ox = b.x, oy = b.y;
@@ -220,7 +234,7 @@ const COMPORTAMIENTOS = {
       }
       ctx.proyectiles.lanzar(
         ox, oy,
-        cos(a) * s.velocidad, sen(a) * s.velocidad,
+        cos(a) * velocidadDe(s, ctx.jugador), sen(a) * velocidadDe(s, ctx.jugador),
         sis.defProyectil);
     }
     // Uno solo por disparo, en la boca central, no uno por proyectil: con
@@ -326,7 +340,7 @@ const COMPORTAMIENTOS = {
     const danyo = danyoDe(s, j);
     for (let i = 0; i < s.proyectiles; i++) {
       const a = base + (ctx.rng() * 2 - 1) * semi;
-      const v = s.velocidad * (0.82 + ctx.rng() * 0.36);
+      const v = velocidadDe(s, j) * (0.82 + ctx.rng() * 0.36);
       // POR EL REPARTIDOR COMÚN, y este era el ÚLTIMO sitio que no pasaba por
       // él. Aquí se escribían nueve campos a mano sobre `defProyectil`, que es
       // UN objeto compartido por todas las armas: lo que este comportamiento no
@@ -391,7 +405,7 @@ const COMPORTAMIENTOS = {
         const centrado = i - (s.proyectiles - 1) / 2;
         const a = separa > 0 ? base : base + centrado * s.dispersion * GRADOS;
         sis._rellenarProyectil(arma, s, danyo, ctx.jugador);
-        sis.defProyectil.vida = s.alcance / s.velocidad;
+        sis.defProyectil.vida = alcanceDe(s, j) / velocidadDe(s, j);
         const b = bocaDe(j, a);
         let ox = b.x, oy = b.y;
         if (separa > 0) {
@@ -400,7 +414,7 @@ const COMPORTAMIENTOS = {
           oy -= cos(a) * centrado * separa;
         }
         ctx.proyectiles.lanzar(ox, oy,
-          cos(a) * s.velocidad, sen(a) * s.velocidad, sis.defProyectil);
+          cos(a) * velocidadDe(s, j), sen(a) * velocidadDe(s, j), sis.defProyectil);
       }
     }
     return true;
@@ -415,7 +429,7 @@ const COMPORTAMIENTOS = {
     for (let i = 0; i < s.proyectiles; i++) {
       const a = ctx.rng() * Math.PI * 2;
       sis._rellenarProyectil(arma, s, danyo, ctx.jugador);
-      sis.defProyectil.vida = s.alcance / s.velocidad;
+      sis.defProyectil.vida = alcanceDe(s, j) / velocidadDe(s, j);
       // UN DIBUJO CADA N PROYECTILES. La hoja del RainbowMazas trae diez mazas
       // y el arma las suelta DE DOS EN DOS: las dos primeras son la maza 1, las
       // dos siguientes la 2, y así hasta las veinte del nivel 10, que son las
@@ -429,7 +443,7 @@ const COMPORTAMIENTOS = {
       if (porDibujo) sis.defProyectil.fotograma = (i / porDibujo) | 0;
       const b = bocaDe(j, a);
       ctx.proyectiles.lanzar(b.x, b.y,
-        cos(a) * s.velocidad, sen(a) * s.velocidad, sis.defProyectil);
+        cos(a) * velocidadDe(s, j), sen(a) * velocidadDe(s, j), sis.defProyectil);
     }
     return true;
   },
@@ -453,13 +467,13 @@ const COMPORTAMIENTOS = {
     for (let i = 0; i < s.proyectiles; i++) {
       const a = base + (i - (s.proyectiles - 1) / 2) * s.dispersion * GRADOS;
       sis._rellenarProyectil(arma, s, danyo, ctx.jugador);
-      sis.defProyectil.vida = s.alcance / s.velocidad;
+      sis.defProyectil.vida = alcanceDe(s, j) / velocidadDe(s, j);
       sis.defProyectil.radioExplosion = areaDe(s.radioExplosion, j);
       sis.defProyectil.danyoExplosion = Math.round(s.danyoExplosion * (1 + j.bonusDanyo));
       sis.defProyectil.estallaAlExpirar = true;
       const b = bocaDe(j, a);
       ctx.proyectiles.lanzar(b.x, b.y,
-        cos(a) * s.velocidad, sen(a) * s.velocidad, sis.defProyectil);
+        cos(a) * velocidadDe(s, j), sen(a) * velocidadDe(s, j), sis.defProyectil);
     }
     return true;
   },
@@ -508,17 +522,17 @@ const COMPORTAMIENTOS = {
       // Si toca a alguien mientras baja, revienta ahí: le ha caído encima.
       if (arma.def.caida > 0) {
         sis._rellenarProyectil(arma, s, 0, ctx.jugador);
-        sis.defProyectil.vida = arma.def.caida / s.velocidad;
+        sis.defProyectil.vida = arma.def.caida / velocidadDe(s, j);
         sis.defProyectil.radioExplosion = radio;
         sis.defProyectil.danyoExplosion = danyo;
         sis.defProyectil.estallaAlExpirar = true;
-        ctx.proyectiles.lanzar(x, y - arma.def.caida, 0, s.velocidad, sis.defProyectil);
+        ctx.proyectiles.lanzar(x, y - arma.def.caida, 0, velocidadDe(s, j), sis.defProyectil);
         continue;
       }
 
       ctx.zonas.crear({
         duenyo: ctx.jugador, arma, arma,
-        x, y, radio, radioIni: radio * 0.15, duracion: s.duracion,
+        x, y, radio, radioIni: radio * 0.15, duracion: duracionDe(s.duracion, j),
         danyo, empuje: s.empuje, modo: 'onda', color: arma.def.color,
         relleno: 0.3, sprite: arma.def.spriteOnda
       });
@@ -535,7 +549,7 @@ const COMPORTAMIENTOS = {
       duenyo: ctx.jugador, arma,
       x: j.x, y: j.y - 6,
       radio: areaDe(s.radio, j), radioIni: 6,
-      duracion: s.duracion,
+      duracion: duracionDe(s.duracion, j),
       danyo: danyoDe(s, j), empuje: s.empuje,
       modo: 'onda', color: arma.def.color, relleno: 0.08,
       sprite: arma.def.spriteOnda,
@@ -557,7 +571,7 @@ const COMPORTAMIENTOS = {
       ctx.zonas.crear({
         duenyo: ctx.jugador, arma, arma,
         x: j.x + cos(a) * d, y: j.y + sen(a) * d,
-        radio: areaDe(s.radio, j), duracion: s.duracion,
+        radio: areaDe(s.radio, j), duracion: duracionDe(s.duracion, j),
         danyo: danyoDe(s, j), intervalo: s.intervalo,
         empuje: s.empuje, ralentiza: s.ralentiza || 0,
         modo: 'zona', color: arma.def.color, relleno: 0.22,
@@ -644,7 +658,7 @@ const COMPORTAMIENTOS = {
         // que haya que pisarla de verdad y no basta con rozarla.
         radio: areaDe(s.radio, j),
         radioGatillo: areaDe(s.radio, j) * 0.38,
-        duracion: s.duracion,
+        duracion: duracionDe(s.duracion, j),
         danyo: danyoDe(s, j),
         empuje: s.empuje,
         modo: 'mina', color: arma.def.color,
@@ -951,7 +965,10 @@ export class Armas {
     d.danyo = danyo;
     d.empuje = s.empuje;
     d.radio = s.radio;
-    d.perforacion = s.perforacion;
+    // EL ASTA DEL ESCORNAO suma perforación a lo que ya trae el arma. Va aquí,
+    // en el repartidor común, y no en cada comportamiento: así lo heredan las
+    // veintitantas armas de proyectil de una vez, que es lo que se pidió.
+    d.perforacion = s.perforacion + (duenyo ? (duenyo.bonusPerforacion | 0) : 0);
     d.color = arma.def.color;
     d.estela = arma.def.estela;
     d.largo = arma.def.largoTrazo || 8;

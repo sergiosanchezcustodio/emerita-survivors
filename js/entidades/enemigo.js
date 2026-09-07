@@ -913,7 +913,19 @@ export class Enemigos {
       // arriba con el daño por el mismo motivo que la del jugador: romper una
       // antorcha no es matar, y arriba todavía no se ha descartado el atrezo.
       if (fuente) fuente.bajas++;
-      MetaProgreso.ganar(denariosPorBaja(e.def));
+      // EL BECERRO DE ORO va aquí y no en `denariosPorBaja`, que no sabe quién
+      // ha matado. Es del que remata, no del equipo: en cooperativo, quien lo
+      // lleve cobra más por LO SUYO, y eso es lo que hace que valga la pena
+      // llevarlo aunque el compañero mate más.
+      //
+      // Nerón el Gato multiplica lo mismo pero por otro camino (`factorDenarios`
+      // en MetaProgreso, ver datos/mascotas.js): la mascota es de la partida
+      // entera y esto es de cada baja. Se acumulan, y a propósito — el que
+      // quiera montarse la partida del dinero, que se la monte.
+      const oro = denariosPorBaja(e.def);
+      MetaProgreso.ganar(duenyo && duenyo.bonusDenarios > 0
+        ? Math.round(oro * (1 + duenyo.bonusDenarios))
+        : oro);
       GestorAudio.muerteEnemigo();
       if (e.def.cofre) this.elitesVivos--;
       if (e.def.escolta) this.escoltasVivos--;

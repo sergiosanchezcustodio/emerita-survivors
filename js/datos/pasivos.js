@@ -56,6 +56,69 @@ export const PASIVOS = {
     descripcion: '+12.5% de radio de recogida',
     campo: 'radioRecogida', tipo: 'factor', valor: 0.125, maxNivel: 10
   },
+  // --- Los siete de Extremadura -------------------------------------------
+  //
+  // Segunda tanda de objetos, pedida por Sergio, y todos del mismo corte: un
+  // campo del jugador que alguien lee en un sitio concreto. No hay mecanismo
+  // nuevo en ninguno — el bucle que aplica `campo`/`tipo`/`valor` es el mismo
+  // que llevan los ocho de arriba, las mascotas y los potenciadores.
+  //
+  // Lo que sí es nuevo es DÓNDE se leen. Los ocho primeros describen el cuerpo
+  // —cuánto aguantas, cuánto corres— y se leen al recalcular las estadísticas.
+  // Estos describen lo que hacen tus armas y lo que te pasa a ti, así que cada
+  // uno se lee donde ocurre: al lanzar, al crear una zona, al cobrar, al
+  // recibir un golpe. Ver los campos en entidades/jugador.js.
+  campanaMilagrosa: {
+    nombre: 'Campana Milagrosa',
+    descripcion: '+7% de alcance de tus armas por nivel',
+    campo: 'bonusAlcance', tipo: 'suma', valor: 0.07, maxNivel: 10
+  },
+  alaDeMercurio: {
+    nombre: 'Ala de Mercurio',
+    // Lo que se lanza vuela más deprisa, y llega IGUAL DE LEJOS: la vida del
+    // proyectil se calcula con esta misma velocidad, así que lo que se gana es
+    // que alcance antes a lo que huye, no que cubra más campo. Para eso está la
+    // Campana Milagrosa.
+    descripcion: '+8% de velocidad de tus proyectiles por nivel',
+    campo: 'bonusVelProyectil', tipo: 'suma', valor: 0.08, maxNivel: 10
+  },
+  amuletoAzogue: {
+    nombre: 'Amuleto de azogue',
+    descripcion: '+10% de duración de lo que dejas en el suelo, por nivel',
+    campo: 'bonusDuracionZona', tipo: 'suma', valor: 0.10, maxNivel: 10
+  },
+  astaEscornao: {
+    nombre: 'Asta del Escornao',
+    // MEDIO PUNTO POR NIVEL, no uno. La perforación se redondea al aplicarla,
+    // así que esto da +1 al nivel 2, +2 al 4 y +5 al 10 — la mitad de deprisa
+    // que subiéndolo de uno en uno, y aun así es de lo más fuerte que hay:
+    // cinco cuerpos más por bala multiplica armas enteras. Lo avisó Sergio y
+    // por eso va a este ritmo.
+    descripcion: '+0.5 de perforación por nivel: tus disparos atraviesan más',
+    campo: 'bonusPerforacion', tipo: 'suma', valor: 0.5, maxNivel: 10
+  },
+  lagartoCalzadilla: {
+    nombre: 'Lagarto de Calzadilla',
+    // Un PORCENTAJE, al revés que la Lorica, que quita una cantidad fija. Por
+    // eso conviven: la placa vale contra la horda que pica de tres en tres y la
+    // escama contra el mordisco que te quita media vida.
+    descripcion: '-4% del daño que recibes por nivel',
+    campo: 'reduccionContacto', tipo: 'suma', valor: 0.04, maxNivel: 10
+  },
+  becerroDeOro: {
+    nombre: 'Becerro de Oro',
+    descripcion: '+8% de denarios por cada enemigo que remates, por nivel',
+    campo: 'bonusDenarios', tipo: 'suma', valor: 0.08, maxNivel: 10
+  },
+  musa: {
+    nombre: 'Musa',
+    // El único de los siete que no ha necesitado NADA: `bonusXp` ya existía
+    // porque lo usa Plinio el Búho, y la progresión ya lo leía. Es literalmente
+    // cinco líneas de datos.
+    descripcion: '+6% de experiencia por nivel',
+    campo: 'bonusXp', tipo: 'suma', valor: 0.06, maxNivel: 10
+  },
+
   anfora: {
     // 30 y no 10: un 200% más de lo que daba. Con 10 por nivel, el Ánfora al
     // máximo sumaba 100 de vida sobre una base de poco más de 100, o sea que

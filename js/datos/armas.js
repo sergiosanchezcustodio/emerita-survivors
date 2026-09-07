@@ -1220,18 +1220,26 @@ export const ARMAS = {
     // parálisis— en vez de repartirlas por niveles. Con un arma que no hace
     // daño, una subida que solo tocara una de ellas se leería como que no ha
     // pasado nada: no hay un número de daño que mirar para notarlo.
-    danyo: 0, recarga: 4.2, alcance: 150, angulo: 22, paralisis: 0.2,
+    // LA PARÁLISIS, POR TRES sobre lo primero que se probó: de 0,5 a 1,5
+    // segundos al nivel 10, y de 0,2 a 0,6 al empezar. Lo pidió Sergio después
+    // de jugarla, y tiene sentido: medio segundo se pasa antes de que te dé
+    // tiempo a decidir por dónde sales, y esta arma no mata a nadie — lo único
+    // que da es tiempo, así que si el tiempo no alcanza no da nada.
+    //
+    // Sigue sin acumularse consigo misma (ver `conoSilencio`): dos campanadas
+    // seguidas se quedan con la más larga, no suman tres segundos.
+    danyo: 0, recarga: 4.2, alcance: 150, angulo: 22, paralisis: 0.6,
     empuje: 0, color: '#bfe6ff',
     niveles: [{},
-              { alcance: 23, recarga: -0.24, angulo: 3, paralisis: 0.04 },
-              { alcance: 23, recarga: -0.24, angulo: 2, paralisis: 0.03 },
-              { alcance: 23, recarga: -0.24, angulo: 3, paralisis: 0.04 },
-              { alcance: 23, recarga: -0.24, angulo: 2, paralisis: 0.03 },
-              { alcance: 23, recarga: -0.24, angulo: 3, paralisis: 0.04 },
-              { alcance: 23, recarga: -0.24, angulo: 2, paralisis: 0.03 },
-              { alcance: 23, recarga: -0.24, angulo: 3, paralisis: 0.04 },
-              { alcance: 23, recarga: -0.24, angulo: 2, paralisis: 0.03 },
-              { alcance: 26, recarga: -0.28, angulo: 3, paralisis: 0.02 }]
+              { alcance: 23, recarga: -0.24, angulo: 3, paralisis: 0.12 },
+              { alcance: 23, recarga: -0.24, angulo: 2, paralisis: 0.09 },
+              { alcance: 23, recarga: -0.24, angulo: 3, paralisis: 0.12 },
+              { alcance: 23, recarga: -0.24, angulo: 2, paralisis: 0.09 },
+              { alcance: 23, recarga: -0.24, angulo: 3, paralisis: 0.12 },
+              { alcance: 23, recarga: -0.24, angulo: 2, paralisis: 0.09 },
+              { alcance: 23, recarga: -0.24, angulo: 3, paralisis: 0.12 },
+              { alcance: 23, recarga: -0.24, angulo: 2, paralisis: 0.09 },
+              { alcance: 26, recarga: -0.28, angulo: 3, paralisis: 0.06 }]
   },
 
   // --- Cartas de la baraja española --------------------------------------
