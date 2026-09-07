@@ -76,3 +76,10 @@ y no se sube nunca. Sin token la herramienta lo dice y no llama a la API.
 
 ## Plan
 El plan completo por fases está en prompt-emerita-survivors.md. Implementar UNA fase por sesión y parar.
+
+Las cinco fases del plan están cerradas. Lo que se está haciendo ahora es la
+lista de armas y objetos que pasó Sergio, y **dónde se quedó vive en
+[docs/pendiente-armas-objetos.md](docs/pendiente-armas-objetos.md)**: lo hecho, lo
+que falta, las decisiones ya tomadas —para no volver a preguntarlas— y la única
+pregunta que sigue abierta (el Libro de las Sombras). Empezar cada tanda leyendo
+ese archivo, y dejarlo actualizado al cerrarla.
