@@ -1212,13 +1212,19 @@ export const ARMAS = {
   // bultos alrededor, menos mazas desperdiciadas— en vez de premiar la
   // puntería, que aquí no existe: nadie apunta al azar.
   //
-  // El daño por maza sube poco (14 a 40) porque lo que multiplica es la
+  // El daño por maza sube poco (20 a 56) porque lo que multiplica es la
   // CANTIDAD: al 10 son diez impactos por lanzamiento, no uno más gordo.
+  //
+  // UN 40% MÁS QUE AL SALIR, que iba de 14 a 40. Lo pidió Sergio jugándola, y
+  // se ha subido POR TODA LA CURVA y no solo al final: subir solo el tope
+  // habría dejado los primeros niveles igual de flojos, que es donde se decide
+  // si un arma se coge. Base y escalones van multiplicados por 1,4 y redondeados
+  // —el 20 de salida son 19,6— así que el nivel 10 queda en 56 clavado.
   rainbowMazas: {
     nombre: 'RainbowMazas',
     descripcion: 'Mazas al azar, cada una de un color. Se gastan al golpear.',
     comportamiento: 'direccionAleatoria',
-    danyo: 14, recarga: 1.15, proyectiles: 1, velocidad: 150, alcance: 145,
+    danyo: 20, recarga: 1.15, proyectiles: 1, velocidad: 150, alcance: 145,
     radio: 5, perforacion: 0, empuje: 90,
     color: '#ffd15c', estela: '#a8632a', largoTrazo: 7,
     spriteProyectil: 'proyMazas',
@@ -1232,15 +1238,15 @@ export const ARMAS = {
     // UNA MAZA MÁS EN CADA SUBIDA, sin excepción: es la promesa del arma y una
     // subida que no la cumpliera se leería como que no ha pasado nada.
     niveles: [{},
-              { proyectiles: 1, danyo: 2 },
-              { proyectiles: 1, danyo: 3, alcance: 15 },
-              { proyectiles: 1, danyo: 2 },
-              { proyectiles: 1, danyo: 3, recarga: -0.1 },
-              { proyectiles: 1, danyo: 2 },
-              { proyectiles: 1, danyo: 3, alcance: 15 },
               { proyectiles: 1, danyo: 3 },
+              { proyectiles: 1, danyo: 4, alcance: 15 },
               { proyectiles: 1, danyo: 3 },
-              { proyectiles: 1, danyo: 5, recarga: -0.15 }]
+              { proyectiles: 1, danyo: 4, recarga: -0.1 },
+              { proyectiles: 1, danyo: 3 },
+              { proyectiles: 1, danyo: 4, alcance: 15 },
+              { proyectiles: 1, danyo: 4 },
+              { proyectiles: 1, danyo: 4 },
+              { proyectiles: 1, danyo: 7, recarga: -0.15 }]
   },
 
   // --- El arma de Say: el Códice Infernal --------------------------------
