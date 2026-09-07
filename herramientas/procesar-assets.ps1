@@ -3636,7 +3636,7 @@ $ICONOS_ARMAS = @(
     'hacha','maza','latigo','motosierra','guadanya','lanzallamas','recortada','aspa',
     'enfilada','agujas','muroDeLanzas','enjambre','molotov','lanzacohetes','artilleria','lluviaDeFlechas',
     'gritoDeGuerra','sismo','aceiteHirviendo','minas','alquitran','campoElectrico','laser','aspaDeLuz',
-    'satelites','discosDeSierra','katana','sierrasVotivas','codiceInfernal'
+    'satelites','discosDeSierra','katana','sierrasVotivas','codiceInfernal','rainbowMazas'
 )
 
 # Un archivo por arma, en resources/armas/. Se resuelve con -Filter, así que
@@ -3715,10 +3715,26 @@ $LADO_LIBRO = 128
 $LIBROS_CODICE = @('libro1','libro2','libro3','libro4','libro5',
                    'libro6','libro7','libro8','libro9','libro10')
 
+# LAS DIEZ MAZAS DEL RAINBOWMAZAS, en otra lamina de 5x2.
+#
+# Mismo caso que los libros y por el mismo camino: no son iconos, es el sprite
+# del PROYECTIL, y el arma reparte una maza distinta por cada una que lanza
+# —una al nivel 1 y diez al 10, cada una de su color—.
+#
+# 56 y no 128 como los libros porque esto vuela por el mapa, no orbita: los
+# sprites de proyectil del juego andan entre 16 y 52 px (ver proyAbeja,
+# proyLanza), y a 56 la maza mide 14 unidades logicas, la mitad de un
+# personaje. Mas grande dejaria de leerse como algo lanzado.
+$LADO_MAZA = 56
+
+$MAZAS_RAINBOW = @('maza1','maza2','maza3','maza4','maza5',
+                   'maza6','maza7','maza8','maza9','maza10')
+
 # La PORTADA de un arma que no tiene archivo propio, sino una celda de una hoja.
 # Se extrae a un temporal antes de montar la tira de iconos. Ver ExtraerCelda.
 $ICONO_DESDE_HOJA = @{
     codiceInfernal = @{ hoja = 'armas\libros.png'; cols = 5; filas = 2; celda = 0 }
+    rainbowMazas   = @{ hoja = 'armas\mazas.png';  cols = 5; filas = 2; celda = 0 }
 }
 
 $HOJAS_ICONOS = @(
@@ -3734,6 +3750,9 @@ $HOJAS_ICONOS = @(
     # El sprite del Codice: diez libros, uno por nivel del arma.
     @{ src='armas\libros.png';    dst='efectos\orb-codice.png'; id='orbCodice'
        ids=$LIBROS_CODICE;  modo='rejilla'; cols=5; filas=2; lado=$LADO_LIBRO }
+    # Y el del RainbowMazas: diez mazas, una por cada una que se lanza.
+    @{ src='armas\mazas.png';     dst='efectos\proy-mazas.png'; id='proyMazas'
+       ids=$MAZAS_RAINBOW;  modo='rejilla'; cols=5; filas=2; lado=$LADO_MAZA }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'iconos')  | Out-Null

@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260906224806",
+    "version":  "20260907151637",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -1272,7 +1272,7 @@
                                           "h":  32,
                                           "anclaX":  16,
                                           "anclaY":  16,
-                                          "frames":  53,
+                                          "frames":  54,
                                           "plano":  true,
                                           "orden":  [
                                                         "pilum",
@@ -1327,7 +1327,8 @@
                                                         "discosDeSierra",
                                                         "katana",
                                                         "sierrasVotivas",
-                                                        "codiceInfernal"
+                                                        "codiceInfernal",
+                                                        "rainbowMazas"
                                                     ]
                                       },
                       "iconosArmasHd":  {
@@ -1336,7 +1337,7 @@
                                             "h":  96,
                                             "anclaX":  48,
                                             "anclaY":  48,
-                                            "frames":  53,
+                                            "frames":  54,
                                             "plano":  true,
                                             "orden":  [
                                                           "pilum",
@@ -1391,7 +1392,8 @@
                                                           "discosDeSierra",
                                                           "katana",
                                                           "sierrasVotivas",
-                                                          "codiceInfernal"
+                                                          "codiceInfernal",
+                                                          "rainbowMazas"
                                                       ]
                                         },
                       "orbCodice":  {
@@ -1413,6 +1415,27 @@
                                                       "libro8",
                                                       "libro9",
                                                       "libro10"
+                                                  ]
+                                    },
+                      "proyMazas":  {
+                                        "archivo":  "efectos/proy-mazas.png",
+                                        "w":  56,
+                                        "h":  56,
+                                        "anclaX":  28,
+                                        "anclaY":  28,
+                                        "frames":  10,
+                                        "plano":  true,
+                                        "orden":  [
+                                                      "maza1",
+                                                      "maza2",
+                                                      "maza3",
+                                                      "maza4",
+                                                      "maza5",
+                                                      "maza6",
+                                                      "maza7",
+                                                      "maza8",
+                                                      "maza9",
+                                                      "maza10"
                                                   ]
                                     },
                       "balaPistola":  {

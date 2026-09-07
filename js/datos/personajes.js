@@ -129,16 +129,16 @@ export const PERSONAJES = {
   sofi: {
     nombre: 'Sofi',
     sprite: 'sofi',
-    descripcion: 'No hace falta apuntar cuando el suelo entero se mueve.',
-    // Onda expansiva: un anillo que se abre desde ella en TODAS las
-    // direcciones, sin apuntar a nada. Encaja con sus `mods`, que ya eran los
-    // de un personaje rápido y frágil: el anillo despeja el hueco por el que
-    // salir y la velocidad es lo que te saca por él.
+    descripcion: 'Tira una, tira diez. Alguna le da a alguien.',
+    // RainbowMazas: mazas al azar, una por nivel y cada una de su color, que se
+    // gastan al golpear. No apunta a nada, así que su arma no premia la
+    // puntería sino el bulto: cuanta más horda alrededor, menos mazas se van a
+    // donde no hay nadie.
     //
-    // Llevaba la honda balear, que también premiaba el bulto sobre la
-    // puntería, pero desde fuera: la piedra iba a buscar a la horda. Esto es lo
-    // contrario — la horda tiene que venir a ella.
-    arma: 'ondaExpansiva',
+    // Encaja con sus `mods`, que ya eran los de alguien rápido y frágil: para
+    // que haya bultos alrededor hay que estar dentro, y la velocidad es lo que
+    // te saca cuando ya no queda nada que lanzar.
+    arma: 'rainbowMazas',
     coste: 5000,
     mods: { vidaMaxima: 0.9, velocidad: 1.2, radioRecogida: 1.0 }
   }

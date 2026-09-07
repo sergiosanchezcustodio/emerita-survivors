@@ -31,19 +31,23 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PUERTO = 8143;
 
 // Huella de la semilla por defecto (0xE3E21A), 3600 fotogramas de seis en seis
-// centenas. Rehecha el 6 de septiembre de 2026, al entrar el Codice Infernal.
+// centenas. Rehecha el 7 de septiembre de 2026, al entrar el RainbowMazas.
 //
-// POR QUE CAMBIO, que es lo unico que hay que saber para no asustarse la
-// proxima vez: un arma nueva en el catalogo cambia el SORTEO de la subida de
-// nivel —hay un candidato mas del que tirar— y a partir de ahi el azar se gasta
-// en otro orden. La simulacion no se ha tocado: las dos primeras pruebas de
-// este mismo archivo siguen diciendo que la misma partida jugada dos veces sale
-// igual, que es la propiedad. Esta tercera solo compara con lo que habia.
+// POR QUE CAMBIA CADA VEZ QUE ENTRA UN ARMA, que es lo unico que hay que saber
+// para no asustarse la proxima: un arma nueva en el catalogo cambia el SORTEO
+// de la subida de nivel —hay un candidato mas del que tirar— y a partir de ahi
+// el azar se gasta en otro orden. Y esta ademas anadio un campo al proyectil
+// (`fotograma`, para repartir una maza distinta por cada una que lanza), que
+// entra en la foto del pool.
 //
-// Los cuatro primeros grupos ni se movieron -d304ef86 901760c0 4e6676a4
-// 160005aa, o sea los primeros 2400 fotogramas- porque hasta la primera subida
-// de nivel no hay sorteo que cambiar.
-const HUELLA_ESPERADA = 'd304ef86 901760c0 4e6676a4 160005aa 52a69c3b f3a62c38 84341b77';
+// La simulacion no se ha tocado: las dos primeras pruebas de este mismo archivo
+// siguen diciendo que la misma partida jugada dos veces sale igual, que es la
+// propiedad. Esta tercera solo compara con lo que habia.
+//
+// Los CINCO primeros grupos ni se movieron -d304ef86 901760c0 4e6676a4
+// 160005aa 52a69c3b, o sea los primeros 3000 fotogramas- porque hasta que la
+// partida no llega a una subida de nivel no hay sorteo que cambiar.
+const HUELLA_ESPERADA = 'd304ef86 901760c0 4e6676a4 160005aa 52a69c3b cfcc5ea1 6f7bb95d';
 
 let fallos = 0;
 function comprobar(condicion, texto) {

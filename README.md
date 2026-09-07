@@ -12,7 +12,7 @@ tres armas cada vez, y acaba con la Loba Capitolina.
 [![ES6](https://img.shields.io/badge/JavaScript-m%C3%B3dulos%20ES6-f7df1e?style=flat-square)](#)
 [![Sin dependencias](https://img.shields.io/badge/dependencias-cero-2ea043?style=flat-square)](#)
 [![Sin build](https://img.shields.io/badge/build-ninguno-2ea043?style=flat-square)](#)
-[![Armas](https://img.shields.io/badge/armas-58-e2c27a?style=flat-square)](#)
+[![Armas](https://img.shields.io/badge/armas-59-e2c27a?style=flat-square)](#)
 [![Cooperativo](https://img.shields.io/badge/cooperativo-hasta%204-e2c27a?style=flat-square)](#)
 [![Licencia: GPL v3](https://img.shields.io/badge/licencia-GPLv3-blue?style=flat-square)](LICENSE)
 
@@ -260,17 +260,24 @@ que huyen en vez de perseguir.
 
 ## El arsenal
 
-**58 armas**, tres opciones cada vez que subes de nivel, y evoluciones que piden
+**59 armas**, tres opciones cada vez que subes de nivel, y evoluciones que piden
 un arma al 8 más su pasivo y un cofre de élite.
 
 ![Arsenal](docs/arsenal.png)
 
 Desde el pilum y el gladius hasta el lanzallamas, las minas de proximidad, los
-satélites en órbita y la tormenta de rayos de Júpiter. El **Códice Infernal**,
-que es el arma de Say, es la única que crece contándose: un libro orbitando al
-empezar y diez al nivel 10, cada subida despierta uno nuevo y todos giran más
-rápido. La ambientación va mezclada a propósito: honda balear junto a subfusil. Es una decisión tomada, no
-un descuido — Mérida es una ciudad romana en la que vive gente hoy.
+satélites en órbita y la tormenta de rayos de Júpiter.
+
+Dos crecen contándose, y son las de las dos últimas heroínas. El **Códice
+Infernal** de Say: un libro orbitando al empezar y diez al nivel 10, cada subida
+despierta uno nuevo y todos giran más rápido. Y el **RainbowMazas** de Sofi, que
+suelta mazas en direcciones al azar —una por nivel, cada una de un color, y
+todas se gastan al golpear—: al 10 son diez volando a la vez y ninguna repite.
+En las dos, subir de nivel se ve antes de leer nada.
+
+La ambientación va mezclada a propósito: honda balear junto a subfusil. Es una
+decisión tomada, no un descuido — Mérida es una ciudad romana en la que vive
+gente hoy.
 
 ---
 

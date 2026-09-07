@@ -350,7 +350,7 @@ $gente = @(
     @{ id = 'helen'; nombre = 'HELEN'; arma = 'Arco corto';      nota = 'Nueve flechas a la vez' }
     @{ id = 'julie'; nombre = 'JULIE'; arma = 'Lanzallamas';     nota = 'Hay que entrar y quedarse' }
     @{ id = 'say';   nombre = 'SAY';   arma = 'Codice Infernal'; nota = 'Un libro mas por nivel' }
-    @{ id = 'sofi';  nombre = 'SOFI';  arma = 'Onda expansiva';  nota = 'El suelo entero se mueve' }
+    @{ id = 'sofi';  nombre = 'SOFI';  arma = 'RainbowMazas';    nota = 'Una maza mas por nivel' }
 )
 $escG = 2.0
 $celda = 300

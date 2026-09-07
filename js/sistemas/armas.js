@@ -355,6 +355,12 @@ const COMPORTAMIENTOS = {
       const a = ctx.rng() * Math.PI * 2;
       sis._rellenarProyectil(arma, s, danyo, ctx.jugador);
       sis.defProyectil.vida = s.alcance / s.velocidad;
+      // UNA MAZA DISTINTA POR CADA UNA QUE SALE. La hoja del RainbowMazas trae
+      // diez, y el número de proyectil elige cuál: al nivel 1 sale la primera y
+      // al 10 las diez de golpe, cada una de su color. Se reparte por el índice
+      // y no al azar porque al azar saldrían repetidas —diez tiradas de diez no
+      // dan diez colores distintos— y el arma es justo eso.
+      if (arma.def.fotogramaPorProyectil) sis.defProyectil.fotograma = i;
       const b = bocaDe(j, a);
       ctx.proyectiles.lanzar(b.x, b.y,
         cos(a) * s.velocidad, sen(a) * s.velocidad, sis.defProyectil);
@@ -828,6 +834,12 @@ export class Armas {
     // porque crece con el nivel: ver `escalaProyectil` en la Rosa de los
     // vientos, que cuadruplica su estrella del 1 al 10.
     d.escala = s.escalaProyectil || 1;
+    // Fotograma de la hoja. Cero salvo que quien lanza diga otra cosa: lo hace
+    // el RainbowMazas, que reparte una maza distinta por cada una que suelta.
+    // Va aquí y no solo en su comportamiento porque `defProyectil` es
+    // COMPARTIDO entre todas las armas, y lo que no se escriba se queda con lo
+    // que dejó el disparo anterior — el fallo que ya costó los rebotes.
+    d.fotograma = 0;
     d.danyo = danyo;
     d.empuje = s.empuje;
     d.radio = s.radio;

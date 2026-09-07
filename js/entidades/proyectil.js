@@ -91,7 +91,15 @@ function crearProyectil() {
     // Hay cosas que no apuntan a donde van: un shuriken voltea, una botella da
     // vueltas por el aire. Para esas, orientar el dibujo al rumbo lo deja
     // clavado y rígido, que es justo lo contrario de lo que hacen de verdad.
-    giro: 0
+    giro: 0,
+    // QUÉ FOTOGRAMA DE SU HOJA DIBUJA. 0 en todos menos uno, porque casi todas
+    // las hojas de proyectil traen un solo dibujo.
+    //
+    // Existe por el RainbowMazas, cuya hoja trae diez mazas de diez colores y
+    // lanza una de cada: al nivel 10 salen las diez a la vez y ninguna repite.
+    // Quien lanza decide cuál le toca a cada una (ver `direccionAleatoria` en
+    // sistemas/armas.js); aquí solo se dibuja la que digan.
+    fotograma: 0
   };
 }
 
@@ -146,6 +154,7 @@ export class Proyectiles {
     p.hoja = def.hoja || null;
     p.giro = def.giro || 0;
     p.escala = def.escala || 1;
+    p.fotograma = def.fotograma || 0;
     p.radioExplosion = def.radioExplosion || 0;
     p.danyoExplosion = def.danyoExplosion || 0;
     p.estallaAlExpirar = !!def.estallaAlExpirar;
@@ -322,6 +331,9 @@ export class Proyectiles {
         if (img && meta) {
           const aw = meta.w / ESCALA_ARTE * p.escala;
           const ah = meta.h / ESCALA_ARTE * p.escala;
+          // De qué trozo de la hoja se recorta. Con hojas de un dibujo —que son
+          // casi todas— esto es 0 y sale el de siempre.
+          const fx = (p.fotograma % (meta.frames || 1)) * meta.w;
           ctx.save();
           ctx.globalAlpha = 1;
           // FUERA EL 'lighter' PARA LOS QUE TRAEN DIBUJO.
@@ -353,7 +365,7 @@ export class Proyectiles {
             // y el sello hace que dos proyectiles a la vez no salgan
             // sincronizados. Es el mismo truco que el núcleo de `_bola`.
             ctx.rotate(p.sello * 0.7 + (p.vidaMax - p.vida) * p.giro);
-            ctx.drawImage(img, 0, 0, meta.w, meta.h, -aw / 2, -ah / 2, aw, ah);
+            ctx.drawImage(img, fx, 0, meta.w, meta.h, -aw / 2, -ah / 2, aw, ah);
           } else {
             ctx.rotate(atan2(p.vy, p.vx));
             // ESPEJADO, no girado 180°. El dibujo mira a la izquierda, y aquí
@@ -370,7 +382,7 @@ export class Proyectiles {
             // borde izquierdo del dibujo —que es la punta— acaba en +0,2 de
             // largo por delante, y la llama se extiende 0,8 hacia atrás. La
             // abeja usa el mismo convenio: cabeza a la izquierda del dibujo.
-            ctx.drawImage(img, 0, 0, meta.w, meta.h, -aw * 0.2, -ah / 2, aw, ah);
+            ctx.drawImage(img, fx, 0, meta.w, meta.h, -aw * 0.2, -ah / 2, aw, ah);
           }
           ctx.restore();
           continue;

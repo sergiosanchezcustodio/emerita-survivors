@@ -1193,6 +1193,56 @@ export const ARMAS = {
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
   },
 
+  // --- El arma de Sofi: RainbowMazas -------------------------------------
+  //
+  // Pedida por Sergio. Suelta mazas en direcciones al azar: una al nivel 1 y
+  // una más en cada subida, hasta diez. Cada maza gira sobre sí misma mientras
+  // se aleja y se deshace en cuanto toca a alguien.
+  //
+  // Y CADA UNA ES DE UN COLOR. La lámina trae diez mazas distintas y el arma
+  // reparte una por cada una que lanza (`fotogramaPorProyectil`, ver
+  // `direccionAleatoria` en sistemas/armas.js), así que al 10 salen las diez de
+  // golpe y ninguna repite. Es el mismo criterio que el Códice Infernal de Say
+  // —subir de nivel se VE— y el hermano de sangre de esta arma: allí los libros
+  // se quedan girando alrededor y aquí las mazas se van.
+  //
+  // SIN PERFORACIÓN, y es la mecánica entera. Una maza es un disparo que se
+  // gasta: diez mazas al aire son diez enemigos como mucho, y las que se van a
+  // donde no hay nadie no valen para nada. De ahí que el arma pida horda —a más
+  // bultos alrededor, menos mazas desperdiciadas— en vez de premiar la
+  // puntería, que aquí no existe: nadie apunta al azar.
+  //
+  // El daño por maza sube poco (14 a 40) porque lo que multiplica es la
+  // CANTIDAD: al 10 son diez impactos por lanzamiento, no uno más gordo.
+  rainbowMazas: {
+    nombre: 'RainbowMazas',
+    descripcion: 'Mazas al azar, cada una de un color. Se gastan al golpear.',
+    comportamiento: 'direccionAleatoria',
+    danyo: 14, recarga: 1.15, proyectiles: 1, velocidad: 150, alcance: 145,
+    radio: 5, perforacion: 0, empuje: 90,
+    color: '#ffd15c', estela: '#a8632a', largoTrazo: 7,
+    spriteProyectil: 'proyMazas',
+    // Una maza por proyectil, por su número. Ver la nota larga de arriba.
+    fotogramaPorProyectil: true,
+    // GIRA SOBRE SÍ MISMA mientras vuela, en vez de orientarse al rumbo. Una
+    // maza lanzada voltea; apuntando el mango hacia donde va se quedaría rígida
+    // como una flecha, que es justo lo que no es. 11 rad/s es casi dos vueltas
+    // por segundo: se lee el volteo sin que la cabeza se vuelva un borrón.
+    giroProyectil: 11,
+    // UNA MAZA MÁS EN CADA SUBIDA, sin excepción: es la promesa del arma y una
+    // subida que no la cumpliera se leería como que no ha pasado nada.
+    niveles: [{},
+              { proyectiles: 1, danyo: 2 },
+              { proyectiles: 1, danyo: 3, alcance: 15 },
+              { proyectiles: 1, danyo: 2 },
+              { proyectiles: 1, danyo: 3, recarga: -0.1 },
+              { proyectiles: 1, danyo: 2 },
+              { proyectiles: 1, danyo: 3, alcance: 15 },
+              { proyectiles: 1, danyo: 3 },
+              { proyectiles: 1, danyo: 3 },
+              { proyectiles: 1, danyo: 5, recarga: -0.15 }]
+  },
+
   // --- El arma de Say: el Códice Infernal --------------------------------
   //
   // Pedida por Sergio, y es un orbital que crece EN NÚMERO DE LIBROS: uno al
