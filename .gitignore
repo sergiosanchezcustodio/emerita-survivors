@@ -10,3 +10,8 @@ node_modules/
 # no tienen por qué vivir en el repositorio.
 dist/
 herramientas/lanzador/cache/
+
+# Imágenes de prueba generadas con Replicate (ver herramientas/generar-imagen.js).
+# Es un cajón de bocetos: se tiran casi todos. Lo que valga se mueve a mano a
+# resources/<lo que sea>/ y ahí sí se versiona.
+resources/generadas/

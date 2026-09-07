@@ -22,6 +22,8 @@
 - `.\herramientas\ver-assets.ps1 <ruta>` — describe imágenes sin abrirlas
 - `.\herramientas\medir-lapida.ps1` — dónde caen los renglones del menú del título
 - `.\herramientas\instalar-lanzador.ps1` — deja el comando `emerita` en su sitio
+- `node herramientas/generar-imagen.js "<lo que sea>" -s <ruta>` — genera una
+  imagen con Replicate (ver más abajo)
 
 ## Coste de contexto (no negociable)
 El coste de un resultado de herramienta es su tamaño **multiplicado por las
@@ -45,6 +47,32 @@ real: las imágenes eran el 70% del contexto y el 95% del gasto.
   en el contexto del subagente y muere con él; a la sesión llega el resumen.
 - **Una tarea, una sesión.** `/clear` al cerrar cada tarea. Un contexto que
   cruza días multiplica todo lo anterior por miles de llamadas.
+
+## Imágenes generadas (Replicate)
+
+Hay cuenta de Replicate y una herramienta para usarla:
+
+```
+node herramientas/generar-imagen.js "un anfora romana rota, pixel art" -s resources/generadas/anfora.png
+```
+
+El token vive en `.env` (`REPLICATE_API_TOKEN=r8_...`), que está en `.gitignore`
+y no se sube nunca. Sin token la herramienta lo dice y no llama a la API.
+
+- **Se puede usar sin preguntar** cuando Sergio pide una imagen o un boceto.
+- **Esto NO es arte final.** El arte del juego lo dibuja Sergio; esto sirve para
+  probar una idea, sacar una referencia o rellenar un hueco mientras tanto.
+  Nada de lo que salga de aquí entra en `assets/` sin que él lo haya visto.
+- **Cuesta dinero de verdad**, unos céntimos por imagen con el modelo por
+  defecto (`flux-schnell`) y bastante más con los grandes. Cuatro variantes de
+  una idea, sí; cuarenta a ver qué sale, no. Y si una tanda va a costar más que
+  un café, se dice antes.
+- **Lo generado NO se mira sin motivo.** Vale la regla de arriba: `ver-assets.ps1`
+  da medidas, transparencia y colores en una línea de texto; abrir el PNG cuesta
+  ~4.700 tokens y no se va. Se abre para OPINAR sobre el dibujo, no para
+  comprobar que existe.
+- `resources/generadas/` está en `.gitignore`: es un cajón de bocetos. Lo que
+  valga se mueve a mano a su carpeta de `resources/` y ahí sí se versiona.
 
 ## Plan
 El plan completo por fases está en prompt-emerita-survivors.md. Implementar UNA fase por sesión y parar.
