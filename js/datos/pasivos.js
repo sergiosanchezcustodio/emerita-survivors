@@ -119,6 +119,50 @@ export const PASIVOS = {
     campo: 'bonusXp', tipo: 'suma', valor: 0.06, maxNivel: 10
   },
 
+  // --- Los cinco que enganchan en un golpe --------------------------------
+  //
+  // Tercera tanda. Estos no cambian una estadistica: se enteran de que ha
+  // pasado algo. Cuatro viven en el camino del dano —`danyar` en
+  // entidades/enemigo.js y `recibirDanyo` en el jugador— y el quinto en el
+  // calculo del dano de las armas.
+  sanguijuelasGuadiana: {
+    nombre: 'Sanguijuelas del Guadiana',
+    // Sobre el dano EFECTIVO, no sobre el pedido: rematar a una serpiente de
+    // siete de vida con un golpe de cincuenta cura por siete. Si no, cualquier
+    // arma de las que barren la horda de un toque seria inmortalidad barata.
+    descripcion: '+1.2% del daño que haces vuelve como vida, por nivel',
+    campo: 'robaVida', tipo: 'suma', valor: 0.012, maxNivel: 10
+  },
+  capaErizo: {
+    nombre: 'Capa del erizo',
+    descripcion: '+12% del daño que recibes se lo devuelves a quien te toca',
+    campo: 'espinas', tipo: 'suma', valor: 0.12, maxNivel: 10
+  },
+  cruzDelGigante: {
+    nombre: 'Cruz del Gigante',
+    // El PRIMER golpe de cada enemigo, no el primero de cada arma: premia
+    // abrir, no rematar. Y es del enemigo, asi que en cooperativo se lo lleva
+    // quien llega antes.
+    descripcion: '+10% al primer golpe que recibe cada enemigo, por nivel',
+    campo: 'primerGolpeDoble', tipo: 'suma', valor: 0.10, maxNivel: 10
+  },
+  piraFuneraria: {
+    nombre: 'Pira funeraria',
+    // AL REVES QUE TODOS LOS DEMAS: el valor BAJA con el nivel, porque lo que
+    // dice es cada cuantas muertes revienta una. Empieza en 25 y llega a 7.
+    //
+    // `tipo: 'escalon'` es nuevo y existe solo por esto: los otros dos —`suma`
+    // y `factor`— van sobre un campo que crece, y aqui hace falta un valor que
+    // se acerca a un suelo. Se aplica en jugador.js con dos lineas.
+    descripcion: 'Cada 25 enemigos que matas, el siguiente estalla (menos por nivel)',
+    campo: 'piraCada', tipo: 'escalon', valor: 25, paso: -2, suelo: 7, maxNivel: 10
+  },
+  lagrimaDeLaMora: {
+    nombre: 'Lágrima de la Mora',
+    descripcion: '+8% de daño por nivel cuando estás al 10% de vida',
+    campo: 'furiaMoribundo', tipo: 'suma', valor: 0.08, maxNivel: 10
+  },
+
   anfora: {
     // 30 y no 10: un 200% más de lo que daba. Con 10 por nivel, el Ánfora al
     // máximo sumaba 100 de vida sobre una base de poco más de 100, o sea que

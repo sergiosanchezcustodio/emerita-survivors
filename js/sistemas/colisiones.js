@@ -733,6 +733,9 @@ export function contactoJugador(enemigos, jugador) {
   // es de quien viene el número: con seis bichos encima, promediar las
   // direcciones daría un vector corto apuntando a ninguna parte.
   let peorX = 0, peorY = 0;
+  // Quién ha sido, para la Capa del erizo. Solo hace falta la referencia al que
+  // más pega, que es el que acaba haciendo el daño de este paso.
+  let peorE = null;
   for (let fy = cy - 1; fy <= cy + 1; fy++) {
     if (fy < 0 || fy >= filas) continue;
     for (let fx = cx - 1; fx <= cx + 1; fx++) {
@@ -755,6 +758,7 @@ export function contactoJugador(enemigos, jugador) {
           peor = e.danyo;
           peorX = e.x;
           peorY = e.y;
+          peorE = e;
         }
       }
     }
@@ -764,7 +768,25 @@ export function contactoJugador(enemigos, jugador) {
   // recibirDanyo. Todo lo demás —sangre, marca, sacudida, borde rojo y parón—
   // vive ya ahí dentro, que es el único sitio por donde pasa TODO el daño que
   // recibe un jugador (ver entidades/jugador.js).
-  if (peor > 0) jugador.recibirDanyo(peor, jx - peorX, jy - peorY);
+  if (peor > 0) {
+    const dolido = jugador.recibirDanyo(peor, jx - peorX, jy - peorY);
+    // LA CAPA DEL ERIZO devuelve parte del golpe a quien lo dio.
+    //
+    // Solo si el golpe ha ENTRADO (`dolido`): con los i-frames puestos,
+    // `recibirDanyo` no hace nada y devolver espinas por un golpe que no te han
+    // dado convertiría el objeto en un arma de contacto permanente — te metes
+    // en el montón y las espinas cobran sesenta veces por segundo.
+    //
+    // Y solo contra el que MÁS pega de los que te rodean, que es el que ha
+    // hecho el daño: repartir a todos los que te tocan sería cobrar por golpes
+    // que no han existido.
+    if (dolido && jugador.espinas > 0 && peorE && peorE.vida > 0) {
+      const vuelta = Math.max(1, Math.round(peor * jugador.espinas));
+      const ex = peorE.x - jx, ey = peorE.y - jy;
+      const d = Math.sqrt(ex * ex + ey * ey) || 1;
+      enemigos.danyar(peorE, vuelta, ex / d, ey / d, 0, jugador, null);
+    }
+  }
   return peor;
 }
 

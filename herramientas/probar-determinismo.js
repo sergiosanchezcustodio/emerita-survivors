@@ -59,7 +59,12 @@ const PUERTO = 8143;
 // grupo de los siete, el sexto — o sea que la partida de la prueba solo se
 // desvia en un tramo y vuelve a coincidir despues. Es lo normal cuando lo que
 // cambia es el reparto del azar y no lo que se hace con el.
-const HUELLA_ESPERADA = '4837249a 4875a3a0 7e981868 b5967e65 83b3a255 fe10a79f b874d5ad';
+// Y con los cinco objetos que enganchan en un golpe. Entera otra vez, desde el
+// primer grupo: traen cinco campos nuevos en el jugador y una marca nueva en
+// CADA ENEMIGO (`golpeado`, la de la Cruz del Gigante), y el pool de enemigos
+// entra en la foto desde el primer fotograma aunque el objeto no lo lleve
+// nadie. Nadie pega distinto: se apunta una cosa más.
+const HUELLA_ESPERADA = 'a51e7cae 2813353c 72dab68e 7ee59f35 efb6bb2e 607e69c3 233c67d0';
 
 let fallos = 0;
 function comprobar(condicion, texto) {

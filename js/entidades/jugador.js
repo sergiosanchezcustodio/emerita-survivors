@@ -115,6 +115,11 @@ export class Jugador {
     // jugador incluye lo que no sale de un arma, así que sumar la lista no da
     // este número y no debe darlo.
     this.danyoHecho = 0;
+    // Muertes contadas para la Pira funeraria. Va aqui y no entre las
+    // estadisticas derivadas a proposito: `recalcularStats` se llama en cada
+    // subida de nivel y pondria la cuenta a cero, o sea que subir de nivel
+    // apagaria la pira que estabas a punto de encender.
+    this.bajasPira = 0;
     this.def = def;
     this.personaje = def.sprite;
     this.arsenal = null;          // lo enchufa quien crea al jugador
@@ -249,6 +254,17 @@ export class Jugador {
     this.reduccionContacto = 0;    // Lagarto de Calzadilla
     this.bonusDenarios = 0;        // Becerro de Oro
 
+    // --- Los que enganchan en un golpe ------------------------------------
+    //
+    // Estos no cambian un numero: se enteran de que ha pasado algo. Los tres
+    // primeros viven en el camino del dano —el que se hace y el que se recibe—
+    // y el ultimo en el calculo del dano de las armas.
+    this.robaVida = 0;             // Sanguijuelas del Guadiana
+    this.espinas = 0;              // Capa del erizo
+    this.primerGolpeDoble = 0;     // Cruz del Gigante
+    this.piraCada = 0;             // Pira funeraria
+    this.furiaMoribundo = 0;       // Lagrima de la Mora
+
     // MASCOTA de ESTE jugador (datos/mascotas.js). Cada uno lleva la suya, y la
     // elige en la pantalla de mascotas; `mascotaId` lo pone main.js al crearlo.
     //
@@ -282,8 +298,21 @@ export class Jugador {
       const def = PASIVOS[id];
       if (!def) continue;
       const nivel = this.pasivos[id];
-      if (def.tipo === 'suma') this[def.campo] += def.valor * nivel;
-      else this[def.campo] *= (1 + def.valor * nivel);
+      // TERCER TIPO: `escalon`, un valor que BAJA con el nivel hasta un suelo.
+      //
+      // Los otros dos suben —`suma` añade y `factor` multiplica— y eso vale
+      // para todo lo que es "más": más vida, más daño, más área. La Pira
+      // funeraria no: lo que dice su número es CADA CUÁNTAS muertes revienta
+      // una, así que mejorarla es bajarlo. Forzarla a `suma` con valores
+      // negativos habría funcionado y habría dejado un objeto cuya descripción
+      // dice 25 y cuyo dato dice -2.
+      if (def.tipo === 'escalon') {
+        this[def.campo] = Math.max(def.suelo, def.valor + def.paso * (nivel - 1));
+      } else if (def.tipo === 'suma') {
+        this[def.campo] += def.valor * nivel;
+      } else {
+        this[def.campo] *= (1 + def.valor * nivel);
+      }
     }
 
     // La recarga no puede llegar a cero por muchas clepsidras que se acumulen.

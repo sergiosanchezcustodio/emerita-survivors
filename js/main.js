@@ -3520,6 +3520,11 @@ async function arrancar() {
   enemigos.recogibles = recogibles;
   enemigos.cofres = cofres;
   enemigos.disparos = disparos;
+  // Y las zonas: las necesita la Pira funeraria, que deja una explosión donde
+  // cae el cuerpo que le toca (ver `danyar` en entidades/enemigo.js). Mismo
+  // enganche que los otros tres y por el mismo motivo: el bestiario no importa
+  // los sistemas, se los dan.
+  enemigos.zonas = zonas;
   Progresion.iniciar(rng);
   // El búfer de pulsaciones, con su anillo preasignado. Ver core/lockstep.js.
   Lockstep.iniciar(MAX_JUGADORES);

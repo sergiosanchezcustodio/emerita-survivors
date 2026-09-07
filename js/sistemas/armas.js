@@ -29,7 +29,26 @@ const GRADOS = Math.PI / 180;
 // nivel, mientras que los pasivos cambian por su cuenta: si se hornearan juntos
 // habría que recorrer todas las armas de todos los jugadores cada vez que
 // alguien coge un anillo.
-function danyoDe(s, j) { return Math.round(s.danyo * (1 + j.bonusDanyo)); }
+// LA LÁGRIMA DE LA MORA: cuanto menos vida te queda, más pegas. El máximo se
+// alcanza al 10% de vida y de ahí para abajo no sube más — el tramo entre el
+// 10% y la muerte es donde se está jugando la partida y no hace falta premiarlo
+// dos veces.
+//
+// Va DENTRO de `danyoDe` y no como un `bonusDanyo` más porque cambia cada
+// fotograma: `bonusDanyo` se calcula al recalcular las estadísticas —en cada
+// subida de nivel— y esto tiene que mirar la vida AHORA. Un objeto que solo se
+// actualizara al subir de nivel diría que pegas mucho porque estabas a punto de
+// morir hace tres minutos.
+function furiaDe(j) {
+  if (j.furiaMoribundo <= 0 || j.vidaMaxima <= 0) return 1;
+  const frac = j.vida / j.vidaMaxima;
+  if (frac >= 1) return 1;
+  // 0 con la vida llena, 1 al 10% o menos.
+  const falta = Math.min(1, (1 - frac) / 0.9);
+  return 1 + j.furiaMoribundo * falta;
+}
+
+function danyoDe(s, j) { return Math.round(s.danyo * (1 + j.bonusDanyo) * furiaDe(j)); }
 function areaDe(v, j)  { return v * (1 + j.bonusArea); }
 // LO LEJOS QUE LLEGA UN ARMA, con la Campana Milagrosa aplicada. Aparte de
 // `areaDe` a propósito: el área es lo ANCHO que pega una cosa y el alcance lo

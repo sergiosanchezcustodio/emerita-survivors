@@ -23,6 +23,14 @@ function denariosPorBaja(def) {
 }
 const DENARIOS_ANTORCHA = 3;
 
+// LA PIRA FUNERARIA (datos/pasivos.js). Radio y daño de la explosión que deja
+// el cuerpo que le toca. Van aquí y no en el objeto porque el objeto solo
+// decide CADA CUÁNTAS muertes revienta una: lo que hace la explosión es
+// siempre lo mismo, y subirlo de nivel tiene que acercar las piras, no
+// convertirlas en un cañón.
+const RADIO_PIRA = 34;
+const DANYO_PIRA = 30;
+
 // --- Culling ----------------------------------------------------------------
 // 1.5 pantallas medidas desde el CENTRO de la cámara. Lo que sale de aquí vuelve
 // al pool: un enemigo que el jugador ha dejado atrás no vuelve a alcanzarle
@@ -290,6 +298,10 @@ function crearEnemigo() {
     // dispara y no se anima. Es lo mismo para todos, jefes incluidos: son seis
     // segundos y el objeto es de los que salen una vez cada varias partidas.
     paralizado: 0,
+    // ¿Le ha dado alguien ya? Lo mira la Cruz del Gigante, que dobla el PRIMER
+    // golpe que recibe cada enemigo. Se pone al aparecer, así que un enemigo
+    // reciclado del pool nace virgen y no hereda el golpe del anterior.
+    golpeado: 0,
     // Dirección fija de los que cruzan sin perseguir (MOV_TRAVESIA) y de los
     // jefes en plena embestida (ver `embestida` más abajo): la reutilizan
     // porque las dos cosas son "recto, en esta dirección, sin perseguir".
@@ -449,6 +461,7 @@ export class Enemigos {
     // la horda, porque el director no deja de soltar mientras dura. Ver
     // `paralizarTodos`.
     e.paralizado = this.paralisisRestante;
+    e.golpeado = 0;
     e.movPrevio = 0;
 
     if (def.cofre) this.elitesVivos++;
@@ -844,9 +857,37 @@ export class Enemigos {
     // petición infla el número justo con las armas que rematan a la horda de un
     // toque, que son la mitad del catálogo, y entonces la lista deja de servir
     // para compararlas entre ellas, que es para lo que está.
+    // LA CRUZ DEL GIGANTE dobla el PRIMER golpe que recibe cada enemigo.
+    //
+    // Es del enemigo y no del jugador: el primero es el primero, lo dé quien lo
+    // dé. En cooperativo eso significa que el que llega antes se lleva el
+    // doble, que es lo que premia el objeto — abrir tú, no rematar.
+    //
+    // Y la marca se pone SIEMPRE, la lleve alguien o no. Si solo la pusiera
+    // quien tiene la Cruz, jugando con dos y llevándola uno solo, el otro
+    // dejaría a todos los enemigos "sin estrenar" y la Cruz cobraría el doble
+    // en cuerpos ya medio muertos.
+    if (!e.golpeado) {
+      if (duenyo && duenyo.primerGolpeDoble > 0) {
+        cantidad *= 1 + duenyo.primerGolpeDoble;
+      }
+      e.golpeado = 1;
+    }
+
     const efectivo = Math.min(cantidad, e.vida);
     if (duenyo) duenyo.danyoHecho += efectivo;
     if (fuente) fuente.danyoHecho += efectivo;
+
+    // LAS SANGUIJUELAS DEL GUADIANA devuelven parte del daño como vida. Sobre
+    // lo EFECTIVO y no sobre lo pedido: si no, un arma que remata a la horda de
+    // un toque curaría por los cincuenta puntos que pidió y no por los siete
+    // que hacían falta, y el objeto se volvería inmortalidad barata.
+    if (duenyo && duenyo.robaVida > 0 && !duenyo.abatido) {
+      const cura = efectivo * duenyo.robaVida;
+      if (duenyo.vida < duenyo.vidaMaxima) {
+        duenyo.vida = Math.min(duenyo.vidaMaxima, duenyo.vida + cura);
+      }
+    }
 
     e.vida -= cantidad;
     e.destello = DURACION_DESTELLO;
@@ -922,6 +963,27 @@ export class Enemigos {
       // en MetaProgreso, ver datos/mascotas.js): la mascota es de la partida
       // entera y esto es de cada baja. Se acumulan, y a propósito — el que
       // quiera montarse la partida del dinero, que se la monte.
+      // LA PIRA FUNERARIA: cada N muertes, la siguiente revienta. El contador es
+      // del jugador y no del arma, así que las cuatro que lleve suman a la
+      // misma cuenta: lo que enciende la pira es matar, no matar con algo.
+      if (duenyo && duenyo.piraCada > 0 && this.zonas) {
+        if (++duenyo.bajasPira >= duenyo.piraCada) {
+          duenyo.bajasPira = 0;
+          this.zonas.crear({
+            x: e.x, y: e.y,
+            radio: RADIO_PIRA * (1 + duenyo.bonusArea),
+            radioIni: 4,
+            duracion: 0.32,
+            danyo: Math.round(DANYO_PIRA * (1 + duenyo.bonusDanyo)),
+            intervalo: 0.32,
+            tipo: 'onda',
+            color: '#ff9a3c',
+            empuje: 120,
+            duenyo
+          });
+        }
+      }
+
       const oro = denariosPorBaja(e.def);
       MetaProgreso.ganar(duenyo && duenyo.bonusDenarios > 0
         ? Math.round(oro * (1 + duenyo.bonusDenarios))
