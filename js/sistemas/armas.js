@@ -355,12 +355,17 @@ const COMPORTAMIENTOS = {
       const a = ctx.rng() * Math.PI * 2;
       sis._rellenarProyectil(arma, s, danyo, ctx.jugador);
       sis.defProyectil.vida = s.alcance / s.velocidad;
-      // UNA MAZA DISTINTA POR CADA UNA QUE SALE. La hoja del RainbowMazas trae
-      // diez, y el número de proyectil elige cuál: al nivel 1 sale la primera y
-      // al 10 las diez de golpe, cada una de su color. Se reparte por el índice
-      // y no al azar porque al azar saldrían repetidas —diez tiradas de diez no
-      // dan diez colores distintos— y el arma es justo eso.
-      if (arma.def.fotogramaPorProyectil) sis.defProyectil.fotograma = i;
+      // UN DIBUJO CADA N PROYECTILES. La hoja del RainbowMazas trae diez mazas
+      // y el arma las suelta DE DOS EN DOS: las dos primeras son la maza 1, las
+      // dos siguientes la 2, y así hasta las veinte del nivel 10, que son las
+      // diez de la hoja por parejas.
+      //
+      // Se reparte por el ÍNDICE y no al azar: al azar saldrían repetidas —diez
+      // tiradas de diez no dan diez colores distintos— y el arma es justo eso.
+      // Y por parejas y no de una en una porque subir de nivel tiene que
+      // AÑADIR UN COLOR, no solo una maza más del montón.
+      const porDibujo = arma.def.proyectilesPorFotograma;
+      if (porDibujo) sis.defProyectil.fotograma = (i / porDibujo) | 0;
       const b = bocaDe(j, a);
       ctx.proyectiles.lanzar(b.x, b.y,
         cos(a) * s.velocidad, sen(a) * s.velocidad, sis.defProyectil);

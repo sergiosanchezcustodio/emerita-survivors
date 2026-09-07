@@ -1199,17 +1199,23 @@ export const ARMAS = {
   // una más en cada subida, hasta diez. Cada maza gira sobre sí misma mientras
   // se aleja y se deshace en cuanto toca a alguien.
   //
-  // Y CADA UNA ES DE UN COLOR. La lámina trae diez mazas distintas y el arma
-  // reparte una por cada una que lanza (`fotogramaPorProyectil`, ver
-  // `direccionAleatoria` en sistemas/armas.js), así que al 10 salen las diez de
-  // golpe y ninguna repite. Es el mismo criterio que el Códice Infernal de Say
-  // —subir de nivel se VE— y el hermano de sangre de esta arma: allí los libros
-  // se quedan girando alrededor y aquí las mazas se van.
+  // SALEN DE DOS EN DOS Y CADA PAREJA ES DE UN COLOR. La lámina trae diez mazas
+  // distintas y el arma reparte una cada dos proyectiles
+  // (`proyectilesPorFotograma`, ver `direccionAleatoria` en sistemas/armas.js):
+  // dos al nivel 1 —las dos iguales—, cuatro al 2 con un color nuevo, y veinte
+  // al 10, que son las diez de la hoja por parejas.
+  //
+  // POR PAREJAS Y NO DE UNA EN UNA porque lo que tiene que añadir una subida es
+  // un COLOR, no una maza más del montón: si fueran de una en una, la mitad de
+  // las subidas no estrenarían nada. Es el mismo criterio que el Códice
+  // Infernal de Say —subir de nivel se VE— y el hermano de sangre de esta arma:
+  // allí los libros se quedan girando alrededor y aquí las mazas se van.
   //
   // DOS ENEMIGOS POR MAZA Y SE ACABÓ (`perforacion: 1`, que cuenta los de
   // DESPUÉS del primero). Y ese límite es la mecánica entera: una maza es un
-  // disparo que se gasta, así que diez mazas al aire son veinte enemigos como
-  // mucho y las que se van a donde no hay nadie no valen para nada.
+  // disparo que se gasta, así que las mazas de un lanzamiento son el doble de
+  // enemigos como mucho, y las que se van a donde no hay nadie no valen para
+  // nada.
   //
   // De ahí que el arma pida horda —a más bultos alrededor, menos mazas
   // desperdiciadas y más probable que la segunda encuentre a alguien— en vez de
@@ -1222,7 +1228,7 @@ export const ARMAS = {
   // que la horda venga en fila.
   //
   // El daño por maza sube poco (20 a 56) porque lo que multiplica es la
-  // CANTIDAD: al 10 son diez impactos por lanzamiento, no uno más gordo.
+  // CANTIDAD: al 10 son veinte mazas por lanzamiento, no una más gorda.
   //
   // UN 40% MÁS QUE AL SALIR, que iba de 14 a 40. Lo pidió Sergio jugándola, y
   // se ha subido POR TODA LA CURVA y no solo al final: subir solo el tope
@@ -1231,31 +1237,33 @@ export const ARMAS = {
   // —el 20 de salida son 19,6— así que el nivel 10 queda en 56 clavado.
   rainbowMazas: {
     nombre: 'RainbowMazas',
-    descripcion: 'Mazas al azar, cada una de un color. Se gastan a los dos golpes.',
+    descripcion: 'Mazas al azar, de dos en dos y de otro color cada nivel.',
     comportamiento: 'direccionAleatoria',
-    danyo: 20, recarga: 1.15, proyectiles: 1, velocidad: 150, alcance: 145,
+    danyo: 20, recarga: 1.15, proyectiles: 2, velocidad: 150, alcance: 145,
     radio: 5, perforacion: 1, empuje: 90,
     color: '#ffd15c', estela: '#a8632a', largoTrazo: 7,
     spriteProyectil: 'proyMazas',
-    // Una maza por proyectil, por su número. Ver la nota larga de arriba.
-    fotogramaPorProyectil: true,
+    // Un dibujo de la hoja cada DOS proyectiles: las mazas salen por parejas del
+    // mismo color. Ver la nota larga de arriba.
+    proyectilesPorFotograma: 2,
     // GIRA SOBRE SÍ MISMA mientras vuela, en vez de orientarse al rumbo. Una
     // maza lanzada voltea; apuntando el mango hacia donde va se quedaría rígida
     // como una flecha, que es justo lo que no es. 11 rad/s es casi dos vueltas
     // por segundo: se lee el volteo sin que la cabeza se vuelva un borrón.
     giroProyectil: 11,
-    // UNA MAZA MÁS EN CADA SUBIDA, sin excepción: es la promesa del arma y una
-    // subida que no la cumpliera se leería como que no ha pasado nada.
+    // DOS MAZAS MÁS EN CADA SUBIDA, sin excepción: es la promesa del arma —un
+    // color nuevo por nivel— y una subida que no la cumpliera se leería como que
+    // no ha pasado nada. De 2 a 20, que son las diez de la hoja por parejas.
     niveles: [{},
-              { proyectiles: 1, danyo: 3 },
-              { proyectiles: 1, danyo: 4, alcance: 15 },
-              { proyectiles: 1, danyo: 3 },
-              { proyectiles: 1, danyo: 4, recarga: -0.1 },
-              { proyectiles: 1, danyo: 3 },
-              { proyectiles: 1, danyo: 4, alcance: 15 },
-              { proyectiles: 1, danyo: 4 },
-              { proyectiles: 1, danyo: 4 },
-              { proyectiles: 1, danyo: 7, recarga: -0.15 }]
+              { proyectiles: 2, danyo: 3 },
+              { proyectiles: 2, danyo: 4, alcance: 15 },
+              { proyectiles: 2, danyo: 3 },
+              { proyectiles: 2, danyo: 4, recarga: -0.1 },
+              { proyectiles: 2, danyo: 3 },
+              { proyectiles: 2, danyo: 4, alcance: 15 },
+              { proyectiles: 2, danyo: 4 },
+              { proyectiles: 2, danyo: 4 },
+              { proyectiles: 2, danyo: 7, recarga: -0.15 }]
   },
 
   // --- El arma de Say: el Códice Infernal --------------------------------
