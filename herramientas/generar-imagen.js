@@ -68,11 +68,25 @@ REPLICATE_API_TOKEN=r8_... del fichero .env de la raíz (que no se versiona).
 // El .env, leído a mano. No hace falta una librería para partir por el primer
 // '=' de cada línea, y meter una dependencia en un proyecto que presume de no
 // tener ninguna, por esto, sería empezar por el peor sitio.
+// SE LEE EN CRUDO Y SE LE QUITAN LOS BYTES NULOS, y esto no es paranoia: en
+// Windows PowerShell, `echo algo >> .env` escribe en UTF-16, o sea cada letra
+// seguida de un cero. Leido como UTF-8, `REPLICATE_API_TOKEN` se convierte en
+// `R\0E\0P\0L\0...` y deja de parecerse a la clave que se busca.
+//
+// Paso, y lo peor fue como se manifesto: el token nuevo estaba en el fichero,
+// escrito asi, y como no se reconocia la clave se seguia usando una linea vieja
+// que habia debajo con un token ya revocado. La API contestaba 401 y todo
+// apuntaba a que el token era malo, cuando lo que fallaba era la codificacion.
+// Quitando los nulos, las dos codificaciones se leen igual.
 function leerEnv() {
   const ruta = join(RAIZ, '.env');
   if (!existsSync(ruta)) return {};
+  const crudo = readFileSync(ruta)
+    .toString('latin1')
+    .split('').filter((c) => c !== '\u0000').join('')
+    .replace(/^\uFEFF/, '');
   const valores = {};
-  for (const linea of readFileSync(ruta, 'utf8').split('\n')) {
+  for (const linea of crudo.split('\n')) {
     const limpia = linea.trim();
     if (!limpia || limpia.startsWith('#')) continue;
     const corte = limpia.indexOf('=');
