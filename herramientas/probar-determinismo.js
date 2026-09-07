@@ -45,7 +45,11 @@ const PUERTO = 8143;
 // apunta lo que pega. Las dos primeras pruebas de este mismo archivo siguen
 // diciendo que la misma partida jugada dos veces sale igual, que es la
 // propiedad; esta tercera solo compara con lo que habia.
-const HUELLA_ESPERADA = '1875877c a06c217e 5f36a14b 9cc6c71c 943da396 d05b4b7d 96672177';
+// Y rehecha otra vez el 7 de septiembre al entrar tres armas de golpe
+// —Cartas, Cayado y Campana—: mas candidatos en el sorteo, el azar se gasta en
+// otro orden a partir de la primera subida de nivel. Los cuatro primeros grupos
+// no se mueven, que es la firma de este tipo de cambio.
+const HUELLA_ESPERADA = '1875877c a06c217e 5f36a14b 9cc6c71c 444adae4 e233f281 23be03e4';
 
 let fallos = 0;
 function comprobar(condicion, texto) {

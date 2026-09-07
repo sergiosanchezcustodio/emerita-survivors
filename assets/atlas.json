@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260907224333",
+    "version":  "20260907225538",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -1272,7 +1272,7 @@
                                           "h":  32,
                                           "anclaX":  16,
                                           "anclaY":  16,
-                                          "frames":  55,
+                                          "frames":  56,
                                           "plano":  true,
                                           "orden":  [
                                                         "pilum",
@@ -1329,7 +1329,8 @@
                                                         "sierrasVotivas",
                                                         "codiceInfernal",
                                                         "rainbowMazas",
-                                                        "petanca"
+                                                        "petanca",
+                                                        "cartasEspanolas"
                                                     ]
                                       },
                       "iconosArmasHd":  {
@@ -1338,7 +1339,7 @@
                                             "h":  96,
                                             "anclaX":  48,
                                             "anclaY":  48,
-                                            "frames":  55,
+                                            "frames":  56,
                                             "plano":  true,
                                             "orden":  [
                                                           "pilum",
@@ -1395,7 +1396,8 @@
                                                           "sierrasVotivas",
                                                           "codiceInfernal",
                                                           "rainbowMazas",
-                                                          "petanca"
+                                                          "petanca",
+                                                          "cartasEspanolas"
                                                       ]
                                         },
                       "orbCodice":  {
@@ -1440,6 +1442,27 @@
                                                       "maza10"
                                                   ]
                                     },
+                      "proyCartas":  {
+                                         "archivo":  "efectos/proy-cartas.png",
+                                         "w":  44,
+                                         "h":  44,
+                                         "anclaX":  22,
+                                         "anclaY":  22,
+                                         "frames":  10,
+                                         "plano":  true,
+                                         "orden":  [
+                                                       "carta1",
+                                                       "carta2",
+                                                       "carta3",
+                                                       "carta4",
+                                                       "carta5",
+                                                       "carta6",
+                                                       "carta7",
+                                                       "carta8",
+                                                       "carta9",
+                                                       "carta10"
+                                                   ]
+                                     },
                       "balaPistola":  {
                                           "archivo":  "efectos/bala-pistola.png",
                                           "w":  43,

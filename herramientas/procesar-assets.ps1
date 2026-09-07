@@ -3637,7 +3637,13 @@ $ICONOS_ARMAS = @(
     'enfilada','agujas','muroDeLanzas','enjambre','molotov','lanzacohetes','artilleria','lluviaDeFlechas',
     'gritoDeGuerra','sismo','aceiteHirviendo','minas','alquitran','campoElectrico','laser','aspaDeLuz',
     'satelites','discosDeSierra','katana','sierrasVotivas','codiceInfernal','rainbowMazas',
-    'petanca'
+    'petanca','cartasEspanolas'
+    # El Cayado de San Isidro y la Campana del Silencio NO estan aqui todavia, y
+    # es a proposito: no tienen dibujo. Un id en esta lista sin su archivo en
+    # resources/armas/ deja un hueco vacio en la tira y DESCUADRA la cuenta, asi
+    # que entran el dia que exista el dibujo -y ese dia son dos palabras aqui-.
+    # Mientras tanto el juego dibuja el circulo de color de siempre, que es lo
+    # que hace con cualquier arma sin icono.
 )
 
 # Un archivo por arma, en resources/armas/. Se resuelve con -Filter, así que
@@ -3737,11 +3743,24 @@ $LADO_MAZA = 56
 $MAZAS_RAINBOW = @('maza1','maza2','maza3','maza4','maza5',
                    'maza6','maza7','maza8','maza9','maza10')
 
+# LAS DIEZ CARTAS DE LA BARAJA, tercera lamina de 5x2 con el mismo tratamiento
+# que los libros y las mazas.
+#
+# 44 y no 56 como las mazas: una carta lanzada es mas pequena que una maza y va
+# a salir de veinte en veinte, asi que a mayor tamano lo unico que se consigue
+# es tapar la pantalla. A 44 la carta mide 11 unidades logicas de alto, poco mas
+# de un tercio de un personaje.
+$LADO_CARTA = 44
+
+$CARTAS_BARAJA = @('carta1','carta2','carta3','carta4','carta5',
+                   'carta6','carta7','carta8','carta9','carta10')
+
 # La PORTADA de un arma que no tiene archivo propio, sino una celda de una hoja.
 # Se extrae a un temporal antes de montar la tira de iconos. Ver ExtraerCelda.
 $ICONO_DESDE_HOJA = @{
     codiceInfernal = @{ hoja = 'armas\libros.png'; cols = 5; filas = 2; celda = 0 }
     rainbowMazas   = @{ hoja = 'armas\mazas.png';  cols = 5; filas = 2; celda = 0 }
+    cartasEspanolas = @{ hoja = 'armas\cartas.png'; cols = 5; filas = 2; celda = 0 }
 }
 
 $HOJAS_ICONOS = @(
@@ -3760,6 +3779,9 @@ $HOJAS_ICONOS = @(
     # Y el del RainbowMazas: diez mazas, una por cada una que se lanza.
     @{ src='armas\mazas.png';     dst='efectos\proy-mazas.png'; id='proyMazas'
        ids=$MAZAS_RAINBOW;  modo='rejilla'; cols=5; filas=2; lado=$LADO_MAZA }
+    # Y las diez cartas de la baraja espanola.
+    @{ src='armas\cartas.png';    dst='efectos\proy-cartas.png'; id='proyCartas'
+       ids=$CARTAS_BARAJA;  modo='rejilla'; cols=5; filas=2; lado=$LADO_CARTA }
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $DESTINO 'iconos')  | Out-Null

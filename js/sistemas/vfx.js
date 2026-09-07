@@ -117,7 +117,13 @@ function crearMarca() {
 const ANILLOS = 12;
 
 function crearAnillo() {
-  return { x: 0, y: 0, radio: 20, vida: 0, vidaMax: 1, color: '#ffffff', grosor: 1.5 };
+  // `a0`/`a1` son el tramo de circunferencia que se traza. Por defecto la
+  // vuelta entera, que es lo que era un anillo hasta que llegó la Campana del
+  // Silencio: la onda de una campana no sale en círculo, sale por delante, y un
+  // arco expandiéndose es exactamente eso. No hacía falta un pool nuevo — un
+  // anillo y un arco son la misma figura con dos números más.
+  return { x: 0, y: 0, radio: 20, vida: 0, vidaMax: 1, color: '#ffffff', grosor: 1.5,
+           a0: 0, a1: Math.PI * 2 };
 }
 
 // HACES: una columna de rayo que cae a plomo sobre un punto del suelo.
@@ -372,7 +378,7 @@ export const VFX = {
   // Un anillo. `radio` es el que alcanza al final: arranca en un quinto de ese
   // tamaño, que ya es un círculo y no un punto — abrirse desde cero hace que el
   // primer fotograma no se vea y el efecto parezca empezar tarde.
-  anillo(x, y, radio, color, grosor = 1.5, vida = 0.42) {
+  anillo(x, y, radio, color, grosor = 1.5, vida = 0.42, a0 = 0, a1 = Math.PI * 2) {
     if (!this.anillos) return;
     const a = this.anillos.obtener();
     if (!a) return;
@@ -381,6 +387,7 @@ export const VFX = {
     a.color = color;
     a.grosor = grosor;
     a.vida = a.vidaMax = vida;
+    a.a0 = a0; a.a1 = a1;
   },
 
   // UN HAZ DE RAYO cayendo sobre (x, y): se traza desde `largo` unidades más
@@ -543,7 +550,7 @@ export const VFX = {
       ctx.strokeStyle = a.color;
       ctx.lineWidth = a.grosor * (1 - t * 0.6);
       ctx.beginPath();
-      ctx.arc(a.x, a.y, a.radio * (0.2 + 0.8 * abertura), 0, Math.PI * 2);
+      ctx.arc(a.x, a.y, a.radio * (0.2 + 0.8 * abertura), a.a0, a.a1);
       ctx.stroke();
     }
     ctx.restore();

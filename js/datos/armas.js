@@ -1193,6 +1193,126 @@ export const ARMAS = {
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
   },
 
+  // --- La Campana del Silencio -------------------------------------------
+  //
+  // Pedida por Sergio, y es LA ÚNICA ARMA DEL JUEGO QUE NO HACE DAÑO. Lo que
+  // reparte es tiempo: un cono hacia donde miras deja mudos y clavados a los
+  // que pilla, y mientras están así se los atraviesa sin recibir un golpe.
+  //
+  // No es un arma de matar, es la que te saca de un cerco. Con la pantalla
+  // llena, la pared de carne por la que ibas a morir se vuelve niebla durante
+  // medio segundo y sales por donde no había salida. Todo lo demás del juego
+  // resuelve un cerco matándolo; esta lo resuelve andando.
+  //
+  // OJO AL COGERLA: ocupa una de las cuatro ranuras de arma y no suma un solo
+  // punto de daño. Es una decisión de verdad, no una mejora — y por eso la
+  // descripción lo dice en la primera frase en vez de dejarlo para que se
+  // descubra a los diez minutos.
+  //
+  // Los números son los que pidió: al máximo, cada 2 segundos, medio segundo de
+  // parálisis, 45 grados de cono y 360 unidades de alcance, que son tres
+  // cuartos del ancho de la pantalla (480 lógicas).
+  campanaSilencio: {
+    nombre: 'Campana del Silencio',
+    descripcion: 'No hace daño: enmudece. A los callados se los atraviesa.',
+    comportamiento: 'conoSilencio',
+    // Cada subida mueve LAS CUATRO cosas a la vez —alcance, cadencia, cono y
+    // parálisis— en vez de repartirlas por niveles. Con un arma que no hace
+    // daño, una subida que solo tocara una de ellas se leería como que no ha
+    // pasado nada: no hay un número de daño que mirar para notarlo.
+    danyo: 0, recarga: 4.2, alcance: 150, angulo: 22, paralisis: 0.2,
+    empuje: 0, color: '#bfe6ff',
+    niveles: [{},
+              { alcance: 23, recarga: -0.24, angulo: 3, paralisis: 0.04 },
+              { alcance: 23, recarga: -0.24, angulo: 2, paralisis: 0.03 },
+              { alcance: 23, recarga: -0.24, angulo: 3, paralisis: 0.04 },
+              { alcance: 23, recarga: -0.24, angulo: 2, paralisis: 0.03 },
+              { alcance: 23, recarga: -0.24, angulo: 3, paralisis: 0.04 },
+              { alcance: 23, recarga: -0.24, angulo: 2, paralisis: 0.03 },
+              { alcance: 23, recarga: -0.24, angulo: 3, paralisis: 0.04 },
+              { alcance: 23, recarga: -0.24, angulo: 2, paralisis: 0.03 },
+              { alcance: 26, recarga: -0.28, angulo: 3, paralisis: 0.02 }]
+  },
+
+  // --- Cartas de la baraja española --------------------------------------
+  //
+  // Pedida por Sergio. Un puñado de cartas en direcciones al azar: muchas y de
+  // poco daño, la familia de la Metralla y el Enjambre. Lo que la distingue de
+  // esas dos es el DIBUJO, y no es poco — diez cartas distintas volando a la
+  // vez es lo que hace que un puñado de proyectiles baratos se vea como una
+  // baraja lanzada al aire y no como una nube de píxeles.
+  //
+  // UNA CARTA DISTINTA POR PROYECTIL. `proyectilesPorFotograma: 1` reparte una
+  // por cada una que sale, y como son más de diez el motor da la vuelta a la
+  // hoja solo (ver el módulo en entidades/proyectil.js): con veinte cartas en
+  // el aire salen las diez de la lámina dos veces, nunca veinte iguales.
+  //
+  // Es el mismo mecanismo que el Códice y las Mazas, con el reparto más simple
+  // de los tres: allí interesaba que cada nivel ESTRENARA un dibujo, y aquí
+  // interesa que en el aire haya de todo.
+  cartasEspanolas: {
+    nombre: 'Cartas de la baraja',
+    descripcion: 'Un puñado de cartas al azar. Muchas, y ninguna hace mucho.',
+    comportamiento: 'direccionAleatoria',
+    danyo: 5, recarga: 0.5, proyectiles: 3, velocidad: 175, alcance: 140,
+    radio: 3, perforacion: 0, empuje: 25,
+    color: '#f2e4c0', estela: '#8a6a3a', largoTrazo: 5,
+    spriteProyectil: 'proyCartas',
+    proyectilesPorFotograma: 1,
+    // Una carta lanzada VOLTEA, no apunta. Rápido —casi tres vueltas por
+    // segundo— porque es un papel y no una maza: lo que pesa cae girando
+    // despacio, lo que no pesa revolotea.
+    giroProyectil: 17,
+    // DEL 3 AL 20, subiendo por cantidad. El daño sube poco a propósito: esta
+    // arma no va de pegar fuerte, va de llenar el aire — es la lección de la
+    // Metralla, que hace lo mismo y por eso comparte curva.
+    niveles: [{}, { proyectiles: 2 }, { danyo: 2, proyectiles: 2 },
+              { recarga: -0.06, proyectiles: 2 }, { proyectiles: 2 },
+              { danyo: 2, proyectiles: 2 }, { alcance: 40, proyectiles: 2 },
+              { proyectiles: 3 }, { danyo: 3, proyectiles: 2 },
+              { danyo: 4, recarga: -0.12, proyectiles: 2 }]
+  },
+
+  // --- Cayado de San Isidro ----------------------------------------------
+  //
+  // Pedido por Sergio. Un bastón que golpea el suelo CERCA DE TI, en un sitio
+  // al azar, y abre un círculo. Sube cadencia, daño y área.
+  //
+  // Es un `bombardeoAleatorio` —la familia del Bombardeo y la Lluvia de
+  // flechas— pero con el reparto encogido a un círculo alrededor del jugador,
+  // que es lo que hace `alcance` (ver el comportamiento en sistemas/armas.js).
+  // Y esa sola diferencia le cambia el sentido: la lluvia cubre el campo y pega
+  // donde tú no estás; el cayado pega donde está la horda que te rodea. Se
+  // juega dejando que se acerquen, no huyendo.
+  //
+  // SIN CAÍDA (`caida` a cero): no cae nada del cielo, el bastón golpea y la
+  // onda sale del suelo en el acto. Un aviso previo tendría sentido en un
+  // bombardeo que llega de lejos; en algo que pasa a tus pies solo sería tarde.
+  cayadoSanIsidro: {
+    nombre: 'Cayado de San Isidro',
+    descripcion: 'El bastón golpea el suelo a tu lado y abre la tierra.',
+    comportamiento: 'bombardeoAleatorio',
+    spriteOnda: 'ondaChoque',
+    danyo: 0, danyoExplosion: 22, radioExplosion: 26, duracion: 0.3,
+    // `alcance` aquí NO es lo lejos que llega un disparo: es el radio del
+    // círculo dentro del cual puede caer el bastonazo. Empieza pegado al
+    // jugador y se va abriendo, así que al principio es un arma de contacto y
+    // al final cubre el corro entero.
+    alcance: 34,
+    recarga: 1.5, proyectiles: 1, velocidad: 260, caida: 0,
+    empuje: 90, color: '#c8b27a',
+    niveles: [{},
+              { danyoExplosion: 5, recarga: -0.15 },
+              { radioExplosion: 4, alcance: 6 },
+              { danyoExplosion: 6, recarga: -0.15 },
+              { proyectiles: 1, alcance: 6 },
+              { danyoExplosion: 7, radioExplosion: 4 },
+              { recarga: -0.15, alcance: 6 },
+              { danyoExplosion: 8, proyectiles: 1 },
+              { radioExplosion: 5, alcance: 6 },
+              { danyoExplosion: 10, recarga: -0.2, radioExplosion: 5 }]
+  },
+
   // --- Petanca -----------------------------------------------------------
   //
   // Pedida por Sergio. Bolas de acero que RUEDAN hacia donde miras y van

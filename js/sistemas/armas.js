@@ -4,6 +4,10 @@ import { ARMAS } from '../datos/armas.js';
 import { MAX_NIVEL } from './progresion.js';
 import { enemigoMasCercano, enemigosEnRadio } from './colisiones.js';
 import { Particulas, COLOR_CHISPA, COLOR_POLVO } from './particulas.js';
+// La Campana del Silencio dibuja su onda con los arcos de VFX. Es el único
+// comportamiento que pinta algo por su cuenta: los demás dejan el dibujo a lo
+// que lanzan —un proyectil, una zona, un tajo— y esta no lanza nada.
+import { VFX } from './vfx.js';
 import { sen, cos, atan2, hipot } from '../core/mate.js';
 
 // Motor genérico de armas.
@@ -246,6 +250,63 @@ const COMPORTAMIENTOS = {
   // aquí el abanico se reparte al AZAR dentro del cono en vez de en posiciones
   // fijas, y los perdigones llevan vida distinta entre sí: eso es lo que hace
   // que el disparo se sienta sucio y no como una formación de tres jabalinas.
+  // LA CAMPANA DEL SILENCIO: un cono que no hace daño, PARALIZA.
+  //
+  // Pedida por Sergio, y es la primera arma del juego sin daño ninguno. Lo que
+  // reparte es tiempo: los que pilla se quedan clavados, mudos y —esto es lo
+  // importante— ATRAVESABLES, porque el motor ya trata a un enemigo paralizado
+  // como si no fuera un cuerpo (ver `paralizado` en sistemas/colisiones.js: ni
+  // empuja ni se le empuja, se le cruza por encima, y el daño de contacto se
+  // apaga). O sea que la Campana no es un arma de matar, es la que te saca de
+  // un cerco: tocas, y la pared de carne por la que ibas a morir se vuelve
+  // niebla durante medio segundo.
+  //
+  // Ya existía ese estado —lo usa el Reloj de Emerita, el consumible que para
+  // la pantalla entera— y esto es lo mismo repartido con puntería: un cono, en
+  // la dirección en la que miras, que se abre y se alarga con el nivel.
+  //
+  // NO SE ACUMULA CONSIGO MISMA: se queda con la parálisis más larga de las dos
+  // (`Math.max`) en vez de sumarlas. Sumando, dos campanas seguidas dejarían la
+  // pantalla congelada un segundo entero y el arma pasaría de sacarte de un
+  // apuro a ganar la partida sola.
+  conoSilencio(arma, sis, ctx) {
+    const s = arma.stats;
+    const j = ctx.jugador;
+    // Hacia donde miras, con el rumbo completo y no solo la horizontal: mirando
+    // hacia arriba y parado, la campana sonaría de lado. Mismo criterio que la
+    // Recortada sin blanco a la vista (ver `conoCorto`, aquí abajo).
+    const base = atan2(j.rumboY, j.rumboX);
+    const semi = s.angulo * 0.5 * GRADOS;
+    const alcance = areaDe(s.alcance, j);
+
+    const items = ctx.enemigos.pool.items;
+    const n = enemigosEnRadio(ctx.enemigos, j.x, j.y, alcance, sis._alcanzados);
+    for (let q = 0; q < n; q++) {
+      const e = items[sis._alcanzados[q]];
+      // El radio ya lo ha filtrado `enemigosEnRadio`; aquí solo queda el
+      // ángulo. La diferencia se normaliza a -pi..pi para que el cono funcione
+      // igual apuntando a la derecha (donde el ángulo salta de pi a -pi) que en
+      // cualquier otra dirección.
+      let d = atan2(e.y - j.y, e.x - j.x) - base;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      if (d > semi || d < -semi) continue;
+      if (s.paralisis > e.paralizado) e.paralizado = s.paralisis;
+    }
+
+    // LA ONDA, EN TRES ARCOS ESCALONADOS. Una campana no suena en una línea:
+    // suena en frentes que salen uno detrás de otro, y tres bastan para que se
+    // lea como sonido y no como un tajo. Cada uno sale un poco después y llega
+    // un poco menos lejos que el anterior, que es lo que da la sensación de que
+    // el primero va por delante.
+    for (let k = 0; k < 3; k++) {
+      VFX.anillo(j.x, j.y - medioAlto(j), alcance * (1 - k * 0.16),
+                 arma.def.color, 2.4 - k * 0.5, 0.34 + k * 0.06,
+                 base - semi, base + semi);
+    }
+    return true;
+  },
+
   conoCorto(arma, sis, ctx) {
     const s = arma.stats;
     const j = ctx.jugador;
@@ -414,8 +475,27 @@ const COMPORTAMIENTOS = {
     for (let i = 0; i < s.proyectiles; i++) {
       // Dentro del viewport, centrado en el jugador: caer fuera de cámara sería
       // regalar daño que nadie ve.
-      const x = j.x + (ctx.rng() - 0.5) * ANCHO_LOGICO * 0.9;
-      const y = j.y + (ctx.rng() - 0.5) * ALTO_LOGICO * 0.9;
+      // DÓNDE CAE. Por defecto, cualquier sitio de la pantalla centrado en el
+      // jugador: caer fuera de cámara sería regalar daño que nadie ve.
+      //
+      // `alcance` lo ENCOGE a un círculo alrededor del jugador, y esa es toda
+      // la diferencia entre una lluvia de flechas y el Cayado de San Isidro:
+      // la lluvia cubre el campo y el cayado golpea a tus pies. Un arma que
+      // reparte por la pantalla entera pega donde tú no estás; una que reparte
+      // cerca pega donde está la horda que te rodea, así que se juega dejando
+      // que se acerquen en vez de huyendo.
+      let x, y;
+      if (s.alcance > 0) {
+        // Raíz del azar en el radio: sin ella se amontonaría todo en el centro,
+        // porque un círculo tiene más área cuanto más lejos del medio.
+        const ang = ctx.rng() * Math.PI * 2;
+        const rad = Math.sqrt(ctx.rng()) * s.alcance;
+        x = j.x + cos(ang) * rad;
+        y = j.y + sen(ang) * rad;
+      } else {
+        x = j.x + (ctx.rng() - 0.5) * ANCHO_LOGICO * 0.9;
+        y = j.y + (ctx.rng() - 0.5) * ALTO_LOGICO * 0.9;
+      }
 
       // CON CAÍDA: se ve venir. En vez de aparecer la onda en el suelo, se
       // lanza un proyectil de verdad desde `caida` unidades más arriba, cayendo
