@@ -131,9 +131,9 @@ export const PERSONAJES = {
     sprite: 'sofi',
     descripcion: 'Tira una, tira diez. Alguna le da a alguien.',
     // RainbowMazas: mazas al azar, una por nivel y cada una de su color, que se
-    // gastan al golpear. No apunta a nada, así que su arma no premia la
-    // puntería sino el bulto: cuanta más horda alrededor, menos mazas se van a
-    // donde no hay nadie.
+    // llevan por delante a dos enemigos y se deshacen. No apunta a nada, así
+    // que su arma no premia la puntería sino el bulto: cuanta más horda
+    // alrededor, menos mazas se van a donde no hay nadie.
     //
     // Encaja con sus `mods`, que ya eran los de alguien rápido y frágil: para
     // que haya bultos alrededor hay que estar dentro, y la velocidad es lo que

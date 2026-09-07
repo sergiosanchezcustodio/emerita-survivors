@@ -1206,11 +1206,20 @@ export const ARMAS = {
   // —subir de nivel se VE— y el hermano de sangre de esta arma: allí los libros
   // se quedan girando alrededor y aquí las mazas se van.
   //
-  // SIN PERFORACIÓN, y es la mecánica entera. Una maza es un disparo que se
-  // gasta: diez mazas al aire son diez enemigos como mucho, y las que se van a
-  // donde no hay nadie no valen para nada. De ahí que el arma pida horda —a más
-  // bultos alrededor, menos mazas desperdiciadas— en vez de premiar la
-  // puntería, que aquí no existe: nadie apunta al azar.
+  // DOS ENEMIGOS POR MAZA Y SE ACABÓ (`perforacion: 1`, que cuenta los de
+  // DESPUÉS del primero). Y ese límite es la mecánica entera: una maza es un
+  // disparo que se gasta, así que diez mazas al aire son veinte enemigos como
+  // mucho y las que se van a donde no hay nadie no valen para nada.
+  //
+  // De ahí que el arma pida horda —a más bultos alrededor, menos mazas
+  // desperdiciadas y más probable que la segunda encuentre a alguien— en vez de
+  // premiar la puntería, que aquí no existe: nadie apunta al azar.
+  //
+  // Empezó gastándose al primer golpe y Sergio la quiso con dos. Cambia más de
+  // lo que parece: con uno, lanzar hacia un claro era tirar la maza a la basura;
+  // con dos, cualquier maza que entre en el montón sigue recto y encuentra
+  // segundo. El arma pasa de premiar estar rodeada a premiar estar rodeada Y
+  // que la horda venga en fila.
   //
   // El daño por maza sube poco (20 a 56) porque lo que multiplica es la
   // CANTIDAD: al 10 son diez impactos por lanzamiento, no uno más gordo.
@@ -1222,10 +1231,10 @@ export const ARMAS = {
   // —el 20 de salida son 19,6— así que el nivel 10 queda en 56 clavado.
   rainbowMazas: {
     nombre: 'RainbowMazas',
-    descripcion: 'Mazas al azar, cada una de un color. Se gastan al golpear.',
+    descripcion: 'Mazas al azar, cada una de un color. Se gastan a los dos golpes.',
     comportamiento: 'direccionAleatoria',
     danyo: 20, recarga: 1.15, proyectiles: 1, velocidad: 150, alcance: 145,
-    radio: 5, perforacion: 0, empuje: 90,
+    radio: 5, perforacion: 1, empuje: 90,
     color: '#ffd15c', estela: '#a8632a', largoTrazo: 7,
     spriteProyectil: 'proyMazas',
     // Una maza por proyectil, por su número. Ver la nota larga de arriba.

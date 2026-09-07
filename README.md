@@ -272,7 +272,8 @@ Dos crecen contándose, y son las de las dos últimas heroínas. El **Códice
 Infernal** de Say: un libro orbitando al empezar y diez al nivel 10, cada subida
 despierta uno nuevo y todos giran más rápido. Y el **RainbowMazas** de Sofi, que
 suelta mazas en direcciones al azar —una por nivel, cada una de un color, y
-todas se gastan al golpear—: al 10 son diez volando a la vez y ninguna repite.
+cada una se lleva por delante a dos enemigos antes de deshacerse—: al 10 son
+diez volando a la vez y ninguna repite.
 En las dos, subir de nivel se ve antes de leer nada.
 
 La ambientación va mezclada a propósito: honda balear junto a subfusil. Es una
