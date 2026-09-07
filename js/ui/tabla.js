@@ -109,7 +109,17 @@ function trazarPestanya(ctx, x, y, w, h) {
 // `ctxMundo` a null: NO se pinta la ilustración del título detrás. Lo pide la
 // configuración cuando se abre EN PARTIDA, donde detrás está el mundo congelado
 // y sustituirlo por la lápida del menú sería sacar al jugador de donde está.
-export function armazon(ctxMundo, ctx, r, secciones, activa, columnas) {
+// `opciones` (todo opcional, y sin ella el armazón es el de siempre):
+//
+//   - `x`: dónde empieza cada columna, cuatro valores. Por defecto las cuatro
+//     de la tienda, que ocupan el ancho entero.
+//   - `derecha`: dónde ACABA la tabla. Lo usa la pantalla de elegir nivel, que
+//     estrecha la lista a la mitad izquierda para dejar sitio a la vista previa
+//     del sitio señalado. Sin esto, la regla y la última columna seguirían
+//     llegando al borde de la pantalla y cruzarían por encima de la vista.
+export function armazon(ctxMundo, ctx, r, secciones, activa, columnas, opciones) {
+  const colX = (opciones && opciones.x) || [MARGEN, X_NIVEL, X_EFECTO, X_VALOR];
+  const derecha = (opciones && opciones.derecha) || (ANCHO_UI - MARGEN);
   const t = Tema.actual;
 
   if (ctxMundo) fondoTitulo(ctxMundo);
@@ -183,20 +193,20 @@ export function armazon(ctxMundo, ctx, r, secciones, activa, columnas) {
   ctx.font = `600 10px ${FUENTE_TITULO}`;
   ctx.fillStyle = t.apagado;
   ctx.textAlign = 'left';
-  textoEspaciado(ctx, columnas[0], MARGEN, r.cabecera, 1.6);
-  textoEspaciado(ctx, columnas[1], X_NIVEL, r.cabecera, 1.6);
-  textoEspaciado(ctx, columnas[2], X_EFECTO, r.cabecera, 1.6);
+  textoEspaciado(ctx, columnas[0], colX[0], r.cabecera, 1.6);
+  textoEspaciado(ctx, columnas[1], colX[1], r.cabecera, 1.6);
+  textoEspaciado(ctx, columnas[2], colX[2], r.cabecera, 1.6);
   // Quinto rótulo OPCIONAL. Lo usa la pestaña de jugadores para su columna de
   // arma; las demás pasan cuatro y aquí no se pinta nada de más. Va al final
   // del array y no en medio para que las cuatro columnas de siempre sigan
   // nombrándose en el mismo orden en las tres pantallas que usan el armazón.
   if (columnas[4]) textoEspaciado(ctx, columnas[4], X_ARMA, r.cabecera, 1.6);
   ctx.textAlign = 'right';
-  textoEspaciado(ctx, columnas[3], X_VALOR, r.cabecera, 1.6);
+  textoEspaciado(ctx, columnas[3], colX[3], r.cabecera, 1.6);
 
   ctx.globalAlpha = 0.3;
   ctx.fillStyle = t.filo;
-  ctx.fillRect(MARGEN, r.regla, ANCHO_UI - MARGEN * 2, 1);
+  ctx.fillRect(MARGEN, r.regla, derecha - MARGEN, 1);
   ctx.globalAlpha = 1;
 }
 
@@ -275,11 +285,14 @@ function _prepararCapa(w, h) {
 // texto. Ese margen no es capricho: el degradado se come los extremos, así que
 // la banda que de verdad se percibe es más baja que la que se pinta, y sin él
 // difuminarla la habría dejado pareciendo más fina que la plana de antes.
-export function resalte(ctx, y, alto) {
+// `derecha`: hasta dónde llega la banda. Por defecto el borde de la tabla de
+// siempre; la pantalla de elegir nivel la corta antes, donde acaba su lista.
+export function resalte(ctx, y, alto, derecha) {
   const color = COLOR_RESALTE;
   const base = alto - 4;
   const h = Math.max(1, Math.round(base * 1.2));
-  const w = ANCHO_UI - MARGEN * 2 + 20;
+  const der = derecha || (ANCHO_UI - MARGEN);
+  const w = der - MARGEN + 20;
   const x0 = MARGEN - 10;
   const y0 = y + (base - h) / 2;
 

@@ -218,6 +218,12 @@ apagados y con «próximamente». Un mapa que solo muestra donde ya puedes ir no
 un mapa. Cada nivel se abre al **ganar** en el anterior: morir en el minuto 28
 no abre nada.
 
+A la derecha, **una ventana con el sitio señalado**: un trozo del mapa de
+verdad, sin un solo personaje ni un solo bicho. No es una captura guardada — se
+compone con las mismas piezas que usa la partida, el suelo pintado del nivel y
+su decoración, así que el día que se mueva una columna la ventana lo enseña sin
+que nadie rehaga una imagen.
+
 ![Elegir nivel](docs/capturas/menu_seleccion_nivel.jpg)
 
 Y elegido el sitio, **su historia** sube por la misma placa de piedra antes del

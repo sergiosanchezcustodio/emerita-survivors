@@ -58,7 +58,7 @@ import { ARMAS } from './datos/armas.js';
 import { POTENCIADORES } from './datos/potenciadores.js';
 import { Intro } from './ui/intro.js';
 import { dibujarHuecos, refrescarHuecos, huecoOcupado, textoBorrado, dibujarEsperaGithub } from './ui/huecos.js';
-import { dibujarNiveles } from './ui/niveles.js';
+import { dibujarNiveles, pedirVista } from './ui/niveles.js';
 import { Historia } from './ui/historia.js';
 
 
@@ -1153,6 +1153,7 @@ function volverAElegirPersonajes() {
 // arrancar—, que es el que casi siempre se va a volver a jugar.
 function irAElegirNivel() {
   cursorNivel = Math.max(0, Niveles.lista.indexOf(nivelActual));
+  pedirVista(nivelActual);
   irA(PANTALLA_NIVELES);
 }
 
@@ -1194,11 +1195,21 @@ function entradaNiveles() {
   // criterio que la pantalla de héroes con los que no están desbloqueados.
   const n = listaDeNiveles().length;
 
+  const antes = cursorNivel;
   if (entrada.consumirFlanco('ArrowDown') || (c && c.consumirBoton(13)) || eje > 0) {
     cursorNivel = (cursorNivel + 1) % n;
   }
   if (entrada.consumirFlanco('ArrowUp') || (c && c.consumirBoton(12)) || eje < 0) {
     cursorNivel = (cursorNivel + n - 1) % n;
+  }
+  // EL MAPA DEL SITIO SEÑALADO SE PIDE AL SEÑALARLO, no al dibujar. La ventana
+  // de la derecha enseña el suelo del nivel, y ese suelo es una imagen que hay
+  // que traer: pedirla desde el dibujado sería lanzarla sesenta veces por
+  // segundo. Ver `pedirVista` en ui/niveles.js, que además solo la trae la
+  // primera vez.
+  if (cursorNivel !== antes) {
+    const fila = listaDeNiveles()[cursorNivel];
+    if (fila && fila.nivel) pedirVista(fila.nivel);
   }
 
   // Atrás: a volver a elegir héroes. No al título — de aquí no se sale del
