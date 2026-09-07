@@ -3636,7 +3636,8 @@ $ICONOS_ARMAS = @(
     'hacha','maza','latigo','motosierra','guadanya','lanzallamas','recortada','aspa',
     'enfilada','agujas','muroDeLanzas','enjambre','molotov','lanzacohetes','artilleria','lluviaDeFlechas',
     'gritoDeGuerra','sismo','aceiteHirviendo','minas','alquitran','campoElectrico','laser','aspaDeLuz',
-    'satelites','discosDeSierra','katana','sierrasVotivas','codiceInfernal','rainbowMazas'
+    'satelites','discosDeSierra','katana','sierrasVotivas','codiceInfernal','rainbowMazas',
+    'petanca'
 )
 
 # Un archivo por arma, en resources/armas/. Se resuelve con -Filter, así que
@@ -3644,6 +3645,12 @@ $ICONOS_ARMAS = @(
 # no tiene BOM y PowerShell 5.1 lo lee como ANSI —los acentos sobreviven en los
 # comentarios, pero una eñe dentro de una CADENA no abriría el archivo—.
 $ARCHIVO_ICONO_ARMA = @{
+    # PROVISIONAL, y conviene que se sepa: `Petanca.png` no lo ha dibujado
+    # Sergio, es la propia bola que fabrica herramientas/generar-efectos.ps1,
+    # copiada aqui para que el arma no salga con el hueco del icono vacio en la
+    # tienda y en la carta de subida de nivel. Se sustituye dejando el dibujo de
+    # verdad con el mismo nombre.
+    petanca         = 'Petanca.png'
     pilum           = 'pilum.png';               gladius         = 'Gladius.png'
     pistola         = 'Pistola.png';             escopeta        = 'Escopeta.png'
     lanzasGemelas   = 'Lanzas_gemelas.png';      columnaDoble    = 'Columna_doble.png'

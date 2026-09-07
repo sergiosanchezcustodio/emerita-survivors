@@ -1193,6 +1193,53 @@ export const ARMAS = {
               { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
   },
 
+  // --- Petanca -----------------------------------------------------------
+  //
+  // Pedida por Sergio. Bolas de acero que RUEDAN hacia donde miras y van
+  // llevándose por delante lo que pillan. Una al nivel 1 y una más en cada
+  // subida, y el abanico se abre con ellas hasta los 120 grados del nivel 10.
+  //
+  // ES LA ÚNICA ARMA QUE APUNTA ADONDE MIRAS. Las demás salen en rumbos fijos
+  // de la brújula (`patron`) o buscan al enemigo más cercano; esta usa el rumbo
+  // del jugador, que es una tercera manera y es lo que la hace ella: colocarse
+  // es parte de dispararla. Ver RUMBO en sistemas/armas.js.
+  //
+  // EL ABANICO SE ABRE SOLO. `dispersion` es el ángulo ENTRE bolas y se queda
+  // fijo en 13,3 grados; lo que crece es cuántas hay. Con nueve huecos entre
+  // las diez del nivel 10 salen 120 grados clavados, que es lo que pidió, y los
+  // niveles intermedios abren en proporción sin que haya que escribir el ángulo
+  // de cada uno.
+  //
+  // SE GASTAN CADA X ENEMIGOS. Tres al empezar y ocho al máximo: una bola es
+  // una bola, pesa y sigue de largo, pero no barre la pantalla entera. Sin ese
+  // techo —rodando sin gastarse— diez bolas en 120 grados dejaban el mapa
+  // limpio de un disparo y el arma dejaba de tener decisión ninguna.
+  petanca: {
+    nombre: 'Petanca',
+    descripcion: 'Bolas de acero que ruedan hacia donde miras y siguen de largo.',
+    comportamiento: 'direccionFija',
+    patron: 'rumbo',
+    danyo: 16, recarga: 1.3, proyectiles: 1, direcciones: 1,
+    velocidad: 105, alcance: 165, dispersion: 13.3,
+    radio: 6, perforacion: 3, empuje: 130,
+    color: '#c8d4e2', estela: '#5a6470', largoTrazo: 7,
+    spriteProyectil: 'proyPetanca',
+    // RUEDA, no vuela: gira sobre sí misma en el sentido de la marcha. Despacio
+    // —seis radianes por segundo, una vuelta por segundo— porque una bola de
+    // acero rodando por una calzada no da vueltas de shuriken.
+    giroProyectil: 6,
+    niveles: [{},
+              { proyectiles: 1, danyo: 3 },
+              { proyectiles: 1, danyo: 3, perforacion: 1 },
+              { proyectiles: 1, danyo: 4 },
+              { proyectiles: 1, danyo: 3, perforacion: 1 },
+              { proyectiles: 1, danyo: 4, recarga: -0.12 },
+              { proyectiles: 1, danyo: 4, perforacion: 1 },
+              { proyectiles: 1, danyo: 4 },
+              { proyectiles: 1, danyo: 5, perforacion: 1 },
+              { proyectiles: 1, danyo: 6, perforacion: 1, recarga: -0.15 }]
+  },
+
   // --- El arma de Sofi: RainbowMazas -------------------------------------
   //
   // Pedida por Sergio. Suelta mazas en direcciones al azar: una al nivel 1 y

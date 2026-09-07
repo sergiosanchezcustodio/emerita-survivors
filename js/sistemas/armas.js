@@ -310,7 +310,7 @@ const COMPORTAMIENTOS = {
   direccionFija(arma, sis, ctx) {
     const s = arma.stats;
     const j = ctx.jugador;
-    const dirs = direccionesDe(arma, s);
+    const dirs = direccionesDe(arma, s, j);
     const danyo = danyoDe(s, j);
 
     // ABANICO O CARRIL, y la diferencia importa para lo que se dibuja.
@@ -728,6 +728,19 @@ const PATRONES = {
   adelante: [0]
 };
 
+// EL RUMBO DEL JUGADOR, para las armas que disparan HACIA DONDE MIRAS.
+//
+// No es un patrón como los de arriba —esos son rumbos fijos de la brújula— sino
+// uno que se calcula en cada disparo. Va aparte y con nombre propio (`rumbo`)
+// para que `direccionesDe` sepa que tiene que preguntar por el jugador en vez
+// de leer una lista.
+//
+// El rumbo sale de `rumboX`/`rumboY` (ver entidades/jugador.js), que es la
+// última dirección en la que se movió y NO se pone a cero al soltar el mando:
+// parado, un arma de estas sigue apuntando adonde ibas, que es lo que espera
+// quien se detiene a esperar a la horda de frente.
+const RUMBO = [0];
+
 // MÁS BRAZOS DE LOS QUE TIENE EL PATRÓN.
 //
 // Un patrón es una lista fija de rumbos, y eso basta mientras el arma tenga
@@ -750,7 +763,12 @@ const dirsGeneradas = new Float64Array(MAX_DIRECCIONES);
 // Es el mismo apaño que `origenDisparo` unas líneas más arriba, y por lo mismo.
 let nDirs = 0;
 
-function direccionesDe(arma, s) {
+function direccionesDe(arma, s, jugador) {
+  if (arma.def.patron === 'rumbo') {
+    RUMBO[0] = atan2(jugador.rumboY, jugador.rumboX);
+    nDirs = 1;
+    return RUMBO;
+  }
   const patron = PATRONES[arma.def.patron] || PATRONES.horizontal;
   let n = s.direcciones | 0;
   // Sin `direcciones`, o pidiendo menos de las que el patrón ya trae, manda el

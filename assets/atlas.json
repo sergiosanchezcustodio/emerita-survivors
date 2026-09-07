@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260907151637",
+    "version":  "20260907224333",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -1272,7 +1272,7 @@
                                           "h":  32,
                                           "anclaX":  16,
                                           "anclaY":  16,
-                                          "frames":  54,
+                                          "frames":  55,
                                           "plano":  true,
                                           "orden":  [
                                                         "pilum",
@@ -1328,7 +1328,8 @@
                                                         "katana",
                                                         "sierrasVotivas",
                                                         "codiceInfernal",
-                                                        "rainbowMazas"
+                                                        "rainbowMazas",
+                                                        "petanca"
                                                     ]
                                       },
                       "iconosArmasHd":  {
@@ -1337,7 +1338,7 @@
                                             "h":  96,
                                             "anclaX":  48,
                                             "anclaY":  48,
-                                            "frames":  54,
+                                            "frames":  55,
                                             "plano":  true,
                                             "orden":  [
                                                           "pilum",
@@ -1393,7 +1394,8 @@
                                                           "katana",
                                                           "sierrasVotivas",
                                                           "codiceInfernal",
-                                                          "rainbowMazas"
+                                                          "rainbowMazas",
+                                                          "petanca"
                                                       ]
                                         },
                       "orbCodice":  {

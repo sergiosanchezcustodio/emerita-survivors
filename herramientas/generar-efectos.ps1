@@ -37,12 +37,27 @@ param(
 
 Add-Type -AssemblyName System.Drawing
 
-# System.Drawing,System.Drawing.Common,System.Drawing.Primitives y no solo la
-# primera: en .NET Core la familia "System.Drawing" se parte en varios
-# ensamblados y Bitmap/BitmapData/PixelFormat/ImageLockMode/ImageFormat viven
-# en Common y Primitives. En .NET Framework compilaba igual con solo la
-# primera porque ahi todo estaba junto; aqui no.
-Add-Type -ReferencedAssemblies System.Drawing,System.Drawing.Common,System.Drawing.Primitives -TypeDefinition @"
+# LOS ENSAMBLADOS QUE HAY QUE REFERENCIAR NO SON LOS MISMOS EN LAS DOS
+# POWERSHELL, y por eso se eligen aqui en vez de escribirlos fijos.
+#
+#   - En PowerShell 7 (.NET Core) la familia "System.Drawing" esta partida:
+#     Bitmap, BitmapData, PixelFormat, ImageLockMode e ImageFormat viven en
+#     Common y en Primitives, asi que hay que nombrar los tres.
+#   - En Windows PowerShell 5.1 (.NET Framework) esta todo junto en
+#     System.Drawing, y System.Drawing.Common NO EXISTE: nombrarlo revienta la
+#     compilacion entera con "no se puede encontrar el archivo de metadatos".
+#
+# Y eso es lo que pasaba: en esta maquina solo hay 5.1, asi que la herramienta
+# no compilaba y no generaba un solo PNG. Lo llamativo es que NO se caia: seguia
+# hasta el final y escribia la ficha del atlas con las medidas -que se calculan
+# en PowerShell, no en C#-, asi que el atlas quedaba anunciando dibujos que no
+# existian. Un efecto nuevo entraba en el atlas y no aparecia en el disco.
+$ensamblados = if ($PSVersionTable.PSEdition -eq 'Core') {
+    @('System.Drawing', 'System.Drawing.Common', 'System.Drawing.Primitives')
+} else {
+    @('System.Drawing')
+}
+Add-Type -ReferencedAssemblies $ensamblados -TypeDefinition @"
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -2325,6 +2340,19 @@ $PROYECTILES = @(
        paleta = 'd6cfc0,b2a894,8d8371,675f50,474135,2b271f'
        # Casi redonda: un canto de rio elegido para la honda, no un pedrusco.
        vertices = 9; irregular = 0.16 }
+
+    @{ id = 'petanca'; tipo = 'trozo'; atlas = 'proyPetanca'; archivo = 'proy-petanca.png'
+       semilla = 31415
+       # Acero pulido, no piedra: la bola de petanca es metal torneado y lo que
+       # la delata es el brillo, asi que la paleta va del blanco del reflejo al
+       # azul apagado de la sombra. Nada de ocres, que es lo que la haria canto
+       # de rio (comparar con `piedra`, aqui arriba).
+       paleta = 'ffffff,dfe6ee,a9b4c0,72808f,45505d,232a33'
+       # DOCE VERTICES Y CASI NADA DE IRREGULARIDAD: es una esfera torneada. El
+       # `trozo` esta pensado para pedazos con aristas -de ahi los 7 vertices de
+       # la metralla- y subiendolos con la irregularidad casi a cero da un
+       # circulo, que es justo lo que hace falta y sin escribir una forma nueva.
+       vertices = 12; irregular = 0.03 }
 
     # --- Otros ------------------------------------------------------------
     @{ id = 'lengua'; tipo = 'lengua'; atlas = 'proyLengua'; archivo = 'proy-lengua.png'
