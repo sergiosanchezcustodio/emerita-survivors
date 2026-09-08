@@ -71,7 +71,10 @@ const PUERTO = 8143;
 // Grial y `auraEquipo`, que se recalcula en cada paso aunque no lo lleve nadie.
 // Y con los cinco de la tienda: cinco campos mas, el reloj del Manto y las dos
 // RANURAS, que dejan de ser constantes del juego para ser numeros del jugador.
-const HUELLA_ESPERADA = 'f49a8030 9cde0394 82733395 e0283be5 e00f53ff 8070c18c 43b6a952';
+// Y con el Libro de las Sombras, que cierra la lista: el reloj en el jugador y
+// DOS CAMPOS MAS EN CADA ENEMIGO (`poseido` y a quien pertenece). El pool del
+// bestiario es lo mas gordo de la foto, asi que esta se movio entera.
+const HUELLA_ESPERADA = '36c604ca bd987e9a 309e3ff5 1c046485 9971aea4 1f19a923 532599bf';
 
 let fallos = 0;
 function comprobar(condicion, texto) {

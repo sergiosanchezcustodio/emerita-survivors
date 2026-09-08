@@ -648,6 +648,10 @@ function anyadirJugador(idPersonaje, idMascota, meta) {
   // lista VIVA, no una copia: quien se suma a mitad de partida entra en ella y
   // los que ya estaban lo ven sin que nadie tenga que avisar.
   j.companyeros = jugadores;
+  // Y el bestiario, que lo necesita el Libro de las Sombras para elegir a quién
+  // poseer. Tercera pieza que se le enchufa al jugador desde fuera, y por el
+  // mismo motivo que las otras dos.
+  j.enemigos = enemigos;
   // Con dos o más, la XP pasa a ser de equipo (ver Progresion.ganarXp): quien
   // se suma entra ya al nivel común, y el umbral de todos se recalcula para
   // el nuevo número de jugadores.

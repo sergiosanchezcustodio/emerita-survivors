@@ -77,9 +77,9 @@ y no se sube nunca. Sin token la herramienta lo dice y no llama a la API.
 ## Plan
 El plan completo por fases está en prompt-emerita-survivors.md. Implementar UNA fase por sesión y parar.
 
-Las cinco fases del plan están cerradas. Lo que se está haciendo ahora es la
-lista de armas y objetos que pasó Sergio, y **dónde se quedó vive en
-[docs/pendiente-armas-objetos.md](docs/pendiente-armas-objetos.md)**: lo hecho, lo
-que falta, las decisiones ya tomadas —para no volver a preguntarlas— y la única
-pregunta que sigue abierta (el Libro de las Sombras). Empezar cada tanda leyendo
-ese archivo, y dejarlo actualizado al cerrarla.
+Las cinco fases del plan están cerradas, y también la lista de armas y objetos
+que pasó Sergio: cinco armas, veintiún objetos de gameplay y cinco de tienda.
+Qué es cada cosa y **las decisiones que se tomaron por el camino —para no volver
+a discutirlas— están en
+[docs/armas-y-objetos.md](docs/armas-y-objetos.md)**, junto con lo único que
+quedó fuera a propósito y el arte provisional que hay que sustituir.

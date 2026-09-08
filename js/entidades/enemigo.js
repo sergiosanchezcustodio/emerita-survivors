@@ -31,6 +31,23 @@ const DENARIOS_ANTORCHA = 3;
 const RADIO_PIRA = 34;
 const DANYO_PIRA = 30;
 
+// EL LIBRO DE LAS SOMBRAS. Lo que dura la posesión y lo que hace al reventar.
+//
+// Cinco segundos son los que pidió Sergio, y son los justos: lo bastante para
+// verlo cruzar la pantalla con su aura y lo bastante poco para que no se te
+// olvide que va a estallar. Más rato y el objeto sería una mascota.
+const DURACION_POSESION = 5;
+const RADIO_POSESION = 46;
+const DANYO_POSESION = 55;
+// Verde, y el mismo que usa el aura que se le pinta encima (ver `dibujar`).
+const COLOR_POSESION = '#5ce07a';
+
+// UN JEFE NO SE POSEE. Se mira `rol`, que es como los marca el bestiario (ver
+// datos/enemigos.js), y de paso caen las escoltas: los gemelos de la Loba
+// llevan el mismo rol, y poseer a uno de los dos dejaría al jefe final con la
+// mitad de su guardia trabajando para el otro bando.
+function esJefe(e) { return e.def.rol === 'jefe'; }
+
 // --- Culling ----------------------------------------------------------------
 // 1.5 pantallas medidas desde el CENTRO de la cámara. Lo que sale de aquí vuelve
 // al pool: un enemigo que el jugador ha dejado atrás no vuelve a alcanzarle
@@ -302,6 +319,18 @@ function crearEnemigo() {
     // golpe que recibe cada enemigo. Se pone al aparecer, así que un enemigo
     // reciclado del pool nace virgen y no hereda el golpe del anterior.
     golpeado: 0,
+    // POSEIDO POR EL LIBRO DE LAS SOMBRAS: segundos que le quedan de estar en
+    // tu bando. Mientras corre deja de perseguir a nadie, camina hacia el
+    // enemigo mas cercano con un aura verde encima, y al agotarse revienta.
+    //
+    // Vive en el enemigo y no en una lista aparte porque el pool ya lo recorre
+    // entero cada paso: una lista seria un segundo sitio donde apuntar quien
+    // esta poseido, y un enemigo reciclado que se olvidara de borrarse de ella
+    // dejaria un fantasma.
+    poseido: 0,
+    // Y quien lo poseyo, para apuntarle el dano de la explosion como suyo. Es
+    // el mismo criterio que el `duenyo` de un proyectil.
+    poseidoPor: null,
     // Dirección fija de los que cruzan sin perseguir (MOV_TRAVESIA) y de los
     // jefes en plena embestida (ver `embestida` más abajo): la reutilizan
     // porque las dos cosas son "recto, en esta dirección, sin perseguir".
@@ -362,6 +391,88 @@ export class Enemigos {
   }
 
   get activos() { return this.pool.activos; }
+
+  // --- El Libro de las Sombras de Alburquerque -------------------------------
+  //
+  // Un enemigo al azar se pasa a tu bando: deja de perseguirte, camina hacia
+  // los suyos con un aura verde y a los DURACION_POSESION segundos revienta.
+  //
+  // NO A LOS JEFES, y esa es la única regla que trae de fábrica: un jefe
+  // poseído sería un jefe que deja de ser un jefe, y encima el más caro de
+  // matar del nivel resuelto por un objeto.
+  //
+  // Se elige al azar de entre los que valen, con el RNG de la partida: mismo
+  // criterio que todo lo demás del juego, así que dos partidas con la misma
+  // semilla poseen al mismo bicho.
+  poseer(duenyo) {
+    const items = this.pool.items;
+    const n = this.pool.activos;
+    if (n === 0) return null;
+
+    // Se cuentan primero los que valen y se elige uno de esos. Con un solo
+    // sorteo sobre el pool entero, en una pantalla llena de jefe la mitad de
+    // las tiradas caerían en el jefe y no poseerían a nadie: el objeto se
+    // apagaría justo cuando más falta hace.
+    let cuantos = 0;
+    for (let k = 0; k < n; k++) {
+      const e = items[k];
+      if (e.vida > 0 && !e.poseido && !esJefe(e) && !e.def.esObjeto) cuantos++;
+    }
+    if (cuantos === 0) return null;
+
+    let elegido = (this._rng() * cuantos) | 0;
+    for (let k = 0; k < n; k++) {
+      const e = items[k];
+      if (e.vida <= 0 || e.poseido || esJefe(e) || e.def.esObjeto) continue;
+      if (elegido-- > 0) continue;
+      e.poseido = DURACION_POSESION;
+      e.poseidoPor = duenyo || null;
+      return e;
+    }
+    return null;
+  }
+
+  // El enemigo vivo más cercano a uno dado, para que el poseído sepa a por
+  // quién va. Recorre el pool entero: son cinco segundos de la vida de un
+  // bicho, no vale la pena meterlo en la rejilla espacial.
+  _enemigoMasCercano(desde) {
+    const items = this.pool.items;
+    const n = this.pool.activos;
+    let mejor = null, mejorD = Infinity;
+    for (let k = 0; k < n; k++) {
+      const e = items[k];
+      if (e === desde || e.vida <= 0 || e.poseido > 0 || e.def.esObjeto) continue;
+      const dx = e.x - desde.x, dy = e.y - desde.y;
+      const d = dx * dx + dy * dy;
+      if (d < mejorD) { mejorD = d; mejor = e; }
+    }
+    return mejor;
+  }
+
+  // Y el final: revienta donde esté y se lleva por delante lo que tenga al
+  // lado. El daño se le apunta a quien lo poseyó, igual que el de un proyectil
+  // se le apunta a quien lo disparó.
+  _reventarPoseido(e) {
+    const duenyo = e.poseidoPor;
+    e.poseido = 0;
+    e.poseidoPor = null;
+    if (this.zonas) {
+      this.zonas.crear({
+        x: e.x, y: e.y,
+        radio: RADIO_POSESION * (1 + (duenyo ? duenyo.bonusArea : 0)),
+        radioIni: 5,
+        duracion: 0.34,
+        danyo: Math.round(DANYO_POSESION * (1 + (duenyo ? duenyo.bonusDanyo : 0))),
+        intervalo: 0.34,
+        tipo: 'onda',
+        color: COLOR_POSESION,
+        empuje: 140,
+        duenyo
+      });
+    }
+    // Y el poseído se va con ella: lo que revienta no queda de pie.
+    this.danyar(e, e.vida + 1, 0, -1, 0, duenyo, null);
+  }
 
   // `escalaVida` y `escalaDanyo` son el escalado por minuto de la curva de
   // oleadas (ver datos/niveles/merida.js y sistemas/director.js). Se aplican
@@ -462,6 +573,8 @@ export class Enemigos {
     // `paralizarTodos`.
     e.paralizado = this.paralisisRestante;
     e.golpeado = 0;
+    e.poseido = 0;
+    e.poseidoPor = null;
     e.movPrevio = 0;
 
     if (def.cofre) this.elitesVivos++;
@@ -579,6 +692,31 @@ export class Enemigos {
         } else {
           e.fase += dt * e.cadencia;
         }
+        continue;
+      }
+
+      // POSEIDO: ha cambiado de bando. Camina hacia el enemigo vivo mas cercano
+      // en vez de hacia un jugador, y al agotarsele el tiempo revienta.
+      //
+      // NO PEGA AL ROZAR, y es una decision, no un olvido: hoy no existe dano
+      // de enemigo contra enemigo en ninguna parte del motor, y darselo por
+      // cinco segundos costaba mas que todo lo demas del objeto junto. Lo que
+      // se lleva a los suyos por delante es la explosion, que si existe.
+      if (e.poseido > 0) {
+        e.poseido -= dt;
+        if (e.poseido <= 0) {
+          this._reventarPoseido(e);
+          continue;
+        }
+        const presa = this._enemigoMasCercano(e);
+        if (presa) {
+          const dxp = presa.x - e.x;
+          const dyp = presa.y - e.y;
+          const dp = Math.sqrt(dxp * dxp + dyp * dyp) || 1;
+          e.x += (dxp / dp) * e.velocidad * dt;
+          e.y += (dyp / dp) * e.velocidad * dt;
+        }
+        e.objetivo = null;
         continue;
       }
 
@@ -1216,6 +1354,34 @@ export class Enemigos {
     const n = this.pool.activos;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
+
+    // EL AURA VERDE DE LOS POSEÍDOS, antes que los avisos de ataque y en el
+    // mismo recorrido: los dos son adornos que cuelgan de unos pocos enemigos y
+    // recorrer el pool dos veces para pintar dos cosas sería pagarlo dos veces.
+    //
+    // Late, y late MÁS DEPRISA según se le acaba el tiempo. Es lo único que
+    // avisa de que va a estallar, y un aura quieta diría "este es de los tuyos"
+    // sin decir "y le quedan dos segundos".
+    for (let k = 0; k < n; k++) {
+      const e = items[k];
+      if (e.poseido <= 0 || e.vida <= 0) continue;
+      const x = e.xPrev + (e.x - e.xPrev) * alpha;
+      const y = e.yPrev + (e.y - e.yPrev) * alpha;
+      const alto = e.meta ? e.meta.h / ESCALA_ARTE : 12;
+      const queda = e.poseido / DURACION_POSESION;
+      // De un latido por segundo a cinco: 1 + 4 * lo gastado.
+      const late = 0.72 + 0.28 * Math.sin(e.poseido * (1 + 4 * (1 - queda)) * 6.28);
+      const r = alto * 0.62 * late;
+      const g = ctx.createRadialGradient(x, y - alto * 0.45, 0, x, y - alto * 0.45, r);
+      g.addColorStop(0, 'rgba(120,255,150,.55)');
+      g.addColorStop(0.55, 'rgba(60,220,120,.28)');
+      g.addColorStop(1, 'rgba(30,160,80,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y - alto * 0.45, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     for (let k = 0; k < n; k++) {
       const e = items[k];
       if (!e.def.ataque || e.vida <= 0 || e.paralizado > 0) continue;

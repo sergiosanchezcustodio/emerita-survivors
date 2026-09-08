@@ -244,6 +244,27 @@ export const PASIVOS = {
     soloCooperativo: true
   },
 
+  // --- El Libro de las Sombras de Alburquerque -----------------------------
+  //
+  // Sexta y ultima tanda. Un enemigo al azar se pasa a tu bando: deja de
+  // perseguirte, camina hacia los suyos con un aura verde que late mas deprisa
+  // segun se le acaba el tiempo, y a los cinco segundos revienta.
+  //
+  // NO A LOS JEFES: un jefe poseido seria un jefe que deja de ser un jefe, y
+  // encima el mas caro de matar del nivel resuelto por un objeto.
+  //
+  // EL POSEIDO NO PEGA AL ROZAR, y es una decision tomada y no un olvido: hoy
+  // no existe dano de enemigo contra enemigo en ninguna parte del motor, y
+  // darselo por cinco segundos costaba mas que todo lo demas del objeto junto.
+  // Lo que se lleva a los suyos por delante es la explosion. Si algun dia se
+  // quiere el roce, se anade encima de esto sin tocar nada de lo que hay.
+  libroSombras: {
+    nombre: 'El Libro de las Sombras',
+    descripcion: 'Cada 18 s un enemigo cambia de bando y estalla (menos por nivel)',
+    campo: 'libroCada', tipo: 'escalon', valor: 18, paso: -1, suelo: 8,
+    maxNivel: 10
+  },
+
   anfora: {
     // 30 y no 10: un 200% más de lo que daba. Con 10 por nivel, el Ánfora al
     // máximo sumaba 100 de vida sobre una base de poco más de 100, o sea que

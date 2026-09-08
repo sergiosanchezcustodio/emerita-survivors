@@ -159,6 +159,7 @@ export class Jugador {
     // han dado.
     this.relojImpulso = 0;
     this.relojGrial = 0;
+    this.relojLibro = 0;
     // El del Manto del Peregrino cuenta AL REVES que los otros: es lo que le
     // queda para volver a estar cargado, asi que empieza a cero -o sea,
     // cargado- y solo corre despues de comerse un golpe.
@@ -175,6 +176,7 @@ export class Jugador {
     this.personaje = def.sprite;
     this.arsenal = null;          // lo enchufa quien crea al jugador
     this.recogibles = null;       // idem: lo necesitan los Cencerros de San Antón
+    this.enemigos = null;         // idem: lo necesita el Libro de las Sombras
 
     // --- Progresión ------------------------------------------------------
     this.nivel = 1;
@@ -350,6 +352,11 @@ export class Jugador {
     this.ultimoAliento = 0;        // Ultimo aliento
     this.maxArmas = MAX_ARMAS;     // Bandolera
     this.maxPasivos = MAX_PASIVOS; // Zurron
+
+    // El Libro de las Sombras de Alburquerque. Cada cuantos segundos se pasa un
+    // enemigo a tu bando; quien lo hace es el bestiario (`poseer`), que es
+    // quien tiene la lista de bichos.
+    this.libroCada = 0;
 
     // MASCOTA de ESTE jugador (datos/mascotas.js). Cada uno lleva la suya, y la
     // elige en la pantalla de mascotas; `mascotaId` lo pone main.js al crearlo.
@@ -668,6 +675,7 @@ export class Jugador {
     this.relojImpulso = 0;
     this.relojGrial = 0;
     this.relojManto = 0;
+    this.relojLibro = 0;
     this.bajasPira = 0;
     this.resurreccionesUsadas = 0;
   }
@@ -769,6 +777,21 @@ export class Jugador {
     if (this.relojManto > 0) {
       this.relojManto -= dt;
       if (this.relojManto < 0) this.relojManto = 0;
+    }
+
+    // EL LIBRO DE LAS SOMBRAS DE ALBURQUERQUE. Cada X segundos, un enemigo al
+    // azar se pasa a tu bando: deja de perseguirte, camina hacia los suyos con
+    // un aura verde y a los cinco segundos revienta.
+    //
+    // Quien lo hace es el bestiario, que es quien tiene la lista de bichos —el
+    // jugador solo lleva el reloj—. Y se le enchufa desde fuera, como los
+    // recogibles: aquí no se importa a nadie.
+    if (this.libroCada > 0 && this.enemigos) {
+      this.relojLibro += dt;
+      if (this.relojLibro >= this.libroCada) {
+        this.relojLibro = 0;
+        this.enemigos.poseer(this);
+      }
     }
 
     // EL SELLO DE LOS CABALLEROS DE MAGACELA. Lo que aportan los demas, sumado
