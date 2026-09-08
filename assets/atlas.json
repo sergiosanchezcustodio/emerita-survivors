@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260907235645",
+    "version":  "20260908130211",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -1253,7 +1253,7 @@
                                             "h":  32,
                                             "anclaX":  16,
                                             "anclaY":  16,
-                                            "frames":  8,
+                                            "frames":  29,
                                             "plano":  true,
                                             "orden":  [
                                                           "sandalias",
@@ -1263,7 +1263,28 @@
                                                           "coronaLaurel",
                                                           "antorcha",
                                                           "piedraIman",
-                                                          "anfora"
+                                                          "anfora",
+                                                          "campanaMilagrosa",
+                                                          "alaDeMercurio",
+                                                          "amuletoAzogue",
+                                                          "astaEscornao",
+                                                          "lagartoCalzadilla",
+                                                          "becerroDeOro",
+                                                          "musa",
+                                                          "sanguijuelasGuadiana",
+                                                          "capaErizo",
+                                                          "cruzDelGigante",
+                                                          "piraFuneraria",
+                                                          "lagrimaDeLaMora",
+                                                          "virgenNegra",
+                                                          "balsamoFierabras",
+                                                          "cencerrosSanAnton",
+                                                          "diademaAliseda",
+                                                          "selloMagacela",
+                                                          "coronaEspinas",
+                                                          "grialAlconetar",
+                                                          "llaveDelPerdon",
+                                                          "libroSombras"
                                                       ]
                                         },
                       "iconosArmas":  {

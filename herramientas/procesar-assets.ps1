@@ -3697,10 +3697,34 @@ $ARCHIVO_ICONO_ARMA = @{
     satelites       = 'Satelites.png';           discosDeSierra  = 'Discos_de_sierra.png'
     katana          = 'Katana.png';              sierrasVotivas  = 'Sierras_votivas.png'
 }
+# LOS VEINTINUEVE OBJETOS PASIVOS, en el orden en que van a la tira.
+#
+# Eran ocho y cabian en una lamina de 4x2 que dibujo Sergio. Con veintinueve ya
+# no: ampliar la rejilla obligaria a rehacer la lamina entera cada vez que entra
+# un objeto, y lo que hace falta es poder anadir uno sin tocar lo que hay.
+#
+# Asi que esta hoja pasa a `sueltos`, como la de armas: un archivo por objeto.
+# Los ocho primeros siguen saliendo de la lamina de Sergio -se les saca su celda
+# con ExtraerCelda, ver $ICONO_DESDE_HOJA- y los veintiuno nuevos son archivos
+# en resources/objetos/pasivos/. Nadie tiene que redibujar nada para que entre
+# el numero treinta.
 $ICONOS_OBJETOS = @(
     'sandalias','lorica','anilloAugusto','clepsidra',
-    'coronaLaurel','antorcha','piedraIman','anfora'
+    'coronaLaurel','antorcha','piedraIman','anfora',
+    'campanaMilagrosa','alaDeMercurio','amuletoAzogue','astaEscornao',
+    'lagartoCalzadilla','becerroDeOro','musa','sanguijuelasGuadiana',
+    'capaErizo','cruzDelGigante','piraFuneraria','lagrimaDeLaMora',
+    'virgenNegra','balsamoFierabras','cencerrosSanAnton','diademaAliseda',
+    'selloMagacela','coronaEspinas','grialAlconetar','llaveDelPerdon',
+    'libroSombras'
 )
+
+# Los ocho de la lamina original, cada uno con su celda. El orden de la rejilla
+# 4x2 es el de lectura, y coincide con el de la lista de arriba.
+$CELDA_OBJETO = @{
+    sandalias = 0; lorica = 1; anilloAugusto = 2; clepsidra = 3
+    coronaLaurel = 4; antorcha = 5; piedraIman = 6; anfora = 7
+}
 
 # 32 y no 20 —la rejilla a la que se rasterizaban los glifos vectoriales— porque
 # ahora hay dibujo de verdad que perder. Y no más de 32: el sitio más pequeño
@@ -3790,8 +3814,8 @@ $ICONO_DESDE_HOJA = @{
 
 $HOJAS_ICONOS = @(
     # `modo` rejilla: la hoja trae alfa y los iconos caen en celdas iguales.
-    @{ src='objetos\objetos.png'; dst='iconos\objetos.png'; id='iconosObjetos'
-       ids=$ICONOS_OBJETOS; modo='rejilla'; cols=4; filas=2; lado=$LADO_ICONO }
+    @{ src='objetos\pasivos'; dst='iconos\objetos.png'; id='iconosObjetos'
+       ids=$ICONOS_OBJETOS; modo='sueltos'; cols=0; filas=0; lado=$LADO_ICONO }
     # `modo` sueltos: no hay hoja, hay un archivo por arma dentro de `src`. Ver
     # RecortarIconosSueltos.
     @{ src='armas';               dst='iconos\armas.png';    id='iconosArmas'
@@ -3847,11 +3871,31 @@ foreach ($hoja in $HOJAS_ICONOS) {
                     $tmp
                     continue
                 }
+                # Los ocho pasivos originales viven en la lamina 4x2 que dibujo
+                # Sergio, cada uno en su celda. Mismo camino que las portadas
+                # sacadas de hoja, con la celda en otra tabla porque son otra
+                # cosa: aquella es "de que lamina sale este icono de arma" y
+                # esta es "que celda de la lamina de objetos es este pasivo".
+                $celda = $CELDA_OBJETO[$id]
+                if ($null -ne $celda) {
+                    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) "emerita-objeto-$id.png"
+                    [Procesador]::ExtraerCelda((Join-Path $ORIGEN 'objetos\objetos.png'), $tmp,
+                                               4, 2, [int]$celda) | Out-Null
+                    $tmp
+                    continue
+                }
                 $patron = $ARCHIVO_ICONO_ARMA[$id]
                 $f = $null
                 if ($patron) {
                     $f = Get-ChildItem -Path $rutaSrc -Filter $patron -File |
                          Select-Object -First 1
+                }
+                # Y si no hay patron declarado, el archivo se llama como el id.
+                # Es lo que usan los veintiun objetos nuevos, que salen de
+                # herramientas/generar-imagen.js con ese nombre exacto.
+                if (-not $f) {
+                    $suelto = Join-Path $rutaSrc "$id.png"
+                    if (Test-Path $suelto) { $suelto; continue }
                 }
                 if ($f) { $f.FullName } else { Join-Path $rutaSrc "$id.NO-DECLARADO" }
             }

@@ -69,10 +69,22 @@ dibujo de verdad con el mismo nombre en `resources/armas/` y volviendo a hornear
 
 Los Aros usan el primer aro de la lámina recortado, y funciona.
 
-Y los **objetos nuevos no tienen icono propio**: hay veintiocho pasivos y la
-hoja `objetos.png` trae ocho. Los que faltan se dibujan con el glifo procedural
-que ya existía como repliegue (ver `glifoPasivo` en ui/hud.js), así que se ven y
-se distinguen, pero no son dibujos.
+Los **veintiún objetos pasivos nuevos** llevan iconos generados con Replicate,
+uno por archivo en `resources/objetos/pasivos/<id>.png`. Los ocho originales
+siguen saliendo de la lámina 4x2 de Sergio.
+
+La hoja de objetos pasó de `rejilla` a `sueltos` justamente por esto: con
+veintinueve iconos, ampliar la rejilla obligaría a rehacer la lámina entera cada
+vez que entra un objeto. Ahora **añadir el número treinta es dejar un PNG en esa
+carpeta con el nombre del id**, y nadie tiene que redibujar nada.
+
+Uno de los veintiuno, la **Corona de espinas**, viene del generador con alfa
+propia. El resto llega sobre fondo blanco y el horneado lo recorta inundando
+desde el borde, pero un aro deja un hueco blanco en el centro al que esa
+inundacion no llega: el icono salia como un disco solido. Se le vacio el blanco
+a mano en el PNG de `resources/`, que es la otra entrada que el horneado ya
+sabia leer -"trae alfa propia? pues nada que recortar"-, asi que sigue siendo
+reproducible sin tocar la tuberia.
 
 ---
 
