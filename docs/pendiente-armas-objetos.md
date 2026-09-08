@@ -21,7 +21,7 @@ existe para que la tanda siguiente empiece sabiendo dónde estaba la anterior.
 | **Campana del Silencio** | **La única que no hace daño.** Cono que paraliza; el motor ya trata al paralizado como atravesable y sin daño de contacto |
 | **Aros de rítmica** | Hermana de las RainbowMazas, pero **vuelven como bumerán** — pasan dos veces por el mismo sitio |
 
-### Doce objetos de gameplay
+### Dieciséis objetos de gameplay
 
 Los siete de «una línea de datos» —campo nuevo en el jugador que alguien lee en
 un sitio concreto—: **Campana Milagrosa** (alcance), **Ala de Mercurio**
@@ -32,26 +32,22 @@ Escornao** (perforación), **Lagarto de Calzadilla** (daño de contacto),
 Y los cinco que enganchan en un golpe: **Sanguijuelas del Guadiana**, **Capa del
 erizo**, **Cruz del Gigante**, **Pira funeraria** y **Lágrima de la Mora**.
 
+### Los cuatro que van por reloj
+
+**Virgen Negra** (invulnerable 0,8 s cada 20→8 s), **Bálsamo de Fierabrás**
+(bajo el 25% cura un tercio del máximo, cada 60→24 s), **Cencerros de San
+Antón** (llaman a las gemas cada 30→12 s) y **Diadema de Aliseda** (+40% de
+velocidad al máximo, tras 5 s sin recibir un golpe; uno solo la borra).
+
+Los tres primeros usan `tipo: 'escalon'` —el número BAJA con el nivel— y lo que
+dura o cuánto cura cada uno vive en `entidades/jugador.js`, no en los datos: lo
+que mejora al subir es la frecuencia, no el efecto.
+
 ---
 
 ## Pendiente
 
-### Objetos de gameplay (9)
-
-**Los cuatro periódicos.** Comparten patrón —un reloj en el jugador que dispara
-cada X segundos— así que salen bien de una tacada.
-
-| Objeto | Efecto |
-|---|---|
-| Virgen Negra | Invulnerable un instante cada X s |
-| Bálsamo de Fierabrás | Al bajar del 25% de vida, curación de golpe; recarga cada N s |
-| Cencerros de San Antón | Cada X s atrae todas las gemas del mapa |
-| Diadema de Aliseda | Velocidad que se acumula mientras no te toquen; un golpe la resetea |
-
-Los dos últimos son propuestas que sustituyeron a las originales, porque las
-originales se solapaban con cosas que ya existían: la Diadema era el tercer «+%
-de velocidad» del juego (Sandalias y Premura) y el Bálsamo el tercer goteo de
-vida (Corona de laurel y Panacea).
+### Objetos de gameplay (5)
 
 **Los cuatro de cooperativo.** Necesitan algo que no existe: **un objeto que no
 entre en el sorteo jugando solo**. Es una marca en los datos y un filtro en la

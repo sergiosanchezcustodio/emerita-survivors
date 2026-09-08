@@ -163,6 +163,44 @@ export const PASIVOS = {
     campo: 'furiaMoribundo', tipo: 'suma', valor: 0.08, maxNivel: 10
   },
 
+  // --- Los cuatro que van por reloj ---------------------------------------
+  //
+  // Cuarta tanda. Los tres primeros dicen CADA CUANTOS SEGUNDOS pasa lo suyo,
+  // asi que su numero BAJA con el nivel: son `escalon`, como la Pira funeraria.
+  // Cuanto dura o cuanto cura cada uno esta en entidades/jugador.js, porque lo
+  // que mejora al subir es la frecuencia y no el efecto — un objeto que
+  // mejorara las dos cosas a la vez seria dos objetos.
+  virgenNegra: {
+    nombre: 'Virgen Negra',
+    descripcion: 'Invulnerable un instante cada 20 s (menos por nivel)',
+    campo: 'invulnerableCada', tipo: 'escalon', valor: 20, paso: -1.3, suelo: 8,
+    maxNivel: 10
+  },
+  balsamoFierabras: {
+    nombre: 'Bálsamo de Fierabrás',
+    // El trago que te saca de una, no un goteo: por eso salta solo por debajo
+    // del 25% de vida y cura un tercio del maximo de golpe. La Corona de laurel
+    // y Panacea te mantienen arriba; esto te levanta del suelo.
+    descripcion: 'Bajo el 25% de vida te cura un tercio. Cada 60 s (menos por nivel)',
+    campo: 'balsamoCada', tipo: 'escalon', valor: 60, paso: -4, suelo: 24,
+    maxNivel: 10
+  },
+  cencerrosSanAnton: {
+    nombre: 'Cencerros de San Antón',
+    descripcion: 'Cada 30 s llaman a todas las gemas del mapa (menos por nivel)',
+    campo: 'imanCada', tipo: 'escalon', valor: 30, paso: -2, suelo: 12,
+    maxNivel: 10
+  },
+  diademaAliseda: {
+    nombre: 'Diadema de Aliseda',
+    // EL TERCER OBJETO DE VELOCIDAD del juego y el unico que no es un
+    // porcentaje plano: las Sandalias y Premura te hacen rapido siempre, y esta
+    // te hace rapido si juegas bien. Cinco segundos sin que te toquen para
+    // llenarla; un golpe y a cero.
+    descripcion: '+4% de velocidad por nivel, si llevas 5 s sin que te toquen',
+    campo: 'impulsoMax', tipo: 'suma', valor: 0.04, maxNivel: 10
+  },
+
   anfora: {
     // 30 y no 10: un 200% más de lo que daba. Con 10 por nivel, el Ánfora al
     // máximo sumaba 100 de vida sobre una base de poco más de 100, o sea que

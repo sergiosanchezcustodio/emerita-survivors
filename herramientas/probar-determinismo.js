@@ -64,7 +64,10 @@ const PUERTO = 8143;
 // CADA ENEMIGO (`golpeado`, la de la Cruz del Gigante), y el pool de enemigos
 // entra en la foto desde el primer fotograma aunque el objeto no lo lleve
 // nadie. Nadie pega distinto: se apunta una cosa más.
-const HUELLA_ESPERADA = 'a51e7cae 2813353c 72dab68e 7ee59f35 efb6bb2e 607e69c3 233c67d0';
+// Y con los cuatro objetos que van por reloj: cuatro campos y cuatro relojes
+// mas en el jugador, que entran en la foto desde el primer fotograma aunque
+// valgan cero. Otra vez entera y por el mismo motivo de siempre.
+const HUELLA_ESPERADA = '0b941f91 76f74f69 0e6d9eb0 8dcf953c f9248e7a fcfb87ae d174e532';
 
 let fallos = 0;
 function comprobar(condicion, texto) {

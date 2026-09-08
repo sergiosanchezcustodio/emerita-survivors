@@ -80,6 +80,27 @@ const COLOR_HALO_RECOGIDA = '#7ac4ff';
 const ESPERA_ESCUDO = 6;
 const RELLENO_ESCUDO = 4;
 
+// --- Los cuatro objetos que van por reloj ------------------------------------
+//
+// Lo que dura o cuánto cura cada uno vive AQUÍ y no en datos/pasivos.js, porque
+// lo que sube de nivel en los cuatro es cada cuántos segundos pasa, no cuánto
+// pasa. Un objeto que mejorara las dos cosas a la vez sería dos objetos.
+
+// Virgen Negra: lo que dura el instante de invulnerabilidad. Ocho décimas es
+// poco más que los i-frames de un golpe (medio segundo), que es la referencia
+// con la que ya está calibrado todo lo demás.
+const DURACION_VIRGEN = 0.8;
+
+// Bálsamo de Fierabrás: por debajo de qué fracción de vida salta, y qué
+// fracción cura. Un tercio es mucho a propósito: es un trago, no un goteo, y
+// tiene que sacarte de verdad o no se distingue de la Corona de laurel.
+const UMBRAL_BALSAMO = 0.25;
+const CURA_BALSAMO = 0.33;
+
+// Diadema de Aliseda: segundos sin recibir un golpe hasta llegar al impulso
+// máximo. Cinco es una oleada larga bien jugada.
+const SUBIDA_DIADEMA = 5;
+
 export class Jugador {
   // `rng` es el de la partida, el mismo que llevan el bestiario y el director.
   // Se usa SOLO para el adorno de recibir golpes; se acepta que falte porque
@@ -120,9 +141,22 @@ export class Jugador {
     // subida de nivel y pondria la cuenta a cero, o sea que subir de nivel
     // apagaria la pira que estabas a punto de encender.
     this.bajasPira = 0;
+
+    // LOS RELOJES DE LOS CUATRO PERIODICOS. Aqui y no entre las estadisticas
+    // derivadas por lo mismo que la cuenta de la Pira: `recalcularStats` se
+    // llama en cada subida de nivel y los pondria a cero, o sea que subir de
+    // nivel reiniciaria la cuenta atras de todo lo que estaba a punto de pasar.
+    this.relojInvulnerable = 0;
+    this.relojBalsamo = 0;
+    this.relojIman = 0;
+    // Y el de la Diadema, que cuenta al reves: segundos SIN que te toquen. Lo
+    // pone a cero `recibirDanyo`, que es donde de verdad se entera de que te
+    // han dado.
+    this.relojImpulso = 0;
     this.def = def;
     this.personaje = def.sprite;
     this.arsenal = null;          // lo enchufa quien crea al jugador
+    this.recogibles = null;       // idem: lo necesitan los Cencerros de San Antón
 
     // --- Progresión ------------------------------------------------------
     this.nivel = 1;
@@ -265,6 +299,18 @@ export class Jugador {
     this.piraCada = 0;             // Pira funeraria
     this.furiaMoribundo = 0;       // Lagrima de la Mora
 
+    // --- Los cuatro que van por reloj -------------------------------------
+    //
+    // Cada uno dice CADA CUANTOS SEGUNDOS pasa lo suyo, y el reloj que los
+    // cuenta esta un poco mas abajo, fuera de las estadisticas derivadas.
+    //
+    // Cero = no lo llevas, y eso apaga el reloj entero: sin esa puerta habria
+    // cuatro contadores corriendo en cada jugador y en cada paso para nada.
+    this.invulnerableCada = 0;     // Virgen Negra
+    this.balsamoCada = 0;          // Balsamo de Fierabras
+    this.imanCada = 0;             // Cencerros de San Anton
+    this.impulsoMax = 0;           // Diadema de Aliseda
+
     // MASCOTA de ESTE jugador (datos/mascotas.js). Cada uno lleva la suya, y la
     // elige en la pantalla de mascotas; `mascotaId` lo pone main.js al crearlo.
     //
@@ -387,6 +433,11 @@ export class Jugador {
     // sirve contra la horda que pica de tres en tres y el otro contra el
     // mordisco de un jefe.
     this.relojEscudo = 0;
+    // Y la Diadema de Aliseda vuelve a cero: lo que premia es no comerse nada,
+    // asi que un golpe le quita todo lo acumulado. Va aqui, con el reloj del
+    // escudo, porque es la misma pregunta —cuanto llevas sin que te toquen— y
+    // este es el unico sitio por donde pasa TODO el dano que recibe un jugador.
+    this.relojImpulso = 0;
     if (this.escudo > 0) {
       const absorbido = Math.min(this.escudo, danyo);
       this.escudo -= absorbido;
@@ -521,6 +572,11 @@ export class Jugador {
     this.golpesRecibidos = 0;
     this.escudo = this.escudoMax;
     this.relojEscudo = 0;
+    this.relojInvulnerable = 0;
+    this.relojBalsamo = 0;
+    this.relojIman = 0;
+    this.relojImpulso = 0;
+    this.bajasPira = 0;
     this.resurreccionesUsadas = 0;
   }
 
@@ -561,8 +617,77 @@ export class Jugador {
       }
     }
 
-    const vx = entrada.ejeX * this.velocidad;
-    const vy = entrada.ejeY * this.velocidad;
+    // --- Los cuatro que van por reloj --------------------------------------
+    //
+    // Los tres primeros disparan cada X segundos y el cuarto se acumula. Van
+    // DESPUÉS del corte por abatido de más arriba, a propósito: un caído no se
+    // cura solo, ni se vuelve invulnerable, ni llama a las gemas. Lo único que
+    // le pasa mientras está en el suelo es que le reaniman.
+
+    // LA VIRGEN NEGRA. Un instante de invulnerabilidad cada X segundos, y
+    // llegue cuando llegue: no espera a que te vayan a dar. Suena raro dicho
+    // así, pero en una pantalla llena, ocho décimas de cada diez segundos son
+    // un 8% del daño de contacto que no te entra, y encima se VE —el mismo
+    // parpadeo que tras un golpe—, que es lo que la convierte en un objeto y no
+    // en un número escondido.
+    if (this.invulnerableCada > 0) {
+      this.relojInvulnerable += dt;
+      if (this.relojInvulnerable >= this.invulnerableCada) {
+        this.relojInvulnerable = 0;
+        if (this.invulnerable < DURACION_VIRGEN) this.invulnerable = DURACION_VIRGEN;
+      }
+    }
+
+    // EL BÁLSAMO DE FIERABRÁS. El trago que te saca de una: cura de golpe al
+    // bajar del umbral, y hasta que no pasan sus segundos no vuelve a haber.
+    //
+    // Cura una FRACCIÓN de tu vida máxima y no una cantidad fija, así que
+    // acompaña al personaje que lo lleva: en Julie, que tiene un 20% más de
+    // vida, cura un 20% más. Y solo salta por debajo del umbral — beberse el
+    // frasco con la vida casi llena sería tirarlo.
+    if (this.balsamoCada > 0) {
+      if (this.relojBalsamo > 0) {
+        this.relojBalsamo -= dt;
+        if (this.relojBalsamo < 0) this.relojBalsamo = 0;
+      } else if (this.vida > 0 && this.vida < this.vidaMaxima * UMBRAL_BALSAMO) {
+        this.vida = Math.min(this.vidaMaxima, this.vida + this.vidaMaxima * CURA_BALSAMO);
+        this.relojBalsamo = this.balsamoCada;
+        this.brilloRecogida = 1;
+      }
+    }
+
+    // LOS CENCERROS DE SAN ANTÓN. Cada X segundos suenan y todas las gemas del
+    // mapa vienen solas, que es exactamente lo que hace el imán consumible.
+    //
+    // Quien las atrae es `Recogibles`, y el jugador no lo conoce: se le enchufa
+    // desde fuera (`recogibles`), igual que al bestiario se le enchufan los
+    // cofres. Sin él, esto no hace nada y no rompe nada.
+    if (this.imanCada > 0 && this.recogibles) {
+      this.relojIman += dt;
+      if (this.relojIman >= this.imanCada) {
+        this.relojIman = 0;
+        this.recogibles.atraerTodas(this);
+        this.brilloRecogida = 1;
+      }
+    }
+
+    // LA DIADEMA DE ALISEDA. Velocidad que se acumula mientras no te toquen y
+    // que un solo golpe devuelve a cero (ver `recibirDanyo`).
+    //
+    // Es el tercer objeto de velocidad del juego y el único que no es un
+    // porcentaje plano: las Sandalias y Premura te hacen rápido siempre, y esta
+    // te hace rápido si juegas bien. Tarda SUBIDA_DIADEMA segundos en llenarse,
+    // lo bastante como para que salir ileso de un apuro se note y lo bastante
+    // poco como para recuperarla dentro de la misma oleada.
+    let velocidad = this.velocidad;
+    if (this.impulsoMax > 0) {
+      this.relojImpulso += dt;
+      const lleno = Math.min(1, this.relojImpulso / SUBIDA_DIADEMA);
+      velocidad *= 1 + this.impulsoMax * lleno;
+    }
+
+    const vx = entrada.ejeX * velocidad;
+    const vy = entrada.ejeY * velocidad;
     this.x += vx * dt;
     this.y += vy * dt;
 

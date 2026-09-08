@@ -639,6 +639,11 @@ function anyadirJugador(idPersonaje, idMascota, meta) {
   arsenal.equipar(j.def.arma);
   arsenales.push(arsenal);
   j.arsenal = arsenal;
+  // Y las gemas del suelo, que las necesitan los Cencerros de San Antón: cada
+  // X segundos las llaman a todas, igual que el imán consumible. Se le enchufa
+  // desde aquí y no se importa desde el jugador, por lo mismo que el bestiario
+  // no importa los cofres: quien monta la partida reparte las piezas.
+  j.recogibles = recogibles;
   // Con dos o más, la XP pasa a ser de equipo (ver Progresion.ganarXp): quien
   // se suma entra ya al nivel común, y el umbral de todos se recalcula para
   // el nuevo número de jugadores.
