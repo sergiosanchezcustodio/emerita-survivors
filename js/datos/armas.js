@@ -1392,6 +1392,11 @@ export const ARMAS = {
     descripcion: 'Bolas de acero que ruedan hacia donde miras y siguen de largo.',
     comportamiento: 'direccionFija',
     patron: 'rumbo',
+    // LA BELLOTA DE ORO NO LA TOCA. Lo que hace a la Petanca es el abanico —una
+    // bola por nivel y el ángulo abriéndose con ellas hasta los 120 grados—, y
+    // una bola de regalo desdibuja esa cuenta: el arma dejaría de abrir lo que
+    // dice que abre. Lo pidió Sergio al decidir la Bellota.
+    sinBellota: true,
     danyo: 16, recarga: 1.3, proyectiles: 1, direcciones: 1,
     velocidad: 105, alcance: 165, dispersion: 13.3,
     radio: 6, perforacion: 3, empuje: 130,

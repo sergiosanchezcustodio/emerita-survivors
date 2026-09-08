@@ -656,7 +656,13 @@ export function dibujarFicha(ctx, jugadores, indice) {
   const DIAMETRO_RANURA = 41.25;
   const r = DIAMETRO_RANURA / 2 / ESCALA_FICHA;
   const anchoGrupo = (anchoDer - HUECO) / 2;
-  const pasoArmas = anchoGrupo / MAX_ARMAS;
+  // CUANTAS TENGA ESTE JUGADOR, no cuatro fijas: con la Bandolera son cinco, y
+  // una ficha que siguiera pintando cuatro huecos escondería la ranura que se
+  // acaba de comprar. `|| MAX_ARMAS` para los sitios donde esto se dibuja sin
+  // un jugador de verdad detrás.
+  const nArmas = j.maxArmas || MAX_ARMAS;
+  const nObjetos = j.maxPasivos || MAX_PASIVOS;
+  const pasoArmas = anchoGrupo / nArmas;
   // 48 y no 42: el medallón mide ahora 36,67 de alto y con la caja de 42 se
   // quedaba a un punto y medio del borde de abajo. Los 6 que sube salen del
   // hueco que había entre el inventario y el pie de la ficha, que era de 17.
@@ -666,7 +672,7 @@ export function dibujarFicha(ctx, jugadores, indice) {
   // Centrado en su caja: 24 es la mitad de 48. Antes eran 22 de 42, un pelín
   // por encima del centro, y con el medallón grande ese pelín se nota.
   const yMedallon = y + altoGrupo / 2;
-  for (let k = 0; k < MAX_ARMAS; k++) {
+  for (let k = 0; k < nArmas; k++) {
     const a = armas[k];
     const def = a ? ARMAS[a.id] : null;
     ranura(ctx, xDer + pasoArmas * (k + 0.5), yMedallon, r, a ? def.color : null,
@@ -676,8 +682,8 @@ export function dibujarFicha(ctx, jugadores, indice) {
 
   const xObjetos = xDer + anchoGrupo + HUECO;
   caja(ctx, xObjetos, y, anchoGrupo, altoGrupo, 'OBJETOS', t);
-  const pasoObjetos = anchoGrupo / MAX_PASIVOS;
-  for (let k = 0; k < MAX_PASIVOS; k++) {
+  const pasoObjetos = anchoGrupo / nObjetos;
+  for (let k = 0; k < nObjetos; k++) {
     const id = idsPasivos[k];
     const def = id ? PASIVOS[id] : null;
     ranura(ctx, xObjetos + pasoObjetos * (k + 0.5), yMedallon, r, COLOR_PASIVO,

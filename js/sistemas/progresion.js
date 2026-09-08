@@ -313,8 +313,8 @@ export const Progresion = {
   // entre cosas que ya llevas. Ahí sí molesta parar el juego.
   puedeAutomatizar(jugador) {
     if (!jugador.arsenal) return false;
-    return jugador.arsenal.equipadas.length >= MAX_ARMAS &&
-           Object.keys(jugador.pasivos).length >= MAX_PASIVOS;
+    return jugador.arsenal.equipadas.length >= jugador.maxArmas &&
+           Object.keys(jugador.pasivos).length >= jugador.maxPasivos;
   },
 
   // Se llama cada paso: si no hay nadie eligiendo y queda cola, abre el menú.
@@ -572,7 +572,12 @@ export const Progresion = {
     }
 
     // Armas nuevas, si queda ranura y nadie más las lleva
-    if (propias.length < MAX_ARMAS) {
+    // LAS RANURAS SON DEL JUGADOR, no del juego. Cuatro y cuatro es de donde
+    // parten todos, pero la Bandolera y el Zurrón (potenciadores de la tienda)
+    // le suman una a quien los compre, y en cooperativo cada uno lleva su
+    // progreso: en la misma partida puede haber quien tenga cuatro armas y
+    // quien tenga cinco.
+    if (propias.length < jugador.maxArmas) {
       for (const id in ARMAS) {
         if (ocupadas.has(id)) continue;
         if (ARMAS[id].esEvolucion) continue;
@@ -610,7 +615,7 @@ export const Progresion = {
       if (def.soloCooperativo && jugadores.length < 2) continue;
       const nivel = jugador.pasivos[id] || 0;
       if (nivel === 0 && pasivosOcupados.has(id)) continue;
-      if (nivel === 0 && nPasivos >= MAX_PASIVOS) continue;
+      if (nivel === 0 && nPasivos >= jugador.maxPasivos) continue;
       if (nivel >= def.maxNivel) continue;
       cand.push({ clase: 'pasivo', id, nuevo: nivel === 0, nivelActual: nivel,
                   nombre: def.nombre, descripcion: def.descripcion });

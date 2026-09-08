@@ -5,7 +5,7 @@ import { PERSONAJES } from '../datos/personajes.js';
 import { PASIVOS } from '../datos/pasivos.js';
 import { POTENCIADORES } from '../datos/potenciadores.js';
 import { MASCOTAS, factorMascota } from '../datos/mascotas.js';
-import { Progresion, xpNecesaria, REROLLS } from '../sistemas/progresion.js';
+import { Progresion, xpNecesaria, REROLLS, MAX_ARMAS, MAX_PASIVOS } from '../sistemas/progresion.js';
 import { GestorAudio } from '../sistemas/audio.js';
 import { Particulas, COLOR_SANGRE, COLOR_POLVO } from '../sistemas/particulas.js';
 import { VFX } from '../sistemas/vfx.js';
@@ -159,6 +159,10 @@ export class Jugador {
     // han dado.
     this.relojImpulso = 0;
     this.relojGrial = 0;
+    // El del Manto del Peregrino cuenta AL REVES que los otros: es lo que le
+    // queda para volver a estar cargado, asi que empieza a cero -o sea,
+    // cargado- y solo corre despues de comerse un golpe.
+    this.relojManto = 0;
     // LO QUE APORTAN LOS DEMAS, sumado una vez por paso y no cada vez que se
     // pregunta: `danyoDe` lo lee en cada disparo de cada arma de cada jugador,
     // y recorrer el equipo ahi seria recorrerlo cientos de veces por segundo
@@ -335,6 +339,18 @@ export class Jugador {
     this.grialCada = 0;            // El Grial de Alconetar
     this.perdon = 0;               // La Llave del Perdon
 
+    // --- Los cinco de la tienda -------------------------------------------
+    //
+    // Potenciadores permanentes (denarios), no pasivos de partida. Los tres
+    // primeros son campos como los de arriba; los dos ultimos son RANURAS, y
+    // esos no los lee nadie aqui: los lee la progresion al repartir cartas y la
+    // ficha al dibujar los huecos.
+    this.mantoCada = 0;            // Manto del Peregrino
+    this.bonusProyectiles = 0;     // Bellota de oro
+    this.ultimoAliento = 0;        // Ultimo aliento
+    this.maxArmas = MAX_ARMAS;     // Bandolera
+    this.maxPasivos = MAX_PASIVOS; // Zurron
+
     // MASCOTA de ESTE jugador (datos/mascotas.js). Cada uno lleva la suya, y la
     // elige en la pantalla de mascotas; `mascotaId` lo pone main.js al crearlo.
     //
@@ -436,6 +452,24 @@ export class Jugador {
   recibirDanyo(cantidad, dirX = 0, dirY = 0) {
     if (this.abatido || this.invulnerable > 0 || this.inmortal) return false;
 
+    // EL MANTO DEL PEREGRINO se come un golpe entero cada diez segundos.
+    //
+    // Va lo PRIMERO, antes de la armadura y del escudo: lo que para no es una
+    // parte del golpe, es el golpe. Y devuelve `false` —como si no te hubieran
+    // dado— asi que no gasta i-frames, no corta la recarga del escudo y no
+    // borra la Diadema. Eso es lo que lo separa del escudo, que absorbe pero
+    // deja el golpe existiendo para todo lo demas.
+    //
+    // Se lleva los i-frames por delante a proposito: sin ellos, pararte un
+    // mordisco en medio de la horda te deja expuesto al siguiente en el mismo
+    // fotograma, y el objeto no habria servido de nada.
+    if (this.mantoCada > 0 && this.relojManto <= 0) {
+      this.relojManto = this.mantoCada;
+      this.invulnerable = INVULNERABILIDAD;
+      this.brilloRecogida = 1;
+      return false;
+    }
+
     // EL LAGARTO DE CALZADILLA quita un PORCENTAJE, y la armadura una cantidad
     // fija. Por eso conviven sin ser lo mismo: contra la horda que pica de tres
     // en tres manda la armadura —tres menos dos es uno, casi nada— y contra el
@@ -519,6 +553,18 @@ export class Jugador {
       } else {
         this.abatido = true;
         this.reanimacion = 0;
+        // ÚLTIMO ALIENTO: al caer, lo que te quedaba se lo dejas a los que
+        // siguen en pie. Es el único objeto del juego que solo sirve cuando has
+        // fallado, y por eso se compra: no cambia cómo juegas, cambia lo que
+        // vale tu muerte.
+        if (this.ultimoAliento > 0 && this.companyeros) {
+          for (let i = 0; i < this.companyeros.length; i++) {
+            const o = this.companyeros[i];
+            if (o === this || o.abatido || o.vida >= o.vidaMaxima) continue;
+            o.vida = Math.min(o.vidaMaxima, o.vida + o.vidaMaxima * this.ultimoAliento);
+            o.brilloRecogida = 1;
+          }
+        }
         this._acusarCaida(dirX, dirY);
       }
     }
@@ -621,6 +667,7 @@ export class Jugador {
     this.relojIman = 0;
     this.relojImpulso = 0;
     this.relojGrial = 0;
+    this.relojManto = 0;
     this.bajasPira = 0;
     this.resurreccionesUsadas = 0;
   }
@@ -714,6 +761,14 @@ export class Jugador {
         this.recogibles.atraerTodas(this);
         this.brilloRecogida = 1;
       }
+    }
+
+    // El Manto del Peregrino, recargándose. Cuenta hacia abajo y a cero está
+    // listo, que es lo contrario de los otros tres relojes — y a propósito: lo
+    // normal es tenerlo puesto, no esperándolo.
+    if (this.relojManto > 0) {
+      this.relojManto -= dt;
+      if (this.relojManto < 0) this.relojManto = 0;
     }
 
     // EL SELLO DE LOS CABALLEROS DE MAGACELA. Lo que aportan los demas, sumado

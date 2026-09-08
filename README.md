@@ -323,7 +323,7 @@ Tres secciones:
 </tr>
 </table>
 
-### Los diez potenciadores
+### Los quince potenciadores
 
 ![Potenciadores](docs/potenciadores.png)
 

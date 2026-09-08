@@ -65,6 +65,19 @@ function alcanceDe(s, j) { return s.alcance * (1 + j.bonusAlcance); }
 // vuelo: la vida del proyectil se calcula con el alcance dividido por ESTA
 // velocidad, así que una bala más rápida llega igual de lejos, solo que antes.
 function velocidadDe(s, j) { return s.velocidad * (1 + j.bonusVelProyectil); }
+// CUÁNTOS SALEN, con la Bellota de oro sumada.
+//
+// El arma puede decir que no (`sinBellota`), y hay dos que lo dicen: la Petanca
+// —donde lo que hace el arma es el abanico, y una bola más lo desdibuja— y
+// cualquiera cuyo número de proyectiles SEA la mecánica. Lo pidió Sergio así:
+// «solo armas de proyectiles, quedan fuera petanca o rayo láser».
+//
+// El láser ni siquiera hace falta excluirlo: los rayos no leen `proyectiles`,
+// así que la Bellota no los toca sin que nadie tenga que acordarse.
+function proyectilesDe(arma, s, j) {
+  if (arma.def.sinBellota) return s.proyectiles;
+  return s.proyectiles + (j.bonusProyectiles | 0);
+}
 // Y lo que TARDA EN APAGARSE lo que se queda en el suelo: el charco de
 // alquitrán, el fuego griego, las minas (Amuleto de azogue). Es la tercera
 // manera de hacer más fuerte a un arma de zona sin tocar su daño ni su radio —
@@ -218,7 +231,7 @@ const COMPORTAMIENTOS = {
     dx /= d; dy /= d;
 
     const base = atan2(dy, dx);
-    const n = s.proyectiles;
+    const n = proyectilesDe(arma, s, ctx.jugador);
     // ABANICO O CARRIL, igual que en `direccionFija`: con `separacion` los
     // proyectiles de más salen con el MISMO rumbo, corridos de lado. Lo pide el
     // Arco corto — nueve flechas abiertas en abanico son nueve flechas
@@ -363,7 +376,7 @@ const COMPORTAMIENTOS = {
 
     const semi = s.angulo * 0.5 * GRADOS;
     const danyo = danyoDe(s, j);
-    for (let i = 0; i < s.proyectiles; i++) {
+    for (let i = 0; i < proyectilesDe(arma, s, j); i++) {
       const a = base + (ctx.rng() * 2 - 1) * semi;
       const v = velocidadDe(s, j) * (0.82 + ctx.rng() * 0.36);
       // POR EL REPARTIDOR COMÚN, y este era el ÚLTIMO sitio que no pasaba por
@@ -426,8 +439,8 @@ const COMPORTAMIENTOS = {
 
     for (let d = 0; d < nDirs; d++) {
       const base = dirs[d];
-      for (let i = 0; i < s.proyectiles; i++) {
-        const centrado = i - (s.proyectiles - 1) / 2;
+      for (let i = 0; i < proyectilesDe(arma, s, j); i++) {
+        const centrado = i - (proyectilesDe(arma, s, j) - 1) / 2;
         const a = separa > 0 ? base : base + centrado * s.dispersion * GRADOS;
         sis._rellenarProyectil(arma, s, danyo, ctx.jugador);
         sis.defProyectil.vida = alcanceDe(s, j) / velocidadDe(s, j);
@@ -451,7 +464,7 @@ const COMPORTAMIENTOS = {
     const s = arma.stats;
     const j = ctx.jugador;
     const danyo = danyoDe(s, j);
-    for (let i = 0; i < s.proyectiles; i++) {
+    for (let i = 0; i < proyectilesDe(arma, s, j); i++) {
       const a = ctx.rng() * Math.PI * 2;
       sis._rellenarProyectil(arma, s, danyo, ctx.jugador);
       sis.defProyectil.vida = alcanceDe(s, j) / velocidadDe(s, j);
@@ -489,8 +502,8 @@ const COMPORTAMIENTOS = {
       base = obj ? atan2(obj.y - j.y, obj.x - j.x) : ctx.rng() * Math.PI * 2;
     }
 
-    for (let i = 0; i < s.proyectiles; i++) {
-      const a = base + (i - (s.proyectiles - 1) / 2) * s.dispersion * GRADOS;
+    for (let i = 0; i < proyectilesDe(arma, s, j); i++) {
+      const a = base + (i - (proyectilesDe(arma, s, j) - 1) / 2) * s.dispersion * GRADOS;
       sis._rellenarProyectil(arma, s, danyo, ctx.jugador);
       sis.defProyectil.vida = alcanceDe(s, j) / velocidadDe(s, j);
       sis.defProyectil.radioExplosion = areaDe(s.radioExplosion, j);
@@ -511,7 +524,7 @@ const COMPORTAMIENTOS = {
     const danyo = Math.round(s.danyoExplosion * (1 + j.bonusDanyo));
     const radio = areaDe(s.radioExplosion, j);
 
-    for (let i = 0; i < s.proyectiles; i++) {
+    for (let i = 0; i < proyectilesDe(arma, s, j); i++) {
       // Dentro del viewport, centrado en el jugador: caer fuera de cámara sería
       // regalar daño que nadie ve.
       // DÓNDE CAE. Por defecto, cualquier sitio de la pantalla centrado en el

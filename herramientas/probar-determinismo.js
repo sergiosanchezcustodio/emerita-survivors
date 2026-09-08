@@ -69,7 +69,9 @@ const PUERTO = 8143;
 // valgan cero. Otra vez entera y por el mismo motivo de siempre.
 // Y con los cuatro objetos de cooperativo: cuatro campos mas, el reloj del
 // Grial y `auraEquipo`, que se recalcula en cada paso aunque no lo lleve nadie.
-const HUELLA_ESPERADA = '510fbb01 128c3894 16139ea0 acb06388 187e60db 50396df6 2a84be24';
+// Y con los cinco de la tienda: cinco campos mas, el reloj del Manto y las dos
+// RANURAS, que dejan de ser constantes del juego para ser numeros del jugador.
+const HUELLA_ESPERADA = 'f49a8030 9cde0394 82733395 e0283be5 e00f53ff 8070c18c 43b6a952';
 
 let fallos = 0;
 function comprobar(condicion, texto) {

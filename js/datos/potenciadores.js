@@ -148,6 +148,71 @@ export const POTENCIADORES = {
   // largas solo para esto—, así que llega tarde y como recompensa de mucho
   // plazo. Aun así es el número que más conviene mirar la primera vez que se
   // juegue con él: si sobra, se recorta aquí y ya está.
+  // --- Los cinco de la lista de Sergio -------------------------------------
+  //
+  // Todos de UN SOLO NIVEL menos la Bellota, y eso es lo que los separa de los
+  // diez de arriba: aquellos son porcentajes que se suben poco a poco y estos
+  // son cosas que tienes o no tienes. Comprar el Zurrón dos veces no tendría
+  // sentido — o hay una ranura más o no la hay.
+  //
+  // Y por eso son caros de golpe en vez de ir doblando: el precio de un
+  // potenciador dobla en cada nivel (ver `costePotenciador`), y con un solo
+  // nivel ese mecanismo no se usa nunca. Lo que se paga es lo que pone aquí.
+  mantoPeregrino: {
+    nombre: 'Manto del Peregrino',
+    // Se come el GOLPE ENTERO, no una parte, y no gasta i-frames al hacerlo.
+    // Eso es lo que lo separa del escudo, que absorbe pero deja el golpe
+    // existiendo para todo lo demás. Ver `recibirDanyo` en entidades/jugador.js.
+    descripcion: 'Te para un golpe entero cada 10 segundos',
+    campo: 'mantoCada', tipo: 'suma', valor: 10,
+    escala: 1, unidad: ' s', concepto: 'entre golpe y golpe parado',
+    arte: 'potVitalidad',
+    maxNivel: 1, costeBase: 2200
+  },
+  bellotaDeOro: {
+    nombre: 'Bellota de oro',
+    // El único de los cinco con dos niveles, porque es el único donde "otro
+    // más" sigue significando algo. Solo toca a las armas de proyectil, y las
+    // que se desdibujarían con uno de regalo pueden decir que no
+    // (`sinBellota`: hoy solo la Petanca).
+    descripcion: 'Un proyectil más en todas tus armas que disparan',
+    campo: 'bonusProyectiles', tipo: 'suma', valor: 1,
+    escala: 1, unidad: '', concepto: 'proyectil más',
+    arte: 'potFuria',
+    maxNivel: 2, costeBase: 3000
+  },
+  ultimoAliento: {
+    nombre: 'Último aliento',
+    // EL ÚNICO OBJETO DEL JUEGO QUE SOLO SIRVE CUANDO HAS FALLADO. No cambia
+    // cómo juegas: cambia lo que vale tu muerte. En solitario no hace nada, y
+    // no se esconde por eso —la tienda se mira antes de elegir con cuántos se
+    // juega, así que aquí sí tiene sentido que se pueda comprar y guardar.
+    descripcion: 'Al caer, curas un 25% de vida a los que sigan en pie',
+    campo: 'ultimoAliento', tipo: 'suma', valor: 0.25,
+    escala: 100, unidad: '%', concepto: 'de vida a quien siga en pie',
+    arte: 'potPanacea',
+    maxNivel: 1, costeBase: 1800
+  },
+  zurron: {
+    nombre: 'Zurrón',
+    descripcion: 'Una ranura más de objeto: cinco en vez de cuatro',
+    campo: 'maxPasivos', tipo: 'suma', valor: 1,
+    escala: 1, unidad: '', concepto: 'ranura de objeto',
+    arte: 'potCodicia',
+    maxNivel: 1, costeBase: 4000
+  },
+  bandolera: {
+    nombre: 'Bandolera',
+    // LA MÁS CARA DE TODA LA TIENDA, y con motivo: una ranura de arma no es un
+    // porcentaje, es un arma entera más con sus diez niveles. Cambia la partida
+    // más que cualquier otra cosa que se pueda comprar.
+    descripcion: 'Una ranura más de arma: cinco en vez de cuatro',
+    campo: 'maxArmas', tipo: 'suma', valor: 1,
+    escala: 1, unidad: '', concepto: 'ranura de arma',
+    arte: 'potOnda',
+    maxNivel: 1, costeBase: 6000
+  },
+
   faroDeLaMuerte: {
     nombre: 'Moneda de Caronte',
     descripcion: 'Una vida extra por nivel: vuelves a media vida donde caíste',
