@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260908130211",
+    "version":  "20260908154259",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -1024,6 +1024,81 @@
                                                         78
                                                     ]
                                      },
+                      "potManto":  {
+                                       "archivo":  "objetos/pot-manto.png",
+                                       "w":  80,
+                                       "h":  112,
+                                       "anclaX":  40,
+                                       "anclaY":  112,
+                                       "frames":  1,
+                                       "plano":  true,
+                                       "solido":  [
+                                                      17,
+                                                      20,
+                                                      46,
+                                                      75
+                                                  ]
+                                   },
+                      "potBellota":  {
+                                         "archivo":  "objetos/pot-bellota.png",
+                                         "w":  72,
+                                         "h":  112,
+                                         "anclaX":  36,
+                                         "anclaY":  112,
+                                         "frames":  1,
+                                         "plano":  true,
+                                         "solido":  [
+                                                        10,
+                                                        24,
+                                                        47,
+                                                        73
+                                                    ]
+                                     },
+                      "potAliento":  {
+                                         "archivo":  "objetos/pot-aliento.png",
+                                         "w":  48,
+                                         "h":  112,
+                                         "anclaX":  24,
+                                         "anclaY":  112,
+                                         "frames":  1,
+                                         "plano":  true,
+                                         "solido":  [
+                                                        12,
+                                                        36,
+                                                        22,
+                                                        70
+                                                    ]
+                                     },
+                      "potZurron":  {
+                                        "archivo":  "objetos/pot-zurron.png",
+                                        "w":  120,
+                                        "h":  112,
+                                        "anclaX":  60,
+                                        "anclaY":  112,
+                                        "frames":  1,
+                                        "plano":  true,
+                                        "solido":  [
+                                                       18,
+                                                       19,
+                                                       86,
+                                                       82
+                                                   ]
+                                    },
+                      "potBandolera":  {
+                                           "archivo":  "objetos/pot-bandolera.png",
+                                           "w":  88,
+                                           "h":  112,
+                                           "anclaX":  44,
+                                           "anclaY":  112,
+                                           "frames":  1,
+                                           "plano":  true,
+                                           "solido":  [
+                                                          13,
+                                                          19,
+                                                          62,
+                                                          60
+                                                      ]
+                                       },
                       "columna":  {
                                       "archivo":  "objetos/columna.png",
                                       "w":  104,

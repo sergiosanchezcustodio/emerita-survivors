@@ -33,6 +33,12 @@
 // glifos. Ya lo hay, y un potenciador que se compra para siempre merece no
 // parecer un objeto de partida.
 //
+// Y LOS QUINCE, desde la última tanda: los cinco de la lista de Sergio
+// salieron prestados —el Manto con el ánfora de la Vitalidad, la Bandolera
+// con la onda— y en la tienda se veían dos casillas distintas con la misma
+// ilustración, que es justo lo que se había arreglado antes. Los suyos son
+// provisionales generados con Replicate hasta que Sergio los dibuje.
+//
 // CÓMO SE ESCRIBE EL EFECTO EN LA TIENDA. Antes había un `efecto` con la frase
 // ya montada —'+4% vida máxima'— y era un número copiado a mano del `valor` de
 // al lado: dos sitios que decir lo mismo y uno de los dos quedándose viejo el
@@ -166,7 +172,7 @@ export const POTENCIADORES = {
     descripcion: 'Te para un golpe entero cada 10 segundos',
     campo: 'mantoCada', tipo: 'suma', valor: 10,
     escala: 1, unidad: ' s', concepto: 'entre golpe y golpe parado',
-    arte: 'potVitalidad',
+    arte: 'potManto',
     maxNivel: 1, costeBase: 2200
   },
   bellotaDeOro: {
@@ -178,7 +184,7 @@ export const POTENCIADORES = {
     descripcion: 'Un proyectil más en todas tus armas que disparan',
     campo: 'bonusProyectiles', tipo: 'suma', valor: 1,
     escala: 1, unidad: '', concepto: 'proyectil más',
-    arte: 'potFuria',
+    arte: 'potBellota',
     maxNivel: 2, costeBase: 3000
   },
   ultimoAliento: {
@@ -190,7 +196,7 @@ export const POTENCIADORES = {
     descripcion: 'Al caer, curas un 25% de vida a los que sigan en pie',
     campo: 'ultimoAliento', tipo: 'suma', valor: 0.25,
     escala: 100, unidad: '%', concepto: 'de vida a quien siga en pie',
-    arte: 'potPanacea',
+    arte: 'potAliento',
     maxNivel: 1, costeBase: 1800
   },
   zurron: {
@@ -198,7 +204,7 @@ export const POTENCIADORES = {
     descripcion: 'Una ranura más de objeto: cinco en vez de cuatro',
     campo: 'maxPasivos', tipo: 'suma', valor: 1,
     escala: 1, unidad: '', concepto: 'ranura de objeto',
-    arte: 'potCodicia',
+    arte: 'potZurron',
     maxNivel: 1, costeBase: 4000
   },
   bandolera: {
@@ -209,7 +215,7 @@ export const POTENCIADORES = {
     descripcion: 'Una ranura más de arma: cinco en vez de cuatro',
     campo: 'maxArmas', tipo: 'suma', valor: 1,
     escala: 1, unidad: '', concepto: 'ranura de arma',
-    arte: 'potOnda',
+    arte: 'potBandolera',
     maxNivel: 1, costeBase: 6000
   },
 

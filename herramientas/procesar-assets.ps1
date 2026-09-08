@@ -3273,6 +3273,17 @@ $CATALOGO = @(
     @{ src='objetos\potenciadores_tienda\egida.png';          dst='objetos\pot-egida.png';     id='potEgida';     alto=28; anchoFijo=0; tol=0; plano=$true }
     @{ src='objetos\potenciadores_tienda\moneda_caronte.png'; dst='objetos\pot-caronte.png';   id='potCaronte';   alto=28; anchoFijo=0; tol=0; plano=$true }
 
+    # Y LOS CINCO DE LA ULTIMA TANDA. Salieron reutilizando el dibujo del
+    # potenciador mas parecido -el Manto con el anfora de la Vitalidad, la
+    # Bandolera con la onda- porque no habia arte, y en la tienda se veian dos
+    # casillas distintas con la misma ilustracion. Estos son provisionales
+    # generados con Replicate hasta que Sergio los dibuje.
+    @{ src='objetos\potenciadores_tienda\manto_peregrino.png'; dst='objetos\pot-manto.png'; id='potManto'; alto=28; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\potenciadores_tienda\bellota_de_oro.png'; dst='objetos\pot-bellota.png'; id='potBellota'; alto=28; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\potenciadores_tienda\ultimo_aliento.png'; dst='objetos\pot-aliento.png'; id='potAliento'; alto=28; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\potenciadores_tienda\zurron.png'; dst='objetos\pot-zurron.png'; id='potZurron'; alto=28; anchoFijo=0; tol=0; plano=$true }
+    @{ src='objetos\potenciadores_tienda\bandolera.png'; dst='objetos\pot-bandolera.png'; id='potBandolera'; alto=28; anchoFijo=0; tol=0; plano=$true }
+
     # --- Decoracion solida del nivel 1: columnas, antorchas, estatuas y
     # ruinas de resources/stages/1/objetos/. Ilustraciones estaticas sueltas
     # (sin gif/cadera/hoja), asi que caen directas por Procesar():

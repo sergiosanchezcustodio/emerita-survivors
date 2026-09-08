@@ -86,6 +86,14 @@ a mano en el PNG de `resources/`, que es la otra entrada que el horneado ya
 sabia leer -"trae alfa propia? pues nada que recortar"-, asi que sigue siendo
 reproducible sin tocar la tuberia.
 
+Y los **cinco potenciadores de tienda nuevos** también tienen ya dibujo propio,
+en `resources/objetos/potenciadores_tienda/`. Salieron prestando el icono del
+potenciador más parecido —el Manto con el ánfora de la Vitalidad, la Bandolera
+con la onda expansiva—, así que en la tienda se veían dos casillas distintas con
+la misma ilustración: justo lo que se había arreglado cuando los diez originales
+dejaron de usar el icono de su pasivo gemelo. También son de Replicate, también
+provisionales.
+
 ---
 
 ## Decisiones tomadas (no volver a preguntarlas)
