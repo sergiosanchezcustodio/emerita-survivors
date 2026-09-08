@@ -201,6 +201,49 @@ export const PASIVOS = {
     campo: 'impulsoMax', tipo: 'suma', valor: 0.04, maxNivel: 10
   },
 
+  // --- Los cuatro de cooperativo ------------------------------------------
+  //
+  // Quinta tanda, y los unicos que miran a los DEMAS. Llevan
+  // `soloCooperativo: true`, que los saca del sorteo jugando solo: curar al
+  // equipo no es un efecto flojo cuando estas tu nada mas, es NINGUN efecto, y
+  // una carta que no hace nada es peor que una carta mala.
+  //
+  // El filtro esta en la generacion de ofertas (sistemas/progresion.js) y mira
+  // cuantos hay jugando AHORA. En cooperativo local se suman a mitad de
+  // partida, asi que quien empiece solo y reciba compania empezara a verlos en
+  // la siguiente subida de nivel.
+  selloMagacela: {
+    nombre: 'Sello de los Caballeros de Magacela',
+    // Reparte a los OTROS, no a quien lo lleva. Es un tercio de lo que da el
+    // Anillo de Augusto (+5% por nivel) porque va multiplicado por cuanta gente
+    // haya: con cuatro, tres reciben lo tuyo y tu recibes lo de tres.
+    descripcion: '+1.7% de daño por nivel A TUS COMPAÑEROS, no a ti',
+    campo: 'auraDanyo', tipo: 'suma', valor: 0.017, maxNivel: 10,
+    soloCooperativo: true
+  },
+  coronaEspinas: {
+    nombre: 'Corona de Espinas',
+    // El objeto del que aguanta: no te protege de nada, convierte tu vida en la
+    // de los demas. Lo lleva quien se pone delante.
+    descripcion: 'El 15% del daño que recibes por nivel se lo dan de vida a cada compañero',
+    campo: 'reparteVida', tipo: 'suma', valor: 0.15, maxNivel: 10,
+    soloCooperativo: true
+  },
+  grialAlconetar: {
+    nombre: 'El Grial de Alconétar',
+    descripcion: 'Cura 6 de vida a todo el equipo cada 25 s (menos por nivel)',
+    campo: 'grialCada', tipo: 'escalon', valor: 25, paso: -1.5, suelo: 12,
+    maxNivel: 10, soloCooperativo: true
+  },
+  llaveDelPerdon: {
+    nombre: 'La Llave del Perdón',
+    // LA LLEVA EL QUE VA A LEVANTAR, no el caido: no te salva a ti, te
+    // convierte a ti en quien salva.
+    descripcion: '+10% por nivel de prisa y de alcance al reanimar a un caído',
+    campo: 'perdon', tipo: 'suma', valor: 0.10, maxNivel: 10,
+    soloCooperativo: true
+  },
+
   anfora: {
     // 30 y no 10: un 200% más de lo que daba. Con 10 por nivel, el Ánfora al
     // máximo sumaba 100 de vida sobre una base de poco más de 100, o sea que

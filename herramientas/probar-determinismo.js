@@ -67,7 +67,9 @@ const PUERTO = 8143;
 // Y con los cuatro objetos que van por reloj: cuatro campos y cuatro relojes
 // mas en el jugador, que entran en la foto desde el primer fotograma aunque
 // valgan cero. Otra vez entera y por el mismo motivo de siempre.
-const HUELLA_ESPERADA = '0b941f91 76f74f69 0e6d9eb0 8dcf953c f9248e7a fcfb87ae d174e532';
+// Y con los cuatro objetos de cooperativo: cuatro campos mas, el reloj del
+// Grial y `auraEquipo`, que se recalcula en cada paso aunque no lo lleve nadie.
+const HUELLA_ESPERADA = '510fbb01 128c3894 16139ea0 acb06388 187e60db 50396df6 2a84be24';
 
 let fallos = 0;
 function comprobar(condicion, texto) {

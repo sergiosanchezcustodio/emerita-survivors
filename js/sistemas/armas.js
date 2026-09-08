@@ -48,7 +48,13 @@ function furiaDe(j) {
   return 1 + j.furiaMoribundo * falta;
 }
 
-function danyoDe(s, j) { return Math.round(s.danyo * (1 + j.bonusDanyo) * furiaDe(j)); }
+// `auraEquipo` es lo que aportan LOS DEMAS con el Sello de los Caballeros de
+// Magacela (ver entidades/jugador.js): se suma al bonus propio porque para el
+// arma es lo mismo, más daño es más daño. Lo calcula el jugador una vez por
+// paso; aquí solo se lee.
+function danyoDe(s, j) {
+  return Math.round(s.danyo * (1 + j.bonusDanyo + j.auraEquipo) * furiaDe(j));
+}
 function areaDe(v, j)  { return v * (1 + j.bonusArea); }
 // LO LEJOS QUE LLEGA UN ARMA, con la Campana Milagrosa aplicada. Aparte de
 // `areaDe` a propósito: el área es lo ANCHO que pega una cosa y el alcance lo

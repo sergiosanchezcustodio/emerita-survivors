@@ -101,6 +101,11 @@ const CURA_BALSAMO = 0.33;
 // máximo. Cinco es una oleada larga bien jugada.
 const SUBIDA_DIADEMA = 5;
 
+// El Grial de Alconetar: puntos de vida que reparte cada vez que suena. Poco a
+// proposito —es un goteo de equipo, no una cura— y fijo, porque lo que sube de
+// nivel es cada cuanto llega.
+const CURA_GRIAL = 6;
+
 export class Jugador {
   // `rng` es el de la partida, el mismo que llevan el bestiario y el director.
   // Se usa SOLO para el adorno de recibir golpes; se acepta que falte porque
@@ -153,6 +158,15 @@ export class Jugador {
     // pone a cero `recibirDanyo`, que es donde de verdad se entera de que te
     // han dado.
     this.relojImpulso = 0;
+    this.relojGrial = 0;
+    // LO QUE APORTAN LOS DEMAS, sumado una vez por paso y no cada vez que se
+    // pregunta: `danyoDe` lo lee en cada disparo de cada arma de cada jugador,
+    // y recorrer el equipo ahi seria recorrerlo cientos de veces por segundo
+    // para obtener siempre el mismo numero.
+    this.auraEquipo = 0;
+    // El equipo, para poder mirarlo. Lo enchufa quien crea al jugador, como los
+    // recogibles: el jugador no importa la lista de jugadores.
+    this.companyeros = null;
     this.def = def;
     this.personaje = def.sprite;
     this.arsenal = null;          // lo enchufa quien crea al jugador
@@ -311,6 +325,16 @@ export class Jugador {
     this.imanCada = 0;             // Cencerros de San Anton
     this.impulsoMax = 0;           // Diadema de Aliseda
 
+    // --- Los cuatro de cooperativo ----------------------------------------
+    //
+    // Los unicos del juego que miran a los DEMAS. Jugando solo no salen
+    // siquiera en el sorteo (ver `soloCooperativo` en datos/pasivos.js), asi
+    // que aqui no hay que defenderse de que valgan cero: nadie los lleva.
+    this.auraDanyo = 0;            // Sello de los Caballeros de Magacela
+    this.reparteVida = 0;          // Corona de Espinas
+    this.grialCada = 0;            // El Grial de Alconetar
+    this.perdon = 0;               // La Llave del Perdon
+
     // MASCOTA de ESTE jugador (datos/mascotas.js). Cada uno lleva la suya, y la
     // elige en la pantalla de mascotas; `mascotaId` lo pone main.js al crearlo.
     //
@@ -445,6 +469,26 @@ export class Jugador {
     }
 
     this.vida -= danyo;
+
+    // LA CORONA DE ESPINAS: lo que te quitan, lo ganan ellos.
+    //
+    // Es el objeto del que aguanta. No te protege de nada —el golpe entra
+    // igual— pero convierte tu vida en la de los demas, asi que lo lleva quien
+    // se pone delante. En una partida de cuatro, con uno abriendo y tres
+    // detras, es lo mas cerca que tiene el juego de un tanque.
+    //
+    // Reparte a CADA uno, no entre todos: si se dividiera, el objeto valdria
+    // menos cuanta mas gente hubiera, que es al reves de lo que tiene que pasar
+    // en un objeto de cooperativo.
+    if (this.reparteVida > 0 && danyo > 0 && this.companyeros) {
+      const cura = danyo * this.reparteVida;
+      for (let i = 0; i < this.companyeros.length; i++) {
+        const o = this.companyeros[i];
+        if (o === this || o.abatido || o.vida >= o.vidaMaxima) continue;
+        o.vida = Math.min(o.vidaMaxima, o.vida + cura);
+      }
+    }
+
     this.invulnerable = INVULNERABILIDAD;
     this.destello = DESTELLO_DANYO;
     this.golpesRecibidos++;
@@ -576,6 +620,7 @@ export class Jugador {
     this.relojBalsamo = 0;
     this.relojIman = 0;
     this.relojImpulso = 0;
+    this.relojGrial = 0;
     this.bajasPira = 0;
     this.resurreccionesUsadas = 0;
   }
@@ -668,6 +713,38 @@ export class Jugador {
         this.relojIman = 0;
         this.recogibles.atraerTodas(this);
         this.brilloRecogida = 1;
+      }
+    }
+
+    // EL SELLO DE LOS CABALLEROS DE MAGACELA. Lo que aportan los demas, sumado
+    // aqui una vez y leido despues por `danyoDe` en cada disparo.
+    //
+    // Suma el de LOS OTROS y no el propio: quien lo lleva reparte, no se lo
+    // queda. Con dos llevandolo, cada uno recibe el del otro — se acumulan sin
+    // que nadie se multiplique por si mismo.
+    if (this.companyeros) {
+      let aura = 0;
+      for (let i = 0; i < this.companyeros.length; i++) {
+        const o = this.companyeros[i];
+        if (o !== this && !o.abatido) aura += o.auraDanyo;
+      }
+      this.auraEquipo = aura;
+    }
+
+    // EL GRIAL DE ALCONETAR. Cada X segundos cura un poco a TODOS, incluido
+    // quien lo lleva. Es el goteo del equipo: no salva a nadie de un golpe, pero
+    // en veinte minutos son cientos de puntos repartidos.
+    if (this.grialCada > 0 && this.companyeros) {
+      this.relojGrial += dt;
+      if (this.relojGrial >= this.grialCada) {
+        this.relojGrial = 0;
+        for (let i = 0; i < this.companyeros.length; i++) {
+          const o = this.companyeros[i];
+          // A los caidos tampoco: en el suelo no se cura nadie, se reanima.
+          if (o.abatido || o.vida >= o.vidaMaxima) continue;
+          o.vida = Math.min(o.vidaMaxima, o.vida + CURA_GRIAL);
+          o.brilloRecogida = 1;
+        }
       }
     }
 

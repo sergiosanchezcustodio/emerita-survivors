@@ -598,6 +598,16 @@ export const Progresion = {
     const nPasivos = Object.keys(jugador.pasivos).length;
     for (const id in PASIVOS) {
       const def = PASIVOS[id];
+      // OBJETOS QUE SOLO EXISTEN EN COOPERATIVO. Curar al equipo o repartirle tu
+      // vida no es un efecto flojo jugando solo: es NINGÚN efecto, y una carta
+      // que no hace nada es peor que una carta mala — la mala al menos se
+      // descarta sabiendo por qué.
+      //
+      // Se filtra en el sorteo y no en el objeto porque el objeto no sabe
+      // cuántos están jugando. Y basta con mirar cuántos hay: en cooperativo
+      // local se suman a mitad de partida, así que el que empiece solo y reciba
+      // compañía empezará a verlos en la siguiente subida de nivel.
+      if (def.soloCooperativo && jugadores.length < 2) continue;
       const nivel = jugador.pasivos[id] || 0;
       if (nivel === 0 && pasivosOcupados.has(id)) continue;
       if (nivel === 0 && nPasivos >= MAX_PASIVOS) continue;

@@ -644,6 +644,10 @@ function anyadirJugador(idPersonaje, idMascota, meta) {
   // desde aquí y no se importa desde el jugador, por lo mismo que el bestiario
   // no importa los cofres: quien monta la partida reparte las piezas.
   j.recogibles = recogibles;
+  // Y el equipo, que lo miran los cuatro objetos de cooperativo. Se le pasa la
+  // lista VIVA, no una copia: quien se suma a mitad de partida entra en ella y
+  // los que ya estaban lo ven sin que nadie tenga que avisar.
+  j.companyeros = jugadores;
   // Con dos o más, la XP pasa a ser de equipo (ver Progresion.ganarXp): quien
   // se suma entra ya al nivel común, y el umbral de todos se recalcula para
   // el nuevo número de jugadores.
@@ -2483,16 +2487,28 @@ function reanimar(dt) {
     const j = jugadores[i];
     if (!j.abatido) continue;
 
+    // LA LLAVE DEL PERDÓN la lleva EL QUE VA A LEVANTAR, no el caído, y esa es
+    // toda la idea del objeto: no te salva a ti, te convierte a ti en quien
+    // salva. Así que el radio y la prisa salen de cada compañero que se acerca,
+    // y con dos cerca manda el mejor de los dos.
     let acompanyado = false;
+    let mejorPerdon = 0;
     for (let k = 0; k < jugadores.length; k++) {
       const o = jugadores[k];
       if (k === i || o.abatido) continue;
+      const alcance = RADIO_REANIMAR * (1 + o.perdon);
       const dx = o.x - j.x;
       const dy = o.y - j.y;
-      if (dx * dx + dy * dy <= RADIO_REANIMAR * RADIO_REANIMAR) { acompanyado = true; break; }
+      if (dx * dx + dy * dy <= alcance * alcance) {
+        acompanyado = true;
+        if (o.perdon > mejorPerdon) mejorPerdon = o.perdon;
+      }
     }
 
-    j.reanimacion += dt / (acompanyado ? REANIMAR_CERCA : REANIMAR_LEJOS);
+    // El caído sube su barra al doble de deprisa con alguien al lado (diez
+    // segundos contra treinta), y la Llave acorta esos diez.
+    const cerca = REANIMAR_CERCA / (1 + mejorPerdon);
+    j.reanimacion += dt / (acompanyado ? cerca : REANIMAR_LEJOS);
     if (j.reanimacion >= 1) j.levantar();
   }
 }
