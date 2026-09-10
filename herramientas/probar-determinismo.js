@@ -80,7 +80,13 @@ const PUERTO = 8143;
 // primeros no, que es la firma de siempre cuando lo que cambia es QUIEN entra
 // en el sorteo: hasta la primera subida de nivel las dos partidas son la
 // misma, y a partir de ahi el azar se gasta en otro orden.
-const HUELLA_ESPERADA = '36c604ca bd987e9a 309e3ff5 1c046485 25082b6f cb7dfe03 51222495';
+// Y rehecha otra vez el 10 de septiembre, esta desde el SEGUNDO grupo, que es
+// otra firma distinta: no cambia quien entra en el sorteo, cambia el mundo.
+// Los proyectiles traen campos nuevos -el Osito y su carrerilla- que entran en
+// la foto desde el primer fotograma aunque nadie lleve el arma, y la decoracion
+// del nivel se ha movido: estatuas al borde de la calzada y ruinas un 20% mas
+// pequenas, o sea otras cajas solidas y otras colisiones desde el primer paso.
+const HUELLA_ESPERADA = '36c604ca 222e4a2b 4e33f2d8 4cc749ed 84920069 501e4bb9 c199bf0e';
 
 let fallos = 0;
 function comprobar(condicion, texto) {

@@ -146,7 +146,15 @@ function crearProyectil() {
     // apunta a donde vuela, pero un osito que corre tiene los pies abajo
     // siempre, y rotarlo con el rumbo lo dejaría cabeza abajo yendo a la
     // izquierda.
-    sinRotar: 0
+    sinRotar: 0,
+    // CARRERILLA: segundos de salida en línea recta, sin perseguir ni culebrear.
+    //
+    // Sin esto, un osito lanzado hacia la derecha con un enemigo a la izquierda
+    // del jugador daba media vuelta en el sitio y volvía cruzando por delante de
+    // quien lo había soltado: se quedaba dando vueltas a los pies del jugador en
+    // vez de salir corriendo, que es lo que promete el arma. Con la carrerilla
+    // primero SALE, y en cuanto está fuera empieza a buscar.
+    recto: 0
   };
 }
 
@@ -189,6 +197,25 @@ const TAU = Math.PI * 2;
 // El empujón de después de mover usa el óvalo pelado: es el "nunca" de "nunca
 // lo atraviesa", y la curva puede fallar a bocajarro.
 const RODEO_HOLGURA = 1.9;
+// LA BURBUJA DE SALIDA, alrededor de QUIEN LO HA LANZADO.
+//
+// Rodear el cuerpo no basta para que un osito se vaya. La horda persigue al
+// jugador, o sea que el enemigo más cercano casi siempre está pegado a él: en
+// cuanto se le acababa la carrerilla, el osito daba media vuelta y se quedaba
+// orbitando entre los pies de su dueño —medido: una de cada cuatro muestras a
+// menos de 18 unidades—. Eso no es lo que promete el arma, que es soltar bichos
+// que SALEN CORRIENDO.
+//
+// Dentro de este radio el rumbo tiene prohibido acercarse a su dueño: se le
+// permite salir o irse de lado, nunca volver. El tope es de 80 grados y no de
+// 90 justo por eso: a 90 la componente radial es cero y el osito daría vueltas
+// eternas a la misma distancia; con 80 siempre le queda algo de "hacia fuera" y
+// termina saliendo, aunque sea en espiral.
+//
+// Solo vale para SU dueño. A los otros jugadores se les rodea, que es distinto:
+// ahí no hay nada de lo que huir, solo un cuerpo que no se pisa.
+const SALIDA_RADIO = 46;
+const SALIDA_TOPE = 80 * Math.PI / 180;
 // Aire entre el dibujo del jugador y el osito. Lo pidió Sergio así: rodearlo
 // SIN TOCARLO, o sea que las siluetas no lleguen a compartir un píxel.
 const RODEO_MARGEN = 2;
@@ -283,6 +310,7 @@ export class Proyectiles {
     p.rapidez = hipot(vx, vy);
     p.animFps = def.animFps || 0;
     p.sinRotar = def.sinRotar ? 1 : 0;
+    p.recto = def.recto || 0;
     p.duenyo = def.duenyo || null;
     p.sello = contadorSello++;
 
@@ -348,7 +376,10 @@ export class Proyectiles {
       // lo demás lee `vx`/`vy` —el dibujo se orienta con ellos y el empuje del
       // golpe sale de ellos—, así que el rumbo tiene que estar puesto antes de
       // que el paso ocurra.
-      if (p.persigue > 0 && cazar) {
+      if (p.recto > 0) p.recto -= dt;
+
+      // Mientras dura la carrerilla no se toca el rumbo: sale recto y punto.
+      if (p.persigue > 0 && cazar && p.recto <= 0) {
         let ang = atan2(p.vy, p.vx);
         // ALCANCE DE BÚSQUEDA, no de vuelo: si no hay nadie cerca sigue recto y
         // se le acaba la vida, que es lo que tiene que pasar cuando se lanza a
@@ -410,6 +441,21 @@ export class Proyectiles {
             // sitio.
             if (dif >= 0 && dif < hueco) ang = hacia + hueco;
             else if (dif < 0 && dif > -hueco) ang = hacia - hueco;
+          }
+        }
+
+        // Y LO ÚLTIMO, que no se le vuelva a acercar a quien lo soltó.
+        if (p.duenyo) {
+          const o = siluetaDe(p.duenyo);
+          const dx = p.x - o.cx, dy = p.y - o.cy;
+          const d = hipot(dx, dy);
+          if (d < SALIDA_RADIO && d > 0.001) {
+            const fuera = atan2(dy, dx);
+            let dif = ang - fuera;
+            while (dif > Math.PI) dif -= TAU;
+            while (dif < -Math.PI) dif += TAU;
+            if (dif > SALIDA_TOPE) ang = fuera + SALIDA_TOPE;
+            else if (dif < -SALIDA_TOPE) ang = fuera - SALIDA_TOPE;
           }
         }
 

@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260910124214",
+    "version":  "20260910125614",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -1227,107 +1227,107 @@
                                    },
                       "ruinas1":  {
                                       "archivo":  "objetos/ruinas1.png",
-                                      "w":  488,
-                                      "h":  440,
-                                      "anclaX":  244,
-                                      "anclaY":  440,
+                                      "w":  392,
+                                      "h":  352,
+                                      "anclaX":  196,
+                                      "anclaY":  352,
                                       "frames":  1,
                                       "plano":  true,
                                       "solido":  [
-                                                     85,
-                                                     89,
-                                                     326,
-                                                     289
+                                                     68,
+                                                     71,
+                                                     262,
+                                                     232
                                                  ]
                                   },
                       "ruinas2":  {
                                       "archivo":  "objetos/ruinas2.png",
-                                      "w":  496,
-                                      "h":  440,
-                                      "anclaX":  248,
-                                      "anclaY":  440,
+                                      "w":  392,
+                                      "h":  352,
+                                      "anclaX":  196,
+                                      "anclaY":  352,
                                       "frames":  1,
                                       "plano":  true,
                                       "solido":  [
-                                                     80,
-                                                     121,
-                                                     342,
-                                                     264
+                                                     63,
+                                                     96,
+                                                     271,
+                                                     213
                                                  ]
                                   },
                       "ruinas4":  {
                                       "archivo":  "objetos/ruinas4.png",
-                                      "w":  416,
-                                      "h":  440,
-                                      "anclaX":  208,
-                                      "anclaY":  440,
+                                      "w":  336,
+                                      "h":  352,
+                                      "anclaX":  168,
+                                      "anclaY":  352,
                                       "frames":  1,
                                       "plano":  true,
                                       "solido":  [
+                                                     57,
                                                      71,
-                                                     89,
-                                                     272,
-                                                     287
+                                                     220,
+                                                     230
                                                  ]
                                   },
                       "ruinas5":  {
                                       "archivo":  "objetos/ruinas5.png",
-                                      "w":  472,
-                                      "h":  440,
-                                      "anclaX":  236,
-                                      "anclaY":  440,
-                                      "frames":  1,
-                                      "plano":  true,
-                                      "solido":  [
-                                                     78,
-                                                     93,
-                                                     331,
-                                                     288
-                                                 ]
-                                  },
-                      "ruinas7":  {
-                                      "archivo":  "objetos/ruinas7.png",
-                                      "w":  480,
-                                      "h":  440,
-                                      "anclaX":  240,
-                                      "anclaY":  440,
-                                      "frames":  1,
-                                      "plano":  true,
-                                      "solido":  [
-                                                     87,
-                                                     75,
-                                                     305,
-                                                     314
-                                                 ]
-                                  },
-                      "ruinas9":  {
-                                      "archivo":  "objetos/ruinas9.png",
-                                      "w":  456,
-                                      "h":  440,
-                                      "anclaX":  228,
-                                      "anclaY":  440,
+                                      "w":  376,
+                                      "h":  352,
+                                      "anclaX":  188,
+                                      "anclaY":  352,
                                       "frames":  1,
                                       "plano":  true,
                                       "solido":  [
                                                      62,
-                                                     77,
-                                                     309,
-                                                     291
+                                                     74,
+                                                     264,
+                                                     231
+                                                 ]
+                                  },
+                      "ruinas7":  {
+                                      "archivo":  "objetos/ruinas7.png",
+                                      "w":  384,
+                                      "h":  352,
+                                      "anclaX":  192,
+                                      "anclaY":  352,
+                                      "frames":  1,
+                                      "plano":  true,
+                                      "solido":  [
+                                                     70,
+                                                     60,
+                                                     243,
+                                                     251
+                                                 ]
+                                  },
+                      "ruinas9":  {
+                                      "archivo":  "objetos/ruinas9.png",
+                                      "w":  360,
+                                      "h":  352,
+                                      "anclaX":  180,
+                                      "anclaY":  352,
+                                      "frames":  1,
+                                      "plano":  true,
+                                      "solido":  [
+                                                     49,
+                                                     62,
+                                                     244,
+                                                     232
                                                  ]
                                   },
                       "ruinas10":  {
                                        "archivo":  "objetos/ruinas10.png",
-                                       "w":  416,
-                                       "h":  440,
-                                       "anclaX":  208,
-                                       "anclaY":  440,
+                                       "w":  336,
+                                       "h":  352,
+                                       "anclaX":  168,
+                                       "anclaY":  352,
                                        "frames":  1,
                                        "plano":  true,
                                        "solido":  [
-                                                      36,
-                                                      92,
-                                                      321,
-                                                      281
+                                                      29,
+                                                      74,
+                                                      259,
+                                                      224
                                                   ]
                                    },
                       "iconosObjetos":  {

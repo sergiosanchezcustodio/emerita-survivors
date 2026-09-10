@@ -154,17 +154,45 @@ el "nunca" (la curva puede fallar a bocajarro; el empujón no), y el nacimiento
 ya fuera de la silueta de quien lo suelta, porque el primer fotograma es
 anterior a su primer paso.
 
+**Y se mueve como se mueve todo el mundo.** Los obstáculos del escenario son
+sólidos para él (`colisionarObstaculosProyectiles`, en `js/sistemas/colisiones.js`):
+no atraviesa columnas, estatuas ni ruinas, y al chocar pierde la componente de
+velocidad contra la pared y conserva la tangente, o sea que resbala por el canto
+en vez de encallar. Es lo mismo que le pasa a un jugador contra una columna,
+solo que a él lo sigue empujando su mando. Vale solo para los proyectiles que
+persiguen: los otros cincuenta y nueve siguen volando por encima, que es lo
+correcto para una flecha.
+
+**Y sale corriendo de verdad**, que costó tres reglas:
+
+- **Medio segundo de carrerilla** en línea recta antes de buscar a nadie. Sin
+  ella, un osito lanzado a la derecha con un enemigo a la izquierda daba media
+  vuelta en el sitio y cruzaba por delante de quien lo soltó.
+- **La burbuja de salida**: dentro de 46 unidades de su dueño, el rumbo tiene
+  prohibido acercarse a él —se le permite salir o irse de lado, nunca volver—.
+  El tope es de 80 grados y no de 90 porque a 90 la componente radial es cero y
+  el osito orbitaría eternamente a la misma distancia. Hizo falta porque la
+  horda persigue al jugador, así que el enemigo más cercano casi siempre está
+  pegado a él: sin esto, una de cada cuatro muestras tenía un osito a menos de
+  18 unidades de su dueño. Con esto, una de cada cincuenta.
+- **Menos azar en la salida**: los ositos se reparten el círculo en partes
+  iguales y salen por el centro de la suya, con un desvío máximo de un cuarto de
+  sector. Antes el desvío era de un sector entero y dos podían salir pegados.
+
 Decisiones de números, para no volver a discutirlas:
 
 - **Velocidad 69**: un 20% menos de los 115 con que entró, y otro 25% después.
   Un osito que corre menos que la horda se ve llegar, y verlo llegar es medio
   chiste del arma. Baja la velocidad de SALIDA; los nueve escalones siguen dando
   6 cada uno, así que al 10 corre 123.
-- **Sale pegando un 25% más**: la explosión base pasa de 15 a 19 y el golpe
-  directo de 3 a 4. Es el arma de fábrica lo que sube, no lo que dan los
-  niveles, así que lo que mejora de verdad es cómo se siente antes de subirla.
-- **Lo que cada nivel SUMA a la explosión sube un 20%**: al 10 son 55 de daño y
-  radio 31, en vez de 45 y 29. Sube lo que suma cada nivel, no la explosión en
+- **El daño subió dos veces**: un 25% a lo que trae de fábrica, y después un 50%
+  a todo, base y escalones. La onda queda en **29 al nivel 1 y 83 al 10**, contra
+  los 15 y 45 con que entró el arma. El golpe directo se queda siempre en torno a
+  la sexta parte de la onda: lo que mata es reventar encima.
+- **Lo que cada nivel SUMA al radio sube un 20%**: 14 puntos del 1 al 10 en vez
+  de 12, o sea radio 31 al máximo. Sube lo que suma cada nivel, no la explosión
+  en compuesto — un 20% por nivel serían 5,2 veces al llegar al 10, con el radio
+  de 17 a 88: media pantalla por osito y diez ositos a la vez. Sube lo que suma cada nivel, no la explosión en
   compuesto — un 20% por nivel serían 5,2 veces al llegar al 10, con el radio de
   17 a 88: media pantalla por osito y diez ositos a la vez.
 

@@ -529,6 +529,88 @@ function empujarFueraDe(e, ox, oy, hx, hy) {
   else                e.y += aba;
 }
 
+// LOS OBSTÁCULOS CONTRA LOS PROYECTILES QUE CORREN POR EL SUELO.
+//
+// Una bala atraviesa una columna y a nadie le extraña: va por el aire y dura un
+// suspiro. El Osito Dinamito no —corre con sus patas por la misma calzada que
+// todo el mundo—, y pasar por dentro de una ruina lo delata como lo que sería:
+// un dibujo moviéndose sobre el fondo. Sergio pidió que se comporte como un
+// jugador o un enemigo, y esto es lo que eso significa en el motor.
+//
+// Solo los que PERSIGUEN. El resto de proyectiles siguen volando: cambiarles
+// eso a los cincuenta y nueve restantes no se pidió y rompería armas enteras
+// —la Ballesta dispara por encima de las ruinas a propósito—.
+//
+// Y no basta con empujarlos fuera: al chocar se les quita la componente de
+// velocidad contra la pared y se quedan con la tangente, o sea que RESBALAN por
+// el canto en vez de encallar contra él. Es lo mismo que hace un jugador contra
+// una columna, solo que a él lo sigue empujando su mando y aquí no hay mando.
+export function colisionarObstaculosProyectiles(obstaculos, proyectiles) {
+  const obs = obstaculos.items;
+  const nObs = obstaculos.activos;
+  if (nObs === 0) return;
+  const items = proyectiles.pool.items;
+  const n = proyectiles.pool.activos;
+
+  for (let k = 0; k < n; k++) {
+    const p = items[k];
+    if (p.persigue <= 0) continue;
+    const r = p.radio > 0 ? p.radio : 1;
+
+    for (let i = 0; i < nObs; i++) {
+      const o = obs[i];
+      const dx = p.x - o.cx;
+      const dy = p.y - o.cy;
+      // Descarte rápido por caja ampliada: la mayoría de los pares no se tocan
+      // y esto se pregunta por cada osito y cada obstáculo en cada paso.
+      if (dx > o.hx + r || dx < -o.hx - r || dy > o.hy + r || dy < -o.hy - r) continue;
+
+      const px = dx < -o.hx ? -o.hx : (dx > o.hx ? o.hx : dx);
+      const py = dy < -o.hy ? -o.hy : (dy > o.hy ? o.hy : dy);
+      let sx = dx - px, sy = dy - py;
+      const d2 = sx * sx + sy * sy;
+
+      if (d2 > 0.000001) {
+        if (d2 >= r * r) continue;
+        const d = Math.sqrt(d2);
+        const f = (r - d) / d;
+        p.x += sx * f;
+        p.y += sy * f;
+        sx /= d; sy /= d;
+      } else {
+        // Centro dentro de la caja: se sale por el lado más cercano, igual que
+        // `empujarFueraDe`. Pasa cuando un osito nace pegado a una piedra.
+        const izq = dx + o.hx + r, der = o.hx - dx + r;
+        const arr = dy + o.hy + r, aba = o.hy - dy + r;
+        let m = izq; if (der < m) m = der; if (arr < m) m = arr; if (aba < m) m = aba;
+        if (m === izq)      { p.x -= izq; sx = -1; sy = 0; }
+        else if (m === der) { p.x += der; sx =  1; sy = 0; }
+        else if (m === arr) { p.y -= arr; sx =  0; sy = -1; }
+        else                { p.y += aba; sx =  0; sy =  1; }
+      }
+
+      // Y a resbalar: fuera la parte de la velocidad que empuja contra la
+      // pared, se conserva la que va a lo largo de ella. Si el choque es
+      // frontal y no queda tangente, se le da la vuelta para que no se quede
+      // temblando contra el canto.
+      const vn = p.vx * sx + p.vy * sy;
+      if (vn < 0) {
+        let tx = p.vx - vn * sx;
+        let ty = p.vy - vn * sy;
+        const t = Math.sqrt(tx * tx + ty * ty);
+        if (t > 0.001) {
+          const v = p.rapidez > 0 ? p.rapidez : Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+          p.vx = (tx / t) * v;
+          p.vy = (ty / t) * v;
+        } else {
+          p.vx = -p.vx;
+          p.vy = -p.vy;
+        }
+      }
+    }
+  }
+}
+
 // Objetos sólidos del escenario contra jugadores y enemigos. Los obstáculos
 // son pocos y estáticos (sistemas/obstaculos.js), así que no llevan rejilla
 // propia: contra los jugadores (como mucho 4) se compara directo, y contra

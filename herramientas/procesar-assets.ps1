@@ -3422,20 +3422,26 @@ $CATALOGO = @(
     @{ src='stages\1\objetos\estatua4.png';  dst='objetos\estatua4.png';  id='estatua4';  alto=48; anchoFijo=0; tol=0;  plano=$true }
     @{ src='stages\1\objetos\estatua5.png';  dst='objetos\estatua5.png';  id='estatua5';  alto=48; anchoFijo=0; tol=0;  plano=$true }
     # Ruinas a proposito MAS GRANDES que columnas/antorchas/estatuas (peticion
-    # de Sergio jugando la Fase 8): un 53% mas de alto que la primera pasada
-    # (36->55). Son edificios, no mobiliario, y tienen que imponer en el
-    # margen de hierba en vez de leerse como un adorno mas.
-    @{ src='stages\1\objetos\ruinas1.png';   dst='objetos\ruinas1.png';   id='ruinas1';   alto=110; anchoFijo=0; tol=0;  plano=$true; huecos=$true }
-    @{ src='stages\1\objetos\ruinas2.png';   dst='objetos\ruinas2.png';   id='ruinas2';   alto=110; anchoFijo=0; tol=0;  plano=$true; huecos=$true }
-    @{ src='stages\1\objetos\ruinas4.png';   dst='objetos\ruinas4.png';   id='ruinas4';   alto=110; anchoFijo=0; tol=0;  plano=$true; huecos=$true }
-    @{ src='stages\1\objetos\ruinas5.png';   dst='objetos\ruinas5.png';   id='ruinas5';   alto=110; anchoFijo=0; tol=0;  plano=$true; huecos=$true }
+    # de Sergio jugando la Fase 8): son edificios, no mobiliario, y tienen que
+    # imponer en el margen de hierba en vez de leerse como un adorno mas.
+    #
+    # 110 -> 88, un 20% menos, pedido despues de verlas con el dibujo nuevo:
+    # seguian siendo lo mas grande del nivel pero se comian el margen. Encogen
+    # con ellas su parte solida —la huella sale del recorte del atlas en
+    # proporcion al tamano (ver `huellaDe` en sistemas/obstaculos.js)—, asi que
+    # los carriles de datos/niveles/merida.js siguen valiendo: lo que cambia es
+    # que dejan MAS sitio para pasar, nunca menos.
+    @{ src='stages\1\objetos\ruinas1.png';   dst='objetos\ruinas1.png';   id='ruinas1';   alto=88;  anchoFijo=0; tol=0;  plano=$true; huecos=$true }
+    @{ src='stages\1\objetos\ruinas2.png';   dst='objetos\ruinas2.png';   id='ruinas2';   alto=88;  anchoFijo=0; tol=0;  plano=$true; huecos=$true }
+    @{ src='stages\1\objetos\ruinas4.png';   dst='objetos\ruinas4.png';   id='ruinas4';   alto=88;  anchoFijo=0; tol=0;  plano=$true; huecos=$true }
+    @{ src='stages\1\objetos\ruinas5.png';   dst='objetos\ruinas5.png';   id='ruinas5';   alto=88;  anchoFijo=0; tol=0;  plano=$true; huecos=$true }
     # ruinas6..11 salieron de recortar a mano ruinas3.png (una hoja de
     # contacto con seis ruinas juntas, no un objeto en si). El tol sube a 40:
     # el recorte dejo cerca del borde la rejilla clara de la hoja original y
     # el tolerancia por defecto (30) no bastaba para tragarsela entera.
-    @{ src='stages\1\objetos\ruinas7.png';   dst='objetos\ruinas7.png';   id='ruinas7';   alto=110; anchoFijo=0; tol=40; plano=$true; huecos=$true }
-    @{ src='stages\1\objetos\ruinas9.png';   dst='objetos\ruinas9.png';   id='ruinas9';   alto=110; anchoFijo=0; tol=40; plano=$true; huecos=$true }
-    @{ src='stages\1\objetos\ruinas10.png';  dst='objetos\ruinas10.png';  id='ruinas10';  alto=110; anchoFijo=0; tol=40; plano=$true; huecos=$true }
+    @{ src='stages\1\objetos\ruinas7.png';   dst='objetos\ruinas7.png';   id='ruinas7';   alto=88;  anchoFijo=0; tol=40; plano=$true; huecos=$true }
+    @{ src='stages\1\objetos\ruinas9.png';   dst='objetos\ruinas9.png';   id='ruinas9';   alto=88;  anchoFijo=0; tol=40; plano=$true; huecos=$true }
+    @{ src='stages\1\objetos\ruinas10.png';  dst='objetos\ruinas10.png';  id='ruinas10';  alto=88;  anchoFijo=0; tol=40; plano=$true; huecos=$true }
 )
 
 # Retrato de la ficha de jugador. CUADRADO: de los hombros a la cabeza y nada

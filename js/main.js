@@ -21,7 +21,8 @@ import { VFX } from './sistemas/vfx.js';
 import { GestorAudio } from './sistemas/audio.js';
 import {
   separacion, contactoJugadores, impactosProyectiles, separarJugadores,
-  colisionarObstaculos, colisionarAtaudes, ajustes, enemigoMasCercano
+  colisionarObstaculos, colisionarObstaculosProyectiles, colisionarAtaudes,
+  ajustes, enemigoMasCercano
 } from './sistemas/colisiones.js';
 import { Obstaculos } from './sistemas/obstaculos.js';
 import { Lockstep } from './core/lockstep.js';
@@ -2888,6 +2889,11 @@ function actualizar(dt) {
   separacion(enemigos, jugadores);
   Obstaculos.actualizar(camara.y, enemigos);
   colisionarObstaculos(Obstaculos, jugadores, enemigos);
+  // Y los proyectiles que CORREN por el suelo -hoy el Osito Dinamito- contra
+  // esos mismos obstaculos. Va aqui, justo detras y con la plantilla ya
+  // colocada por `Obstaculos.actualizar`, porque es el mismo problema: lo que
+  // pisa el suelo no atraviesa una columna.
+  colisionarObstaculosProyectiles(Obstaculos, proyectiles);
   // Los ataudes son solidos igual que una columna: el sitio donde ha caido un
   // companero deja de ser sitio por el que se pasa.
   colisionarAtaudes(jugadores, enemigos);
@@ -3712,6 +3718,11 @@ async function arrancar() {
 
   window.EMERITA = {
     jugadores, arsenales, enemigos, proyectiles, recogibles, cofres, disparos, zonas, camara, entrada, bucle,
+    // Los obstáculos sólidos del escenario. Se exponen por lo mismo que todo lo
+    // de aquí: para poder comprobar desde fuera cosas que sobre el dibujo no se
+    // ven —si un osito se está metiendo dentro de una ruina, por ejemplo— sin
+    // tener que juzgarlo a ojo en una captura.
+    obstaculos: Obstaculos,
     particulas: Particulas, vfx: VFX, progresion: Progresion, director: Director, jefes: Jefes,
     meta: MetaProgreso,
     ajustes, activo, perfil,

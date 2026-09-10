@@ -400,9 +400,9 @@ export const NIVEL = {
   //
   // Medidas a ojo sobre niveles/merida-suelo.jpg: el borde calzada/arcén cae
   // en x≈186 y x≈367, y la franja de hierba utilizable queda centrada en
-  // x≈141 (izquierda) y x≈412 (derecha). Columnas y antorchas van justo sobre
-  // el borde, tal como se pidió; estatuas y ruinas, más adentro en la
-  // hierba. Deliberadamente disperso —ocho piezas en 430 unidades de alto—
+  // x≈141 (izquierda) y x≈412 (derecha). Columnas, antorchas y estatuas van
+  // justo sobre el borde, tal como se pidió; las ruinas, más adentro en la
+  // hierba. Deliberadamente disperso —diez piezas en 430 unidades de alto—
   // para que no sature.
   //
   // ENSANCHADO un 50% (pedido de Sergio): herramientas/procesar-assets.ps1
@@ -435,8 +435,16 @@ export const NIVEL = {
     { tipo: 'antorcha1', x: 367, y: 130 },
     { tipo: 'antorcha2', x: 367, y: 260 },
     { tipo: 'columna',   x: 367, y: 350 },
-    { tipo: 'estatua2',  x: 141, y: 150 },
-    { tipo: 'estatua4',  x: 412, y: 300 },
+    // LAS ESTATUAS, AL BORDE DE LA CALZADA como las columnas (lo pidió Sergio).
+    // Estaban a 141 y 412, o sea en mitad de la hierba: ahí se leían como parte
+    // del paisaje y no como lo que son. En el borde —186 y 367— hacen calle con
+    // las columnas y las antorchas, que es lo que ordena la avenida.
+    //
+    // Las `y` salen de los huecos que dejan las antorchas de su mismo lado:
+    // 200 cae entre las de 150 y 250, y 195 entre las de 130 y 260. Ninguna
+    // queda a menos de 50 de su vecina, que con 48 de alto es aire de sobra.
+    { tipo: 'estatua2',  x: 186, y: 200 },
+    { tipo: 'estatua4',  x: 367, y: 195 },
 
     // LAS RUINAS, EN DOS CARRILES EXTERIORES Y SEPARADAS.
     //

@@ -537,12 +537,22 @@ const COMPORTAMIENTOS = {
     const danyo = danyoDe(s, j);
     const n = proyectilesDe(arma, s, j);
 
-    // Hacia dónde sale CADA UNO. Se reparten el círculo entero y se le suma un
-    // desvío al azar dentro de su parte: repartidos sin más saldrían formando
-    // una estrella perfecta, y con azar puro dos ositos saldrían pegados.
+    // HACIA DÓNDE SALE CADA UNO, y aquí el azar está muy medido.
+    //
+    // Se reparten el círculo entero en partes iguales y cada uno sale por el
+    // centro de la suya, con un desvío de como mucho un cuarto de sector. Antes
+    // el desvío era de un sector completo y dos ositos podían salir pegados o
+    // pisándose; con esto la camada se abre siempre en abanico regular y lo
+    // único que el azar decide de verdad es hacia dónde apunta el conjunto.
+    //
+    // Salen SIEMPRE alejándose: la dirección es radial desde el jugador y nacen
+    // ya fuera de su silueta, así que el primer paso los aleja pase lo que pase.
+    // Que sigan alejándose los primeros metros es cosa de la carrerilla (ver
+    // `recto` en entidades/proyectil.js).
     const giro = ctx.rng() * Math.PI * 2;
+    const sector = Math.PI * 2 / n;
     for (let i = 0; i < n; i++) {
-      const a = giro + (i + ctx.rng()) * (Math.PI * 2 / n);
+      const a = giro + i * sector + (ctx.rng() - 0.5) * sector * 0.5;
       const v = velocidadDe(s, j);
       sis._rellenarProyectil(arma, s, danyo, ctx.jugador);
       sis.defProyectil.vida = alcanceDe(s, j) / v;
@@ -561,6 +571,7 @@ const COMPORTAMIENTOS = {
       sis.defProyectil.fase = ctx.rng() * Math.PI * 2;
       sis.defProyectil.animFps = arma.def.animFps || 0;
       sis.defProyectil.sinRotar = !!arma.def.sinRotar;
+      sis.defProyectil.recto = arma.def.salidaRecta || 0;
       const b = bocaDe(j, a);
       ctx.proyectiles.lanzar(b.x, b.y, cos(a) * v, sen(a) * v, sis.defProyectil);
     }
@@ -1092,6 +1103,7 @@ export class Armas {
     d.fase = 0;
     d.animFps = 0;
     d.sinRotar = false;
+    d.recto = 0;
   }
 
   // UN rayo de la tormenta. Va aquí y no dentro del comportamiento porque se

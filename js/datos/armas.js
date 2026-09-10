@@ -1665,6 +1665,11 @@ export const ARMAS = {
     // corre de pie: solo se espeja hacia donde va.
     animFps: 14,
     sinRotar: true,
+    // MEDIO SEGUNDO DE CARRERILLA: sale recto, alejándose, antes de empezar a
+    // buscar a nadie. A 35 de velocidad son 17 unidades, media pantalla de
+    // personaje: lo justo para que se vea SALIR y no dé media vuelta a los pies
+    // de quien lo suelta (ver `recto` en entidades/proyectil.js).
+    salidaRecta: 0.5,
     // Radianes por segundo de corrección y el culebreo de encima: 0,52 rad de
     // amplitud a 9 oscilaciones por segundo. Son de la definición y no de las
     // stats a propósito — su forma de correr no cambia porque suba de nivel.
@@ -1673,37 +1678,46 @@ export const ARMAS = {
     zigFrec: 9,
     // Poco al tocar y lo gordo al reventar: lo que mata es la explosión, y el
     // golpe directo está para que el impacto se sienta.
-    // UN 25% MÁS DE DAÑO DE SALIDA, que pidió Sergio: la explosión de 15 a 19 y
-    // el golpe directo de 3 a 4. Sube lo que trae el arma de fábrica, no lo que
-    // dan los niveles, así que al 10 queda en 55 de onda —los mismos 36 que
-    // reparten los nueve escalones— y lo que mejora de verdad es el arma antes
-    // de subirla: al nivel 1 un osito ya se lleva por delante a un básico.
-    danyo: 4, danyoExplosion: 19, radioExplosion: 17,
-    // 69 y no los 115 con que entró: primero un 20% menos y luego otro 25%, los
-    // dos pedidos por Sergio. Un osito que corre menos que la horda se ve
-    // LLEGAR, y verlo llegar es medio chiste del arma. Lo que baja es la
-    // velocidad de SALIDA; los nueve escalones siguen dando 6 cada uno, así que
-    // al nivel 10 corre 123.
-    recarga: 2.4, proyectiles: 1, velocidad: 69, alcance: 240,
+    // EL DAÑO, DOS SUBIDAS DE SERGIO. Primero un 25% a lo que trae de fábrica
+    // —la explosión de 15 a 19 y el golpe directo de 3 a 4— y después un 50% a
+    // TODO, base y escalones: 29 de onda al nivel 1 y 83 al 10, contra los 15 y
+    // 55 con que entró el arma.
+    //
+    // El golpe directo se queda en la sexta parte de la onda a propósito, que es
+    // como entró: lo que mata es reventar encima, y el topetazo del osito está
+    // para que el impacto se sienta.
+    danyo: 6, danyoExplosion: 29, radioExplosion: 17,
+    // 35 y no los 115 con que entró: tres bajadas de Sergio —un 20%, un 25% y un
+    // 50%—, la última sobre TODO, salida y escalones. Un osito que corre menos
+    // que la horda se ve LLEGAR, y verlo llegar es medio chiste del arma. Al
+    // nivel 10 corre 62, poco más de la mitad de lo que corría un básico.
+    //
+    // El alcance no se toca y eso alarga su VIDA: `vida` es alcance partido por
+    // velocidad, así que el mismo camino a la mitad de marcha son el doble de
+    // segundos por el mapa. Es coherente con lo que es —un bicho que va a lo
+    // suyo— y de paso le da tiempo a rodear a quien se cruce.
+    recarga: 2.4, proyectiles: 1, velocidad: 35, alcance: 240,
     radio: 4, perforacion: 0, dispersion: 0, empuje: 110,
     color: '#ffb45a', estela: '#8a3a10', largoTrazo: 6,
-    // LO QUE DA CADA NIVEL A LA EXPLOSIÓN SUBE UN 20%: del 1 al 10 el daño de
-    // la onda gana 36 en vez de 30 y el radio 14 en vez de 12, o sea 51 y 31 al
-    // máximo. Sube lo que SUMA cada nivel, no la explosión en compuesto: un 20%
-    // por nivel serían 5,2 veces al llegar al 10 y el radio pasaría de 17 a 88,
+    // LO QUE DA CADA NIVEL A LA EXPLOSIÓN subió primero un 20% —el radio gana 14
+    // del 1 al 10 en vez de 12— y el daño lleva encima el 50% de después, así
+    // que los cinco escalones de onda suman 54 y no 36.
+    //
+    // Sube lo que SUMA cada nivel, no la explosión en compuesto: un 20% por
+    // nivel serían 5,2 veces al llegar al 10 y el radio pasaría de 17 a 88,
     // media pantalla por osito y diez ositos a la vez.
     //
-    // Es la compensación de la bajada de velocidad: pegan más fuerte donde
+    // Y es la compensación de la bajada de velocidad: pegan más fuerte donde
     // llegan, ahora que llegan más tarde.
-    niveles: [{}, { proyectiles: 1, danyoExplosion: 5, velocidad: 6 },
-              { proyectiles: 1, radioExplosion: 2, velocidad: 6 },
-              { proyectiles: 1, danyoExplosion: 6, velocidad: 6 },
-              { proyectiles: 1, radioExplosion: 3, velocidad: 6 },
-              { proyectiles: 1, danyoExplosion: 7, velocidad: 6 },
-              { proyectiles: 1, radioExplosion: 3, velocidad: 6 },
-              { proyectiles: 1, danyoExplosion: 8, velocidad: 6 },
-              { proyectiles: 1, radioExplosion: 3, velocidad: 6 },
-              { proyectiles: 1, danyoExplosion: 10, radioExplosion: 3, velocidad: 6 }]
+    niveles: [{}, { proyectiles: 1, danyoExplosion: 8, velocidad: 3 },
+              { proyectiles: 1, radioExplosion: 2, velocidad: 3 },
+              { proyectiles: 1, danyoExplosion: 9, velocidad: 3 },
+              { proyectiles: 1, radioExplosion: 3, velocidad: 3 },
+              { proyectiles: 1, danyoExplosion: 10, velocidad: 3 },
+              { proyectiles: 1, radioExplosion: 3, velocidad: 3 },
+              { proyectiles: 1, danyoExplosion: 12, velocidad: 3 },
+              { proyectiles: 1, radioExplosion: 3, velocidad: 3 },
+              { proyectiles: 1, danyoExplosion: 15, radioExplosion: 3, velocidad: 3 }]
   },
 
   // === EVOLUCIONES (sección 9 del plan) ==================================
