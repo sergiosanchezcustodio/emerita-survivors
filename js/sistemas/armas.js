@@ -48,8 +48,8 @@ function furiaDe(j) {
   return 1 + j.furiaMoribundo * falta;
 }
 
-// `auraEquipo` es lo que aportan LOS DEMAS con el Sello de los Caballeros de
-// Magacela (ver entidades/jugador.js): se suma al bonus propio porque para el
+// `auraEquipo` es lo que aportan LOS DEMAS con el Sello Templario (ver
+// entidades/jugador.js): se suma al bonus propio porque para el
 // arma es lo mismo, más daño es más daño. Lo calcula el jugador una vez por
 // paso; aquí solo se lee.
 function danyoDe(s, j) {
@@ -234,7 +234,7 @@ const COMPORTAMIENTOS = {
     const n = proyectilesDe(arma, s, ctx.jugador);
     // ABANICO O CARRIL, igual que en `direccionFija`: con `separacion` los
     // proyectiles de más salen con el MISMO rumbo, corridos de lado. Lo pide el
-    // Arco corto — nueve flechas abiertas en abanico son nueve flechas
+    // Arco — nueve flechas abiertas en abanico son nueve flechas
     // torcidas; en paralelo son una andanada.
     const separa = s.separacion || 0;
 

@@ -581,6 +581,10 @@ export const Progresion = {
       for (const id in ARMAS) {
         if (ocupadas.has(id)) continue;
         if (ARMAS[id].esEvolucion) continue;
+        // Apartadas a propósito, no borradas. Ver `retirada` en datos/armas.js:
+        // esta línea es TODO lo que las deja fuera del juego, así que devolver
+        // un arma al sorteo es quitarle su bandera y nada más.
+        if (ARMAS[id].retirada) continue;
         if (!comportamientoImplementado(ARMAS[id].comportamiento)) continue;
         cand.push({ clase: 'arma', id, nuevo: true, nivelActual: 0,
                     nombre: ARMAS[id].nombre, descripcion: ARMAS[id].descripcion });

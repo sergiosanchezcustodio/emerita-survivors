@@ -165,7 +165,7 @@ export const POTENCIADORES = {
   // potenciador dobla en cada nivel (ver `costePotenciador`), y con un solo
   // nivel ese mecanismo no se usa nunca. Lo que se paga es lo que pone aquí.
   mantoPeregrino: {
-    nombre: 'Manto del Peregrino',
+    nombre: 'Capa del Peregrino',
     // Se come el GOLPE ENTERO, no una parte, y no gasta i-frames al hacerlo.
     // Eso es lo que lo separa del escudo, que absorbe pero deja el golpe
     // existiendo para todo lo demás. Ver `recibirDanyo` en entidades/jugador.js.

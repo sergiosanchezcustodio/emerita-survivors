@@ -14,6 +14,16 @@
 // unidades LÓGICAS, velocidades en unidades lógicas por segundo, ángulos en
 // grados (el motor los pasa a radianes).
 
+// `retirada: true` SACA UN ARMA DEL JUEGO SIN BORRARLA. No se ofrece al subir de
+// nivel —es lo único que mira sistemas/progresion.js— pero sigue entera aquí:
+// sus datos, su dibujo y su comportamiento. Volver a meterla en el juego es
+// borrar esa línea, y por eso se retiran así y no arrancando la entrada: un
+// arma arrancada hay que reescribirla, y con ella se van los números que
+// costaron tardes de ajuste.
+//
+// Siguen saliendo en el ciclador de desarrollo (tecla M, ver main.js), que es
+// justo donde hacen falta: para volver a mirar una y decidir si vuelve.
+
 export const ARMAS = {
   // --- Implementadas en la Fase 3 -----------------------------------------
   pilum: {
@@ -102,6 +112,7 @@ export const ARMAS = {
 
   pistola: {
     nombre: 'Pistola',
+    retirada: true,
     descripcion: 'Tiro certero al más cercano. Rápida y de largo alcance.',
     comportamiento: 'proyectilDirigido',
     forma: 'bala',
@@ -141,6 +152,7 @@ export const ARMAS = {
 
   escopeta: {
     nombre: 'Escopeta',
+    retirada: true,
     descripcion: 'Abanico de perdigones. Poco alcance, mucho destrozo.',
     comportamiento: 'conoCorto',
     forma: 'bala',
@@ -174,6 +186,7 @@ export const ARMAS = {
   // --- Patrones fijos: no apuntan, barren -------------------------------
   lanzasGemelas: {
     nombre: 'Lanzas gemelas',
+    retirada: true,
     descripcion: 'Barre a izquierda y derecha. No apunta: alíneate.',
     comportamiento: 'direccionFija', patron: 'horizontal',
     danyo: 14, recarga: 1.0, proyectiles: 1, velocidad: 250, alcance: 260,
@@ -275,6 +288,7 @@ export const ARMAS = {
   // --- Explosivos: mucha área, poco daño directo ------------------------
   lanzagranadas: {
     nombre: 'Lanzagranadas',
+    retirada: true,
     descripcion: 'Sale disparada y revienta al tocar. Área amplia.',
     comportamiento: 'proyectilExplosivo',
     spriteOnda: 'explosionFuego',
@@ -394,7 +408,7 @@ export const ARMAS = {
 
   // --- Rayos: alcance largo, daño contenido ------------------------------
   rayoHorizontal: {
-    nombre: 'Rayo de Júpiter',
+    nombre: 'Rayos de Júpiter',
     descripcion: 'Cae del cielo a tu alrededor. No apunta: siembra.',
     comportamiento: 'tormentaRayos',
     danyo: 14, recarga: 2.2,
@@ -467,14 +481,14 @@ export const ARMAS = {
 
   // --- Proyectil lineal perforante --------------------------------------
   ballista: {
-    nombre: 'Ballista',
+    nombre: 'Ballesta',
     descripcion: 'Virote pesado que atraviesa una fila entera.',
     comportamiento: 'direccionFija', patron: 'horizontal',
     danyo: 24, recarga: 2.3, proyectiles: 1, velocidad: 380, alcance: 460,
     radio: 5, perforacion: 4, dispersion: 0, empuje: 210,
     color: '#f0eada', estela: '#9aa7b5', largoTrazo: 14,
     // Virote pesado: cabeza gorda, asta gruesa y plumas cortas. Lo comparten la
-    // Ballista, la Enfilada y el Escorpión, que son las tres máquinas de tiro
+    // Ballesta, la Enfilada y el Escorpión, que son las tres máquinas de tiro
     // romanas del catálogo y disparan la misma munición.
     spriteProyectil: 'proyVirote',
     evolucion: { pasivo: 'clepsidra', arma: 'escorpion' },
@@ -545,7 +559,7 @@ export const ARMAS = {
 
   // --- Apuntan solas: el arma trabaja, tú te mueves ------------------------
   arcoCorto: {
-    nombre: 'Arco corto',
+    nombre: 'Arco',
     descripcion: 'Flecha rápida al más cercano. Barato y constante.',
     comportamiento: 'proyectilDirigido',
     danyo: 9, recarga: 0.85, proyectiles: 1, velocidad: 320, alcance: 330,
@@ -572,6 +586,7 @@ export const ARMAS = {
   },
   honda: {
     nombre: 'Honda balear',
+    retirada: true,
     descripcion: 'Piedra lenta que descalabra y tira de espaldas.',
     comportamiento: 'proyectilDirigido',
     // La piedra salta de un enemigo al siguiente: uno más al nivel 3, dos al 6
@@ -806,7 +821,7 @@ export const ARMAS = {
     danyo: 20, recarga: 2.1, proyectiles: 1, velocidad: 340, alcance: 380,
     radio: 5, perforacion: 3, dispersion: 0, empuje: 170,
     color: '#e8d8b0', estela: '#8a7a4a', largoTrazo: 13,
-    // El mismo virote de la Ballista, aquí en cruz.
+    // El mismo virote de la Ballesta, aquí en cruz.
     spriteProyectil: 'proyVirote',
     niveles: [{}, { danyo: 7 }, { perforacion: 2 }, { recarga: -0.3 },
               { danyo: 9 }, { perforacion: 2 }, { velocidad: 70 }, { danyo: 13, perforacion: 3 },
@@ -814,6 +829,7 @@ export const ARMAS = {
   },
   agujas: {
     nombre: 'Lluvia de agujas',
+    retirada: true,
     descripcion: 'Nube de púas en diagonal. Muchas y flojas.',
     comportamiento: 'direccionFija', patron: 'diagonal',
     danyo: 4, recarga: 0.75, proyectiles: 3, velocidad: 260, alcance: 170,
@@ -876,7 +892,7 @@ export const ARMAS = {
               { danyoExplosion: 6 }, { danyoExplosion: 9, recarga: -0.15 }]
   },
   lanzacohetes: {
-    nombre: 'Lanzacohetes',
+    nombre: 'Bazooka',
     descripcion: 'Un cohete cada mucho. Se lleva media pantalla.',
     comportamiento: 'proyectilExplosivo',
     spriteOnda: 'explosionCohete',
@@ -905,6 +921,7 @@ export const ARMAS = {
   },
   artilleria: {
     nombre: 'Artillería',
+    retirada: true,
     descripcion: 'Obuses pesados que caen lejos y solos.',
     comportamiento: 'bombardeoAleatorio',
     spriteOnda: 'explosionFuego',

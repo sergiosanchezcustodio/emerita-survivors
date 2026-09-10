@@ -65,30 +65,30 @@ import { Director } from '../sistemas/director.js';
 // el ancho al hueco entre ranuras habría dejado el aire en 1, y cuatro
 // cuadrados a 1 de distancia se leen como una tira, no como cuatro ranuras.
 //
-// Y DE 180 A 229, en dos pasos y por lo mismo: que el arma y el objeto se vean
-// en el panel de esquina EXACTAMENTE igual de grandes que en el resto del
-// juego. El tamaño bueno lo eligió Sergio mirándolos todos al lado en la
-// galería y es el de la tienda: 13 (ver ICONO_UNIFICADO, aquí abajo).
+// Y DE 180 A 229 primero, y DE 229 A 201 después. El icono se queda en 13 —el
+// tamaño único de todo el juego, ver ICONO_UNIFICADO— y lo que se mueve es el
+// hueco que lo rodea.
 //
-// Lo que obliga a ensanchar es la ranura REDONDA de los objetos. Un icono se
-// dibuja siempre encajado en un cuadrado de lado 2·r, y el dibujo LLEGA a las
-// esquinas de ese cuadrado: medidas las dos hojas de 96, el píxel opaco más
-// lejano del centro está a 64,4 en los objetos y a 66,5 en las armas, de una
-// media diagonal de 67,9 —una espada se dibuja en diagonal y la ocupa entera—.
-// O sea que a radio 13 el dibujo llega a 13·64,4/48 = 17,4 del centro, y el aro
-// tiene que dar al menos eso más el punto del marco: 18,5 de radio, 37 de lado.
+// El 229 salía de pedirle a la ranura REDONDA de los objetos que NO cortara
+// nunca el dibujo. Un icono se dibuja siempre encajado en un cuadrado de lado
+// 2·r, y el dibujo LLEGA a las esquinas de ese cuadrado: medidas las dos hojas
+// de 96, el píxel opaco más lejano del centro está a 64,4 en los objetos y a
+// 66,5 en las armas, de una media diagonal de 67,9 —una espada se dibuja en
+// diagonal y la ocupa entera—. O sea que a radio 13 el dibujo llega a
+// 13·64,4/48 = 17,4 del centro, y para que el aro lo contuviera entero hacían
+// falta 18,5 de radio: 37 de lado.
 //
-// Así que crece la RANURA hasta 34 —el propio medallón de la carta— y el ancho
-// del panel detrás de ella: los 37 que sube son los 9,25 que gana cada una de
-// las cuatro ranuras. Todo lo demás de la ficha —la tarjeta de identidad, la
-// barra de xp y los huecos— se queda con su medida de siempre, así que lo que
-// se ensancha es solo la columna de las ranuras.
+// A 201 la ranura baja a 30, que es la medida que pidió Sergio. Es una decisión
+// distinta, no un cálculo: el aro ya no contiene el dibujo —15 de radio contra
+// esos 17,4— y las puntas de un icono ancho asoman por las diagonales del
+// medallón. A cambio el panel tapa 28 unidades menos de esquina, que en
+// cooperativo a cuatro son cuatro esquinas, y las ranuras se leen como marco
+// del icono y no como plato debajo.
 //
-// El precio está contado y aceptado: son 37 unidades más de esquina tapada por
-// jugador, y en cooperativo a cuatro son cuatro esquinas. Se paga porque el
-// panel de esquina es lo único que se mira EN PARTIDA para saber qué llevas, y
-// hasta ahora obligaba a abrir la ficha para reconocer un icono.
-const ANCHO = 229;
+// El icono NO se recorta contra el aro: si algún día molesta que asome, el
+// arreglo es un clip en dibujarRanura, no encoger el dibujo —13 es el mismo
+// número en las cinco pantallas y ahí está la gracia.
+const ANCHO = 201;
 const MARGEN = 9;              // separación al borde de la pantalla
 const RELLENO_H = 5;           // margen interior horizontal
 const RELLENO_V = 4;           // margen interior vertical
@@ -119,40 +119,15 @@ const RANURA_W = (COLUMNA - (RANURAS - 1) * HUECO_RANURA) / RANURAS;
 // cuadrado y el pasivo en un círculo de verdad, que es la pareja de formas con
 // la que se distinguen las dos filas de un vistazo.
 //
-// Y de paso son más grandes: 17,5 -> 22,5 -> 24,75, esto último un 10% más que
-// pidió Sergio, y que sale de ensanchar la ficha 9 (ver ANCHO) para que el aire
-// entre ranuras siga siendo 4.
+// El lado ha ido 17,5 -> 22,5 -> 24,75 -> 37 -> 30, y hoy son esos 30 que pidió
+// Sergio (ver ANCHO, que es de donde salen: la columna reparte su ancho entre
+// las cuatro y el aire entre ellas sigue siendo 4).
 //
-// EL DIBUJO DE DENTRO NO CRECE CON ELLAS: lo que crece es el marco, y el icono
-// se queda en el tamaño que tenía (ver ICONO_CUADRADO / ICONO_REDONDO en
-// dibujarRanura). Un icono más grande no se lee mejor a este tamaño —son 32
-// píxeles de dibujo— y en cambio el aire alrededor sí: es lo que separa una
-// ranura de la siguiente cuando hay ocho pegadas.
+// EL DIBUJO DE DENTRO NO SE MUEVE CON ELLAS: lo que cambia es el marco, y el
+// icono se queda en ICONO_UNIFICADO pase lo que pase con la ranura. Un icono no
+// puede medir una cosa aquí y otra en la tienda; el hueco sí puede.
 const RANURA_H = RANURA_W;
 
-// RADIO DEL DIBUJO DENTRO DE LA RANURA, en absoluto y no en fracción del marco.
-//
-// EL DIBUJO VUELVE A LLENAR LA RANURA. Estaban en 9 y 7,2, que son los valores
-// que salían de la ranura de 22,5 y se congelaron cuando el marco creció a
-// 24,75: la idea de entonces era marco más grande y dibujo igual, y con los
-// glifos vectoriales y la hoja de 32 se defendía sola —un dibujo de 32 píxeles
-// no mejora por ampliarlo—. Ya no es el caso: desde que ui/hud.js tira siempre
-// del arte de 96 (ver RADIO_HD), lo que sobraba de aire era detalle sin usar,
-// y en la ficha de jugador, que sí llena su medallón, se veía la diferencia.
-//
-// Son las MISMAS DOS FRACCIONES que usa la ficha (0,82 y 0,66, ver
-// `glifo(ctx, r * ...)` en ui/ficha.js) aplicadas al radio de esta ranura, así
-// que un arma ocupa ahora la misma parte de su hueco en las dos pantallas.
-//
-// Son dos y no uno por lo mismo que allí: en un cuadrado y en un círculo del
-// mismo lado no cabe lo mismo. El icono siempre se encaja en un cuadrado de
-// lado 2·r.
-//
-//   - CUADRADA (armas): el tope lo pone el lado. 10,15 de radio dentro de
-//     24,75/2 menos el punto que sube el dibujo deja 1,2 para el marco.
-//   - REDONDA (pasivos): el tope lo ponen las ESQUINAS del cuadrado, que caen a
-//     r·√2 del centro. 8,17 · √2 = 11,6 contra los 12,4 del arco; con el 10,15
-//     del cuadrado se irían a 14,4 y el dibujo asomaría por las diagonales.
 // EL TAMAÑO DE UN ICONO, UNO SOLO PARA TODO EL JUEGO.
 //
 // 13, que es el de la tienda y el de la pantalla de héroes. Lo eligió Sergio

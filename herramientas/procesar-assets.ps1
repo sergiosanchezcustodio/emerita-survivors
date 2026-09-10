@@ -3866,9 +3866,16 @@ $LADO_ICONO = 32
 # ramas y el amuleto de azogue lleva la cadena en lazo, y a los dos les
 # tapaba el hueco de blanco.
 #
+# Y para tres armas que son puro hueco: el Arco y la Ballesta son un vano
+# entre la pala y la cuerda -en el Arco, un tercio del icono- y el Latigo
+# lleva el ojo de la espiral. Esas tres SI traen alfa en su dibujo, asi que
+# el hueco llegaba bien hasta el rematado y era Rematar quien lo tapaba con
+# la media de sus vecinos: por eso salian oscuras y no blancas.
+#
 # Para anadir otro -una rosquilla, una herradura, una llave- basta escribir su
 # id aqui.
-$ICONOS_CON_AGUJERO = @('arosRitmica', 'coronaEspinas', 'amuletoAzogue')
+$ICONOS_CON_AGUJERO = @('arosRitmica', 'coronaEspinas', 'amuletoAzogue',
+                        'arcoCorto', 'ballista', 'latigo')
 
 # Y una SEGUNDA hoja de armas a 96, para donde el icono se ve grande.
 #

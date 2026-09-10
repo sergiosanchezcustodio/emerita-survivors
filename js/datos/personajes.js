@@ -94,7 +94,7 @@ export const PERSONAJES = {
     nombre: 'Helen',
     sprite: 'helen',
     descripcion: 'Nunca falla el primer tiro. El segundo tampoco.',
-    // Arco corto: la andanada. Al 10 son nueve flechas rectas a la vez, así que
+    // Arco: la andanada. Al 10 son nueve flechas rectas a la vez, así que
     // se juega mirando de lejos y sin dejar de moverse.
     arma: 'arcoCorto',
     coste: 1500,

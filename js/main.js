@@ -69,7 +69,7 @@ import { Historia } from './ui/historia.js';
 // aún no ha salido por culling.
 const CAPACIDAD_ENEMIGOS = 1000;
 
-// Proyectiles: la Ballista a nivel 8 con la Clepsidra dispara mucho, y varias
+// Proyectiles: la Ballesta a nivel 8 con la Clepsidra dispara mucho, y varias
 // armas de proyectil conviven. 400 es holgado y son objetos diminutos.
 const CAPACIDAD_PROYECTILES = 400;
 // Partículas: 7 por muerte más chispas de impacto. Con la horda del minuto 16

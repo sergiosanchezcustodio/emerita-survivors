@@ -213,7 +213,7 @@ export const PASIVOS = {
   // partida, asi que quien empiece solo y reciba compania empezara a verlos en
   // la siguiente subida de nivel.
   selloMagacela: {
-    nombre: 'Sello de los Caballeros de Magacela',
+    nombre: 'Sello Templario',
     // Reparte a los OTROS, no a quien lo lleva. Es un tercio de lo que da el
     // Anillo de Augusto (+5% por nivel) porque va multiplicado por cuanta gente
     // haya: con cuatro, tres reciben lo tuyo y tu recibes lo de tres.

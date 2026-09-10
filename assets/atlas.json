@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260910094946",
+    "version":  "20260910111043",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -598,10 +598,10 @@
                                                    "frames":  1,
                                                    "plano":  true,
                                                    "solido":  [
-                                                                  42,
+                                                                  41,
                                                                   29,
-                                                                  176,
-                                                                  100
+                                                                  177,
+                                                                  99
                                                               ]
                                                },
                       "mascotaPlinioFicha":  {
@@ -615,7 +615,7 @@
                                                  "solido":  [
                                                                 33,
                                                                 25,
-                                                                136,
+                                                                135,
                                                                 105
                                                             ]
                                              },
@@ -628,9 +628,9 @@
                                                 "frames":  1,
                                                 "plano":  true,
                                                 "solido":  [
-                                                               22,
+                                                               23,
                                                                37,
-                                                               114,
+                                                               113,
                                                                99
                                                            ]
                                             },
@@ -659,9 +659,9 @@
                                                     "plano":  true,
                                                     "solido":  [
                                                                    21,
-                                                                   32,
+                                                                   33,
                                                                    89,
-                                                                   99
+                                                                   98
                                                                ]
                                                 },
                       "mascotaOreoFicha":  {
@@ -673,10 +673,10 @@
                                                "frames":  1,
                                                "plano":  true,
                                                "solido":  [
-                                                              29,
-                                                              31,
-                                                              108,
-                                                              110
+                                                              30,
+                                                              32,
+                                                              107,
+                                                              109
                                                           ]
                                            },
                       "mascotaPollitoFicha":  {
@@ -688,9 +688,9 @@
                                                   "frames":  1,
                                                   "plano":  true,
                                                   "solido":  [
-                                                                 28,
+                                                                 27,
                                                                  34,
-                                                                 98,
+                                                                 99,
                                                                  92
                                                              ]
                                               },
@@ -1033,10 +1033,10 @@
                                        "frames":  1,
                                        "plano":  true,
                                        "solido":  [
-                                                      19,
-                                                      22,
-                                                      59,
-                                                      77
+                                                      20,
+                                                      23,
+                                                      57,
+                                                      75
                                                   ]
                                    },
                       "potBellota":  {
@@ -1051,7 +1051,7 @@
                                                         13,
                                                         23,
                                                         58,
-                                                        72
+                                                        71
                                                     ]
                                      },
                       "potAliento":  {
@@ -1078,10 +1078,10 @@
                                         "frames":  1,
                                         "plano":  true,
                                         "solido":  [
+                                                       19,
                                                        18,
-                                                       17,
-                                                       68,
-                                                       81
+                                                       67,
+                                                       80
                                                    ]
                                     },
                       "potBandolera":  {
@@ -1093,10 +1093,10 @@
                                            "frames":  1,
                                            "plano":  true,
                                            "solido":  [
-                                                          28,
-                                                          15,
-                                                          96,
-                                                          69
+                                                          29,
+                                                          14,
+                                                          95,
+                                                          70
                                                       ]
                                        },
                       "columna":  {

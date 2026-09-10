@@ -160,7 +160,7 @@ export class Jugador {
     this.relojImpulso = 0;
     this.relojGrial = 0;
     this.relojLibro = 0;
-    // El del Manto del Peregrino cuenta AL REVES que los otros: es lo que le
+    // El del Capa del Peregrino cuenta AL REVES que los otros: es lo que le
     // queda para volver a estar cargado, asi que empieza a cero -o sea,
     // cargado- y solo corre despues de comerse un golpe.
     this.relojManto = 0;
@@ -336,7 +336,7 @@ export class Jugador {
     // Los unicos del juego que miran a los DEMAS. Jugando solo no salen
     // siquiera en el sorteo (ver `soloCooperativo` en datos/pasivos.js), asi
     // que aqui no hay que defenderse de que valgan cero: nadie los lleva.
-    this.auraDanyo = 0;            // Sello de los Caballeros de Magacela
+    this.auraDanyo = 0;            // Sello Templario
     this.reparteVida = 0;          // Corona de Espinas
     this.grialCada = 0;            // El Grial de Alconetar
     this.perdon = 0;               // La Llave del Perdon
@@ -347,7 +347,7 @@ export class Jugador {
     // primeros son campos como los de arriba; los dos ultimos son RANURAS, y
     // esos no los lee nadie aqui: los lee la progresion al repartir cartas y la
     // ficha al dibujar los huecos.
-    this.mantoCada = 0;            // Manto del Peregrino
+    this.mantoCada = 0;            // Capa del Peregrino
     this.bonusProyectiles = 0;     // Bellota de oro
     this.ultimoAliento = 0;        // Ultimo aliento
     this.maxArmas = MAX_ARMAS;     // Bandolera
@@ -771,7 +771,7 @@ export class Jugador {
       }
     }
 
-    // El Manto del Peregrino, recargándose. Cuenta hacia abajo y a cero está
+    // El Capa del Peregrino, recargándose. Cuenta hacia abajo y a cero está
     // listo, que es lo contrario de los otros tres relojes — y a propósito: lo
     // normal es tenerlo puesto, no esperándolo.
     if (this.relojManto > 0) {

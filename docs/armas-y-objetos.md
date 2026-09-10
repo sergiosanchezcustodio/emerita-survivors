@@ -30,14 +30,14 @@ del Gigante, Pira funeraria y Lágrima de la Mora.
 Antón y Diadema de Aliseda.
 
 **Solo en cooperativo** (`soloCooperativo`, no entran en el sorteo jugando
-solo): Sello de los Caballeros de Magacela, Corona de Espinas, El Grial de
+solo): Sello Templario, Corona de Espinas, El Grial de
 Alconétar y La Llave del Perdón.
 
 **Y el Libro de las Sombras de Alburquerque.**
 
 ## Los cinco de la tienda
 
-Manto del Peregrino, Bellota de oro, Último aliento, Zurrón y Bandolera. Cuatro
+Capa del Peregrino, Bellota de oro, Último aliento, Zurrón y Bandolera. Cuatro
 de un solo nivel: son cosas que tienes o no tienes.
 
 ---
@@ -107,14 +107,45 @@ provisionales.
 - Los **Aros** vuelven como bumerán, que es lo que los separa de las Mazas.
 - La **Campana** no hace daño, y paraliza 1,5 s al nivel 10 (se triplicó tras
   jugarla: medio segundo se pasaba antes de decidir por dónde salir).
-- **Manto, Zurrón, Bandolera y Último aliento**: un solo nivel.
+- **Capa, Zurrón, Bandolera y Último aliento**: un solo nivel.
 - Que haya veintiocho pasivos para cuatro ranuras **está aceptado**: hace las
   partidas muy distintas entre sí.
 - El **Lagarto** quita su porcentaje ANTES que la armadura (es la piel, no la
   coraza) y el **Becerro** es del que REMATA, no del equipo.
-- El **Manto** se come el golpe entero y regala los i-frames: sin ellos, parar
+- La **Capa del Peregrino** se come el golpe entero y regala los i-frames: sin ellos, parar
   un mordisco en medio de la horda te deja expuesto al siguiente en el mismo
   fotograma.
 - Las **ranuras son del jugador**, no del juego: en cooperativo cada uno lleva
   su progreso comprado, así que en la misma partida puede haber quien tenga
   cuatro armas y quien tenga cinco.
+
+---
+
+## Armas apartadas, que no borradas
+
+Sergio sacó siete del juego: **Lanzas gemelas, Artillería, Lluvia de agujas,
+Pistola, Escopeta, Lanzagranadas y Honda balear**.
+
+No se han borrado, y ahí está la gracia: llevan `retirada: true` en
+`js/datos/armas.js` y lo único que mira esa bandera es el sorteo de subida de
+nivel (`js/sistemas/progresion.js`). La entrada sigue entera —números, dibujo y
+comportamiento—, así que **devolver un arma al juego es borrar esa línea**. Se
+hizo así porque un arma arrancada hay que reescribirla, y con ella se van los
+números que costaron tardes de ajuste.
+
+Siguen saliendo en el ciclador de desarrollo (tecla **M**), que es justo donde
+hacen falta: para volver a mirar una y decidir si vuelve.
+
+## Nombres que cambiaron
+
+Cambia el nombre VISIBLE; el identificador interno no se toca, porque de él
+cuelgan el icono, el atlas y las partidas guardadas.
+
+| Antes | Ahora | id (sin tocar) |
+|---|---|---|
+| Ballista | **Ballesta** | `ballista` |
+| Lanzacohetes | **Bazooka** | `lanzacohetes` |
+| Rayo de Júpiter | **Rayos de Júpiter** | `rayoHorizontal` |
+| Arco corto | **Arco** | `arcoCorto` |
+| Sello de los Caballeros de Magacela | **Sello Templario** | `selloMagacela` |
+| Manto del Peregrino | **Capa del Peregrino** | `mantoPeregrino` |
