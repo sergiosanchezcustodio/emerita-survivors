@@ -59,6 +59,8 @@ import { POTENCIADORES } from './datos/potenciadores.js';
 import { Intro } from './ui/intro.js';
 import { dibujarHuecos, refrescarHuecos, huecoOcupado, textoBorrado, dibujarEsperaGithub } from './ui/huecos.js';
 import { dibujarNiveles, pedirVista } from './ui/niveles.js';
+// GALERÍA (temporal): pantalla para revisar el arte. Ver js/ui/galeria.js.
+import { dibujarGaleria, tamanyoSeccion, NUM_SECCIONES, columnasGaleria } from './ui/galeria.js';
 import { Historia } from './ui/historia.js';
 
 
@@ -213,6 +215,12 @@ const PANTALLA_NIVELES = 9;
 // del nivel, entre elegirlo y jugarlo. Ver ui/historia.js. Un nivel sin
 // `historia` en sus datos no pasa por aquí.
 const PANTALLA_HISTORIA = 10;
+// GALERÍA (temporal). Mirador del arte de armas, objetos y potenciadores en los
+// tamaños en que los dibuja el juego. No se llega a ella jugando: se entra desde
+// el menú del título y se vuelve con Esc. Ver js/ui/galeria.js.
+const PANTALLA_GALERIA = 11;
+let seccionGaleria = 0;
+let cursorGaleria = 0;
 // Sin valor de arranque: lo pone `irA` al final de este bloque, porque el
 // estado de pantalla no es solo esta variable — arrastra la clase del body, y
 // dejarlos puestos por separado es tener dos verdades que se desincronizan.
@@ -269,6 +277,7 @@ const MENU = [
   { id: 'tienda', texto: 'TIENDA' },
   { id: 'config', texto: 'CONFIGURACIÓN' },
   { id: 'salir',  texto: 'SALIR' },
+  { id: 'galeria', texto: 'GALERÍA DE ARTE' },   // GALERÍA (temporal)
   { id: 'partidas', texto: 'CAMBIAR PARTIDA', esquina: true }
 ];
 let cursorMenu = 0;
@@ -1097,6 +1106,9 @@ function entradaTitulo() {
   // Atajo que ya existía y se conserva: T entra directo a la tienda.
   if (entrada.consumirFlanco('KeyT')) { pestanyaTienda = PESTANYA_POTENCIADORES; cursorTienda = 0; irA(PANTALLA_TIENDA); return; }
 
+  // GALERÍA (temporal): G entra directa, igual que T entra a la tienda.
+  if (entrada.consumirFlanco('KeyG')) { seccionGaleria = 0; cursorGaleria = 0; irA(PANTALLA_GALERIA); return; }
+
   const acepta = entrada.consumirFlanco('Enter') || entrada.consumirFlanco('Space') ||
                  (c && c.consumirBoton(0));
   if (!acepta) return;
@@ -1117,6 +1129,11 @@ function entradaTitulo() {
       cursorConfig = 0;
       confirmarBorrado = false;
       irA(PANTALLA_CONFIG);
+      break;
+    case 'galeria':               // GALERÍA (temporal)
+      seccionGaleria = 0;
+      cursorGaleria = 0;
+      irA(PANTALLA_GALERIA);
       break;
     case 'salir':
       salirDelJuego();
@@ -1439,6 +1456,43 @@ function entradaConfig(cerrar) {
 // Los flancos se consumen TODOS antes de decidir nada. Encadenarlos con `||`
 // cortocircuita —si el primero es cierto, el segundo no llega a consumirse— y
 // esa pulsación se quedaría en la cola para dispararse en la pantalla siguiente.
+// GALERÍA (temporal). Un cursor por una rejilla y tres pestañas: las flechas
+// mueven casilla a casilla —y saltan de fila al llegar al borde, que es como se
+// recorre una rejilla y no como se recorre una lista—, Tab cambia de pestaña y
+// Esc vuelve al título. Ver js/ui/galeria.js.
+function entradaGaleria() {
+  const c = entrada.controles[0];
+  const ejeV = c ? c.flancoEje(false) : 0;
+  const ejeH = c ? c.flancoEje(true) : 0;
+
+  const tDer = entrada.consumirFlanco('ArrowRight');
+  const tIzq = entrada.consumirFlanco('ArrowLeft');
+  const tAbajo = entrada.consumirFlanco('ArrowDown');
+  const tArriba = entrada.consumirFlanco('ArrowUp');
+  const tTab = entrada.consumirFlanco('Tab');
+  const tEscape = entrada.consumirFlanco('Escape');
+  const tGaleria = entrada.consumirFlanco('KeyG');
+  const mAtras = entrada.consumirAtras();
+
+  if (tEscape || tGaleria || mAtras) { irA(PANTALLA_TITULO); return; }
+
+  // Tab y los gatillos hacen lo mismo: la siguiente pestaña. El cursor vuelve a
+  // cero porque las tres listas no tienen ni la misma longitud ni el mismo
+  // orden, igual que en la tienda.
+  if (tTab || (c && (c.consumirBoton(4) || c.consumirBoton(5)))) {
+    seccionGaleria = (seccionGaleria + 1) % NUM_SECCIONES;
+    cursorGaleria = 0;
+    return;
+  }
+
+  const n = tamanyoSeccion(seccionGaleria);
+  const cols = columnasGaleria();
+  if (tDer || (c && c.consumirBoton(15)) || ejeH > 0) cursorGaleria = (cursorGaleria + 1) % n;
+  if (tIzq || (c && c.consumirBoton(14)) || ejeH < 0) cursorGaleria = (cursorGaleria + n - 1) % n;
+  if (tAbajo || (c && c.consumirBoton(13)) || ejeV > 0) cursorGaleria = (cursorGaleria + cols) % n;
+  if (tArriba || (c && c.consumirBoton(12)) || ejeV < 0) cursorGaleria = (cursorGaleria - cols + n * 2) % n;
+}
+
 function entradaTienda() {
   const c = entrada.controles[0];
   // Una sola llamada por eje y frame: `flancoEje` guarda estado y llamarlo dos
@@ -2547,6 +2601,7 @@ function actualizar(dt) {
     else if (pantalla === PANTALLA_TIENDA) entradaTienda();
     else if (pantalla === PANTALLA_MASCOTAS) entradaMascotas();
     else if (pantalla === PANTALLA_CONFIG) entradaConfig(() => irA(PANTALLA_TITULO));
+    else if (pantalla === PANTALLA_GALERIA) entradaGaleria();   // GALERÍA (temporal)
     else entradaSeleccion();
     entrada.limpiarFlanco();
     return;
@@ -3206,6 +3261,10 @@ function dibujar(alpha) {
                          turnoMascota, puestos, mascotasElegidas);
     } else if (pantalla === PANTALLA_CONFIG) {
       dibujarConfig(ctx, Capa.ctx, CONFIG, cursorConfig);
+    }
+    // GALERÍA (temporal)
+    else if (pantalla === PANTALLA_GALERIA) {
+      dibujarGaleria(ctx, Capa.ctx, seccionGaleria, cursorGaleria);
     }
     else Pantallas.seleccion(ctx, Capa.ctx, puestos, focoSeleccion);
     return;

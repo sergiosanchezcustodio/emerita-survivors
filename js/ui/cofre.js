@@ -4,7 +4,9 @@ import { Capa, FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
 import { Tema, panel, cenefa } from './tema.js';
 import { Recursos } from '../core/recursos.js';
 import { ARMAS } from '../datos/armas.js';
-import { dibujarIconoArma, dibujarIconoPasivo, ALTO_FICHA, MARGEN_FICHA } from './hud.js';
+import {
+  dibujarIconoArma, dibujarIconoPasivo, ALTO_FICHA, MARGEN_FICHA, ICONO_UNIFICADO
+} from './hud.js';
 
 // Ventana del COFRE. Sale al recoger el tesoro que suelta un élite, y enseña
 // dos cosas distintas según lo que haya tocado:
@@ -58,7 +60,16 @@ const RADIO_ICONOS = 0.60;
 // las líneas que separan las porciones, así que la rueda se leía como un
 // amasijo de dibujos en vez de como ocho casillas con una cosa en cada una.
 const ICONO_POR_RADIO = 0.225;
-const ICONO_MAX = 13;
+// El tope es el tamaño de icono de todo el juego (ui/hud.js). Coincidía ya con
+// el 13 que había aquí —de hecho esta ruleta es de donde salió, porque es donde
+// mejor se veían— pero ahora se lee de un sitio en vez de estar escrito dos
+// veces: el día que Sergio quiera todos los iconos un punto más grandes, se
+// cambia allí y esta ruleta va detrás.
+//
+// Sigue siendo un MÍNIMO con el reparto: en una ventana estrecha la rueda se
+// encoge y el icono con ella, porque ocho iconos de 13 en una rueda pequeña se
+// pisan entre sí.
+const ICONO_MAX = ICONO_UNIFICADO;
 
 // Vueltas que da cada rueda antes de pararse. Cuatro es lo que hace falta para
 // que se lea como "ha girado" y no como "ha saltado a su sitio".

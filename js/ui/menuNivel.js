@@ -3,7 +3,8 @@ import { Progresion, DURACION_TIRADA } from '../sistemas/progresion.js';
 import { FUENTE, FUENTE_TITULO, textoEspaciado } from './capa.js';
 import { Tema, panel, cenefa } from './tema.js';
 import {
-  ALTO_FICHA, MARGEN_FICHA, dibujarIconoArma, dibujarIconoPasivo, COLOR_PASIVO
+  ALTO_FICHA, MARGEN_FICHA, ICONO_UNIFICADO,
+  dibujarIconoArma, dibujarIconoPasivo, COLOR_PASIVO
 } from './hud.js';
 import { ARMAS } from '../datos/armas.js';
 import { PASIVOS } from '../datos/pasivos.js';
@@ -46,12 +47,16 @@ const ALTO_CARTA = 116;      // 22 más que antes: el icono pide su sitio
 // tira filas enteras del dibujo. Por eso la katana se veía rota aquí y bien en
 // la ficha, que pide el mismo icono pero con escala 1,5 y sí cruza el umbral.
 //
-// Con 17 de medallón y 0,66 de icono salen 11,22: pasa el umbral por su propio
-// pie, coge la hoja de 96 y la reduce con suavizado. Y 0,66 es además lo que de
-// verdad cabe en un círculo: las esquinas del dibujo caen a 11,22·√2 = 15,9,
-// dentro de los 17 del aro.
-const ICONO_R = 17;          // radio del medallón
-const ICONO_GLIFO = 0.66;    // parte del medallón que ocupa el dibujo
+// Aquello se arregló con un medallón de 17 y un icono de 11,22, y ya da igual:
+// desde que ui/hud.js tira SIEMPRE de la hoja de 96 (ver RADIO_HD) no hay umbral
+// que cruzar, y el tamaño del icono ya no se decide aquí sino una sola vez para
+// todo el juego (ICONO_UNIFICADO, ui/hud.js, que son 13).
+//
+// EL MEDALLÓN SUBE DE 17 A 18,5 para dar de sí lo que el dibujo pide. Un icono
+// se encaja en un cuadrado de lado 2·r y el dibujo llega a las esquinas de ese
+// cuadrado: a radio 13 eso son 17,4 del centro, más el punto del marco, 18,4.
+// Con los 17 de antes un objeto habría asomado por las cuatro diagonales.
+const ICONO_R = 18.5;        // radio del medallón
 // Centrado A OJO EXACTO entre la etiqueta ("ARMA NUEVA", que baja hasta 18) y la
 // tapa del nombre (71 de línea base, o sea 61 arriba): (18+61)/2 = 39,5. Estaba
 // en 36, pegado a la etiqueta y con el hueco debajo, y con el medallón en blanco
@@ -169,9 +174,9 @@ function dibujarMedallon(ctx, cx, cy, o, color, elegida) {
   ctx.lineCap = 'round';
 
   if (o.clase === 'arma') {
-    if (ARMAS[o.id]) dibujarIconoArma(ctx, 0, 0, ICONO_R * ICONO_GLIFO, o.id, color);
+    if (ARMAS[o.id]) dibujarIconoArma(ctx, 0, 0, ICONO_UNIFICADO, o.id, color);
   } else if (o.clase === 'pasivo') {
-    if (PASIVOS[o.id]) dibujarIconoPasivo(ctx, 0, 0, ICONO_R * ICONO_GLIFO, o.id, COLOR_PASIVO);
+    if (PASIVOS[o.id]) dibujarIconoPasivo(ctx, 0, 0, ICONO_UNIFICADO, o.id, COLOR_PASIVO);
   } else {
     // Curación: una copa. No tiene comportamiento ni campo del que sacar glifo,
     // y dejarla con el círculo por defecto la haría parecer un arma sin icono.

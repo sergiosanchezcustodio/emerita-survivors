@@ -64,7 +64,31 @@ import { Director } from '../sistemas/director.js';
 // ranuras, para que crezcan un 10% sin quedarse pegadas unas a otras. Robarle
 // el ancho al hueco entre ranuras habría dejado el aire en 1, y cuatro
 // cuadrados a 1 de distancia se leen como una tira, no como cuatro ranuras.
-const ANCHO = 180;
+//
+// Y DE 180 A 229, en dos pasos y por lo mismo: que el arma y el objeto se vean
+// en el panel de esquina EXACTAMENTE igual de grandes que en el resto del
+// juego. El tamaño bueno lo eligió Sergio mirándolos todos al lado en la
+// galería y es el de la tienda: 13 (ver ICONO_UNIFICADO, aquí abajo).
+//
+// Lo que obliga a ensanchar es la ranura REDONDA de los objetos. Un icono se
+// dibuja siempre encajado en un cuadrado de lado 2·r, y el dibujo LLEGA a las
+// esquinas de ese cuadrado: medidas las dos hojas de 96, el píxel opaco más
+// lejano del centro está a 64,4 en los objetos y a 66,5 en las armas, de una
+// media diagonal de 67,9 —una espada se dibuja en diagonal y la ocupa entera—.
+// O sea que a radio 13 el dibujo llega a 13·64,4/48 = 17,4 del centro, y el aro
+// tiene que dar al menos eso más el punto del marco: 18,5 de radio, 37 de lado.
+//
+// Así que crece la RANURA hasta 34 —el propio medallón de la carta— y el ancho
+// del panel detrás de ella: los 37 que sube son los 9,25 que gana cada una de
+// las cuatro ranuras. Todo lo demás de la ficha —la tarjeta de identidad, la
+// barra de xp y los huecos— se queda con su medida de siempre, así que lo que
+// se ensancha es solo la columna de las ranuras.
+//
+// El precio está contado y aceptado: son 37 unidades más de esquina tapada por
+// jugador, y en cooperativo a cuatro son cuatro esquinas. Se paga porque el
+// panel de esquina es lo único que se mira EN PARTIDA para saber qué llevas, y
+// hasta ahora obligaba a abrir la ficha para reconocer un icono.
+const ANCHO = 229;
 const MARGEN = 9;              // separación al borde de la pantalla
 const RELLENO_H = 5;           // margen interior horizontal
 const RELLENO_V = 4;           // margen interior vertical
@@ -108,23 +132,52 @@ const RANURA_H = RANURA_W;
 
 // RADIO DEL DIBUJO DENTRO DE LA RANURA, en absoluto y no en fracción del marco.
 //
-// Eran 0,40 y 0,32 del alto de la ranura, y con las ranuras creciendo un 10% el
-// icono habría crecido con ellas. Lo que se pidió es lo contrario: marco más
-// grande, dibujo igual. Así que se congelan los dos valores que salían de la
-// ranura de 22,5, que son los que ya estaban bien vistos en pantalla.
+// EL DIBUJO VUELVE A LLENAR LA RANURA. Estaban en 9 y 7,2, que son los valores
+// que salían de la ranura de 22,5 y se congelaron cuando el marco creció a
+// 24,75: la idea de entonces era marco más grande y dibujo igual, y con los
+// glifos vectoriales y la hoja de 32 se defendía sola —un dibujo de 32 píxeles
+// no mejora por ampliarlo—. Ya no es el caso: desde que ui/hud.js tira siempre
+// del arte de 96 (ver RADIO_HD), lo que sobraba de aire era detalle sin usar,
+// y en la ficha de jugador, que sí llena su medallón, se veía la diferencia.
 //
-// Son dos y no uno por lo mismo que en la ficha de jugador (ui/ficha.js): en un
-// cuadrado y en un círculo del mismo lado no cabe lo mismo. El icono siempre se
-// encaja en un cuadrado de lado 2·r.
+// Son las MISMAS DOS FRACCIONES que usa la ficha (0,82 y 0,66, ver
+// `glifo(ctx, r * ...)` en ui/ficha.js) aplicadas al radio de esta ranura, así
+// que un arma ocupa ahora la misma parte de su hueco en las dos pantallas.
 //
-//   - CUADRADA (armas): el tope lo pone el lado, y ahora sobra aire por los
-//     cuatro costados: 9 de radio dentro de 24,75/2 - 1 de subida son 2,4.
+// Son dos y no uno por lo mismo que allí: en un cuadrado y en un círculo del
+// mismo lado no cabe lo mismo. El icono siempre se encaja en un cuadrado de
+// lado 2·r.
+//
+//   - CUADRADA (armas): el tope lo pone el lado. 10,15 de radio dentro de
+//     24,75/2 menos el punto que sube el dibujo deja 1,2 para el marco.
 //   - REDONDA (pasivos): el tope lo ponen las ESQUINAS del cuadrado, que caen a
-//     r·√2 del centro. 7,2 · √2 = 10,2 contra los 12,4 del arco. Con el 9 del
-//     cuadrado se irían a 12,7 y el dibujo asomaría por las cuatro diagonales,
-//     que es la trampa de meter un cuadrado en un círculo.
-const ICONO_CUADRADO = 9.0;
-const ICONO_REDONDO = 7.2;
+//     r·√2 del centro. 8,17 · √2 = 11,6 contra los 12,4 del arco; con el 10,15
+//     del cuadrado se irían a 14,4 y el dibujo asomaría por las diagonales.
+// EL TAMAÑO DE UN ICONO, UNO SOLO PARA TODO EL JUEGO.
+//
+// 13, que es el de la tienda y el de la pantalla de héroes. Lo eligió Sergio
+// viéndolos los seis juntos en la galería de arte, y es la respuesta correcta a
+// una pregunta que llevaba mal planteada desde el principio: cuánto mide un
+// arma no puede depender de en qué ventana ha salido. Antes había cinco medidas
+// distintas —9, 11,22, 13, 15,03 y 7— y cada una tenía su buena razón local;
+// juntas hacían que el mismo dibujo pareciera cinco dibujos.
+//
+// LO IMPORTA TODO EL MUNDO desde aquí: ui/ficha.js, ui/menuNivel.js y
+// ui/cofre.js. Este archivo es el sitio donde vive porque es el que ya exportaba
+// las medidas de la ficha (ALTO_FICHA, MARGEN_FICHA) y del que los otros tres
+// ya importaban; al revés habría hecho un ciclo.
+//
+// ESTÁ EN UNIDADES DE PANTALLA, a escala 1. Quien dibuje con el contexto
+// escalado tiene que DIVIDIR por su escala o el icono le saldrá más grande que
+// a los demás: es lo que hace ui/ficha.js con su 1,125.
+//
+// Y ya no hacen falta dos números para las dos formas. Las fracciones 0,82 y
+// 0,66 respondían a "lo más grande que quepa en esta ranura"; ahora la ranura se
+// hace a la medida del dibujo y no al revés.
+export const ICONO_UNIFICADO = 13;
+
+const ICONO_CUADRADO = ICONO_UNIFICADO;
+const ICONO_REDONDO = ICONO_UNIFICADO;
 
 // --- Alturas, medidas desde el borde superior de la ficha --------------------
 //
@@ -476,11 +529,23 @@ function repartoDe(idHoja) {
 // vecino más próximo eso son bloques de tres y de cuatro píxeles mezclados. Es
 // lo que se veía como iconos sucios y descuadrados en la ruleta.
 //
-// El 11 se mantiene: las ranuras de la ficha, que eran el caso justo por debajo,
-// ahora piden 9,02 y se dibujan con la escala 1,5 de ui/ficha.js, o sea 13,5
-// reales, así que cruzan el umbral por su propio pie. El que sí hace falta para
-// que se note es `escala`, aquí abajo.
-const RADIO_HD = 11;
+// SE HA IDO A CERO: la hoja grande AHORA VALE PARA TODO. El 11 de antes partía
+// los sitios en dos —el cofre y la tienda salían del arte de 96, la ficha y la
+// carta de subida de nivel del de 32— y se veía: puestos uno al lado del otro en
+// la galería, los de 32 son otra arma peor dibujada. Lo pidió Sergio y es lo
+// correcto: quien decide cómo se ve un icono es el DIBUJO, no en qué pantalla
+// ha salido.
+//
+// El razonamiento de arriba sigue en pie y es justo el que lleva al cero:
+// ampliar tiene un techo —el arte de 32 no da más de sí— y reducir no lo tiene.
+// Reducir 96 a los 9 de una ranura del HUD son diez píxeles de origen por cada
+// uno de destino, promediados con el suavizado encendido: exactamente lo que
+// hace una miniatura buena.
+//
+// Y NO SE BORRA la constante ni la elección de hoja: un icono sin gemela de 96
+// —hoy no queda ninguno, pero mañana puede entrar uno— sigue cayendo solo a su
+// hoja de 32 por el `Recursos.meta(idHoja + 'Hd')` de abajo.
+const RADIO_HD = 0;
 
 // `escala` es el aumento que quien llama tenga puesto en el contexto. NO se usa
 // para dibujar —de eso ya se encarga la transformación— sino solo para ELEGIR

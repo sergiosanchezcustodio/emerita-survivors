@@ -15,7 +15,7 @@ el camino, para no volver a discutirlas.
 | **Cartas de la baraja** | Familia de la Metralla. 3→22 cartas, una imagen distinta por carta sobre las diez de la lámina |
 | **Cayado de San Isidro** | `bombardeoAleatorio` con el reparto encogido a un círculo alrededor del jugador |
 | **Campana del Silencio** | **La única que no hace daño.** Cono que paraliza 1,5 s al 10; al paralizado se le atraviesa sin recibir |
-| **Aros de rítmica** | Hermana de las RainbowMazas, pero **vuelven como bumerán**: pasan dos veces por el mismo sitio |
+| **Hula Hoop** (id `arosRitmica`) | Hermana de las RainbowMazas, pero **vuelven como bumerán**: pasan dos veces por el mismo sitio |
 
 ## Los veintiún objetos de gameplay
 

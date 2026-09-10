@@ -1321,7 +1321,7 @@ export const ARMAS = {
               { danyoExplosion: 10, recarga: -0.2, radioExplosion: 5 }]
   },
 
-  // --- Aros de rítmica ---------------------------------------------------
+  // --- Hula Hoop (los aros de rítmica) -----------------------------------
   //
   // Pedidos por Sergio: como las RainbowMazas pero aros — más área y menos
   // daño— y VOLVIENDO COMO UN BUMERÁN, que es lo que los separa de verdad de
@@ -1338,7 +1338,7 @@ export const ARMAS = {
   // distinguen también en cuántos hay volando. Diez al máximo, uno de cada
   // dibujo de la lámina.
   arosRitmica: {
-    nombre: 'Aros de rítmica',
+    nombre: 'Hula Hoop',
     descripcion: 'Aros que salen girando y vuelven. Cubren mucho y pegan poco.',
     comportamiento: 'direccionAleatoria',
     danyo: 12, recarga: 1.5, proyectiles: 1, velocidad: 130, alcance: 150,

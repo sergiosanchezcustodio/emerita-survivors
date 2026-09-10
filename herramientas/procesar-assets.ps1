@@ -2231,8 +2231,21 @@ public class Procesador {
     // Las dos pasadas de erosion son las de RecortarCeldas y por lo mismo: el
     // blanco del original no es blanco puro en el contorno y sin erosionarlo
     // queda una orla clara pegada al icono, que a 96 se ve como un halo.
+    //
+    // `huecosIcono` (opcional, uno por entrada) dice CUALES de los iconos de la
+    // tira son todo agujero y no admiten el relleno. Aqui no vale un bool para
+    // la hoja entera como en las otras dos: en una tira de 59 armas conviven el
+    // aro -que es un agujero con borde- y cincuenta y ocho siluetas macizas a
+    // las que la reduccion SI les abre boquetes que hay que tapar. Con el bool
+    // solo se podia elegir entre un aro relleno o cincuenta y ocho armas
+    // agujereadas.
     public static string RecortarIconosSueltos(string[] entradas, string salida, int lado,
                                                bool huecos) {
+        return RecortarIconosSueltos(entradas, salida, lado, huecos, null);
+    }
+
+    public static string RecortarIconosSueltos(string[] entradas, string salida, int lado,
+                                               bool huecos, bool[] huecosIcono) {
         int n = entradas.Length;
         int tiraW = lado * n;
         int dStride = tiraW * 4;
@@ -2287,6 +2300,66 @@ public class Procesador {
                         }
                     for (int q = 0; q < orla.Count; q++) fondo[orla[q]] = true;
                 }
+
+                // AGUJERO CERRADO EN UN ORIGINAL SIN ALFA.
+                //
+                // La inundacion de arriba entra SOLO por el borde de la imagen,
+                // asi que un blanco encerrado -el centro del aro de la corona de
+                // espinas, el lazo de la cadena del amuleto- no lo alcanza nunca
+                // y sale del recorte como una mancha opaca.
+                //
+                // `arosRitmica` no daba este problema porque su lamina ya trae
+                // alfa y entra por la rama de arriba. Los dibujos nuevos de
+                // resources/objetos/pasivos/ llegan opacos, con el fondo pintado
+                // de blanco, y para esos hay que ir a buscar el hueco.
+                //
+                // Solo se hace para los iconos declarados en ICONOS_CON_AGUJERO:
+                // vaciar todo blanco encerrado a ciegas se comeria los brillos
+                // del metal de los otros veintisiete. Y aun ahi se pide que la
+                // mancha ocupe al menos el 3 por mil de la imagen, que es lo que
+                // separa un agujero de un reflejo.
+                if (huecosIcono != null && i < huecosIcono.Length && huecosIcono[i]) {
+                    bool[] visto = new bool[w * h];
+                    for (int y = 0; y < h; y++)
+                        for (int x = 0; x < w; x++) {
+                            int idx = y * w + x;
+                            if (fondo[idx] || visto[idx]) continue;
+                            if (Lum(px, y * stride + x * 4) < umbral) continue;
+                            List<int> comp = new List<int>();
+                            Queue<int> cerrada = new Queue<int>();
+                            cerrada.Enqueue(idx); visto[idx] = true;
+                            while (cerrada.Count > 0) {
+                                int p = cerrada.Dequeue();
+                                comp.Add(p);
+                                int cx = p % w, cy = p / w;
+                                for (int d = 0; d < 4; d++) {
+                                    int nx = cx + (d == 0 ? 1 : d == 1 ? -1 : 0);
+                                    int ny = cy + (d == 2 ? 1 : d == 3 ? -1 : 0);
+                                    if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                                    int ni = ny * w + nx;
+                                    if (visto[ni] || fondo[ni]) continue;
+                                    if (Lum(px, ny * stride + nx * 4) < umbral) continue;
+                                    visto[ni] = true;
+                                    cerrada.Enqueue(ni);
+                                }
+                            }
+                            if (comp.Count * 1000L >= (long)w * h * 3)
+                                for (int c = 0; c < comp.Count; c++) fondo[comp[c]] = true;
+                        }
+                    // Y la misma orla que el fondo de fuera, por el borde suave
+                    // que el dibujo deja al otro lado del agujero.
+                    for (int pase = 0; pase < 2; pase++) {
+                        List<int> orla = new List<int>();
+                        for (int y = 0; y < h; y++)
+                            for (int x = 0; x < w; x++) {
+                                if (fondo[y * w + x]) continue;
+                                if (Lum(px, y * stride + x * 4) <= umbral - 34) continue;
+                                if (!Vecino(fondo, w, h, x, y)) continue;
+                                orla.Add(y * w + x);
+                            }
+                        for (int q = 0; q < orla.Count; q++) fondo[orla[q]] = true;
+                    }
+                }
             }
 
             int[] caja = CajaSilueta(fondo, w, 0, 0, w - 1, h - 1);
@@ -2320,7 +2393,37 @@ public class Procesador {
             hallados++;
         }
 
+        // Los que llevan agujero de verdad se rehacen DESPUES, desde una copia
+        // del antes: `Rematar` trabaja sobre la tira entera de un tiron -inunda
+        // desde su borde- y no sabe pararse en la casilla de un icono. Asi que
+        // primero pasa por toda la tira como siempre, y luego cada icono
+        // marcado se vuelve a rematar solo, en un bufer de su tamano, con el
+        // relleno apagado, y se copia encima.
+        //
+        // El bufer de un icono suelto es exactamente lo que hace falta para que
+        // esto salga bien: su borde es el borde de la casilla, que en un icono
+        // centrado siempre es transparente, asi que la inundacion entra por
+        // donde tiene que entrar y el centro del aro se queda vacio.
+        bool alguno = false;
+        if (huecosIcono != null)
+            for (int i = 0; i < n && i < huecosIcono.Length; i++) if (huecosIcono[i]) alguno = true;
+
+        byte[] previo = alguno ? (byte[])dst.Clone() : null;
+
         Rematar(dst, tiraW, lado, dStride, !huecos);
+
+        if (alguno) {
+            int cStride = lado * 4;
+            byte[] celda = new byte[cStride * lado];
+            for (int i = 0; i < n && i < huecosIcono.Length; i++) {
+                if (!huecosIcono[i]) continue;
+                for (int y = 0; y < lado; y++)
+                    Array.Copy(previo, y * dStride + i * lado * 4, celda, y * cStride, cStride);
+                Rematar(celda, lado, lado, cStride, false);
+                for (int y = 0; y < lado; y++)
+                    Array.Copy(celda, y * cStride, dst, y * dStride + i * lado * 4, cStride);
+            }
+        }
 
         using (Bitmap sal = new Bitmap(tiraW, lado, PixelFormat.Format32bppArgb)) {
             BitmapData dd = sal.LockBits(new Rectangle(0, 0, tiraW, lado),
@@ -3745,6 +3848,28 @@ $CELDA_OBJETO = @{
 # de verdad ensucia un icono.
 $LADO_ICONO = 32
 
+# ICONOS QUE SON TODO AGUJERO.
+#
+# `Rematar` rellena con la media de sus vecinos todo lo transparente que no
+# toque el borde de la tira, porque se escribio para tapar los boquetes que la
+# REDUCCION abre en mitad de un cuerpo. Un aro de gimnasia ritmica no es un
+# cuerpo: es un agujero con borde, y salia como un disco macizo en la ficha, en
+# la tienda y en la carta de subida de nivel, aunque la lamina de Sergio lo trae
+# vacio y bien vacio.
+#
+# Es exactamente el mismo caso que ya estaba resuelto en la hoja del PROYECTIL
+# (ver `huecos` en $EFECTOS_HOJA), solo que alli el aro va solo en su lamina y
+# bastaba un interruptor para la hoja entera. Aqui comparte tira con cincuenta y
+# ocho armas macizas que SI necesitan el relleno, asi que va por id.
+#
+# Vale igual para la tira de OBJETOS: la corona de espinas es un aro de
+# ramas y el amuleto de azogue lleva la cadena en lazo, y a los dos les
+# tapaba el hueco de blanco.
+#
+# Para anadir otro -una rosquilla, una herradura, una llave- basta escribir su
+# id aqui.
+$ICONOS_CON_AGUJERO = @('arosRitmica', 'coronaEspinas', 'amuletoAzogue')
+
 # Y una SEGUNDA hoja de armas a 96, para donde el icono se ve grande.
 #
 # Los 32 valen para las ranuras de la ficha, que miden eso. Pero en la ruleta
@@ -3827,6 +3952,11 @@ $HOJAS_ICONOS = @(
     # `modo` rejilla: la hoja trae alfa y los iconos caen en celdas iguales.
     @{ src='objetos\pasivos'; dst='iconos\objetos.png'; id='iconosObjetos'
        ids=$ICONOS_OBJETOS; modo='sueltos'; cols=0; filas=0; lado=$LADO_ICONO }
+    # Y la de objetos a 96, por el mismo motivo que la de armas: desde que
+    # ui/hud.js tira SIEMPRE de la hoja grande (ver RADIO_HD), un objeto sin
+    # gemela de 96 se quedaria dibujandose desde los 32 en todas partes.
+    @{ src='objetos\pasivos'; dst='iconos\objetos-hd.png'; id='iconosObjetosHd'
+       ids=$ICONOS_OBJETOS; modo='sueltos'; cols=0; filas=0; lado=$LADO_ICONO_HD }
     # `modo` sueltos: no hay hoja, hay un archivo por arma dentro de `src`. Ver
     # RecortarIconosSueltos.
     @{ src='armas';               dst='iconos\armas.png';    id='iconosArmas'
@@ -3910,8 +4040,11 @@ foreach ($hoja in $HOJAS_ICONOS) {
                 }
                 if ($f) { $f.FullName } else { Join-Path $rutaSrc "$id.NO-DECLARADO" }
             }
+            # Uno por icono, en el MISMO orden que $entradas, que es el orden
+            # de `ids` y por tanto el de los huecos de la tira.
+            $conAgujero = @($hoja.ids | ForEach-Object { $ICONOS_CON_AGUJERO -contains $_ })
             $r = [Procesador]::RecortarIconosSueltos([string[]]$entradas, $rutaDst, $hoja.lado,
-                                                     [bool]$hoja.huecos)
+                                                     [bool]$hoja.huecos, [bool[]]$conAgujero)
         } else {
             $r = [Procesador]::RecortarIconos($rutaSrc, $rutaDst, $n, $hoja.lado,
                                               $hoja.modo, $hoja.cols, $hoja.filas,

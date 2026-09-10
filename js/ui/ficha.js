@@ -7,7 +7,8 @@ import { Director } from '../sistemas/director.js';
 import { FUENTE, FUENTE_TITULO, textoEspaciado, textoBorde, envolverTexto } from './capa.js';
 import { Tema, panel, cenefa } from './tema.js';
 import {
-  ALTO_FICHA, MARGEN_FICHA, dibujarIconoArma, dibujarIconoPasivo, COLOR_JUGADOR, COLOR_PASIVO
+  ALTO_FICHA, MARGEN_FICHA, ICONO_UNIFICADO,
+  dibujarIconoArma, dibujarIconoPasivo, COLOR_JUGADOR, COLOR_PASIVO
 } from './hud.js';
 
 // FICHA DE JUGADOR. Se abre con Select en el mando o Tab en el teclado (las
@@ -345,27 +346,21 @@ function ranura(ctx, x, y, r, color, glifo, nivel, maximo, cuadrada) {
     // Y `shadowBlur` llega aquí a cero a propósito: drawImage respeta la sombra
     // del contexto igual que fill/stroke (ver blitHoja en ui/hud.js), así que
     // dejarla puesta difuminaría el arma en vez del marco.
-    // EL ICONO LLENA LA RANURA, con el margen justo para no tocar el marco.
+    // EL MISMO TAMAÑO QUE EN TODAS LAS DEMÁS VENTANAS: ICONO_UNIFICADO, que
+    // vive en ui/hud.js y son 13. Aquí estaba en 0,82 del medallón para las
+    // armas y 0,66 para los objetos —"lo más grande que quepa"— y eso hacía de
+    // la ficha el sitio donde un arma se veía más grande de todo el juego: 15,03
+    // contra los 13 de la tienda y los 11,22 de la carta de subida de nivel.
     //
-    // Estaba en 0,58 para las dos formas, o sea que el dibujo ocupaba poco más
-    // de la mitad del medallón y el resto era aire. Lo pidió Sergio: más grande,
-    // sin llegar al marco.
+    // PARTIDO POR LA ESCALA. Este panel se dibuja con el contexto a 1,125 (ver
+    // ESCALA_FICHA y el ctx.scale de abajo), así que un 13 pasado tal cual
+    // saldría a 14,6 en pantalla y la ficha volvería a ser la excepción. Lo que
+    // tiene que coincidir es lo que se VE, no el número que se escribe.
     //
-    // Y no puede ser el mismo número para las dos, porque no cabe lo mismo en un
-    // cuadrado que en un círculo. El icono se dibuja SIEMPRE encajado en un
-    // cuadrado de lado 2·rr:
-    //
-    //   - En la ranura cuadrada (armas) el límite lo pone el lado: con 0,82 el
-    //     dibujo mide 18 dentro de 22 y quedan 2 por lado, que es donde va el
-    //     trazo del marco y su punto de aire.
-    //   - En la redonda (objetos) el límite lo ponen las ESQUINAS del cuadrado,
-    //     que salen a rr·√2 del centro. Con 0,66 eso son 10,3 contra los 11 del
-    //     círculo; con el 0,82 del cuadrado se irían a 12,8 y el dibujo asomaría
-    //     por las cuatro diagonales.
-    //
-    // Sale más chico el de objetos, sí, y es lo correcto: es lo que de verdad
-    // cabe dentro de un círculo de ese radio.
-    glifo(ctx, r * (cuadrada ? 0.82 : 0.66), color);
+    // Cabe de sobra y ya no hace falta un número por forma: el medallón mide
+    // 41,25 de diámetro en pantalla y el dibujo llega como mucho a 17,4 del
+    // centro (ver ICONO_UNIFICADO para de dónde sale ese 17,4).
+    glifo(ctx, ICONO_UNIFICADO / ESCALA_FICHA, color);
     ctx.restore();
 
     if (!tope) {

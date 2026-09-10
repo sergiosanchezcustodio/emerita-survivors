@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260908154259",
+    "version":  "20260910094946",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -1026,21 +1026,36 @@
                                      },
                       "potManto":  {
                                        "archivo":  "objetos/pot-manto.png",
-                                       "w":  80,
+                                       "w":  96,
                                        "h":  112,
-                                       "anclaX":  40,
+                                       "anclaX":  48,
                                        "anclaY":  112,
                                        "frames":  1,
                                        "plano":  true,
                                        "solido":  [
-                                                      17,
-                                                      20,
-                                                      46,
-                                                      75
+                                                      19,
+                                                      22,
+                                                      59,
+                                                      77
                                                   ]
                                    },
                       "potBellota":  {
                                          "archivo":  "objetos/pot-bellota.png",
+                                         "w":  88,
+                                         "h":  112,
+                                         "anclaX":  44,
+                                         "anclaY":  112,
+                                         "frames":  1,
+                                         "plano":  true,
+                                         "solido":  [
+                                                        13,
+                                                        23,
+                                                        58,
+                                                        72
+                                                    ]
+                                     },
+                      "potAliento":  {
+                                         "archivo":  "objetos/pot-aliento.png",
                                          "w":  72,
                                          "h":  112,
                                          "anclaX":  36,
@@ -1048,55 +1063,40 @@
                                          "frames":  1,
                                          "plano":  true,
                                          "solido":  [
-                                                        10,
-                                                        24,
-                                                        47,
-                                                        73
-                                                    ]
-                                     },
-                      "potAliento":  {
-                                         "archivo":  "objetos/pot-aliento.png",
-                                         "w":  48,
-                                         "h":  112,
-                                         "anclaX":  24,
-                                         "anclaY":  112,
-                                         "frames":  1,
-                                         "plano":  true,
-                                         "solido":  [
-                                                        12,
-                                                        36,
-                                                        22,
-                                                        70
+                                                        19,
+                                                        33,
+                                                        40,
+                                                        71
                                                     ]
                                      },
                       "potZurron":  {
                                         "archivo":  "objetos/pot-zurron.png",
-                                        "w":  120,
+                                        "w":  104,
                                         "h":  112,
-                                        "anclaX":  60,
+                                        "anclaX":  52,
                                         "anclaY":  112,
                                         "frames":  1,
                                         "plano":  true,
                                         "solido":  [
                                                        18,
-                                                       19,
-                                                       86,
-                                                       82
+                                                       17,
+                                                       68,
+                                                       81
                                                    ]
                                     },
                       "potBandolera":  {
                                            "archivo":  "objetos/pot-bandolera.png",
-                                           "w":  88,
+                                           "w":  152,
                                            "h":  112,
-                                           "anclaX":  44,
+                                           "anclaX":  76,
                                            "anclaY":  112,
                                            "frames":  1,
                                            "plano":  true,
                                            "solido":  [
-                                                          13,
-                                                          19,
-                                                          62,
-                                                          60
+                                                          28,
+                                                          15,
+                                                          96,
+                                                          69
                                                       ]
                                        },
                       "columna":  {
@@ -1362,6 +1362,46 @@
                                                           "libroSombras"
                                                       ]
                                         },
+                      "iconosObjetosHd":  {
+                                              "archivo":  "iconos/objetos-hd.png",
+                                              "w":  96,
+                                              "h":  96,
+                                              "anclaX":  48,
+                                              "anclaY":  48,
+                                              "frames":  29,
+                                              "plano":  true,
+                                              "orden":  [
+                                                            "sandalias",
+                                                            "lorica",
+                                                            "anilloAugusto",
+                                                            "clepsidra",
+                                                            "coronaLaurel",
+                                                            "antorcha",
+                                                            "piedraIman",
+                                                            "anfora",
+                                                            "campanaMilagrosa",
+                                                            "alaDeMercurio",
+                                                            "amuletoAzogue",
+                                                            "astaEscornao",
+                                                            "lagartoCalzadilla",
+                                                            "becerroDeOro",
+                                                            "musa",
+                                                            "sanguijuelasGuadiana",
+                                                            "capaErizo",
+                                                            "cruzDelGigante",
+                                                            "piraFuneraria",
+                                                            "lagrimaDeLaMora",
+                                                            "virgenNegra",
+                                                            "balsamoFierabras",
+                                                            "cencerrosSanAnton",
+                                                            "diademaAliseda",
+                                                            "selloMagacela",
+                                                            "coronaEspinas",
+                                                            "grialAlconetar",
+                                                            "llaveDelPerdon",
+                                                            "libroSombras"
+                                                        ]
+                                          },
                       "iconosArmas":  {
                                           "archivo":  "iconos/armas.png",
                                           "w":  32,
