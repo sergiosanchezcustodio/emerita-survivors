@@ -124,18 +124,81 @@ function etiquetaDe(o) {
   return `${esArma ? 'ARMA' : 'PASIVO'}   ${o.nivelActual} → ${o.nivelActual + 1}`;
 }
 
-// Corta la descripción en dos líneas por el hueco más cercano al centro, para
-// que no quede una línea larga y otra de dos palabras.
-function partir(texto) {
-  if (texto.length <= 26) return [texto, ''];
-  const medio = texto.length >> 1;
-  let corte = -1;
-  for (let i = 0; i < texto.length; i++) {
-    if (texto[i] !== ' ') continue;
-    if (corte < 0 || Math.abs(i - medio) < Math.abs(corte - medio)) corte = i;
+// ANCHO ÚTIL DE UNA CARTA para el texto. Los seis de aire a cada lado no son
+// decoración: un nombre que llega al filo del marco se lee apretado aunque
+// técnicamente quepa.
+const TEXTO_ANCHO = ANCHO_CARTA - 12;
+
+// QUE NUNCA SE SALGA, cueste lo que cueste.
+//
+// El nombre se dibujaba a 14 px fijos y la descripción se partía CONTANDO
+// LETRAS —más de 26, se busca el espacio del medio—, que es una forma de medir
+// que no sabe nada de la fuente: una eme ocupa el triple que una i, así que
+// veintiséis letras caben o no caben según cuáles sean. Con nombres como
+// "Sanguijuelas del Guadiana" o "Cencerros de San Antón" el texto salía por
+// fuera de la carta.
+//
+// Aquí se mide de verdad, con measureText, y se baja el tamaño hasta que entre.
+// Devuelve los píxeles que hay que usar. Si ni con el mínimo cabe, se queda en
+// el mínimo y el `maxWidth` de fillText hace el resto: el canvas lo condensa,
+// que afea la letra pero no se sale. Prefiero letra apretada a texto fuera de
+// su caja — y por eso el mínimo no baja de 8: por debajo no se lee.
+function tamanyoQueCabe(ctx, texto, ancho, peso, maxPx, minPx) {
+  let px = maxPx;
+  while (px > minPx) {
+    ctx.font = `${peso} ${px}px ${FUENTE}`;
+    if (ctx.measureText(texto).width <= ancho) return px;
+    px -= 0.5;
   }
-  if (corte < 0) return [texto, ''];
-  return [texto.slice(0, corte), texto.slice(corte + 1)];
+  return minPx;
+}
+
+// LA DESCRIPCIÓN, envuelta de verdad y al tamaño que quepa.
+//
+// Antes se partía en dos por el espacio más cercano al centro y se dibujaba a
+// 9,5 px pasara lo que pasara, así que una descripción larga —"El 15% del daño
+// que recibes por nivel se lo dan de vida a cada compañero", del Grial— salía
+// por los lados de la carta.
+//
+// Ahora se prueban tamaños de mayor a menor y para cada uno se envuelve por
+// PALABRAS midiendo el ancho real; se queda con el primero que entre en tres
+// líneas. Tres y no más porque debajo está el borde de la carta: con
+// interlineado de 10, tres líneas ocupan de 86 a 106 y el marco acaba en 116.
+//
+// Devuelve el tamaño y las líneas ya cortadas, para no repetir la medición al
+// dibujar. Con el mínimo se devuelve lo que salga: `maxWidth` en fillText es la
+// red de seguridad y el canvas condensa antes que salirse.
+const DESC_LINEAS_MAX = 3;
+
+function envolver(ctx, texto, ancho) {
+  const palabras = texto.split(' ');
+  const lineas = [];
+  let linea = '';
+  for (let i = 0; i < palabras.length; i++) {
+    const prueba = linea ? linea + ' ' + palabras[i] : palabras[i];
+    if (linea && ctx.measureText(prueba).width > ancho) {
+      lineas.push(linea);
+      linea = palabras[i];
+    } else linea = prueba;
+  }
+  if (linea) lineas.push(linea);
+  return lineas;
+}
+
+function disponerDescripcion(ctx, texto, ancho) {
+  for (let px = 9.5; px >= 7; px -= 0.5) {
+    ctx.font = `400 ${px}px ${FUENTE}`;
+    const lineas = envolver(ctx, texto, ancho);
+    // Que quepan las líneas Y que ninguna palabra suelta se pase de ancho: una
+    // palabra más larga que la carta no la parte ninguna envoltura.
+    let cabenTodas = true;
+    for (let i = 0; i < lineas.length; i++) {
+      if (ctx.measureText(lineas[i]).width > ancho) { cabenTodas = false; break; }
+    }
+    if (lineas.length <= DESC_LINEAS_MAX && cabenTodas) return { px, lineas };
+  }
+  ctx.font = `400 7px ${FUENTE}`;
+  return { px: 7, lineas: envolver(ctx, texto, ancho).slice(0, DESC_LINEAS_MAX) };
 }
 
 // Medallón con el icono de la oferta: disco oscuro, aro del color de la carta y
@@ -263,6 +326,20 @@ export function dibujarMenuNivel(ctx, jugadores) {
 
   const transcurrido = DURACION_TIRADA - Progresion.animando;
 
+  // EL NOMBRE, AL MISMO TAMAÑO EN LAS TRES CARTAS, y ese tamaño es el de la que
+  // menos sitio tiene. Calculado aquí fuera, antes de dibujar ninguna.
+  //
+  // Encogiendo cada nombre por su cuenta, tres cartas con nombres de largos
+  // distintos salían a tres tamaños distintos —"Campana del Silencio" a 12 al
+  // lado de "Maza" a 14— y la del medio parecía menos importante que las otras.
+  // El tamaño de la letra no puede decir eso: las tres opciones valen lo mismo,
+  // y de hecho la que menos cabe suele ser la más rara.
+  let pxNombre = 14;
+  for (let i = 0; i < n; i++) {
+    const cabe = tamanyoQueCabe(ctx, Progresion.opciones[i].nombre, TEXTO_ANCHO, 600, 14, 8);
+    if (cabe < pxNombre) pxNombre = cabe;
+  }
+
   for (let i = 0; i < n; i++) {
     const o = Progresion.opciones[i];
     const x = x0 + i * (ANCHO_CARTA + HUECO);
@@ -322,18 +399,27 @@ export function dibujarMenuNivel(ctx, jugadores) {
       ctx.restore();
     }
 
-    ctx.font = `600 14px ${FUENTE}`;
+    // `maxWidth` va siempre de red, por si ni el mínimo bastara.
+    ctx.font = `600 ${pxNombre}px ${FUENTE}`;
     ctx.fillStyle = elegida ? '#ffffff' : t.titulo;
-    ctx.fillText(o.nombre, centro, y0 + Y_NOMBRE);
+    ctx.fillText(o.nombre, centro, y0 + Y_NOMBRE, TEXTO_ANCHO);
 
-    ctx.font = `400 9.5px ${FUENTE}`;
+    const desc = disponerDescripcion(ctx, o.descripcion || '', TEXTO_ANCHO);
+    ctx.font = `400 ${desc.px}px ${FUENTE}`;
     ctx.fillStyle = t.texto;
-    const [l1, l2] = partir(o.descripcion || '');
-    if (l2) {
-      ctx.fillText(l1, centro, y0 + 90);
-      ctx.fillText(l2, centro, y0 + 102);
-    } else {
-      ctx.fillText(l1, centro, y0 + 96);
+    // El bloque se centra en la misma línea de siempre (96) crezca lo que
+    // crezca: con una línea queda donde estaba, y con dos o tres se reparte
+    // arriba y abajo de ahí en vez de crecer hacia el borde de la carta.
+    //
+    // Con TRES líneas se sube dos píxeles más y se aprieta el interlineado a
+    // 11: la última quedaba a un par de píxeles del marco de abajo, que se ve
+    // apurado aunque no llegue a tocarlo. Arriba hay sitio de sobra —el nombre
+    // está en 71— así que el hueco se roba de donde lo hay.
+    const nLineas = desc.lineas.length;
+    const paso = nLineas > 2 ? 11 : 12;
+    const y1 = y0 + 96 - (nLineas - 1) * (paso / 2) - (nLineas > 2 ? 2 : 0);
+    for (let k = 0; k < nLineas; k++) {
+      ctx.fillText(desc.lineas[k], centro, y1 + k * paso, TEXTO_ANCHO);
     }
   }
 

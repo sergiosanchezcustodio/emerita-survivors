@@ -121,6 +121,70 @@ provisionales.
 
 ---
 
+## El Osito Dinamito (arma de Helen)
+
+Un juguete con la mecha encendida que sale corriendo de entre tus pies,
+culebrea, busca al enemigo más cercano y revienta encima. Sustituye al Arco como
+arma inicial de Helen.
+
+Lo que lo separa de una granada teledirigida es el **tope de giro**: no va
+derecho a por nadie, corrige `persigue` radianes por segundo, y a un blanco que
+se cruza de lado se le pasa de largo y tiene que volver. Eso es lo que hace que
+se lea como algo que corre detrás de alguien.
+
+Al subir de nivel sube **todo**: un osito más por nivel (de uno a diez), más
+daño, más área y algo más de carrera. Por eso el daño de cada uno sube despacio:
+con diez a la vez, lo que multiplica de verdad es la cantidad.
+
+**No pasa por encima de un jugador: lo rodea, y sin tocarlo.** Un juguete con
+patas cruzando un cuerpo se lee como que el dibujo está mal pegado, y en
+cooperativo, con cuatro cuerpos en dos palmos, pasaría todo el rato.
+
+Se mide contra la **silueta dibujada, no contra el círculo de colisión**. Ese
+círculo tiene radio 8 y está a los PIES —ahí es donde le pegan al jugador—, pero
+un personaje mide 26 de alto por unos 15 de ancho: con un círculo, el osito
+cruzaba el pecho por encima sin entrar en nada. La zona que no se pisa es un
+óvalo del tamaño del dibujo, centrado a media altura y con dos unidades de aire
+para que las siluetas no lleguen a compartir un píxel. Vale para **todos los
+jugadores, incluida Helen**, que es quien lo dispara.
+
+Son tres piezas y hacen falta las tres: una corrección angular que crece según
+se acerca —eso dibuja la curva—, un empujón de posición después de mover, que es
+el "nunca" (la curva puede fallar a bocajarro; el empujón no), y el nacimiento
+ya fuera de la silueta de quien lo suelta, porque el primer fotograma es
+anterior a su primer paso.
+
+Decisiones de números, para no volver a discutirlas:
+
+- **Velocidad 69**: un 20% menos de los 115 con que entró, y otro 25% después.
+  Un osito que corre menos que la horda se ve llegar, y verlo llegar es medio
+  chiste del arma. Baja la velocidad de SALIDA; los nueve escalones siguen dando
+  6 cada uno, así que al 10 corre 123.
+- **Sale pegando un 25% más**: la explosión base pasa de 15 a 19 y el golpe
+  directo de 3 a 4. Es el arma de fábrica lo que sube, no lo que dan los
+  niveles, así que lo que mejora de verdad es cómo se siente antes de subirla.
+- **Lo que cada nivel SUMA a la explosión sube un 20%**: al 10 son 55 de daño y
+  radio 31, en vez de 45 y 29. Sube lo que suma cada nivel, no la explosión en
+  compuesto — un 20% por nivel serían 5,2 veces al llegar al 10, con el radio de
+  17 a 88: media pantalla por osito y diez ositos a la vez.
+
+Lo que hizo falta en el motor, y sirve para cualquier arma futura:
+
+- `persigue`, `zigzag` y `zigFrec` en el proyectil (`js/entidades/proyectil.js`).
+  El culebreo se aplica al RUMBO, no a la posición: desviar el punto dejaría al
+  bicho corriendo de lado. La fase es propia de cada osito, sorteada del rng de
+  la partida, o los cuatro culebrearían como un solo cuerpo.
+- `animFps`, para que un proyectil tenga ciclo propio —el osito corre— y
+  `sinRotar`, para que se plante de pie y solo se espeje: rotarlo con el rumbo lo
+  dejaría boca abajo yendo hacia la izquierda.
+- `cazar(x, y, radio)`, que fija `js/main.js` por el mismo camino que
+  `alEstallar`. Buscar al más cercano vive en `sistemas/colisiones.js`, que ya
+  importa del archivo de proyectiles: importarlo al revés cerraría un ciclo de
+  módulos por una sola llamada.
+
+Y el sprite sale del GIF de 16 fotogramas por la misma rama del horneado que los
+enemigos: un proyectil que corre necesita su ciclo de carrera igual que ellos.
+
 ## Armas apartadas, que no borradas
 
 Sergio sacó siete del juego: **Lanzas gemelas, Artillería, Lluvia de agujas,

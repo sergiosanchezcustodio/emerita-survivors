@@ -1642,6 +1642,70 @@ export const ARMAS = {
               { danyo: 10 }, { danyo: 14, recarga: -0.7 }]
   },
 
+  // EL OSITO DINAMITO, el arma de Helen.
+  //
+  // Un juguete con la mecha encendida que sale corriendo de entre tus pies,
+  // culebrea, busca al enemigo más cercano y revienta encima. Lo que lo separa
+  // de una granada teledirigida es el TOPE DE GIRO: no va derecho a por nadie,
+  // corrige poco a poco, y a un blanco que se cruza de lado se le pasa de largo
+  // y tiene que volver. Ver `persigue` en entidades/proyectil.js.
+  //
+  // AL SUBIR DE NIVEL SUBE TODO, que es lo que pidió Sergio: cada nivel un
+  // osito más —del 1 al 10 se pasa de uno a diez—, más daño, más área y algo
+  // más de carrera. Es un arma que empieza siendo una travesura y acaba siendo
+  // una jauría, y por eso el daño de cada uno sube despacio: con diez a la vez
+  // lo que multiplica de verdad es la cantidad.
+  ositoDinamito: {
+    nombre: 'Osito Dinamito',
+    descripcion: 'Sale corriendo en zigzag a por el más cercano y revienta.',
+    comportamiento: 'proyectilPerseguidor',
+    spriteProyectil: 'proyOsito',
+    spriteOnda: 'explosionFuego',
+    // Su ciclo de carrera, 16 fotogramas a 14 por segundo. Y `sinRotar` porque
+    // corre de pie: solo se espeja hacia donde va.
+    animFps: 14,
+    sinRotar: true,
+    // Radianes por segundo de corrección y el culebreo de encima: 0,52 rad de
+    // amplitud a 9 oscilaciones por segundo. Son de la definición y no de las
+    // stats a propósito — su forma de correr no cambia porque suba de nivel.
+    persigue: 3.4,
+    zigzag: 0.52,
+    zigFrec: 9,
+    // Poco al tocar y lo gordo al reventar: lo que mata es la explosión, y el
+    // golpe directo está para que el impacto se sienta.
+    // UN 25% MÁS DE DAÑO DE SALIDA, que pidió Sergio: la explosión de 15 a 19 y
+    // el golpe directo de 3 a 4. Sube lo que trae el arma de fábrica, no lo que
+    // dan los niveles, así que al 10 queda en 55 de onda —los mismos 36 que
+    // reparten los nueve escalones— y lo que mejora de verdad es el arma antes
+    // de subirla: al nivel 1 un osito ya se lleva por delante a un básico.
+    danyo: 4, danyoExplosion: 19, radioExplosion: 17,
+    // 69 y no los 115 con que entró: primero un 20% menos y luego otro 25%, los
+    // dos pedidos por Sergio. Un osito que corre menos que la horda se ve
+    // LLEGAR, y verlo llegar es medio chiste del arma. Lo que baja es la
+    // velocidad de SALIDA; los nueve escalones siguen dando 6 cada uno, así que
+    // al nivel 10 corre 123.
+    recarga: 2.4, proyectiles: 1, velocidad: 69, alcance: 240,
+    radio: 4, perforacion: 0, dispersion: 0, empuje: 110,
+    color: '#ffb45a', estela: '#8a3a10', largoTrazo: 6,
+    // LO QUE DA CADA NIVEL A LA EXPLOSIÓN SUBE UN 20%: del 1 al 10 el daño de
+    // la onda gana 36 en vez de 30 y el radio 14 en vez de 12, o sea 51 y 31 al
+    // máximo. Sube lo que SUMA cada nivel, no la explosión en compuesto: un 20%
+    // por nivel serían 5,2 veces al llegar al 10 y el radio pasaría de 17 a 88,
+    // media pantalla por osito y diez ositos a la vez.
+    //
+    // Es la compensación de la bajada de velocidad: pegan más fuerte donde
+    // llegan, ahora que llegan más tarde.
+    niveles: [{}, { proyectiles: 1, danyoExplosion: 5, velocidad: 6 },
+              { proyectiles: 1, radioExplosion: 2, velocidad: 6 },
+              { proyectiles: 1, danyoExplosion: 6, velocidad: 6 },
+              { proyectiles: 1, radioExplosion: 3, velocidad: 6 },
+              { proyectiles: 1, danyoExplosion: 7, velocidad: 6 },
+              { proyectiles: 1, radioExplosion: 3, velocidad: 6 },
+              { proyectiles: 1, danyoExplosion: 8, velocidad: 6 },
+              { proyectiles: 1, radioExplosion: 3, velocidad: 6 },
+              { proyectiles: 1, danyoExplosion: 10, radioExplosion: 3, velocidad: 6 }]
+  },
+
   // === EVOLUCIONES (sección 9 del plan) ==================================
   //
   // NO SALEN EN EL SORTEO DE SUBIDA DE NIVEL. `esEvolucion` las saca del sorteo

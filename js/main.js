@@ -21,7 +21,7 @@ import { VFX } from './sistemas/vfx.js';
 import { GestorAudio } from './sistemas/audio.js';
 import {
   separacion, contactoJugadores, impactosProyectiles, separarJugadores,
-  colisionarObstaculos, colisionarAtaudes, ajustes
+  colisionarObstaculos, colisionarAtaudes, ajustes, enemigoMasCercano
 } from './sistemas/colisiones.js';
 import { Obstaculos } from './sistemas/obstaculos.js';
 import { Lockstep } from './core/lockstep.js';
@@ -682,6 +682,17 @@ addEventListener('gamepadconnected', () => {
   if (pantalla !== PANTALLA_JUEGO) return;
   if (entrada.mandosConectados >= jugadores.length) anyadirJugador();
 });
+
+// A quién persigue un proyectil que caza. Misma idea que `estallar`: una
+// referencia creada UNA vez y pasada al sistema, porque esto se pregunta por
+// cada osito vivo y en cada paso.
+//
+// Vive aquí y no en entidades/proyectil.js porque la búsqueda está en
+// sistemas/colisiones.js, que ya importa del archivo de proyectiles: hacerlo al
+// revés cerraría un ciclo de módulos por una sola llamada.
+function cazarCercano(x, y, radio) {
+  return enemigoMasCercano(enemigos, x, y, radio);
+}
 
 // Onda expansiva de un proyectil que estalla. Referencia creada UNA vez y
 // pasada a los sistemas: construir la closure por frame sería asignar en
@@ -2860,7 +2871,7 @@ function actualizar(dt) {
   Mascotas.actualizar(dt, jugadores, ctxArmas);
   for (let i = 0; i < jugadores.length; i++) clamparXNivel(jugadores[i]);
   enemigos.mover(dt, jugadores, camara);
-  proyectiles.mover(dt, estallar, camara);
+  proyectiles.mover(dt, estallar, camara, cazarCercano, jugadores);
 
   // Orden deliberado: primero se recicla (el pool intercambia posiciones y
   // dejaría los índices de la rejilla apuntando a otras entidades), y solo

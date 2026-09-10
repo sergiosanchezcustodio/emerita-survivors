@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260910112601",
+    "version":  "20260910124214",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -510,6 +510,14 @@
                                                         99
                                                     ]
                                      },
+                      "proyOsito":  {
+                                        "archivo":  "efectos/osito-dinamito.png",
+                                        "w":  33,
+                                        "h":  44,
+                                        "anclaX":  16,
+                                        "anclaY":  44,
+                                        "frames":  16
+                                    },
                       "mascotaHeladio":  {
                                              "archivo":  "mascotas/heladio.png",
                                              "w":  38,
@@ -1101,17 +1109,17 @@
                                        },
                       "columna":  {
                                       "archivo":  "objetos/columna.png",
-                                      "w":  104,
+                                      "w":  112,
                                       "h":  320,
-                                      "anclaX":  52,
+                                      "anclaX":  56,
                                       "anclaY":  320,
                                       "frames":  1,
                                       "plano":  true,
                                       "solido":  [
-                                                     26,
-                                                     19,
-                                                     54,
-                                                     276
+                                                     29,
+                                                     20,
+                                                     56,
+                                                     275
                                                  ]
                                   },
                       "antorcha1":  {
@@ -1151,9 +1159,9 @@
                                        "frames":  1,
                                        "plano":  true,
                                        "solido":  [
-                                                      11,
+                                                      12,
                                                       36,
-                                                      42,
+                                                      41,
                                                       142
                                                   ]
                                    },
@@ -1166,9 +1174,9 @@
                                        "frames":  1,
                                        "plano":  true,
                                        "solido":  [
-                                                      11,
+                                                      12,
                                                       45,
-                                                      43,
+                                                      42,
                                                       133
                                                   ]
                                    },
@@ -1182,9 +1190,9 @@
                                        "plano":  true,
                                        "solido":  [
                                                       25,
-                                                      42,
                                                       43,
-                                                      134
+                                                      43,
+                                                      133
                                                   ]
                                    },
                       "estatua4":  {
@@ -1226,9 +1234,9 @@
                                       "frames":  1,
                                       "plano":  true,
                                       "solido":  [
-                                                     84,
+                                                     85,
                                                      89,
-                                                     327,
+                                                     326,
                                                      289
                                                  ]
                                   },
@@ -1242,9 +1250,9 @@
                                       "plano":  true,
                                       "solido":  [
                                                      80,
-                                                     120,
+                                                     121,
                                                      342,
-                                                     266
+                                                     264
                                                  ]
                                   },
                       "ruinas4":  {
@@ -1256,10 +1264,10 @@
                                       "frames":  1,
                                       "plano":  true,
                                       "solido":  [
-                                                     70,
-                                                     88,
-                                                     273,
-                                                     288
+                                                     71,
+                                                     89,
+                                                     272,
+                                                     287
                                                  ]
                                   },
                       "ruinas5":  {
@@ -1271,10 +1279,10 @@
                                       "frames":  1,
                                       "plano":  true,
                                       "solido":  [
-                                                     77,
+                                                     78,
                                                      93,
                                                      331,
-                                                     289
+                                                     288
                                                  ]
                                   },
                       "ruinas7":  {
@@ -1408,7 +1416,7 @@
                                           "h":  32,
                                           "anclaX":  16,
                                           "anclaY":  16,
-                                          "frames":  59,
+                                          "frames":  60,
                                           "plano":  true,
                                           "orden":  [
                                                         "pilum",
@@ -1469,7 +1477,8 @@
                                                         "cartasEspanolas",
                                                         "cayadoSanIsidro",
                                                         "campanaSilencio",
-                                                        "arosRitmica"
+                                                        "arosRitmica",
+                                                        "ositoDinamito"
                                                     ]
                                       },
                       "iconosArmasHd":  {
@@ -1478,7 +1487,7 @@
                                             "h":  96,
                                             "anclaX":  48,
                                             "anclaY":  48,
-                                            "frames":  59,
+                                            "frames":  60,
                                             "plano":  true,
                                             "orden":  [
                                                           "pilum",
@@ -1539,7 +1548,8 @@
                                                           "cartasEspanolas",
                                                           "cayadoSanIsidro",
                                                           "campanaSilencio",
-                                                          "arosRitmica"
+                                                          "arosRitmica",
+                                                          "ositoDinamito"
                                                       ]
                                         },
                       "orbCodice":  {

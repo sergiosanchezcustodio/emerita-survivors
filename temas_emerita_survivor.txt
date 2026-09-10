@@ -1,4 +1,64 @@
 
+Imagenes a mejorar:
+látigo
+Rete
+Cayado
+Aspa de luz
+Satelites lunas
+Sierras votivas
+Campana del silencio
+Juego de Petanca
+Columnas dobles vertical paralelas
+Scutum redondo
+Ballesta
+Arco corto
+
+Armas a dejar fuera del juego pero con opción de volver a introducirlas de nuevo en algún momento (no se borran): Lanzas gemelas,Artilleria,lluvia de agujas,pistola,Escopeta,Lanzagranadas,Honda balear
+
+Cambiar nombres de armas:
+Ballista por ballesta
+Lanzacohetes por Bazooka
+Rayo de Júpiter por Rayos de Júpiter
+Arco corto por Arco
+
+Cambiar nombres de objetos:
+Sello de los caballeros de Magacela por Sello Templario
+Manto del peregrino por Capa del Peregrino
+	
+
+
+
+
+
+
+#######################################
+Necesito un dibujo con un croma de fondo, en el que aparezcan dibujos en pixelart detallado en resolución 64x64px cada uno, el listado de los dibujos es:
+- canana clásica cuero para dos revolver
+- Capa del Peregrino
+- vela
+- Bellota dorada
+- zurrón
+- cuerno de toro
+- piel de lagarto
+- pocima bálsamo colores rojizpos
+- Campana
+- Libro de las Sombras
+- El Grial 
+- Amuleto de azogue
+- Cencerros
+- Llave vieja antigua
+- tres sanguijuelas
+- Capa del erizo
+- Ala de Mercurio
+- Lágrima de cristal violeta
+- Corona de Espinas
+- Pira funeraria
+- Virgen Negra
+- Becerro de Oro
+- Musa
+- Capa del erizo
+
+
 
 
 IDEAS:
@@ -13,7 +73,7 @@ Armas nuevas:
  Objetos para la tienda:
  - Zurrón: Empiezas con un hueco adicional para objetos.
  - Bandolera: Una ranura de arma más.
- - Manto del Peregrino: te protege de un golpe cada 10s
+ - Capa del Peregrino: te protege de un golpe cada 10s
  - Bellota de oro: Proyectil adicional
  - Último aliento: Al caer, curas a todos los que sigan en pie
 

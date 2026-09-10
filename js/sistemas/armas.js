@@ -516,6 +516,57 @@ const COMPORTAMIENTOS = {
     return true;
   },
 
+  // EL OSITO DINAMITO: sale corriendo, culebrea, busca al más cercano y
+  // revienta encima.
+  //
+  // Es un `proyectilExplosivo` con dos añadidos —persecución y culebreo— y no
+  // un comportamiento aparte de verdad: lo que cambia está entero en el
+  // proyectil (ver `persigue` y `zigzag` en entidades/proyectil.js), no en cómo
+  // se lanza. Se separa igualmente porque la SALIDA sí es suya: los ositos no
+  // salen en abanico como una andanada de granadas, sino cada uno hacia un lado
+  // distinto, que es lo que hace que se lean como bichos sueltos y no como una
+  // ráfaga.
+  //
+  // Al impactar estalla solo: en cuanto un proyectil lleva `radioExplosion`, el
+  // sistema de colisiones lo revienta contra el primero que toque. Y también al
+  // agotarse (`estallaAlExpirar`), porque un osito con la mecha encendida que
+  // se apaga sin más sería lo contrario de lo que promete.
+  proyectilPerseguidor(arma, sis, ctx) {
+    const s = arma.stats;
+    const j = ctx.jugador;
+    const danyo = danyoDe(s, j);
+    const n = proyectilesDe(arma, s, j);
+
+    // Hacia dónde sale CADA UNO. Se reparten el círculo entero y se le suma un
+    // desvío al azar dentro de su parte: repartidos sin más saldrían formando
+    // una estrella perfecta, y con azar puro dos ositos saldrían pegados.
+    const giro = ctx.rng() * Math.PI * 2;
+    for (let i = 0; i < n; i++) {
+      const a = giro + (i + ctx.rng()) * (Math.PI * 2 / n);
+      const v = velocidadDe(s, j);
+      sis._rellenarProyectil(arma, s, danyo, ctx.jugador);
+      sis.defProyectil.vida = alcanceDe(s, j) / v;
+      sis.defProyectil.radioExplosion = areaDe(s.radioExplosion, j);
+      sis.defProyectil.danyoExplosion = Math.round(s.danyoExplosion * (1 + j.bonusDanyo));
+      sis.defProyectil.estallaAlExpirar = true;
+      // Los tres que lo hacen ser él. `persigue` y el culebreo salen de la
+      // DEFINICIÓN y no de las stats: son su forma de correr, y no cambia
+      // porque suba de nivel — lo que sube con el nivel es cuántos, cuánto
+      // pegan, cuánta área y cuánto corren.
+      sis.defProyectil.persigue = arma.def.persigue || 0;
+      sis.defProyectil.zigzag = arma.def.zigzag || 0;
+      sis.defProyectil.zigFrec = arma.def.zigFrec || 0;
+      // Cada uno con su fase, o los cuatro culebrearían a la vez como un solo
+      // cuerpo. Del rng de la partida, que es lo que mantiene el determinismo.
+      sis.defProyectil.fase = ctx.rng() * Math.PI * 2;
+      sis.defProyectil.animFps = arma.def.animFps || 0;
+      sis.defProyectil.sinRotar = !!arma.def.sinRotar;
+      const b = bocaDe(j, a);
+      ctx.proyectiles.lanzar(b.x, b.y, cos(a) * v, sen(a) * v, sis.defProyectil);
+    }
+    return true;
+  },
+
   // Bombardeo: las bombas caen en puntos AL AZAR de la pantalla visible. No hay
   // nada que apuntar y llega a sitios donde el jugador no está.
   bombardeoAleatorio(arma, sis, ctx) {
@@ -932,6 +983,7 @@ const FORMA_POR_COMPORTAMIENTO = {
   direccionFija:       'dardo',
   direccionAleatoria:  'dardo',
   proyectilExplosivo:  'bola',
+  proyectilPerseguidor: 'bola',
   rayoPerforante:      'rayo'
 };
 
@@ -1030,6 +1082,16 @@ export class Armas {
     // es una propiedad del arma, no algo que suba con el nivel — lo que sube
     // con el nivel son los rebotes, y cada uno vale lo mismo.
     d.aceleraRebote = arma.def.aceleraRebote || 0;
+    // Y a cero lo del OSITO, por lo mismo que todo lo demás de aquí: este
+    // descriptor es COMPARTIDO, y lo que no se escriba se queda con lo que dejó
+    // el disparo anterior — de otra arma. Sin esto, llevar el Osito hacía que
+    // las balas de las otras seis persiguieran y culebrearan.
+    d.persigue = 0;
+    d.zigzag = 0;
+    d.zigFrec = 0;
+    d.fase = 0;
+    d.animFps = 0;
+    d.sinRotar = false;
   }
 
   // UN rayo de la tormenta. Va aquí y no dentro del comportamiento porque se

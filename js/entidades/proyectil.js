@@ -119,7 +119,34 @@ function crearProyectil() {
     // lanza una de cada: al nivel 10 salen las diez a la vez y ninguna repite.
     // Quien lanza decide cuál le toca a cada una (ver `direccionAleatoria` en
     // sistemas/armas.js); aquí solo se dibuja la que digan.
-    fotograma: 0
+    fotograma: 0,
+    // PERSECUCIÓN, en radianes por segundo. 0 = vuela recto, que es lo normal.
+    //
+    // Es cuánto puede TORCER el rumbo cada segundo hacia el enemigo más
+    // cercano, no un imán: con un tope de giro, un blanco que se cruza de lado
+    // obliga al proyectil a describir una curva y puede llegar a pasarse de
+    // largo y tener que volver. Eso es lo que hace que se lea como algo que
+    // corre detrás de alguien y no como una línea que se dobla.
+    persigue: 0,
+    // EL CULEBREO, en radianes de amplitud y en oscilaciones por segundo. Se
+    // suma al rumbo ya corregido, así que el bicho zigzaguea MIENTRAS persigue.
+    //
+    // La fase es propia de cada proyectil (`fase`, sorteada al lanzar) para que
+    // cuatro ositos sueltos a la vez no culebreen como un solo cuerpo.
+    zigzag: 0, zigFrec: 0, fase: 0,
+    // Rapidez de crucero, guardada aparte. Perseguir gira el vector velocidad y
+    // al girarlo hay que reconstruirlo: sin este número, los errores de coma
+    // flotante de cada paso irían comiéndose la velocidad hasta dejar al
+    // proyectil parado en el aire.
+    rapidez: 0,
+    // FOTOGRAMAS POR SEGUNDO de su hoja. 0 = no anima, que es lo normal: casi
+    // todas las hojas de proyectil traen un dibujo quieto.
+    animFps: 0,
+    // NO SE ORIENTA AL VUELO: solo se espeja según hacia dónde va. Una bala
+    // apunta a donde vuela, pero un osito que corre tiene los pies abajo
+    // siempre, y rotarlo con el rumbo lo dejaría cabeza abajo yendo a la
+    // izquierda.
+    sinRotar: 0
   };
 }
 
@@ -130,6 +157,66 @@ function crearProyectil() {
 // Es preferible a que el proyectil lleve una lista de a quién ha tocado: esa
 // lista habría que asignarla, vaciarla y recorrerla, y los índices del pool de
 // enemigos cambian de posición al reciclar.
+// Hasta dónde busca presa un proyectil que persigue. Ver `persigue`.
+//
+// 150 es media pantalla a lo ancho: lo bastante para que el osito encuentre a
+// alguien casi siempre estando dentro de la horda, y lo bastante poco para que
+// uno lanzado al vacío se vaya de verdad en vez de cruzar el mapa a por el
+// último enemigo del nivel.
+const RADIO_CAZA = 150;
+const TAU = Math.PI * 2;
+
+// EL RODEO. Un proyectil que caza NO PASA POR ENCIMA DE UN JUGADOR: le da la
+// vuelta, y por fuera del DIBUJO, no del círculo de colisión.
+//
+// Es lo que separa a un osito corriendo por el suelo de una bala, que atraviesa
+// a los suyos porque va por el aire y a nadie le extraña. Un juguete con patas
+// cruzando un cuerpo se lee como que el dibujo está mal pegado, y en
+// cooperativo, con cuatro cuerpos en dos palmos, pasa todo el rato.
+//
+// CONTRA LA SILUETA, Y POR ESO ES UNA ELIPSE. El círculo de colisión del
+// jugador tiene radio 8 y está a sus PIES —ahí es donde le pegan—, pero el
+// personaje mide 26 de alto por unos 15 de ancho: un osito que pasara a diez
+// unidades del punto de los pies cruzaría el pecho por encima sin entrar en
+// ningún círculo. Así que la zona que no se pisa es un óvalo del tamaño del
+// dibujo, centrado a media altura, y de ahí salen las dos medidas de siempre:
+//
+//   `siluetaDe` — el óvalo mismo, con un margen para no rozarlo.
+//   RODEO_HOLGURA — cuánto más lejos empieza a torcer, en veces ese óvalo.
+//                   Ir sobrado es lo que hace la curva suave en vez de un
+//                   quiebro al tocar una línea invisible.
+//
+// El empujón de después de mover usa el óvalo pelado: es el "nunca" de "nunca
+// lo atraviesa", y la curva puede fallar a bocajarro.
+const RODEO_HOLGURA = 1.9;
+// Aire entre el dibujo del jugador y el osito. Lo pidió Sergio así: rodearlo
+// SIN TOCARLO, o sea que las siluetas no lleguen a compartir un píxel.
+const RODEO_MARGEN = 2;
+// De cuánto es el óvalo de un jugador EN LA DIRECCIÓN en que se le mira, y
+// dónde está su centro. Se devuelve en el objeto de siempre para no asignar uno
+// por proyectil y por paso: esto se llama en el bucle caliente.
+const OVALO = { cx: 0, cy: 0, rx: 0, ry: 0 };
+function siluetaDe(j) {
+  const meta = Recursos.meta(j.personaje);
+  // Sin dibujo cargado, el bulto de siempre: 26 de alto es lo que miden los
+  // ocho personajes, y con eso el rodeo sigue siendo correcto aunque el atlas
+  // no haya llegado.
+  const h = meta ? meta.h / ESCALA_ARTE : 26;
+  const w = meta ? meta.w / ESCALA_ARTE : 16;
+  OVALO.cx = j.x;
+  OVALO.cy = j.y - h / 2;         // el ancla del personaje son los PIES
+  OVALO.rx = w / 2 + RODEO_MARGEN;
+  OVALO.ry = h / 2 + RODEO_MARGEN;
+  return OVALO;
+}
+// El radio del óvalo en la dirección (ux, uy), unitaria. Es la fórmula de la
+// elipse en polares: con rx = ry devuelve el radio del círculo, así que no hay
+// dos caminos que mantener.
+function radioOvalo(rx, ry, ux, uy) {
+  const a = ry * ux, b = rx * uy;
+  return (rx * ry) / Math.sqrt(a * a + b * b);
+}
+
 let contadorSello = 1;
 
 // SE REINICIA CON EL POOL, al empezar cada partida.
@@ -189,17 +276,51 @@ export class Proyectiles {
     p.rebotesPared = def.rebotesPared || 0;
     p.aceleraRebote = def.aceleraRebote || 0;
     p.rebotesEnemigo = def.rebotesEnemigo || 0;
+    p.persigue = def.persigue || 0;
+    p.zigzag = def.zigzag || 0;
+    p.zigFrec = def.zigFrec || 0;
+    p.fase = def.fase || 0;
+    p.rapidez = hipot(vx, vy);
+    p.animFps = def.animFps || 0;
+    p.sinRotar = def.sinRotar ? 1 : 0;
     p.duenyo = def.duenyo || null;
     p.sello = contadorSello++;
+
+    // Y NACE YA FUERA DEL CUERPO DE QUIEN LO SUELTA. El que rodea se aparta en
+    // cada paso (ver `siluetaDe` en `mover`), pero el primer fotograma es
+    // anterior a su primer paso: un osito sale de la boca de su dueño, que está
+    // a menos de eso, así que durante un fotograma se le veía encima. Se le
+    // empuja al borde por donde va, que es hacia donde iba a salir de todas
+    // formas.
+    if (p.persigue > 0 && p.duenyo) {
+      const o = siluetaDe(p.duenyo);
+      const dx = p.x - o.cx, dy = p.y - o.cy;
+      const d = hipot(dx, dy);
+      const v = hipot(p.vx, p.vy) || 1;
+      const r = radioOvalo(o.rx, o.ry, d < 0.001 ? p.vx / v : dx / d,
+                                       d < 0.001 ? p.vy / v : dy / d);
+      if (d < r) {
+        // Sale por donde VA, no por donde está: hacia dónde apunta ya se
+        // sorteó al lanzarlo, y es lo que reparte la camada alrededor.
+        const rv = radioOvalo(o.rx, o.ry, p.vx / v, p.vy / v);
+        p.x = o.cx + (p.vx / v) * rv;
+        p.y = o.cy + (p.vy / v) * rv;
+        p.xPrev = p.x;
+        p.yPrev = p.y;
+      }
+    }
     return p;
   }
 
   // `alEstallar` es una referencia de función, no una closure: la fija main.js
-  // una vez. Se llama con el proyectil que acaba de expirar y que debe reventar.
+  // una vez. `cazar(x, y, radio)` viene por el mismo camino y por un motivo de
+  // más: buscar al enemigo más cercano vive en sistemas/colisiones.js, que ya
+  // importa de este archivo, así que importarlo aquí cerraría un ciclo de
+  // módulos por una sola llamada. Se llama con el proyectil que acaba de expirar y que debe reventar.
   // `camara` solo hace falta para los proyectiles que rebotan; se pasa siempre
   // porque comprobar `rebotesPared` es una comparación con cero y no compensa
   // tener dos caminos.
-  mover(dt, alEstallar, camara) {
+  mover(dt, alEstallar, camara, cazar, jugadores) {
     const items = this.pool.items;
     let k = 0;
     while (k < this.pool.activos) {
@@ -221,65 +342,113 @@ export class Proyectiles {
         p.vy = p.vy0 * f;
       }
 
+      // EL QUE PERSIGUE: tuerce hacia el enemigo más cercano y culebrea.
+      //
+      // Va antes de mover y no después por lo de siempre en este archivo: todo
+      // lo demás lee `vx`/`vy` —el dibujo se orienta con ellos y el empuje del
+      // golpe sale de ellos—, así que el rumbo tiene que estar puesto antes de
+      // que el paso ocurra.
+      if (p.persigue > 0 && cazar) {
+        let ang = atan2(p.vy, p.vx);
+        // ALCANCE DE BÚSQUEDA, no de vuelo: si no hay nadie cerca sigue recto y
+        // se le acaba la vida, que es lo que tiene que pasar cuando se lanza a
+        // un claro. El radio es generoso porque el proyectil ya está en medio
+        // de la horda, no en la mano del jugador.
+        const obj = cazar(p.x, p.y, RADIO_CAZA);
+        if (obj) {
+          const deseado = atan2(obj.y - p.y, obj.x - p.x);
+          // La diferencia, normalizada al tramo corto: sin esto, un blanco a la
+          // espalda hace que el giro dé la vuelta por el lado largo.
+          let d = deseado - ang;
+          while (d > Math.PI) d -= TAU;
+          while (d < -Math.PI) d += TAU;
+          const tope = p.persigue * dt;
+          ang += d > tope ? tope : (d < -tope ? -tope : d);
+        }
+        // Y EL CULEBREO ENCIMA. Se aplica al rumbo dibujado y de vuelo, no a la
+        // posición: desviar el punto dejaría al bicho corriendo de lado.
+        //
+        // La fase se cuenta con la vida ya gastada, que avanza en pasos de dt
+        // fijo, y no con un reloj de pared: dos partidas con la misma semilla
+        // trazan el mismo culebreo.
+        if (p.zigzag > 0) {
+          ang += sen(p.fase + (p.vidaMax - p.vida) * p.zigFrec) * p.zigzag;
+        }
+
+        // Y AHORA SE APARTA DE LOS JUGADORES, lo último de todo: persecución y
+        // culebreo proponen un rumbo y esto lo corrige, así que ningún blanco y
+        // ninguna oscilación pueden volver a meterlo dentro del cuerpo.
+        //
+        // La corrección es angular y no un empujón: se le exige al rumbo un
+        // hueco mínimo respecto a la dirección en la que está el jugador, y si
+        // no lo cumple se le manda al borde de ese hueco POR EL LADO AL QUE YA
+        // IBA. Girar siempre hacia el mismo lado haría que dos ositos que
+        // llegan por lados opuestos se cruzaran los dos por el mismo sitio.
+        //
+        // El hueco crece según se acerca —de nada en el borde a media vuelta
+        // pegado al cuerpo—, que es lo que dibuja la curva alrededor en vez de
+        // un quiebro seco al tocar una línea invisible.
+        if (jugadores) {
+          for (let m = 0; m < jugadores.length; m++) {
+            const j = jugadores[m];
+            const o = siluetaDe(j);
+            const jx = o.cx - p.x, jy = o.cy - p.y;
+            const d = hipot(jx, jy);
+            if (d < 0.001) continue;
+            const rSil = radioOvalo(o.rx, o.ry, jx / d, jy / d);
+            if (d >= rSil * RODEO_HOLGURA) continue;
+            const hacia = atan2(jy, jx);
+            let dif = ang - hacia;
+            while (dif > Math.PI) dif -= TAU;
+            while (dif < -Math.PI) dif += TAU;
+            // El hueco que se le exige al rumbo crece según se acerca: de nada
+            // en el borde de la holgura a media vuelta pegado a la silueta.
+            const cerca = (rSil * RODEO_HOLGURA - d) / (rSil * (RODEO_HOLGURA - 1));
+            const hueco = (cerca > 1 ? 1 : cerca) * (Math.PI / 2);
+            // Al lado al que YA IBA: girando siempre hacia el mismo, dos
+            // ositos que llegan por lados opuestos se cruzarían por el mismo
+            // sitio.
+            if (dif >= 0 && dif < hueco) ang = hacia + hueco;
+            else if (dif < 0 && dif > -hueco) ang = hacia - hueco;
+          }
+        }
+
+        p.vx = cos(ang) * p.rapidez;
+        p.vy = sen(ang) * p.rapidez;
+      }
+
       p.x += p.vx * dt;
       p.y += p.vy * dt;
 
-      // REBOTE CONTRA EL MARGEN VISIBLE, y contra el visible a propósito: el
-      // borde contra el que rebota tiene que ser uno que el jugador VEA, o el
-      // rebote parece que sale de la nada. Por eso se usa la cámara y no los
-      // límites del nivel.
+      // EL "NUNCA" DEL RODEO. La curva de arriba evita el cuerpo casi siempre,
+      // pero "casi" no es lo que se pidió: a bocajarro —el osito nace ENTRE los
+      // pies de quien dispara— o si el jugador corre a meterse encima, no hay
+      // rumbo que valga. Así que después de mover se comprueba, y lo que esté
+      // dentro se saca por donde entró.
       //
-      // Se invierte la componente y se recoloca justo dentro del borde: sin
-      // recolocar, un proyectil rápido puede quedarse fuera un paso más y
-      // gastar los dos rebotes contra la misma pared en dos frames seguidos.
-      if (p.rebotesPared > 0 && camara) {
-        // El borde sale de la cámara LÓGICA (`camara.x`) y no de `izquierda`,
-        // que se calcula sobre `xVista` — la posición YA INTERPOLADA para
-        // dibujar. Rebotar es lógica: cambia la trayectoria y por tanto a quién
-        // se mata, así que no puede depender de un valor que se mueve con los
-        // fps. Con `xVista`, la misma semilla daba rebotes distintos a 60 y a
-        // 144 Hz, que es justo lo que la reproducibilidad prohíbe.
-        const cx = camara.x - ANCHO_LOGICO / 2, cy = camara.y - ALTO_LOGICO / 2;
-        const izq = cx, der = cx + ANCHO_LOGICO;
-        const arr = cy, aba = cy + ALTO_LOGICO;
-        let reboto = false;
-        if (p.x < izq && p.vx < 0)      { p.x = izq; p.vx = -p.vx; reboto = true; }
-        else if (p.x > der && p.vx > 0) { p.x = der; p.vx = -p.vx; reboto = true; }
-        else if (p.y < arr && p.vy < 0) { p.y = arr; p.vy = -p.vy; reboto = true; }
-        else if (p.y > aba && p.vy > 0) { p.y = aba; p.vy = -p.vy; reboto = true; }
-        if (reboto) {
-          p.rebotesPared--;
-          // Se le devuelve el alcance. El `vida` de un proyectil es su alcance
-          // partido por su velocidad, o sea la distancia que le queda: sin
-          // reponerlo, la bala llega al margen ya agotada y el rebote se ve
-          // apagarse a los dos palmos en vez de volver.
-          p.vida = p.vidaMax;
-          // Y vuelve a poder golpear a quien ya golpeó: el sello es lo que
-          // impide que un proyectil dañe dos veces al mismo, y una bala que
-          // vuelve del margen es un golpe nuevo.
-          p.sello = contadorSello++;
-          // Con la perforación entera otra vez, que es lo que hace que el
-          // rebote SIRVA. Una bala que vuelve gastada rebota de adorno: cruza
-          // la horda sin tocar a nadie y lo único que se ve es una raya. Y es
-          // coherente con las otras dos líneas: si el margen la deja como un
-          // disparo nuevo, lo es entera. El daño sigue acotado, porque cada
-          // tramo entre paredes gasta como mucho su perforación.
-          p.perforacion = p.perforacionMax;
-
-          // Y SALE MÁS RÁPIDA DE LO QUE ENTRÓ. Es lo que convierte los rebotes
-          // de un recurso a una amenaza que crece: la primera vuelta es una
-          // bala y la décima es un latigazo cruzando la pantalla.
-          //
-          // Se multiplica la velocidad y NO se toca `vida`, que se acaba de
-          // reponer entera: como `vida` es tiempo y no distancia, una bala más
-          // rápida recorre más en ese mismo tiempo. O sea que cada rebote alarga
-          // también el tramo siguiente, que es justo lo que hace falta para que
-          // le dé tiempo a llegar a la pared de enfrente.
-          if (p.aceleraRebote > 0) {
-            const k = 1 + p.aceleraRebote;
-            p.vx *= k;
-            p.vy *= k;
+      // Se mueve la POSICIÓN y no la velocidad: el rumbo ya está corregido y es
+      // el bueno, lo que sobra es haberse metido. Empujando el rumbo en vez del
+      // punto, el osito se quedaría trabado contra el cuerpo dando vueltas.
+      if (p.persigue > 0 && jugadores) {
+        for (let m = 0; m < jugadores.length; m++) {
+          const j = jugadores[m];
+          const o = siluetaDe(j);
+          const dx = p.x - o.cx, dy = p.y - o.cy;
+          const d = hipot(dx, dy);
+          // Justo encima del centro no hay "por donde entró" que valga: se le
+          // saca por donde va, que es lo único que no depende de dividir por
+          // cero.
+          if (d < 0.001) {
+            const v = hipot(p.vx, p.vy) || 1;
+            const r = radioOvalo(o.rx, o.ry, p.vx / v, p.vy / v);
+            p.x = o.cx + (p.vx / v) * r;
+            p.y = o.cy + (p.vy / v) * r;
+            continue;
           }
+          const r = radioOvalo(o.rx, o.ry, dx / d, dy / d);
+          if (d >= r) continue;
+          p.x = o.cx + (dx / d) * r;
+          p.y = o.cy + (dy / d) * r;
         }
       }
 
@@ -372,7 +541,17 @@ export class Proyectiles {
           const ah = meta.h / ESCALA_ARTE * p.escala;
           // De qué trozo de la hoja se recorta. Con hojas de un dibujo —que son
           // casi todas— esto es 0 y sale el de siempre.
-          const fx = (p.fotograma % (meta.frames || 1)) * meta.w;
+          const nf = meta.frames || 1;
+          // QUÉ FOTOGRAMA TOCA. Con `animFps` el dibujo tiene ciclo propio —el
+          // osito corre— y el fotograma sale del tiempo que lleva volando; sin
+          // él manda quien lanzó, que es el caso de siempre.
+          //
+          // Del tiempo VIVIDO y no de un reloj, por lo mismo que el giro de
+          // aquí abajo: dt es fijo, así que la misma semilla anima igual.
+          const cual = p.animFps > 0
+            ? (((p.vidaMax - p.vida) * p.animFps) | 0) % nf
+            : p.fotograma % nf;
+          const fx = cual * meta.w;
           ctx.save();
           ctx.globalAlpha = 1;
           // FUERA EL 'lighter' PARA LOS QUE TRAEN DIBUJO.
@@ -393,7 +572,18 @@ export class Proyectiles {
           ctx.globalCompositeOperation = 'source-over';
           ctx.translate(x, y);
 
-          if (p.giro !== 0) {
+          if (p.sinRotar) {
+            // NI ROTA NI SE ANCLA POR LA PUNTA: se planta de pie y solo cambia
+            // de lado. Un osito que corre tiene los pies abajo vaya a donde
+            // vaya, y orientarlo al rumbo lo dejaría boca abajo cada vez que
+            // fuera hacia la izquierda.
+            //
+            // El dibujo mira a la DERECHA, así que se espeja cuando va hacia la
+            // izquierda —al revés que las balas, que se dibujan mirando a la
+            // izquierda—. Es cosa del dibujo, no del motor.
+            if (p.vx < 0) ctx.scale(-1, 1);
+            ctx.drawImage(img, fx, 0, meta.w, meta.h, -aw / 2, -ah / 2, aw, ah);
+          } else if (p.giro !== 0) {
             // GIRA SOBRE SÍ MISMO: el shuriken y la botella del molotov. Se
             // dibuja CENTRADO, porque una cosa que voltea no tiene punta que
             // anclar — anclarla por el borde la haría orbitar alrededor del

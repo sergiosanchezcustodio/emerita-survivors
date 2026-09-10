@@ -3183,7 +3183,7 @@ $CATALOGO = @(
     # donde el ataud dice a quien hay que ir a levantar. Cuando existan, son
     # cuatro filas mas en la tabla de ATAUDES de aqui abajo.
     @{ src='characters\Helen.png'; dst='personajes\helen.png'; id='helen'; alto=23; anchoFijo=0; tol=0
-       gifAnim='characters\Helen.gif'; idle=0; nQuieto=2; fpsAndar=14 }
+       gifAnim='characters\Helen.gif'; idle=0; nQuieto=2; fpsAndar=14; caraMargen=0.60 }
     @{ src='characters\Julie.png'; dst='personajes\julie.png'; id='julie'; alto=25; anchoFijo=0; tol=0
        gifAnim='characters\Julie.gif'; idle=0; nQuieto=2; fpsAndar=14 }
     @{ src='characters\Say.png';   dst='personajes\say.png';   id='say';   alto=26; anchoFijo=0; tol=0
@@ -3224,6 +3224,22 @@ $CATALOGO = @(
     @{ src='characters\Lucy_ataud.png';  dst='personajes\lucy-ataud.png';  id='lucyAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true; dominante=$true }
     @{ src='characters\Sara_ataud.png';  dst='personajes\sara-ataud.png';  id='saraAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true; dominante=$true }
     @{ src='characters\Vicky_ataud.png'; dst='personajes\vicky-ataud.png'; id='vickyAtaud'; alto=34; anchoFijo=0; tol=6; plano=$true; dominante=$true }
+
+    # EL OSITO DINAMITO, que es un PROYECTIL y no un bicho, pero sale por aqui
+    # porque lo que necesita es exactamente lo que hace esta rama: un GIF de
+    # dieciseis fotogramas convertido en tira, con la caja de recorte comun a
+    # todos ellos. Un proyectil que corre necesita su ciclo de carrera igual que
+    # un enemigo.
+    #
+    # 11 de alto: por debajo de las mascotas mas bajas (10) y muy por debajo de
+    # un personaje (26). Es un juguete que sale corriendo de entre tus pies, y
+    # a partir de ahi deja de leerse como algo que TU has lanzado.
+    #
+    # `plano` a proposito: el motor lo espeja segun hacia donde corre (ver
+    # `sinRotar` en entidades/proyectil.js) y no necesita la copia -izq que se
+    # hornea para lo que gira con su duenyo.
+    @{ src='armas\efectos\osito_dinamito_sprite.gif'; dst='efectos\osito-dinamito.png'
+       id='proyOsito'; alto=11; anchoFijo=0; tol=0; gif=$true; plano=$true }
 
     # MASCOTAS. El `id` es el mismo de datos/mascotas.js, con el prefijo
     # `mascota` para no chocar con nada del bestiario.
@@ -3580,17 +3596,35 @@ foreach ($e in $CATALOGO) {
             # EL ENCUADRE, AJUSTABLE POR PERSONAJE.
             #
             # `caraMargen` es cuanto se abre la caja alrededor de la cabeza:
-            # subirlo aleja el plano y entra mas cuerpo. Hoy el 0,22 vale para
-            # los ocho.
+            # subirlo aleja el plano y entra mas cuerpo. El 0,22 vale para siete
+            # de los ocho.
             #
-            # Helen tuvo un 0,68 mientras estuvo dibujada con la cabeza grande
-            # en proporcion al cuerpo: con el 0,22 le salia un primer plano
-            # donde a las demas les cogia hasta el pecho. Con su dibujo nuevo
-            # ese numero la alejaba tanto que el busto flotaba en medio del
-            # cuadro, con la cara mas baja y mas pequena que la de nadie, asi
-            # que vuelve al valor comun. Es el aviso de que este numero va con
-            # el DIBUJO: si se redibuja un personaje, hay que volver a mirar su
-            # retrato.
+            # HELEN VA POR 0,60, y el motivo esta en su dibujo. La caja se calcula
+            # dando por hecho que la cabeza ocupa el 30% de la figura (el
+            # `fraccionAlto` de aqui abajo), que es lo que miden las otras siete;
+            # a Helen la cabeza le llega al 35% —esta dibujada mas cabezona y con
+            # el cuerpo mas estrecho: 174x486 frente a los 530x1321 de Sara—, asi
+            # que con el 0,22 la caja se le queda corta y el retrato la cortaba
+            # POR LA BARBILLA, sin nada de pecho, mientras las demas ensenan
+            # hasta la camiseta.
+            #
+            # Y NO PUEDE TENER LAS DOS COSAS. El marco es cuadrado en los dos
+            # sitios donde se usa —la tarjeta de la ficha y el circulo de la
+            # tienda—, y para llegarle al pecho hay que bajar unos 290 pixeles
+            # desde la coronilla cuando su figura mide 174 de ancho: el cuadrado
+            # de 290 deja 116 de aire a los lados. A las otras no les pasa porque
+            # estan dibujadas anchas y con la cabeza pequena. O sea que con este
+            # dibujo es aire lateral O barbilla, no hay tercer camino sin cambiar
+            # los marcos de dos pantallas.
+            #
+            # 0,60 es el punto que eligio Sergio entre las dos: hombros enteros y
+            # el arranque del pecho, con la mitad del aire que dejaba el encuadre
+            # completo. Se ve casi tan grande como las demas y ya no la corta por
+            # la barbilla.
+            #
+            # Es el aviso de que este numero va con el DIBUJO: si se redibuja un
+            # personaje, hay que volver a mirar su retrato. Este ya ha cambiado
+            # dos veces con el suyo.
             #
             # Es un numero por personaje y no una regla automatica a proposito:
             # "cuanto cuerpo se ve" es una decision de encuadre, y una formula
@@ -3773,7 +3807,8 @@ $ICONOS_ARMAS = @(
     'enfilada','agujas','muroDeLanzas','enjambre','molotov','lanzacohetes','artilleria','lluviaDeFlechas',
     'gritoDeGuerra','sismo','aceiteHirviendo','minas','alquitran','campoElectrico','laser','aspaDeLuz',
     'satelites','discosDeSierra','katana','sierrasVotivas','codiceInfernal','rainbowMazas',
-    'petanca','cartasEspanolas','cayadoSanIsidro','campanaSilencio','arosRitmica'
+    'petanca','cartasEspanolas','cayadoSanIsidro','campanaSilencio','arosRitmica',
+    'ositoDinamito'
 )
 
 # Un archivo por arma, en resources/armas/. Se resuelve con -Filter, así que
@@ -3816,6 +3851,7 @@ $ARCHIVO_ICONO_ARMA = @{
     laser           = 'Laser.png';               aspaDeLuz       = 'Aspa_de_luz.png'
     satelites       = 'Satelites.png';           discosDeSierra  = 'Discos_de_sierra.png'
     katana          = 'Katana.png';              sierrasVotivas  = 'Sierras_votivas.png'
+    ositoDinamito   = 'osito_dinamito.png'
 }
 # LOS VEINTINUEVE OBJETOS PASIVOS, en el orden en que van a la tira.
 #

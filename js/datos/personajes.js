@@ -94,9 +94,12 @@ export const PERSONAJES = {
     nombre: 'Helen',
     sprite: 'helen',
     descripcion: 'Nunca falla el primer tiro. El segundo tampoco.',
-    // Arco: la andanada. Al 10 son nueve flechas rectas a la vez, así que
-    // se juega mirando de lejos y sin dejar de moverse.
-    arma: 'arcoCorto',
+    // Osito Dinamito: suelta juguetes con la mecha encendida que salen
+    // corriendo en zigzag a buscar al más cercano. Se juega COLOCÁNDOSE —el
+    // osito apunta por ti, pero tarda en llegar—, que con su vida baja y su
+    // velocidad alta es justo lo que pide: soltar la camada y no estar donde
+    // reviente.
+    arma: 'ositoDinamito',
     coste: 1500,
     mods: { vidaMaxima: 0.9, velocidad: 1.1, radioRecogida: 1.15 }
   },
