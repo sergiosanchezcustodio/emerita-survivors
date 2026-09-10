@@ -1,6 +1,6 @@
 {
     "escalaArte":  4,
-    "version":  "20260910111043",
+    "version":  "20260910112601",
     "entidades":  {
                       "serpiente":  {
                                         "archivo":  "enemigos/serpiente.png",
@@ -315,9 +315,9 @@
                                                              }
                                               },
                                     "solido":  [
-                                                   8,
+                                                   6,
                                                    13,
-                                                   24,
+                                                   20,
                                                    65
                                                ]
                                 },
@@ -359,9 +359,9 @@
                                               },
                                     "solido":  [
                                                    7,
-                                                   13,
+                                                   12,
                                                    26,
-                                                   77
+                                                   78
                                                ]
                                 },
                       "sayCara":  {
