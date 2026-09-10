@@ -86,7 +86,11 @@ const PUERTO = 8143;
 // la foto desde el primer fotograma aunque nadie lleve el arma, y la decoracion
 // del nivel se ha movido: estatuas al borde de la calzada y ruinas un 20% mas
 // pequenas, o sea otras cajas solidas y otras colisiones desde el primer paso.
-const HUELLA_ESPERADA = '36c604ca 222e4a2b 4e33f2d8 4cc749ed 84920069 501e4bb9 c199bf0e';
+// Y otra vez, por el mismo tipo de cambio: la decoracion del nivel se movio al
+// borde de verdad de la calzada -el carril derecho estaba 28 unidades dentro de
+// la piedra- y las dos armas de sierra pegan un 25% menos. Cajas solidas en
+// otro sitio y otros numeros de dano: el mundo cambia desde el primer paso.
+const HUELLA_ESPERADA = '36c604ca b5203cee 5c51f439 168399ed 4505c61b 661e82ed 44ac70a2';
 
 let fallos = 0;
 function comprobar(condicion, texto) {

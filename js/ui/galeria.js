@@ -50,8 +50,10 @@ import { POTENCIADORES } from '../datos/potenciadores.js';
 // sitios. Los dos números de su fila —11,556 y ×1,125— son eso, y multiplicados
 // dan 13 como todo lo demás.
 const SITIOS_ARMA = [
-  // ICONO_UNIFICADO dentro de RANURA_W/2, ui/hud.js
-  { rot: 'HUD',          r: 13, rRanura: 18.5,  escala: 1,     redonda: false, blanca: true },
+  // ICONO_UNIFICADO dentro de RANURA_W/2, ui/hud.js. La ranura bajó de 37 a 30
+  // (ver ANCHO en ui/hud.js), así que su radio es 15 y no los 18,5 de antes:
+  // aquí el icono ya no cabe holgado, que es exactamente lo que hay que ver.
+  { rot: 'HUD',          r: 13, rRanura: 15,    escala: 1,     redonda: false, blanca: true },
   // ICONO_UNIFICADO/ESCALA_FICHA dentro de 41,25/2/1,125, ui/ficha.js
   { rot: 'FICHA',        r: 11.556, rRanura: 18.33, escala: 1.125, redonda: false, blanca: true },
   // ICONO_UNIFICADO dentro de ICONO_R, ui/menuNivel.js
@@ -69,8 +71,10 @@ const SITIOS_ARMA = [
 ];
 
 const SITIOS_OBJETO = [
-  // ICONO_UNIFICADO dentro de RANURA_H/2, ui/hud.js
-  { rot: 'HUD',         r: 13, rRanura: 18.5,  escala: 1,     redonda: true,  blanca: true },
+  // ICONO_UNIFICADO dentro de RANURA_H/2, ui/hud.js. 15 desde que la ranura
+  // bajó a 30: en la redonda es donde más se nota, porque el dibujo llega a las
+  // esquinas de su cuadrado y el aro ya no las contiene.
+  { rot: 'HUD',         r: 13, rRanura: 15,    escala: 1,     redonda: true,  blanca: true },
   // ICONO_UNIFICADO/ESCALA_FICHA, ui/ficha.js
   { rot: 'FICHA',       r: 11.556, rRanura: 18.33, escala: 1.125, redonda: true,  blanca: true },
   // ui/menuNivel.js
@@ -91,14 +95,31 @@ const SITIOS_POTENCIADOR = [
   { rot: 'AL DOBLE', r: 34, rRanura: 0, escala: 1, redonda: false, blanca: false }
 ];
 
-// --- Las tres pestañas ------------------------------------------------------
-const SECCIONES = ['ARMAS', 'OBJETOS', 'POTENCIADORES'];
+// --- Las cuatro pestañas ----------------------------------------------------
+//
+// APARTADAS son las armas que existen enteras —datos, dibujo y comportamiento—
+// pero que hoy NO salen en el juego: llevan `retirada: true` en datos/armas.js y
+// el sorteo de subida de nivel las salta (ver sistemas/progresion.js).
+//
+// Tienen pestaña propia porque son justo lo que hay que poder mirar para
+// decidir si vuelven, y mezcladas con las demás no se distinguían: la galería
+// listaba `Object.keys(ARMAS)` entero, así que una apartada se veía igual que
+// una que está en partida y no había forma de saber cuál era cuál.
+const SECCIONES = ['ARMAS', 'OBJETOS', 'POTENCIADORES', 'APARTADAS'];
 export const NUM_SECCIONES = SECCIONES.length;
+
+// ¿Esta pestaña enseña armas? Las apartadas lo son, y se dibujan igual.
+function esArma(seccion) { return seccion === 0 || seccion === 3; }
 
 function listaDe(seccion) {
   if (seccion === 1) return Object.keys(PASIVOS);
   if (seccion === 2) return Object.keys(POTENCIADORES);
-  return Object.keys(ARMAS);
+  // Las evoluciones se quedan en ARMAS: no salen en el sorteo, pero SÍ están en
+  // el juego —se consiguen abriendo un cofre— y su arte es el del arma de la
+  // que salen. Lo que separa a una apartada es que no hay forma de verla
+  // jugando.
+  const retirada = (id) => !!ARMAS[id].retirada;
+  return Object.keys(ARMAS).filter(seccion === 3 ? retirada : (id) => !retirada(id));
 }
 
 export function tamanyoSeccion(seccion) { return listaDe(seccion).length; }
@@ -118,7 +139,7 @@ function sitiosDe(seccion) {
 // encaje aquí, que son cuatro líneas, en vez de exportarlo: el día que se borre
 // esta pantalla no debe quedar nada suyo en la tienda.
 function pintar(ctx, seccion, id, x, y, r, escala) {
-  if (seccion === 0) return dibujarIconoArma(ctx, x, y, r, id, ARMAS[id].color, escala);
+  if (esArma(seccion)) return dibujarIconoArma(ctx, x, y, r, id, ARMAS[id].color, escala);
   if (seccion === 1) return dibujarIconoPasivo(ctx, x, y, r, id, '#9fd0e8', escala);
 
   const arte = POTENCIADORES[id].arte;
@@ -230,8 +251,15 @@ export function dibujarGaleria(ctxMundo, ctx, seccion, cursor) {
   // del título, que en la tienda no molesta porque las filas la tapan, y aquí
   // sí: entre casilla y casilla hay hueco, y juzgar un dibujo con un templo
   // romano asomando por detrás es juzgar otra cosa.
+  //
+  // Y cubre el MOSAICO ENTERO, no solo las filas que hay. Cortándolo a la
+  // altura de la última fila, una pestaña corta —APARTADAS son siete armas en
+  // una fila— dejaba media pantalla de logo a la vista y sus iconos se juzgaban
+  // sobre otro fondo que los de la pestaña de al lado. El velo tiene que ser el
+  // mismo en las cuatro o la comparación entre pestañas deja de valer.
   ctx.beginPath();
-  ctx.roundRect(izq, yMosaico - 6, ancho, altoCasilla * filas + 10, 6);
+  ctx.roundRect(izq, yMosaico - 6, ancho,
+                Math.max(altoCasilla * filas + 10, altoMosaico + 10), 6);
   ctx.fillStyle = 'rgba(8,8,11,.72)';
   ctx.fill();
 

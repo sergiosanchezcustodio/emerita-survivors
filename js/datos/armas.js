@@ -1198,16 +1198,20 @@ export const ARMAS = {
     nombre: 'Discos de sierra',
     descripcion: 'Giran pegados y rápido. No dejan acercarse.',
     comportamiento: 'orbital',
-    danyo: 16, recarga: 1.0, escudos: 2, radioOrbita: 26, radioEscudo: 9,
+    // UN 25% MENOS DE DAÑO, base y escalones (Sergio, jugándola): 12 en vez de
+    // 16 al nivel 1 y 41 en vez de 54 al 10. Un orbital pega SIN QUE HAGAS
+    // NADA y toca muchas veces por vuelta, así que su daño por golpe engaña:
+    // lo que cuenta es el daño por segundo mientras estás vivo.
+    danyo: 12, recarga: 1.0, escudos: 2, radioOrbita: 26, radioEscudo: 9,
     velocidadAngular: 4.2, empuje: 60, color: '#cfd8e0',
     spriteOrbital: 'orbDiscos',
     // Gira sobre su eje AL REVÉS que su órbita (4.2) y más rápido: girando en
     // el mismo sentido y a la misma velocidad, el disco parecería clavado a la
     // órbita y no cortaría nada. Negativo y 12 para que se lea la sierra.
     giroOrbital: -12,
-    niveles: [{}, { danyo: 5 }, { escudos: 1 }, { velocidadAngular: 0.8 },
-              { danyo: 7 }, { escudos: 1 }, { radioEscudo: 3 }, { danyo: 11, escudos: 1 },
-              { danyo: 6 }, { danyo: 9, recarga: -0.15 }]
+    niveles: [{}, { danyo: 4 }, { escudos: 1 }, { velocidadAngular: 0.8 },
+              { danyo: 5 }, { escudos: 1 }, { radioEscudo: 3 }, { danyo: 8, escudos: 1 },
+              { danyo: 5 }, { danyo: 7, recarga: -0.15 }]
   },
 
   // --- La Campana del Silencio -------------------------------------------
@@ -1630,16 +1634,19 @@ export const ARMAS = {
     nombre: 'Sierras votivas',
     descripcion: 'Cuatro sierras que salen a girar unos segundos y vuelven.',
     comportamiento: 'orbitalPulsante',
-    danyo: 42, recarga: 6.5, duracion: 6, escudos: 4, radioOrbita: 38, radioEscudo: 10,
+    // Y UN 25% MENOS AQUÍ TAMBIÉN, por lo mismo y a la vez: 32 en vez de 42 al
+    // nivel 1 y 82 en vez de 108 al 10. Sigue pegando el doble que un disco
+    // permanente, que es lo que compra el tener que mirar el reloj.
+    danyo: 32, recarga: 6.5, duracion: 6, escudos: 4, radioOrbita: 38, radioEscudo: 10,
     velocidadAngular: 5.0, empuje: 140, color: '#ffb14a',
     spriteOrbital: 'orbSierras',
     // Gira sobre su eje al reves que su orbita, igual que los discos: es lo
     // que hace que se lea que cortan y no que van dando vueltas pegadas.
     giroOrbital: -14,
-    niveles: [{}, { danyo: 10 }, { duracion: 1 }, { escudos: 1 },
-              { recarga: -0.8 }, { danyo: 14 }, { escudos: 1, radioOrbita: 6 },
-              { duracion: 1.5, danyo: 18 },
-              { danyo: 10 }, { danyo: 14, recarga: -0.7 }]
+    niveles: [{}, { danyo: 8 }, { duracion: 1 }, { escudos: 1 },
+              { recarga: -0.8 }, { danyo: 10 }, { escudos: 1, radioOrbita: 6 },
+              { duracion: 1.5, danyo: 14 },
+              { danyo: 7 }, { danyo: 11, recarga: -0.7 }]
   },
 
   // EL OSITO DINAMITO, el arma de Helen.

@@ -398,12 +398,28 @@ export const NIVEL = {
   // (0..361 de ancho, 0..430 de alto una vez procesado por
   // herramientas/procesar-assets.ps1), no coordenadas de mundo.
   //
-  // Medidas a ojo sobre niveles/merida-suelo.jpg: el borde calzada/arcén cae
-  // en x≈186 y x≈367, y la franja de hierba utilizable queda centrada en
-  // x≈141 (izquierda) y x≈412 (derecha). Columnas, antorchas y estatuas van
-  // justo sobre el borde, tal como se pidió; las ruinas, más adentro en la
-  // hierba. Deliberadamente disperso —diez piezas en 430 unidades de alto—
-  // para que no sature.
+  // DÓNDE ESTÁ EL BORDE DE LA CALZADA, medido y no a ojo.
+  //
+  // Las cifras viejas —186 y 367— eran a ojo y daban por hecho que la calzada
+  // estaba CENTRADA en el tile. No lo está: medida sobre el propio
+  // niveles/merida-suelo.jpg, que son 2212x1720 px y a 4 px por unidad lógica
+  // dan exactamente este tile de 553x430, la piedra va de x=181 a x=395. O sea
+  // centrada en 288 cuando el tile lo está en 276,5, corrida once unidades y
+  // media a la derecha.
+  //
+  // Con las cifras simétricas, el lado izquierdo acertaba de casualidad —186
+  // cae 5 dentro del filo, que es lo que hace que se vea bien apoyado— y el
+  // derecho se quedaba 28 unidades DENTRO de la calzada, que es lo que Sergio
+  // veía. El carril derecho pasa a 390: el mismo pellizco de 5 hacia dentro que
+  // el izquierdo, contado desde el borde de verdad.
+  //
+  // El borde ondula un par de unidades según la fila, así que 390 es el centro
+  // de una franja buena, no un filo exacto al píxel.
+  //
+  // Columnas, antorchas y estatuas van justo sobre ese borde; las ruinas, más
+  // adentro en la hierba (72 y 474, que siguen fuera de la piedra por mucho).
+  // Deliberadamente disperso —diez piezas en 430 unidades de alto— para que no
+  // sature.
   //
   // ENSANCHADO un 50% (pedido de Sergio): herramientas/procesar-assets.ps1
   // ya no procesa mapa_emerita_survivor.png directamente, sino una copia
@@ -431,10 +447,10 @@ export const NIVEL = {
     { tipo: 'antorcha1', x: 186, y: 150 },
     { tipo: 'antorcha1', x: 186, y: 250 },
     { tipo: 'antorcha2', x: 186, y: 340 },
-    { tipo: 'antorcha2', x: 367, y:  40 },
-    { tipo: 'antorcha1', x: 367, y: 130 },
-    { tipo: 'antorcha2', x: 367, y: 260 },
-    { tipo: 'columna',   x: 367, y: 350 },
+    { tipo: 'antorcha2', x: 390, y:  40 },
+    { tipo: 'antorcha1', x: 390, y: 130 },
+    { tipo: 'antorcha2', x: 390, y: 260 },
+    { tipo: 'columna',   x: 390, y: 350 },
     // LAS ESTATUAS, AL BORDE DE LA CALZADA como las columnas (lo pidió Sergio).
     // Estaban a 141 y 412, o sea en mitad de la hierba: ahí se leían como parte
     // del paisaje y no como lo que son. En el borde —186 y 367— hacen calle con
@@ -443,8 +459,11 @@ export const NIVEL = {
     // Las `y` salen de los huecos que dejan las antorchas de su mismo lado:
     // 200 cae entre las de 150 y 250, y 195 entre las de 130 y 260. Ninguna
     // queda a menos de 50 de su vecina, que con 48 de alto es aire de sobra.
+    //
+    // Y las `x` son las de su carril, 186 y 390: ver la nota del borde de la
+    // calzada, arriba. El carril derecho estaba en 367, que es piedra.
     { tipo: 'estatua2',  x: 186, y: 200 },
-    { tipo: 'estatua4',  x: 367, y: 195 },
+    { tipo: 'estatua4',  x: 390, y: 195 },
 
     // LAS RUINAS, EN DOS CARRILES EXTERIORES Y SEPARADAS.
     //
@@ -453,10 +472,10 @@ export const NIVEL = {
     // en tres por carril convertían los laterales en un muro. Se quedan CINCO.
     //
     // Los carriles a 72 y 474 salen de una cuenta, no del ojo: el radio sólido
-    // de una ruina es min(0.35*alto, 0.45*ancho) = 38,5 (ver
-    // sistemas/obstaculos.js) y el pasillo por el que se avanza va de 200 a
-    // 353, así que un centro no puede pasar de 161 por la izquierda ni bajar de
-    // 391 por la derecha sin cerrar el paso.
+    // de una ruina se saca de su recorte (ver `huellaDe` en
+    // sistemas/obstaculos.js) y con el tamaño de hoy son unas 33 unidades de
+    // semieje, así que sus bordes interiores caen en 105 y 441 — la calzada va
+    // de 181 a 395, o sea que ninguna la pisa ni de lejos.
     //
     // Y la separación vertical es de 145 como mínimo, contando que el patrón se
     // REPITE cada 430: la de más abajo de un carril tiene que quedar lejos de
