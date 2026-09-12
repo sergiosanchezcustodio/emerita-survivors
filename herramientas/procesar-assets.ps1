@@ -3225,6 +3225,27 @@ $CATALOGO = @(
     @{ src='characters\Sara_ataud.png';  dst='personajes\sara-ataud.png';  id='saraAtaud';  alto=34; anchoFijo=0; tol=6; plano=$true; dominante=$true }
     @{ src='characters\Vicky_ataud.png'; dst='personajes\vicky-ataud.png'; id='vickyAtaud'; alto=34; anchoFijo=0; tol=6; plano=$true; dominante=$true }
 
+    # EL ATAUD GENERICO, para los cuatro heroes que todavia no tienen el suyo
+    # (ver datos/personajes.js). ARTE PROVISIONAL: no lo ha dibujado Sergio, se
+    # pidio a la API de imagenes -herramientas/generar-imagen.js- y esta aqui
+    # solo para que el sitio donde ha caido alguien se vea. El dibujado prueba
+    # SIEMPRE primero el ataud propio, asi que en cuanto exista el de un heroe
+    # este deja de usarse para el sin tocar una linea.
+    #
+    # OJO: el fuente NO es como los cuatro de Sergio. Viene del generador con
+    # FONDO ROSA -no blanco- y ACOSTADO, asi que necesita dos cosas que los
+    # otros no: un `tol` mucho mas alto, porque ese rosa no es plano y trae ruido
+    # de compresion, y GIRAR 90 GRADOS, porque el modelo dibuja el sarcofago
+    # tumbado por mas que se le pida vertical y lo que hace falta es un
+    # rectangulo de arriba abajo.
+    #
+    # `girar90` NO EXISTE todavia en Procesar: el PNG de assets/ se genero a
+    # mano esta vez. Esta fila queda escrita para que, cuando alguien vuelva a
+    # pasar el procesador, sepa exactamente que hace falta -o para borrarla
+    # entera el dia que los cuatro ataudes que faltan existan, que es lo que de
+    # verdad tiene que pasar.
+    @{ src='characters\Generico_ataud.png'; dst='personajes\generico-ataud.png'; id='ataudGenerico'; alto=34; anchoFijo=0; tol=30; plano=$true; dominante=$true; girar90=$true }
+
     # EL OSITO DINAMITO, que es un PROYECTIL y no un bicho, pero sale por aqui
     # porque lo que necesita es exactamente lo que hace esta rama: un GIF de
     # dieciseis fotogramas convertido en tira, con la caja de recorte comun a

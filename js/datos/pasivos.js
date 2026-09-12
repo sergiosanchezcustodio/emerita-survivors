@@ -247,20 +247,28 @@ export const PASIVOS = {
   // --- El Libro de las Sombras de Alburquerque -----------------------------
   //
   // Sexta y ultima tanda. Un enemigo al azar se pasa a tu bando: deja de
-  // perseguirte, camina hacia los suyos con un aura verde que late mas deprisa
-  // segun se le acaba el tiempo, y a los cinco segundos revienta.
+  // perseguirte, camina hacia los suyos envuelto en un aura ROJA que late mas
+  // deprisa segun se le acaba el tiempo, les pega mientras camina, y a los cinco
+  // segundos revienta.
   //
   // NO A LOS JEFES: un jefe poseido seria un jefe que deja de ser un jefe, y
   // encima el mas caro de matar del nivel resuelto por un objeto.
   //
-  // EL POSEIDO NO PEGA AL ROZAR, y es una decision tomada y no un olvido: hoy
-  // no existe dano de enemigo contra enemigo en ninguna parte del motor, y
-  // darselo por cinco segundos costaba mas que todo lo demas del objeto junto.
-  // Lo que se lleva a los suyos por delante es la explosion. Si algun dia se
-  // quiere el roce, se anade encima de esto sin tocar nada de lo que hay.
+  // INTOCABLE MIENTRAS DURA. Ni tus armas ni las de tus companeros ni la
+  // explosion de otro poseido le hacen nada (ver `danyar` en
+  // entidades/enemigo.js). Sin esto el objeto casi no se veia funcionar: tus
+  // armas disparan solas a lo que tengan mas cerca, y lo mas cerca era el bicho
+  // que acababas de convertir, asi que la mitad de las veces se moria en el
+  // primer segundo. Se pagaba un objeto para matar a un enemigo dos veces.
+  //
+  // Y SI PEGA AL ROZAR, con su propio dano de contacto. Antes no lo hacia
+  // —no existia dano de enemigo contra enemigo en el motor— y el poseido se
+  // pasaba sus cinco segundos paseando: lo unico que contaba era donde le
+  // pillaba el final. Lo que se lleva de verdad a la horda por delante sigue
+  // siendo la explosion; el roce es lo que hace que se le vea trabajar.
   libroSombras: {
     nombre: 'El Libro de las Sombras',
-    descripcion: 'Cada 18 s un enemigo cambia de bando y estalla (menos por nivel)',
+    descripcion: 'Cada 18 s un enemigo intocable cambia de bando y estalla (menos por nivel)',
     campo: 'libroCada', tipo: 'escalon', valor: 18, paso: -1, suelo: 8,
     maxNivel: 10
   },

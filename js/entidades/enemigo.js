@@ -10,7 +10,7 @@ import {
   Particulas, COLOR_SANGRE, COLOR_POLVO, COLOR_CHISPA, COLOR_CENIZA,
   COLOR_PIEDRA, COLOR_VENENO
 } from '../sistemas/particulas.js';
-import { tipoConsumible } from './cofre.js';
+import { tipoConsumible, COFRE } from './cofre.js';
 import { sen, cos, atan2, exp } from '../core/mate.js';
 
 // Denarios por baja (progreso META, ver core/metaProgreso.js): proporcionales
@@ -40,7 +40,27 @@ const DURACION_POSESION = 5;
 const RADIO_POSESION = 46;
 const DANYO_POSESION = 55;
 // Verde, y el mismo que usa el aura que se le pinta encima (ver `dibujar`).
-const COLOR_POSESION = '#5ce07a';
+// ROJO, y ya no verde. El aura de un poseido decia "este es de los tuyos" en el
+// color de lo amistoso, y con el objeto terminado eso cuenta lo que menos
+// importa: un poseido no es un aliado al que proteger, es una BOMBA ANDANDO con
+// cinco segundos de mecha que ademas ya no se puede matar. Lo pidio Sergio en
+// rojo y es lo correcto: rojo es el color de "apartate de ahi".
+const COLOR_POSESION = '#ff4a3a';
+
+// LO QUE PEGA UN POSEIDO AL ROZAR A LOS SUYOS, y cada cuanto.
+//
+// El dano sale de SU PROPIO dano de contacto, el mismo con el que te perseguia
+// hace un segundo, multiplicado por esto. Sale de ahi y no de una cifra fija
+// porque un ciclope poseido tiene que pegar como un ciclope: si el Libro
+// convirtiera a todos en la misma bomba, daria igual a quien te tocara poseer y
+// la mitad de la gracia del objeto es esa loteria.
+//
+// x1,6 y cada medio segundo: en los cinco segundos que dura son nueve golpes,
+// que a un enemigo de masa lo matan y a un tanque lo dejan tocado. Suficiente
+// para que se vea trabajar antes de reventar, y lejos de hacer el trabajo por ti
+// —la explosion sigue siendo lo que de verdad se lleva a la horda por delante—.
+const GOLPE_POSEIDO = 1.6;
+const CADENCIA_POSEIDO = 0.5;
 
 // UN JEFE NO SE POSEE. Se mira `rol`, que es como los marca el bestiario (ver
 // datos/enemigos.js), y de paso caen las escoltas: los gemelos de la Loba
@@ -256,7 +276,6 @@ export function prepararVariantes() {
   // Y el AZUL DEL CONGELADO, ya con los sprites definitivos: si una variante se
   // ha quedado en su base, el hielo tiene que teñir la base y no un id que no
   // existe. Solo para el bestiario, que es lo único que el Reloj congela.
-  for (const id in ENEMIGOS) Recursos.prepararTinteHielo(ENEMIGOS[id].sprite);
 }
 
 // DE QUÉ ESTÁ HECHO CADA BICHO. `restos` lo declara la ficha (datos/enemigos.js)
@@ -328,6 +347,10 @@ function crearEnemigo() {
     // esta poseido, y un enemigo reciclado que se olvidara de borrarse de ella
     // dejaria un fantasma.
     poseido: 0,
+    // Reloj del golpe cuerpo a cuerpo mientras dura la posesion. Va aparte de
+    // `relojAtaque` a proposito: ese es el del ataque a distancia de la medusa y
+    // compania, y una medusa poseida tiene los dos.
+    relojGolpePoseido: 0,
     // Y quien lo poseyo, para apuntarle el dano de la explosion como suyo. Es
     // el mismo criterio que el `duenyo` de un proyectil.
     poseidoPor: null,
@@ -344,8 +367,7 @@ function crearEnemigo() {
     // Referencias resueltas al aparecer: dibujar 800 entidades no puede pagar
     // dos búsquedas en Map por entidad y frame.
     objetivo: null,          // jugador al que persigue este paso
-    meta: null, img: null, imgEspejo: null, imgTinte: null, imgTinteEspejo: null,
-    imgHielo: null, imgHieloEspejo: null
+    meta: null, img: null, imgEspejo: null, imgTinte: null, imgTinteEspejo: null
   };
 }
 
@@ -394,8 +416,10 @@ export class Enemigos {
 
   // --- El Libro de las Sombras de Alburquerque -------------------------------
   //
-  // Un enemigo al azar se pasa a tu bando: deja de perseguirte, camina hacia
-  // los suyos con un aura verde y a los DURACION_POSESION segundos revienta.
+  // Un enemigo al azar se pasa a tu bando: deja de perseguirte, camina hacia los
+  // suyos envuelto en un aura ROJA, les pega mientras le dura y a los
+  // DURACION_POSESION segundos revienta. Y NO SE LE PUEDE MATAR mientras tanto
+  // (ver `danyar`), ni tu ni nadie.
   //
   // NO A LOS JEFES, y esa es la única regla que trae de fábrica: un jefe
   // poseído sería un jefe que deja de ser un jefe, y encima el más caro de
@@ -456,6 +480,7 @@ export class Enemigos {
     const duenyo = e.poseidoPor;
     e.poseido = 0;
     e.poseidoPor = null;
+    e.relojGolpePoseido = 0;
     if (this.zonas) {
       this.zonas.crear({
         x: e.x, y: e.y,
@@ -575,6 +600,7 @@ export class Enemigos {
     e.golpeado = 0;
     e.poseido = 0;
     e.poseidoPor = null;
+    e.relojGolpePoseido = 0;
     e.movPrevio = 0;
 
     if (def.cofre) this.elitesVivos++;
@@ -599,8 +625,6 @@ export class Enemigos {
     // Copia azulada para cuando el Reloj de Emerita lo deja congelado. Se
     // resuelve aquí, con las otras tres hojas, para que el dibujado no tenga que
     // preguntar nada: elige imagen y ya.
-    e.imgHielo = Recursos.tinteHielo(def.sprite);
-    e.imgHieloEspejo = Recursos.tinteHieloEspejo(def.sprite);
     // De qué está hecho. Se resuelve AQUÍ, con el resto de lo que se saca de la
     // ficha una sola vez, y no en `danyar`: así la muerte no tiene que buscar en
     // ningún diccionario ni preguntar si el campo existe. Es lo mismo que se
@@ -698,23 +722,47 @@ export class Enemigos {
       // POSEIDO: ha cambiado de bando. Camina hacia el enemigo vivo mas cercano
       // en vez de hacia un jugador, y al agotarsele el tiempo revienta.
       //
-      // NO PEGA AL ROZAR, y es una decision, no un olvido: hoy no existe dano
-      // de enemigo contra enemigo en ninguna parte del motor, y darselo por
-      // cinco segundos costaba mas que todo lo demas del objeto junto. Lo que
-      // se lleva a los suyos por delante es la explosion, que si existe.
+      // Y AHORA SI PEGA AL ROZAR. Durante un tiempo no lo hizo —no existia dano
+      // de enemigo contra enemigo en ningun sitio del motor y solo la explosion
+      // se llevaba a los suyos—, pero asi el poseido se pasaba cinco segundos
+      // caminando sin hacer nada y lo unico que contaba era donde le pillaba el
+      // final. Lo pidio Sergio: que ataque, y luego reviente.
+      //
+      // El dano sale de SU dano de contacto (ver GOLPE_POSEIDO) y se le apunta a
+      // quien lo poseyo, igual que el de la explosion: lo que mata un poseido lo
+      // ha matado el Libro de las Sombras de alguien.
       if (e.poseido > 0) {
         e.poseido -= dt;
         if (e.poseido <= 0) {
           this._reventarPoseido(e);
           continue;
         }
+        if (e.relojGolpePoseido > 0) e.relojGolpePoseido -= dt;
+
         const presa = this._enemigoMasCercano(e);
         if (presa) {
           const dxp = presa.x - e.x;
           const dyp = presa.y - e.y;
           const dp = Math.sqrt(dxp * dxp + dyp * dyp) || 1;
-          e.x += (dxp / dp) * e.velocidad * dt;
-          e.y += (dyp / dp) * e.velocidad * dt;
+
+          // SE PARA AL LLEGAR, en vez de empujar el cuerpo desde dentro. Sin el
+          // corte, el poseido se mete en la presa y la separacion los deja a los
+          // dos temblando uno contra otro: se ve como un fallo, no como un
+          // ataque.
+          const alcance = e.radio + presa.radio;
+          if (dp > alcance) {
+            e.x += (dxp / dp) * e.velocidad * dt;
+            e.y += (dyp / dp) * e.velocidad * dt;
+          } else if (e.relojGolpePoseido <= 0) {
+            e.relojGolpePoseido = CADENCIA_POSEIDO;
+            // Por `danyar` y no restando vida a mano: es el punto unico por el
+            // que muere cualquier cosa en este juego, y es quien suelta la gema,
+            // el cofre, las particulas y los denarios. Restarle vida por fuera
+            // dejaria cadaveres que nadie recoge.
+            this.danyar(presa, Math.round(e.danyo * GOLPE_POSEIDO),
+                        dxp / dp, dyp / dp, e.def.masa >= 60 ? 90 : 40,
+                        e.poseidoPor, null);
+          }
         }
         e.objetivo = null;
         continue;
@@ -990,6 +1038,22 @@ export class Enemigos {
   danyar(e, cantidad, dirX, dirY, fuerza, duenyo, fuente) {
     if (e.vida <= 0) return false;          // ya muerto este paso
 
+    // UN POSEIDO NO SE PUEDE MATAR. Lo pidio Sergio y arregla lo que hacia que
+    // el Libro de las Sombras fuera un objeto raro de usar: el bicho al que
+    // acababas de pasarte a tu bando se moria de un roce de tus propias armas
+    // —que siguen disparando solas a lo que tengan mas cerca, y lo mas cerca
+    // era el— asi que la mitad de las veces el objeto se gastaba sin que
+    // llegaras a ver nada. Se pagaba un objeto para matar a un enemigo dos veces.
+    //
+    // Es inmune a TODO, no solo a ti: tambien a la explosion de otro poseido y
+    // al fuego de tus companeros. La regla se entiende de una sola forma —lo
+    // que brilla en rojo no se toca— y una excepcion la volveria imposible de
+    // leer en mitad de una horda.
+    //
+    // No es inmortal: le quedan sus cinco segundos y revienta igual. Lo que se
+    // le quita es la posibilidad de morir ANTES de servir para algo.
+    if (e.poseido > 0) return false;
+
     // SE APUNTA LO QUE SE QUITA DE VERDAD, no lo que se pide. Un golpe de 56 a
     // un enemigo con 7 de vida son 7 puntos de daño hecho, no 56: contar la
     // petición infla el número justo con las armas que rematan a la horda de un
@@ -1142,6 +1206,25 @@ export class Enemigos {
       // entre toda la horda.
       if (e.def.cofre && this.cofres) this.cofres.soltar(e.x, e.y);
 
+      // LO QUE DEJA UN JEFE. Los dos campos son datos del bicho (ver
+      // `cofreDorado` y `denariosAlMorir` en datos/enemigos.js): aquí no se sabe
+      // quién es Cerbero ni quién la Loba, solo que uno deja cofre y otro oro.
+      //
+      // El cofre va FORZADO a especial, sin pasar por el sorteo del 10%: lo que
+      // se gana tumbando a un jefe no puede depender de una tirada.
+      if (e.def.cofreDorado && this.cofres) this.cofres.soltar(e.x, e.y, COFRE, true);
+
+      // Y los denarios del jefe final van DIRECTOS al progreso META, sin pasar
+      // por un recogible en el suelo. Cuando cae la Loba la partida se termina,
+      // así que un montón de monedas tiradas en la arena sería un premio que hay
+      // que correr a recoger antes de que la pantalla de final se lo coma. Esto
+      // no puede perderse.
+      if (e.def.denariosAlMorir > 0) {
+        MetaProgreso.ganar(duenyo && duenyo.bonusDenarios > 0
+          ? Math.round(e.def.denariosAlMorir * (1 + duenyo.bonusDenarios))
+          : e.def.denariosAlMorir);
+      }
+
       // Lo que suelta sale DESPEDIDO hacia donde iba el golpe, no en círculo: un
       // cono, que sigue leyéndose como un reventón pero cuenta además de dónde
       // vino. El polvo sí se queda redondo — es el que levanta el cuerpo al
@@ -1288,8 +1371,40 @@ export class Enemigos {
     }
   }
 
-  // Todos los que estén vivos salen huyendo, menos los jefes. Lo llama el
-  // director cuando entra el jefe final.
+  // LA HORDA SE BORRA DE GOLPE cuando entra un jefe. Lo llama el director en los
+  // tres hitos —minuto 10, 20 y el final—, justo antes de soltarlo.
+  //
+  // Antes esto era `huidaGeneral`: se les daba media vuelta y se iban solos, que
+  // es mejor puesta en escena pero deja el trabajo a medias. Un enemigo que huye
+  // sigue existiendo, sigue chocando y sigue siendo culleado a su ritmo, así que
+  // la pelea contra el jefe empezaba con la pantalla todavía llena de gente
+  // dando la espalda. Lo pidió Sergio: que desaparezcan del todo.
+  //
+  // NO SE BORRAN TRES COSAS:
+  //   - los JEFES, que es de quien va esto;
+  //   - los OBJETOS del escenario (`esObjeto`, las antorchas), que no son horda:
+  //     borrarlas dejaría la avenida pelada cada diez minutos;
+  //   - los ÉLITES, y esta es la única discutible. Un élite suelta un cofre al
+  //     morir, y es la única vía a las evoluciones: borrarlo le quita al jugador
+  //     un premio que ya se estaba peleando, y encima sin avisar. Huyen, como
+  //     hacían antes, y el culling se los lleva si de verdad se van.
+  //
+  // Se recorre hacia atrás porque `liberarEn` intercambia el hueco con el último
+  // activo: de delante hacia atrás se saltaría elementos.
+  barrerHorda() {
+    const items = this.pool.items;
+    for (let k = this.pool.activos - 1; k >= 0; k--) {
+      const e = items[k];
+      if (e.def.rol === 'jefe' || e.def.rol === 'elite' || e.def.esObjeto) continue;
+      this.pool.liberarEn(k);
+    }
+    // Los contadores que llevaba la horda dejan de tener a quién contar. Los
+    // élites siguen vivos, así que `elitesVivos` no se toca.
+    this.escoltasVivos = 0;
+  }
+
+  // Todos los que estén vivos salen huyendo, menos los jefes. Se sigue usando
+  // para los ÉLITES, que `barrerHorda` no borra.
   //
   // No se les mata ni se les borra: se les cambia el movimiento. Ver desaparecer
   // la horda de golpe se leería como un fallo del juego; verla dar media vuelta
@@ -1355,7 +1470,7 @@ export class Enemigos {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
 
-    // EL AURA VERDE DE LOS POSEÍDOS, antes que los avisos de ataque y en el
+    // EL AURA ROJA DE LOS POSEÍDOS, antes que los avisos de ataque y en el
     // mismo recorrido: los dos son adornos que cuelgan de unos pocos enemigos y
     // recorrer el pool dos veces para pintar dos cosas sería pagarlo dos veces.
     //
@@ -1373,9 +1488,11 @@ export class Enemigos {
       const late = 0.72 + 0.28 * Math.sin(e.poseido * (1 + 4 * (1 - queda)) * 6.28);
       const r = alto * 0.62 * late;
       const g = ctx.createRadialGradient(x, y - alto * 0.45, 0, x, y - alto * 0.45, r);
-      g.addColorStop(0, 'rgba(120,255,150,.55)');
-      g.addColorStop(0.55, 'rgba(60,220,120,.28)');
-      g.addColorStop(1, 'rgba(30,160,80,0)');
+      // Los tres tramos son el mismo rojo apagandose hacia fuera, no tres
+      // colores: un degradado que cambia de tono se lee como dos halos pegados.
+      g.addColorStop(0, 'rgba(255,140,120,.60)');
+      g.addColorStop(0.55, 'rgba(235,60,45,.32)');
+      g.addColorStop(1, 'rgba(150,25,20,0)');
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(x, y - alto * 0.45, r, 0, Math.PI * 2);
@@ -1509,15 +1626,21 @@ export class Enemigos {
       // el dibujado pasa a alternar entre dos imágenes distintas cientos de
       // veces por frame, que es lo que rompe el agrupado del canvas.
       // CONGELADO POR DELANTE DEL DESTELLO. Mientras el Reloj de Emerita tiene
-      // parada a la horda, el bicho se pinta en azul hielo y ahí se queda: es lo
-      // que dice que no se puede mover ni hacer daño. Un fogonazo blanco encima
-      // de un enemigo congelado contaría lo contrario de lo que pasa —que sigue
-      // en la pelea— justo cuando el jugador está decidiendo por dónde cruzar.
-      const img = (e.paralizado > 0 && e.imgHielo)
-        ? (e.mirandoDerecha ? e.imgHielo : e.imgHieloEspejo)
-        : (e.destello > 0 && Enemigos.destelloActivo)
-          ? (e.mirandoDerecha ? e.imgTinte : e.imgTinteEspejo)
-          : (e.mirandoDerecha ? e.img : e.imgEspejo);
+      // parada a la horda, el bicho no destella aunque le peguen: un fogonazo
+      // blanco encima de un enemigo congelado contaría lo contrario de lo que
+      // pasa —que sigue en la pelea— justo cuando el jugador está decidiendo por
+      // dónde cruzar.
+      //
+      // ANTES ADEMÁS SE PINTABA EN AZUL HIELO, con una copia teñida de cada
+      // sprite horneada al cargar (`imgHielo`). Se ha ido con el resto del azul:
+      // ahora el mundo ENTERO se queda en blanco y negro mientras dura el Reloj
+      // (ver #juego.congelado en css/estilos.css), y sobre un mundo desaturado
+      // un teñido azul por bicho no distingue nada de nada — lo dice ya el hecho
+      // de que no se mueva ninguno. Lo que sí hacía falta conservar es esto: que
+      // el destello no se cuele durante la parada.
+      const img = (e.destello > 0 && Enemigos.destelloActivo && e.paralizado <= 0)
+        ? (e.mirandoDerecha ? e.imgTinte : e.imgTinteEspejo)
+        : (e.mirandoDerecha ? e.img : e.imgEspejo);
 
       // Todo se cuadra a PÍXEL FÍSICO ENTERO antes de dibujar.
       //

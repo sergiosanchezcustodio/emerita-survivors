@@ -450,6 +450,15 @@
                                                   83
                                               ]
                                },
+                      "ataudGenerico":  {
+                                        "archivo":  "personajes/generico-ataud.png",
+                                        "w":  65,
+                                        "h":  136,
+                                        "anclaX":  32,
+                                        "anclaY":  136,
+                                        "frames":  1,
+                                        "plano":  true
+                                    },
                       "ericAtaud":  {
                                         "archivo":  "personajes/eric-ataud.png",
                                         "w":  96,

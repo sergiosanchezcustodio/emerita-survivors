@@ -405,6 +405,18 @@ export class Zonas {
 
   vaciar() { this.pool.vaciar(); reiniciarSellos(); }
 
+  // Las zonas de este jugador, fuera. Mismo motivo y mismo recorrido hacia atrás
+  // que `retirarDe` en entidades/proyectil.js, y aquí se nota más todavía: una
+  // zona no se mueve ni caduca por alejarse, así que un charco de veneno de
+  // alguien que lleva medio minuto en el suelo seguiría ahí, quieto y matando.
+  retirarDe(duenyo) {
+    if (!duenyo) return;
+    const items = this.pool.items;
+    for (let k = this.pool.activos - 1; k >= 0; k--) {
+      if (items[k].duenyo === duenyo) this.pool.liberarEn(k);
+    }
+  }
+
   // EL DIBUJADO VA EN DOS CAPAS, Y NO ES UNA SUTILEZA DE ORDEN.
   //
   // Antes esto era un solo método que se llamaba después de las entidades, con

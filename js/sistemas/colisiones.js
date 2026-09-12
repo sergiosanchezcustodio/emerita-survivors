@@ -423,6 +423,17 @@ function apartarDelJugador(items, rejilla, jugador) {
         // para lo que existe. El daño por contacto se apaga en el mismo sitio
         // en el que se mide (ver contactoJugador).
         if (e.paralizado > 0) continue;
+        // POSEÍDO POR EL LIBRO DE LAS SOMBRAS: tampoco muerde, por el mismo
+        // motivo que el congelado. Está de tu bando durante cinco segundos —va a
+        // por los suyos y les pega (ver el bloque de `poseido` en
+        // entidades/enemigo.js)— así que morderte mientras tanto contaría lo
+        // contrario de lo que hace el objeto.
+        //
+        // Y es la otra mitad de que no se le pueda matar: si fuera intocable Y
+        // siguiera haciéndote daño al rozarlo, el Libro te habría plantado en
+        // medio de la horda un bicho invencible que te muerde. Las dos reglas
+        // van juntas o ninguna.
+        if (e.poseido > 0) continue;
         const dx = e.x - jx;
         const dy = e.y - jy;
         const r = jugador.radioCuerpo + e.radioCuerpo;

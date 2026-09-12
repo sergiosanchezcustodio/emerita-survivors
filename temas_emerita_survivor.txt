@@ -1,4 +1,25 @@
 
+
+El rifle ha dejado de rebotar en los márgenes de la pantalla visible.
+
+############################
+
+Faltan ataudes, tengo que crearlos, pero mientras utiliza uno genérico temporal que le pidas tu a la API de imágenes. 
+Al morir los ataques de sus armas del personaje muerto deben desaparecer de pantalla (actualmente se quedan congeladas).
+la imagen del personaje en el HUD, es pequeña, debe aprovecharse mejor el espacio y rellenar mejor el hueco.
+Necesitamos un indicador de resucitaciones que tenemos pendiente y algo que indique que se ha usado una resucitación. Algo en el HUD. Quizás un círculo con un número debajo de la imagen.
+Los enemigos comunes, al aparecer un jefe de los minutos 10, 20 o 30 deben desaparecer del todo.
+Al vencer un jefe del minuto 10 y 20, deben dejar siempre un cofre dorado. El Jefe final al morir debe dejar un tesoro de monedas 1000 para la loba capitulina.
+
+
+
+
+
+
+
+
+
+########################################
 Ficha del jugador (al pulsar TAB en el gameplay), el tamaño mostrado de las imágenes de armas y objetos del jugador, deben ser más pequeñas, debemos usar las mismas imágenes que se muestran de armas y objetos en el HUD. Al incrementar en 5 objetos con el zurrón no queda muy bien. 
 
 HUD no está adaptado a las 5 armas y objetos, que ahora pueden llegar a tener los jugadores, debemos tener dos tamaños de HUD, cuando solo se tienen 4 armas y 4 objetos y otro para cuando se amplien objetos o armas, apliar el tamaño en anchura del HUD para incluirlos, igualmente hay que adaptar la barra de vida para que siga ocupando todo el espacio yh no tengamos huecos extraños.

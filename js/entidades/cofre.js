@@ -136,7 +136,10 @@ export class Cofres {
 
   get activos() { return this.pool.activos; }
 
-  soltar(x, y, tipo = COFRE) {
+  // `forzarEspecial` salta el sorteo del 10% y garantiza el cofre dorado. Lo usa
+  // el premio de los jefes de en medio (ver `cofreDorado` en datos/enemigos.js):
+  // lo que se gana tumbando a un jefe no puede depender de una tirada.
+  soltar(x, y, tipo = COFRE, forzarEspecial = false) {
     let c = this.pool.obtener();
     // Pool lleno: hay que hacer sitio. Se sacrifica un CONSUMIBLE antes que un
     // cofre, y solo si no queda ningún consumible se toca el cofre más antiguo.
@@ -163,7 +166,12 @@ export class Cofres {
     c.fase = 0;
     c.vida = 0;
     c.tipo = tipo;
-    c.especial = tipo === COFRE && this._rng() < PROB_ESPECIAL;
+    // El sorteo se tira SIEMPRE, incluso cuando el resultado va a ignorarse. Es
+    // a propósito: el RNG es la misma secuencia para todos los que simulan esta
+    // partida (ver core/determinismo.js), así que saltarse una tirada según el
+    // caso desincronizaría a dos jugadores en cuanto uno matara a un jefe.
+    const sorteo = this._rng() < PROB_ESPECIAL;
+    c.especial = tipo === COFRE && (forzarEspecial || sorteo);
     if (this.recolocar) this.recolocar(c);
     return c;
   }

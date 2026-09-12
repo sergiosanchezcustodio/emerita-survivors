@@ -431,67 +431,58 @@ export const NIVEL = {
   // A propósito NO se ha metido decoración en la franja añadida, la más
   // externa: es la que sale del espejo y tiene su propio pliegue visible, y
   // llenarla de objetos solo llamaría la atención hacia él.
-  // MÁS ANTORCHAS (pedido de Sergio): de dos por tile a seis, y ahora de seis a
-  // VEINTICUATRO, que es el x4 que pidió después de jugarlo.
+  // LAS ANTORCHAS, POCAS Y SEPARADAS. Han ido 2 -> 6 -> 24 -> 12 por tile, y el
+  // recorte de 24 a 12 lo pidió Sergio después de verlo: con veinticuatro salían
+  // quince a la vez en pantalla y aquello era una verbena. Lo que quiere es que
+  // aparezcan CADA CIERTA DISTANCIA, no en racimo.
   //
-  // EN CUATRO CARRILES, no en dos, y ahí está la mitad del encargo. Cuadruplicar
-  // los dos carriles de siempre habría puesto una antorcha cada 36 unidades
-  // sobre el borde de la calzada: eso no es una avenida iluminada, es una
-  // empalizada, y además con la antorcha siendo sólida se cierra el paso al
-  // borde. Los dos carriles nuevos van por la hierba, por fuera de la piedra, y
-  // dejan la calle igual de transitable con cuatro veces el fuego.
+  // Y doce sigue siendo el doble de las seis de antes, aunque se vean menos a la
+  // vez. La razón es que el problema de verdad no era la cantidad sino que el
+  // mapa se quedaba pelado por detrás, y eso ya está resuelto en otro sitio (ver
+  // `_olvidarFilasLejanas` en sistemas/obstaculos.js): una fila vuelve a
+  // poblarse cuando te alejas y regresas. Con el suministro arreglado, la
+  // densidad puede bajar sin que falten antorchas en toda la partida.
   //
-  // Los carriles de hierba están en 130 y 430, y salen de una cuenta como los
-  // demás: las ruinas ocupan 39..105 por la izquierda y 441..507 por la derecha
-  // (semieje de unas 33 unidades, ver la nota de las ruinas más abajo), y la
-  // calzada va de 181 a 395. O sea que 130 y 430 caen en la franja de hierba
-  // libre de las dos cosas, sin rozar ni la piedra ni el escombro.
+  // EN CUATRO CARRILES, que es lo que permite separarlas de verdad. Doce en los
+  // dos carriles de la calzada volverían a apelotonarlas sobre el borde; en
+  // cuatro, cada carril lleva pocas y muy espaciadas. Los dos de hierba están en
+  // 130 y 430, entre la piedra (181..395) y las ruinas (39..105 y 441..507), sin
+  // rozar ninguna de las dos.
   //
-  // Seis por carril, repartidas a lo alto del tile y ESCALONADAS entre carriles:
-  // las `y` de un carril caen en los huecos de los otros, así que no se forman
-  // hileras de cuatro a la misma altura. En los dos carriles de la calzada las
-  // `y` esquivan además la columna y la estatua de su lado, que ya estaban ahí.
+  // El reparto NO es igual por carril: los dos de la calzada llevan solo DOS
+  // cada uno porque ya tienen su columna y su estatua ocupando sitio, y los dos
+  // de hierba llevan CUATRO porque están vacíos. Así la separación mínima entre
+  // dos piezas cualesquiera del mismo carril no baja de 75, contando la costura
+  // donde el patrón se repite.
   //
-  // Ojo a un efecto de lado que no es cosmético: la antorcha es DESTRUIBLE y
-  // suelta un consumible al caer (ver `esObjeto` en datos/enemigos.js), así que
-  // cuadruplicarlas cuadruplica también esa fuente de consumibles. Se deja así a
-  // propósito —romperlas cuesta tiempo y dejar de disparar a la horda— pero si
-  // al jugarlo salen demasiadas, ESTA LISTA es donde se recorta: quitar un
-  // carril entero de hierba devuelve el escenario a la mitad sin tocar nada más.
+  // La antorcha es DESTRUIBLE y suelta un consumible al caer (ver `esObjeto` en
+  // datos/enemigos.js), así que esta lista es también el grifo de los
+  // consumibles. Si hay que retocarlo, se retoca aquí.
   decoracion: [
-    // Carril de hierba izquierdo.
-    { tipo: 'antorcha1', x: 130, y:  25 },
-    { tipo: 'antorcha2', x: 130, y:  95 },
-    { tipo: 'antorcha1', x: 130, y: 165 },
-    { tipo: 'antorcha2', x: 130, y: 235 },
-    { tipo: 'antorcha1', x: 130, y: 305 },
-    { tipo: 'antorcha2', x: 130, y: 375 },
+    // Carril de hierba izquierdo: cuatro, cada 108.
+    { tipo: 'antorcha1', x: 130, y:  20 },
+    { tipo: 'antorcha2', x: 130, y: 128 },
+    { tipo: 'antorcha1', x: 130, y: 236 },
+    { tipo: 'antorcha2', x: 130, y: 344 },
 
-    // Borde izquierdo de la calzada. La columna sigue en 50 y la estatua en 200.
+    // Borde izquierdo de la calzada: dos, en los huecos que dejan la columna
+    // (y=50) y la estatua (y=200).
     { tipo: 'columna',   x: 186, y:  50 },
-    { tipo: 'antorcha2', x: 186, y:  90 },
-    { tipo: 'antorcha1', x: 186, y: 150 },
-    { tipo: 'antorcha1', x: 186, y: 250 },
-    { tipo: 'antorcha2', x: 186, y: 300 },
-    { tipo: 'antorcha2', x: 186, y: 340 },
-    { tipo: 'antorcha1', x: 186, y: 400 },
+    { tipo: 'antorcha2', x: 186, y: 125 },
+    { tipo: 'antorcha1', x: 186, y: 320 },
 
-    // Borde derecho de la calzada. La estatua sigue en 195 y la columna en 350.
-    { tipo: 'antorcha2', x: 390, y:  40 },
-    { tipo: 'antorcha1', x: 390, y:  90 },
-    { tipo: 'antorcha1', x: 390, y: 130 },
-    { tipo: 'antorcha2', x: 390, y: 260 },
-    { tipo: 'antorcha1', x: 390, y: 300 },
+    // Borde derecho: dos, esquivando la estatua (y=195) y la columna (y=350).
+    { tipo: 'antorcha1', x: 390, y: 110 },
+    { tipo: 'antorcha2', x: 390, y: 270 },
     { tipo: 'columna',   x: 390, y: 350 },
-    { tipo: 'antorcha2', x: 390, y: 410 },
 
-    // Carril de hierba derecho.
-    { tipo: 'antorcha2', x: 430, y:  60 },
-    { tipo: 'antorcha1', x: 430, y: 130 },
-    { tipo: 'antorcha2', x: 430, y: 200 },
-    { tipo: 'antorcha1', x: 430, y: 270 },
-    { tipo: 'antorcha2', x: 430, y: 340 },
-    { tipo: 'antorcha1', x: 430, y: 410 },
+    // Carril de hierba derecho: cuatro, cada 108 y a contrapié de las del
+    // carril de enfrente, para que no queden dos a la misma altura.
+    { tipo: 'antorcha2', x: 430, y:  74 },
+    { tipo: 'antorcha1', x: 430, y: 182 },
+    { tipo: 'antorcha2', x: 430, y: 290 },
+    { tipo: 'antorcha1', x: 430, y: 398 },
+
     // LAS ESTATUAS, AL BORDE DE LA CALZADA como las columnas (lo pidió Sergio).
     // Estaban a 141 y 412, o sea en mitad de la hierba: ahí se leían como parte
     // del paisaje y no como lo que son. En el borde —186 y 367— hacen calle con

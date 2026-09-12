@@ -235,7 +235,10 @@ export const MARGEN_FICHA = MARGEN;
 
 // Dentro de la tarjeta de identidad.
 const TARJETA_ALTO = ALTO_FICHA - RELLENO_V * 2;
-const RETRATO_INSET = 3;
+// 2 y no 3: el aire alrededor del retrato se recorta a la mitad para que la cara
+// gane cuatro unidades de ancho. Con el marco de la tarjeta detrás, dos bastan
+// para que no parezca pegado al borde.
+const RETRATO_INSET = 2;
 const RETRATO_ANCHO = TARJETA_ANCHO - RETRATO_INSET * 2;
 // Nombre y nivel se miden DESDE ABAJO, no con dos números fijos. Con las
 // ranuras cuadradas la ficha creció 10 de alto y unas coordenadas absolutas
@@ -250,9 +253,29 @@ const Y_NOMBRE = Y_NIVEL - 9;
 // habría recortado un quinto de cabeza por cada lado. Lo que se hace con los 10
 // que ha crecido la tarjeta es repartirlos como aire, centrando el retrato en el
 // hueco que queda por encima del nombre.
-const ALTO_RETRATO = RETRATO_ANCHO;
-const Y_RETRATO = RELLENO_V
-                + ((Y_NOMBRE - 7.5) - RELLENO_V - ALTO_RETRATO) / 2;
+// EL RETRATO LLENA SU HUECO, que hasta ahora no era el caso.
+//
+// Era CUADRADO, del mismo lado que el ancho de la tarjeta (36x36), y se
+// centraba en el hueco disponible. Como el hueco mide 59 de alto, sobraban 23
+// repartidos arriba y abajo: casi la mitad de la tarjeta era aire, con la cara
+// flotando en medio. Lo vio Sergio.
+//
+// Ahora se estira a lo alto hasta comerse el hueco entero menos la banda de las
+// resurrecciones. Puede hacerlo porque `dibujarCabeza` encaja en modo CUBRIR:
+// escala por el lado que se quede corto y recorta el sobrante, así que un hueco
+// más alto que ancho no deforma la cara, la encuadra más cerca. Es exactamente
+// lo que se hizo con Helen en la ficha y en la tienda — verla hasta el pecho en
+// vez de flotando dentro de un cuadrado.
+//
+// LA BANDA DE ABAJO SE RESERVA SIEMPRE, se tengan resurrecciones o no. Si el
+// retrato creciera cuando no hay Moneda de Caronte y encogiera al comprarla, la
+// ficha cambiaría de cara a mitad de partida por un objeto que no tiene nada que
+// ver con el retrato.
+const ALTO_RESU = 14;
+const ALTO_RETRATO = (Y_NOMBRE - 7.5) - RELLENO_V - ALTO_RESU;
+const Y_RETRATO = RELLENO_V;
+// Centro de la banda de resurrecciones, justo debajo del retrato.
+const Y_RESU = Y_RETRATO + ALTO_RETRATO + ALTO_RESU / 2;
 
 // Radios de esquina. Todo redondeado y en cascada: la ficha más que la tarjeta,
 // la tarjeta más que las ranuras. Es lo que hace que las piezas pequeñas se lean
@@ -692,6 +715,79 @@ export function dibujarIconoPasivo(ctx, x, y, r, idPasivo, color, escala = 1) {
 // `personaje` dice de qué DIBUJO sale, que es `def.sprite`. Mientras un héroe
 // lleve arte prestada (ver `provisional` en datos/personajes.js) los dos no
 // coinciden, y preguntando por el id el retrato salía vacío.
+// --- Resurrecciones (Moneda de Caronte) --------------------------------------
+//
+// Un círculo con las que QUEDAN y, a su lado, un punto por cada una que ya se ha
+// gastado. Lo pidió Sergio, y hacía falta: la Moneda de Caronte es el único
+// objeto del juego cuyo efecto ocurre en el instante en que no estás mirando la
+// esquina —te acaban de matar— y hasta ahora no dejaba rastro en ninguna parte.
+// Quien la llevaba no sabía si le quedaba alguna, ni siquiera si se había usado.
+//
+// DOS SEÑALES Y NO UNA, porque son dos preguntas distintas:
+//
+//   - el NÚMERO dentro del círculo responde "¿cuántas me quedan?", que es lo que
+//     se consulta antes de meterse en un sitio del que igual no se sale;
+//   - los PUNTOS responden "¿he gastado alguna?", que es lo que se mira justo
+//     después de volver a la vida sin entender muy bien qué ha pasado.
+//
+// Con el número solo, gastar la última se vería igual que no haber tenido nunca
+// ninguna: el círculo pasaría de 1 a 0 y ahí se acabaría la historia.
+//
+// SIN MONEDA NO SE DIBUJA NADA. Un indicador a cero pidiendo la vista sobre algo
+// que no tienes es ruido, y esta ficha está en la esquina de un juego donde lo
+// que mata es no ver lo que se te viene encima. El hueco sigue reservado (ver
+// ALTO_RESU), así que el retrato no cambia de tamaño al comprar la Moneda.
+const COLOR_RESU = '#e8c368';                 // el bronce de la Moneda de Caronte
+const COLOR_RESU_GASTADA = 'rgba(236,226,206,.25)';
+const R_RESU = 6;
+const R_PUNTO = 1.7;
+const HUECO_PUNTO = 4.5;
+
+function dibujarResurrecciones(ctx, cx, cy, jugador) {
+  const max = jugador.resurreccionesMax || 0;
+  if (max <= 0) return;
+  const usadas = Math.min(max, jugador.resurreccionesUsadas || 0);
+  const quedan = max - usadas;
+  const agotado = quedan <= 0;
+
+  // El conjunto va CENTRADO como un bloque: el círculo más sus puntos. Si se
+  // centrara solo el círculo, la fila se descolgaría hacia la derecha según
+  // cuántas resurrecciones tenga el jugador, y con cuatro fichas en pantalla eso
+  // se lee como que una está torcida.
+  const anchoPuntos = usadas > 0 ? usadas * HUECO_PUNTO : 0;
+  const x0 = cx - (R_RESU * 2 + anchoPuntos) / 2;
+  const xCirculo = x0 + R_RESU;
+
+  ctx.save();
+
+  ctx.beginPath();
+  ctx.arc(xCirculo, cy, R_RESU, 0, Math.PI * 2);
+  ctx.fillStyle = HUECO_FONDO;
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = agotado ? COLOR_RESU_GASTADA : COLOR_RESU;
+  ctx.stroke();
+
+  ctx.font = `700 8px ${FUENTE}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // +0.5 en la vertical: el centro geométrico de un texto y el centro óptico de
+  // una cifra no coinciden, y dentro de un círculo de 12 se nota.
+  textoBorde(ctx, String(quedan), xCirculo, cy + 0.5,
+             agotado ? '#a09888' : '#f4e6c4', 2.4);
+
+  // Un punto APAGADO por cada una gastada. Apagados y no encendidos: lo que
+  // cuentan es lo que ya no está.
+  ctx.fillStyle = COLOR_RESU_GASTADA;
+  for (let i = 0; i < usadas; i++) {
+    ctx.beginPath();
+    ctx.arc(x0 + R_RESU * 2 + HUECO_PUNTO * (i + 0.5), cy, R_PUNTO, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 function dibujarCabeza(ctx, x, y, ancho, alto, jugador) {
   const img = Recursos.imagen(jugador.personaje + 'Cara');
   if (!img) return;
@@ -979,6 +1075,7 @@ export function dibujarPaneles(ctx, jugadores) {
          HUECO_FONDO, null);
     dibujarCabeza(ctx, xTarjeta + RETRATO_INSET, y + Y_RETRATO,
                   RETRATO_ANCHO, ALTO_RETRATO, j);
+    dibujarResurrecciones(ctx, xTarjeta + TARJETA_ANCHO / 2, y + Y_RESU, j);
 
     const cxTarjeta = xTarjeta + TARJETA_ANCHO / 2;
     ctx.textAlign = 'center';

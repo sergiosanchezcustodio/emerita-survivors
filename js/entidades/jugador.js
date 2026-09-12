@@ -221,6 +221,11 @@ export class Jugador {
     this.destello = 0;             // segundos que queda enrojecido tras el golpe
     this.brilloRecogida = 0;       // 0..1, halo mientras absorbe gemas
     this.abatido = false;
+    // Flanco de "ya se han barrido sus armas de la pantalla al caer". Lo lleva
+    // limpiarAtaquesDeCaidos() en main.js; se declara aquí y no se crea sobre la
+    // marcha para que un jugador nazca siempre con los mismos campos, que es de
+    // lo que depende el determinismo (ver core/determinismo.js).
+    this._ataquesLimpiados = false;
     this.inmortal = false;         // depuración: permite medir sin morir
     this.golpesRecibidos = 0;
 
@@ -929,8 +934,20 @@ export class Jugador {
       // reloj de la reanimación de más abajo: quien caía desaparecía del mapa
       // entero, sin ataúd y sin nada que dijera que ahí había alguien a quien
       // ir a levantar. Sin dibujo se pierde el dibujo, no la mecánica.
-      const metaAtaud = Recursos.meta(this.personaje + 'Ataud');
-      const imgAtaud = Recursos.imagen(this.personaje + 'Ataud');
+      // EL SUYO SI LO TIENE, Y SI NO EL GENÉRICO. Cuatro de los ocho héroes
+      // todavía no tienen ataúd propio dibujado (ver datos/personajes.js), y
+      // hasta ahora eso significaba que al caer no se veía NADA en el suelo: ni
+      // ataúd ni nada que dijera que allí había alguien a quien ir a levantar.
+      //
+      // `ataudGenerico` es un sarcófago de piedra sin personaje, ARTE
+      // PROVISIONAL pedido a la API de imágenes mientras Sergio dibuja los que
+      // faltan. En cuanto exista `<nombre>-ataud.png` de un héroe, el atlas lo
+      // recoge y esta línea deja de usar el genérico para él sola, sin tocar
+      // nada: el propio va primero.
+      const metaAtaud = Recursos.meta(this.personaje + 'Ataud')
+                     || Recursos.meta('ataudGenerico');
+      const imgAtaud = Recursos.imagen(this.personaje + 'Ataud')
+                    || Recursos.imagen('ataudGenerico');
       const axF = Math.round(this.xVista * ESCALA_ARTE);
       const ayF = Math.round(this.yVista * ESCALA_ARTE);
       if (metaAtaud && imgAtaud) {

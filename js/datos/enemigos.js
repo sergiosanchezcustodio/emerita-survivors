@@ -363,9 +363,24 @@ export const ENEMIGOS = {
   // ~52/s sostenidos son medio jugador cada segundo. 26->15 para que el
   // contacto duela pero no mate solo por quedarse cerca; la carga (embestida,
   // más abajo en datos/jefes.js) sigue siendo el pico de daño real del jefe.
-  cerbero:    { sprite:'cerbero',    rol:'jefe',      xp:600,  vida:13000, velocidad:18, danyo:15, radio:21,   masa:80.0,  vuela:false, inmuneEmpuje:true,  movimiento:'directo' },
-  hidra:      { sprite:'hidra',      rol:'jefe',      xp:1000, vida:16000, velocidad:15, danyo:36, radio:28,   masa:100.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo' },
-  loba:       { sprite:'loba',       rol:'jefe',      xp:1500, vida:26000, velocidad:12, danyo:38, radio:31.5, masa:120.0, vuela:false, inmuneEmpuje:true,  movimiento:'acecho'  },
+  // LO QUE DEJA UN JEFE AL CAER, y va aquí porque es un dato del bicho, no una
+  // regla del motor: entidades/enemigo.js solo lee estos dos campos y no sabe
+  // quién es Cerbero ni quién la Loba.
+  //
+  //   `cofreDorado` — suelta un cofre ESPECIAL garantizado, el de tres niveles.
+  //     Lo llevan los dos jefes de en medio (minutos 10 y 20). Un jefe que tarda
+  //     dos minutos en caer no puede pagar lo mismo que un élite, y el cofre
+  //     normal sale de un sorteo al 10%: tocaba dejarlo al azar justo en el
+  //     único combate que no es azar.
+  //
+  //   `denariosAlMorir` — denarios al progreso META, que sobreviven a la
+  //     partida. Es el premio del jefe FINAL: cuando cae la Loba la partida se
+  //     acaba, así que un cofre de niveles no le serviría a nadie —no queda
+  //     partida donde gastarlo—. Lo único que vale a esas alturas es lo que te
+  //     llevas a mañana.
+  cerbero:    { sprite:'cerbero',    rol:'jefe',      xp:600,  vida:13000, velocidad:18, danyo:15, radio:21,   masa:80.0,  vuela:false, inmuneEmpuje:true,  movimiento:'directo', cofreDorado:true },
+  hidra:      { sprite:'hidra',      rol:'jefe',      xp:1000, vida:16000, velocidad:15, danyo:36, radio:28,   masa:100.0, vuela:false, inmuneEmpuje:true,  movimiento:'directo', cofreDorado:true },
+  loba:       { sprite:'loba',       rol:'jefe',      xp:1500, vida:26000, velocidad:12, danyo:38, radio:31.5, masa:120.0, vuela:false, inmuneEmpuje:true,  movimiento:'acecho',  denariosAlMorir:1000 },
   // `escolta` es lo que sistemas/jefes.js vigila para saber cuándo cae un
   // gemelo: mientras alguno siga vivo, la loba regenera; cada vez que uno cae,
   // se enfurece. Ver datos/jefes.js.

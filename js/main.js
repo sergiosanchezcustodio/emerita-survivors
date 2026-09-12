@@ -57,6 +57,7 @@ import { Jefes } from './sistemas/jefes.js';
 import { Niveles, PROXIMOS } from './datos/niveles/indice.js';
 import { PERSONAJES, ORDEN_PERSONAJES } from './datos/personajes.js';
 import { ARMAS } from './datos/armas.js';
+import { PASIVOS } from './datos/pasivos.js';
 import { POTENCIADORES } from './datos/potenciadores.js';
 import { Intro } from './ui/intro.js';
 import { dibujarHuecos, refrescarHuecos, huecoOcupado, textoBorrado, dibujarEsperaGithub } from './ui/huecos.js';
@@ -143,6 +144,31 @@ const MEZCLA_TARDIA = [
 
 const lienzo = document.getElementById('juego');
 const ctx = lienzo.getContext('2d', { alpha: false });
+
+// EL MUNDO EN BLANCO Y NEGRO mientras el Reloj de Emerita tiene parada a la
+// horda. Todo el efecto vive en una clase de CSS (ver #juego.congelado en
+// css/estilos.css, que es donde está explicado el porqué); esto solo la pone y
+// la quita.
+//
+// SOLO CUANDO CAMBIA, y de ahí el `_congelado` de al lado. Escribir en
+// `classList` cada frame es tocar el DOM sesenta veces por segundo para decirle
+// algo que ya sabe, y además reinicia la transición en cada una: el fundido no
+// llegaría a arrancar nunca. Con el flag, son dos escrituras por objeto
+// recogido.
+//
+// ANTES ESTO ERA AZUL, y en dos sitios a la vez: un velo `#9fd8ff` a media
+// opacidad sobre la pantalla y una copia teñida de hielo de cada bicho, horneada
+// al cargar. Las dos se han ido. Lo pidió Sergio en gris de verdad, y las dos
+// cosas no sumaban: sobre un mundo desaturado el azul es el único color que
+// queda, así que el velo se comía el efecto y el teñido por enemigo ya no se
+// distinguía de nada. El gris cuenta lo mismo —esto está detenido— sin pintar
+// un solo píxel de más.
+let _congelado = false;
+function marcarCongelado(si) {
+  if (si === _congelado) return;
+  _congelado = si;
+  lienzo.classList.toggle('congelado', si);
+}
 lienzo.width = ANCHO_FISICO;
 lienzo.height = ALTO_FISICO;
 
@@ -886,7 +912,6 @@ function usarConsumible(jugador, tipo) {
     // cogerlo", y lo que tiene que ser es el botón de pánico que te saca del
     // peor momento de la partida.
     enemigos.paralizarTodos(PARALISIS_RELOJ);
-    VFX.helar(PARALISIS_RELOJ);
     GestorAudio.abrirCofre();
     return;
   }
@@ -2511,6 +2536,10 @@ function volverAlMenu() {
   Progresion.iniciar(rng);
   Director.reiniciar();
   Obstaculos.reiniciar();
+  // Y el mundo vuelve al color. Sin esto, salir al menú con el Reloj todavía
+  // corriendo deja el gris puesto: el interruptor solo se toca mientras se
+  // dibuja la partida, así que al dejar de dibujarla nadie lo apagaría.
+  marcarCongelado(false);
 
   finalMostrado = null;
   statsFinal = null;
@@ -2544,6 +2573,40 @@ function volverAlMenu() {
 const RADIO_REANIMAR = 60;     // unidades lógicas: hay que ir de verdad, no basta con estar en pantalla
 const REANIMAR_CERCA = 10;     // segundos con alguien dentro del radio
 const REANIMAR_LEJOS = 30;     // segundos sin nadie
+
+// AL CAER, SUS ARMAS DEJAN DE ESTAR EN PANTALLA.
+//
+// El bucle de armas se salta a los abatidos —"un caído no dispara"— y eso
+// bastaba cuando las armas eran solo disparos. Con orbitales, tajos y charcos no
+// basta: saltarse a alguien no apaga lo que ya tenía encendido, lo CONGELA. Se
+// veían escudos dando vueltas alrededor de un ataúd, arcos de espada clavados a
+// medio trazo y charcos de veneno quietos matando por su cuenta, todos de
+// alguien que llevaba medio minuto en el suelo.
+//
+// Se barre en TRES SITIOS porque los efectos de un arma viven en tres sitios: el
+// arsenal (orbitales, tajos y rayos), el pool de proyectiles y el de zonas. Cada
+// uno sabe hacer lo suyo; aquí solo se dice a quién.
+//
+// POR FLANCO, no cada frame. `_ataquesLimpiados` recuerda si ya se hizo, así que
+// esto cuesta una comparación por jugador y paso, y el barrido de verdad ocurre
+// una sola vez por caída. Sin el flanco habría que recorrer los dos pools
+// enteros sesenta veces por segundo por cada caído, que es justo el momento en
+// que la pantalla está más llena.
+//
+// Se rearma al levantarse (no al revés): quien vuelve de un ataúd vuelve a
+// poder dejar cosas en pantalla, y la próxima vez que caiga hay que barrer otra
+// vez.
+function limpiarAtaquesDeCaidos() {
+  for (let i = 0; i < jugadores.length; i++) {
+    const j = jugadores[i];
+    if (!j.abatido) { j._ataquesLimpiados = false; continue; }
+    if (j._ataquesLimpiados) continue;
+    j._ataquesLimpiados = true;
+    if (arsenales[i]) arsenales[i].apagarEfectos();
+    proyectiles.retirarDe(j);
+    zonas.retirarDe(j);
+  }
+}
 
 function reanimar(dt) {
   // En solitario no hay reanimación: caer es perder, como hasta ahora.
@@ -2809,9 +2872,20 @@ function actualizar(dt) {
     refrescarChuleta();
   }
   if (entrada.consumirFlanco('KeyL')) subirTodasLasArmas();
-  if (entrada.consumirFlanco('KeyK')) equiparGladius();
   if (entrada.consumirFlanco('KeyM')) cicladorArmas(false);
   if (entrada.consumirFlanco('KeyComma')) cicladorArmas(true);
+  // LOS OBJETOS, con K e I, igual que las armas con M y la coma. La K equipaba
+  // el Gladius y eso ya no tenía sentido: para poner un arma concreta está el
+  // ciclador, que además dice cuál es. Lo pidió Sergio y tiene razón — era un
+  // atajo a un arma del que ya había otro camino mejor.
+  //
+  // La I la usa además la pantalla de RED para invitar a otro jugador, y no
+  // chocan: aquel bloque solo corre con `pantalla === PANTALLA_RED` y este está
+  // dentro de los atajos de partida. Hay precedente —la X vacía la horda aquí y
+  // es la subida automática en la ficha— pero conviene saberlo antes de mover
+  // ninguna de las dos.
+  if (entrada.consumirFlanco('KeyK')) cicladorObjetos(false);
+  if (entrada.consumirFlanco('KeyI')) cicladorObjetos(true);
   if (entrada.consumirFlanco('KeyZ')) equiparConCalcomania();
   // Interruptores de perfilado: apagar un sistema y mirar los fps es la forma
   // más directa de saber qué cuesta en una máquina concreta.
@@ -2872,6 +2946,7 @@ function actualizar(dt) {
   for (let i = 0; i < jugadores.length; i++) {
     jugadores[i].actualizar(dt, Lockstep.marcoDe(i));
   }
+  limpiarAtaquesDeCaidos();
   Lockstep.avanzar();
   if (Sincro.activo) Sincro.despuesDelPaso();
   reanimar(dt);
@@ -3217,12 +3292,55 @@ function equiparConCalcomania() {
   }
 }
 
-function equiparGladius() {
-  for (let i = 0; i < arsenales.length; i++) {
-    if (!arsenales[i].equipadas.some((a) => a.id === 'gladius')) {
-      arsenales[i].equipar('gladius');
-    }
-  }
+// --- Ciclador de OBJETOS (K adelante, I atrás) -------------------------------
+//
+// El hermano del ciclador de armas, y existe por lo mismo: probar un objeto de
+// otra forma es absurdo. Hay veintinueve pasivos y la única manera de ver uno
+// concreto en partida era rezar para que saliera en una carta de subida de
+// nivel — con tres opciones de un sorteo entre armas y objetos, ver el que te
+// interesa puede costar media hora.
+//
+// SE QUEDA CON UNO SOLO, igual que el de armas y por el mismo motivo: con los
+// demás puestos no se sabe qué efecto es de quién. Y ese es justo el caso en
+// que más falta hace mirar de uno en uno, porque casi todos los pasivos son
+// números que no se ven —un 12% de área, medio punto de armadura— y la única
+// forma de leerlos es la ficha de jugador con TAB.
+//
+// A NIVEL 1, también como el de armas: es el escalón con el que se comparan
+// entre sí. Para verlo al máximo se pulsa K y luego se sube a mano.
+//
+// Reutiliza el aviso de arma en pantalla (AVISO_ARMA) en vez de montar otro: es
+// el mismo cartel diciendo lo mismo —qué acabas de equipar— y dos carteles a la
+// vez en la misma esquina se taparían el uno al otro.
+//
+// ORDEN ALFABÉTICO por el nombre visible, por lo mismo que el catálogo de
+// armas: el de declaración agrupa por tandas y va bien para leer el archivo,
+// pero recorriéndolo a mano no hay forma de saber por dónde ibas.
+const ORDEN_PASIVOS = Object.keys(PASIVOS)
+  .sort((a, b) => PASIVOS[a].nombre.localeCompare(PASIVOS[b].nombre, 'es'));
+let indicePasivos = -1;
+
+function cicladorObjetos(haciaAtras) {
+  const ids = ORDEN_PASIVOS;
+  indicePasivos = (indicePasivos + (haciaAtras ? -1 : 1) + ids.length) % ids.length;
+  const id = ids[indicePasivos];
+  const j = jugadores[0];
+  if (!j) return;
+
+  // Se BORRAN los que hubiera, y por eso hay que recalcular después: las
+  // estadísticas del jugador son la suma de todos sus pasivos, así que dejar de
+  // llevar uno no se nota hasta que alguien vuelve a hacer esa suma.
+  for (const otro in j.pasivos) delete j.pasivos[otro];
+  j.pasivos[id] = 1;
+  j.recalcularStats();
+
+  // El Ánfora sube la vida máxima: sin esto, ciclar hasta ella deja la barra a
+  // la mitad de golpe, que parece que te han pegado.
+  const def = PASIVOS[id];
+  if (def.curaAlSubir) j.vida = Math.min(j.vidaMaxima, j.vida + def.curaAlSubir);
+
+  AVISO_ARMA.texto = `${indicePasivos + 1}/${ids.length}  ${def.nombre}`;
+  AVISO_ARMA.restante = DURACION_AVISO_ARMA;
 }
 
 // --- Render -----------------------------------------------------------------
@@ -3426,7 +3544,6 @@ function dibujar(alpha) {
   // ve bien.
   const tNum = performance.now();
   if (activo.numeros) VFX.dibujarNumeros(ctxUi, offX, offY);
-  VFX.dibujarEscarcha(ctxUi, ANCHO_UI, ALTO_UI);
   // El borde rojo va DEBAJO del panel y de los menús, como los números: es del
   // mundo, no de la interfaz. La fracción es la del jugador peor parado de los
   // que siguen en pie —a un caído no le queda vida que avisar, y su ataúd ya se
@@ -3507,6 +3624,10 @@ function dibujar(alpha) {
   // interfaz: es el MISMO número que decide cuánto sigue quieta la horda, así
   // que lo que se ve en pantalla no puede desajustarse de lo que pasa.
   dibujarCuentaAtrasReloj(ctxUi, enemigos.paralisisRestante);
+  // Y el mundo entero en blanco y negro mientras dura, del mismo número. El
+  // cómo está en css/estilos.css (#juego.congelado): aquí solo se enciende y se
+  // apaga un interruptor.
+  marcarCongelado(enemigos.paralisisRestante > 0);
 
   // Solo se pierde cuando caen TODOS. Con un compañero en pie la partida sigue,
   // que es lo que hace que el cooperativo tenga sentido.

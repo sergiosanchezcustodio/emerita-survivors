@@ -438,9 +438,11 @@ export const Director = {
     const rY = mag > 0.25 ? this.rumboY / mag : 0;
 
     // --- JEFE FINAL --------------------------------------------------------
-    // Entra en su minuto, y al entrar TODO LO DEMÁS HUYE. No se borra la horda:
-    // se le da media vuelta y se va sola, que es lo que convierte la llegada del
-    // jefe en un acontecimiento en vez de en un cambio de pantalla.
+    // Entra en su minuto, y al entrar SE LIMPIA LA PANTALLA: la horda común se
+    // borra de golpe y los élites que queden salen huyendo. Durante un tiempo
+    // fue solo lo segundo —media vuelta y se van solos, mejor puesta en escena—
+    // pero dejaba la pelea del jefe empezando entre una multitud de espaldas.
+    // Ahora el sitio se queda para el jefe, que es de lo que va el minuto.
     //
     // Sus fases de patrón siguen siendo la Fase 6. Esto es la puesta en escena y
     // un jefe con su vida, que ya es infinitamente mejor que lo que había: el
@@ -454,6 +456,10 @@ export const Director = {
         escalaVidaDe(this.nivel, this.t), escalaDanyoDe(this.nivel, this.t));
       if (puesto > 0) {
         const entidadJefe = ultimoIndividual;
+        // La horda se BORRA y los élites que queden salen huyendo. Ver
+        // `barrerHorda` en entidades/enemigo.js para por qué son dos llamadas y
+        // no una.
+        enemigos.barrerHorda();
         enemigos.huidaGeneral();
         if (jefes.escolta) {
           PATRONES.individual(enemigos, camara.x, camara.y, 2, [jefes.escolta],
@@ -486,6 +492,7 @@ export const Director = {
           enemigos, camara.x, camara.y, 1, [tipoJefe], this.rng,
           escalaVidaDe(this.nivel, this.t), escalaDanyoDe(this.nivel, this.t));
         if (puestoH > 0) {
+          enemigos.barrerHorda();
           enemigos.huidaGeneral();
           Jefes.registrar(ultimoIndividual, h.texto);
           this.anunciar(h.texto);

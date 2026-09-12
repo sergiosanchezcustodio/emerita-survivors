@@ -239,20 +239,19 @@ export const VFX = {
     if (amplitud > this.sacudida) this.sacudida = amplitud;
   },
 
-  // ESCARCHA: velo frío sobre toda la pantalla mientras el Reloj de Emerita
-  // tiene parada a la horda (entidades/cofre.js).
+  // LA ESCARCHA SE FUE, y aquí queda dicho por qué para que no vuelva sola.
   //
-  // Hace falta un aviso: los enemigos se quedan clavados, y sin nada que lo
-  // explique lo primero que piensa cualquiera es que el juego se ha colgado. Un
-  // velo azulado que se va apagando dice "esto lo has hecho tú" y además cuenta
-  // cuánto queda, porque se desvanece con el efecto.
-  escarcha: 0,
-  escarchaTotal: 0,
-
-  helar(segundos) {
-    this.escarcha = segundos;
-    this.escarchaTotal = segundos;
-  },
+  // Era un velo azul sobre toda la pantalla mientras el Reloj de Emerita tenía
+  // parada a la horda, y estaba ahí por una razón que sigue siendo buena: los
+  // enemigos se quedan clavados, y sin nada que lo explique lo primero que
+  // piensa cualquiera es que el juego se ha colgado.
+  //
+  // Ese aviso ahora lo dan dos cosas mejores: el mundo entero en blanco y negro
+  // (ver #juego.congelado en css/estilos.css) y la cuenta atrás en grande abajo,
+  // que además dice cuánto queda en segundos en vez de insinuarlo con un
+  // desvanecido. Y el velo no podía convivir con el gris: sobre un mundo
+  // desaturado el azul sería el único color de la pantalla, así que se comía el
+  // efecto en vez de acompañarlo.
 
   // HERIDA: el borde de la pantalla se enrojece. Dos cosas a la vez, y por eso
   // van juntas y no en dos efectos:
@@ -296,7 +295,6 @@ export const VFX = {
 
   actualizar(dt) {
     this._presupuesto = 0;             // se renueva cada paso
-    if (this.escarcha > 0) this.escarcha = Math.max(0, this.escarcha - dt);
     // El fogonazo cae rápido; el latido de vida baja avanza siempre, para que
     // no arranque desde cero —y por tanto invisible— justo el frame en que la
     // vida cruza el umbral. Contador propio y no el reloj: reproducibilidad.
@@ -599,8 +597,6 @@ export const VFX = {
     if (this.reventones) this.reventones.vaciar();
     if (this.marcas) this.marcas.vaciar();
     if (this.pool) this.pool.vaciar();
-    this.escarcha = 0;
-    this.escarchaTotal = 0;
     this.sacudida = 0;
     this.desvioX = 0;
     this.desvioY = 0;
@@ -621,33 +617,12 @@ export const VFX = {
   //
   // offX/offY: desplazamiento de cámara YA redondeado a píxel físico, el mismo
   // que usa el mundo. Así el número se ancla al enemigo sin bailar respecto a él.
-  // El velo, en la CAPA DE INTERFAZ y no en el lienzo del juego: la interfaz va
-  // a la resolución real del monitor y una banda de color a media opacidad sale
-  // limpia; en el lienzo del mundo saldría ampliada por el zoom entero.
+  // La viñeta de herida va en la CAPA DE INTERFAZ: a la resolución del monitor
+  // el degradado sale liso, y así no se la come el ampliado entero del mundo.
   //
-  // Un solo rectángulo. Se pensó en un degradado radial —viñeta de hielo por los
-  // bordes— y no compensa: `createLinearGradient` asigna memoria y esto se pinta
-  // durante seis segundos seguidos a sesenta por segundo.
-  dibujarEscarcha(ctx, ancho, alto) {
-    if (this.escarcha <= 0) return;
-    // Entra de golpe y se va despacio: el fogonazo del principio es lo que dice
-    // que ha pasado algo, y el resto solo tiene que recordar que sigue pasando.
-    const u = this.escarchaTotal > 0 ? this.escarcha / this.escarchaTotal : 0;
-    ctx.save();
-    ctx.globalAlpha = 0.10 + 0.16 * u * u;
-    ctx.fillStyle = '#9fd8ff';
-    ctx.fillRect(0, 0, ancho, alto);
-    ctx.restore();
-  },
-
-  // La viñeta de herida, también en la CAPA DE INTERFAZ y por los mismos dos
-  // motivos que la escarcha: va a la resolución del monitor, así que el
-  // degradado sale liso, y no se la come el ampliado entero del mundo.
-  //
-  // AQUÍ SÍ HAY DEGRADADO, al revés que en la escarcha. Allí se descartó porque
-  // un velo uniforme cubre toda la pantalla y no necesita forma; una viñeta ES
-  // su forma —tiene que dejar limpio el centro, que es donde se está mirando— y
-  // sin degradado sería un marco recortado. El motivo de aquel descarte era que
+  // Y AQUÍ SÍ HAY DEGRADADO. Una viñeta ES su forma —tiene que dejar limpio el
+  // centro, que es donde se está mirando— y sin degradado sería un marco
+  // recortado. Lo que había que resolver es que
   // `createRadialGradient` asigna, así que aquí se construye UNA vez y se
   // guarda: solo se rehace si cambia el tamaño de la capa, es decir nunca
   // durante una partida.

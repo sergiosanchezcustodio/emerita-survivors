@@ -22,13 +22,6 @@ const ATLAS_REPLIEGUE = {
 // un fotograma y medio, que es lo que dura.
 const COLOR_DANYO = 'rgba(216,44,52,.78)';
 
-// El azul del HIELO, para los enemigos que el Reloj de Emerita deja congelados.
-// Menos opaco que el destello blanco y que el rojo de daño, y a propósito: esos
-// dos duran un fotograma y medio y tienen que gritar; este dura doce segundos y
-// tiene que dejar reconocer al bicho que hay debajo, porque durante ese rato lo
-// que se hace es mirar la pantalla y decidir por dónde salir.
-const COLOR_HIELO = 'rgba(96,176,255,.60)';
-
 const COLORES_PLACEHOLDER = {
   eric: '#4b8fd6', lucy: '#d64b8f', sara: '#d6c14b', vicky: '#4bd6a1'
 };
@@ -41,8 +34,6 @@ export const Recursos = {
   tintesEspejo: new Map(),  // id -> el mismo, volteado
   tintesDanyo: new Map(),      // id -> canvas enrojecido (el jugador al recibir)
   tintesDanyoEspejo: new Map(),
-  tintesHielo: new Map(),      // id -> canvas azulado (congelado por el Reloj)
-  tintesHieloEspejo: new Map(),
   // Sello anticaché que se cuelga de cada URL de imagen. Vacío hasta que se lee
   // el atlas: las pantallas de título y selección piden sus ilustraciones antes
   // de que haya nivel que cargar, y sin este valor por defecto les llegaría un
@@ -249,26 +240,12 @@ export const Recursos = {
     }
   },
 
-  // --- Congelado del Reloj de Emerita --------------------------------------
-  //
-  // Mismo trato que el destello de daño del jugador y por el mismo motivo: se
-  // prepara ANTES del primer frame, nunca en caliente. Aquí importa más todavía
-  // porque el Reloj congela a la horda ENTERA de golpe: teñir al recogerlo
-  // serían cientos de lienzos nuevos en el mismo frame, justo lo que prohíbe el
-  // pooling.
-  //
-  // Va por lista y no dentro de _cargarEntidad —que ya hace el blanco y su
-  // espejo para todo lo que carga— para no pagar dos lienzos más por CADA
-  // entidad del atlas: solo los bichos se congelan. Lo llama prepararVariantes
-  // (entidades/enemigo.js), que es quien sabe cuáles son.
-  prepararTinteHielo(id) {
-    const meta = this.atlas.entidades[id];
-    const fuente = this.imagenes.get(id);
-    if (!meta || !fuente || this.tintesHielo.has(id)) return;
-    this.tintesHielo.set(id, this._tinte(fuente, meta, COLOR_HIELO));
-    const espejo = this.espejos.get(id);
-    if (espejo) this.tintesHieloEspejo.set(id, this._tinte(espejo, meta, COLOR_HIELO));
-  },
+  // El CONGELADO DEL RELOJ DE EMERITA ya no hornea nada. Aquí vivía
+  // `prepararTinteHielo`, que preparaba una copia azulada de cada bicho para
+  // pintarlo congelado. Se fue con el resto del azul: ahora es el mundo entero
+  // el que se queda en blanco y negro (ver #juego.congelado en
+  // css/estilos.css), así que no hay nada que teñir por entidad — y son dos
+  // lienzos menos por cada sprite de enemigo del atlas.
 
   // Silueta geométrica con la forma y el tamaño correctos: permite tocar el
   // balance sin esperar al arte.
@@ -457,7 +434,5 @@ export const Recursos = {
   tinte(id) { return this.tintes.get(id); },
   tinteEspejo(id) { return this.tintesEspejo.get(id); },
   tinteDanyo(id) { return this.tintesDanyo.get(id); },
-  tinteDanyoEspejo(id) { return this.tintesDanyoEspejo.get(id); },
-  tinteHielo(id) { return this.tintesHielo.get(id); },
-  tinteHieloEspejo(id) { return this.tintesHieloEspejo.get(id); }
+  tinteDanyoEspejo(id) { return this.tintesDanyoEspejo.get(id); }
 };

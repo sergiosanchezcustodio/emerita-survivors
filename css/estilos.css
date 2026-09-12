@@ -56,6 +56,31 @@ body {
   /* Sin esto, el navegador interpola al escalar y se pierde la nitidez que
      tanto cuesta mantener en el resto del motor. */
   -ms-interpolation-mode: nearest-neighbor;
+
+  /* EL BLANCO Y NEGRO DEL RELOJ DE EMERITA entra y sale por aquí. Mientras la
+     horda está parada, js/main.js pone la clase `congelado` en este lienzo y el
+     mundo entero se queda en gris: suelo, bichos, partículas y disparos, todo
+     de una vez.
+
+     EN CSS Y NO EN EL BUCLE DE DIBUJO, y esa es la razón de que esto salga
+     gratis. El filtro lo aplica el compositor sobre una capa que ya existe, así
+     que el coste por frame en JS es CERO: no se toca ni una sola llamada de
+     dibujo. La alternativa de dentro del canvas —`ctx.filter`— se aplica por
+     operación, o sea que pasaría por el filtro cada blit de cada enemigo,
+     cientos por frame.
+
+     Y es el lienzo del JUEGO, no el de la interfaz: por eso el HUD, la cuenta
+     atrás y las barras siguen en color mientras el mundo está en gris, sin que
+     nadie tenga que hacer nada para conseguirlo. Los dos lienzos separados ya
+     trazaban esa línea (ver js/ui/capa.js); esto solo se aprovecha de ella.
+
+     La transición hace el resto: el mundo se apaga y vuelve en un cuarto de
+     segundo en vez de dar un salto de color. */
+  transition: filter .25s linear;
+}
+
+#juego.congelado {
+  filter: grayscale(1);
 }
 
 /* Botón de pantalla completa. Discreto, en la esquina, y solo visible al

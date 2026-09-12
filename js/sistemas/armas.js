@@ -1594,6 +1594,37 @@ export class Armas {
     t.hoja = hoja;
   }
 
+  // TODO LO QUE ESTE ARSENAL TENGA EN PANTALLA, APAGADO. Lo llama main.js
+  // cuando su jugador cae abatido.
+  //
+  // El bucle de armas se salta a los caídos —"un caído no dispara"—, y ahí
+  // estaba el fallo: saltárselo no apaga lo que ya estaba encendido, lo
+  // CONGELA. Los escudos orbitales se quedaban dando vueltas alrededor del
+  // ataúd para siempre, porque su ángulo solo avanza dentro de ese bucle; y los
+  // tajos y los rayos se quedaban clavados a medio trazo, porque su `vida` solo
+  // baja en `actualizarTajos`. El resultado era un muerto rodeado de sus propias
+  // armas quietas.
+  //
+  // Se apagan en vez de dejarlos terminar su animación a propósito: quien cae
+  // deja de estar en la pelea del todo, y media docena de efectos desvaneciendo
+  // sobre el ataúd tapan justo lo que hay que ver, que es dónde ha caído y si se
+  // puede llegar.
+  //
+  // El resto del arsenal NO se toca: recargas, niveles y evoluciones siguen como
+  // estaban, porque al levantarse se sigue jugando con las mismas armas.
+  apagarEfectos() {
+    for (let i = 0; i < this.equipadas.length; i++) {
+      const arma = this.equipadas[i];
+      arma.orbitalActivo = false;
+      arma.restanteOrbital = 0;
+    }
+    for (let i = 0; i < MAX_TAJOS; i++) {
+      this.tajos[i].vida = 0;
+      this.tajos[i].seguir = null;   // si no, el tajo sigue anclado a un cadáver
+      this.rayos[i].vida = 0;
+    }
+  }
+
   actualizarTajos(dt) {
     for (let i = 0; i < MAX_TAJOS; i++) {
       const t = this.tajos[i];

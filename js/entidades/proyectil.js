@@ -466,6 +466,75 @@ export class Proyectiles {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
 
+      // REBOTE CONTRA EL MARGEN VISIBLE, y contra el visible a propósito: el
+      // borde contra el que rebota tiene que ser uno que el jugador VEA, o el
+      // rebote parece que sale de la nada. Por eso se usa la cámara y no los
+      // límites del nivel.
+      //
+      // Se invierte la componente y se recoloca justo dentro del borde: sin
+      // recolocar, un proyectil rápido puede quedarse fuera un paso más y
+      // gastar los dos rebotes contra la misma pared en dos frames seguidos.
+      //
+      // ESTO SE PERDIÓ Y HUBO QUE TRAERLO DE VUELTA. Desapareció en el commit
+      // del Osito Dinamito —que reescribió `mover` entera para meter la
+      // persecución y el rodeo— y con él se fue el Fusil: el parámetro `camara`
+      // seguía llegando a la función y ya no lo leía nadie, así que el arma cuyo
+      // truco entero es convertir la pantalla en una mesa de billar disparaba
+      // balas que se apagaban contra el borde. La mitad de la mecánica que vive
+      // en sistemas/colisiones.js —mandar la bala a la pared en vez de darla por
+      // gastada contra un cuerpo— sí sobrevivió, y por eso no saltó nada: el
+      // arma funcionaba, simplemente no rebotaba.
+      if (p.rebotesPared > 0 && camara) {
+        // El borde sale de la cámara LÓGICA (`camara.x`) y no de `izquierda`,
+        // que se calcula sobre `xVista` — la posición YA INTERPOLADA para
+        // dibujar. Rebotar es lógica: cambia la trayectoria y por tanto a quién
+        // se mata, así que no puede depender de un valor que se mueve con los
+        // fps. Con `xVista`, la misma semilla daba rebotes distintos a 60 y a
+        // 144 Hz, que es justo lo que la reproducibilidad prohíbe.
+        const cx = camara.x - ANCHO_LOGICO / 2, cy = camara.y - ALTO_LOGICO / 2;
+        const izq = cx, der = cx + ANCHO_LOGICO;
+        const arr = cy, aba = cy + ALTO_LOGICO;
+        let reboto = false;
+        if (p.x < izq && p.vx < 0)      { p.x = izq; p.vx = -p.vx; reboto = true; }
+        else if (p.x > der && p.vx > 0) { p.x = der; p.vx = -p.vx; reboto = true; }
+        else if (p.y < arr && p.vy < 0) { p.y = arr; p.vy = -p.vy; reboto = true; }
+        else if (p.y > aba && p.vy > 0) { p.y = aba; p.vy = -p.vy; reboto = true; }
+        if (reboto) {
+          p.rebotesPared--;
+          // Se le devuelve el alcance. El `vida` de un proyectil es su alcance
+          // partido por su velocidad, o sea la distancia que le queda: sin
+          // reponerlo, la bala llega al margen ya agotada y el rebote se ve
+          // apagarse a los dos palmos en vez de volver.
+          p.vida = p.vidaMax;
+          // Y vuelve a poder golpear a quien ya golpeó: el sello es lo que
+          // impide que un proyectil dañe dos veces al mismo, y una bala que
+          // vuelve del margen es un golpe nuevo.
+          p.sello = contadorSello++;
+          // Con la perforación entera otra vez, que es lo que hace que el
+          // rebote SIRVA. Una bala que vuelve gastada rebota de adorno: cruza
+          // la horda sin tocar a nadie y lo único que se ve es una raya. Y es
+          // coherente con las otras dos líneas: si el margen la deja como un
+          // disparo nuevo, lo es entera. El daño sigue acotado, porque cada
+          // tramo entre paredes gasta como mucho su perforación.
+          p.perforacion = p.perforacionMax;
+
+          // Y SALE MÁS RÁPIDA DE LO QUE ENTRÓ. Es lo que convierte los rebotes
+          // de un recurso a una amenaza que crece: la primera vuelta es una
+          // bala y la décima es un latigazo cruzando la pantalla.
+          //
+          // Se multiplica la velocidad y NO se toca `vida`, que se acaba de
+          // reponer entera: como `vida` es tiempo y no distancia, una bala más
+          // rápida recorre más en ese mismo tiempo. O sea que cada rebote alarga
+          // también el tramo siguiente, que es justo lo que hace falta para que
+          // le dé tiempo a llegar a la pared de enfrente.
+          if (p.aceleraRebote > 0) {
+            const k = 1 + p.aceleraRebote;
+            p.vx *= k;
+            p.vy *= k;
+          }
+        }
+      }
+
       // EL "NUNCA" DEL RODEO. La curva de arriba evita el cuerpo casi siempre,
       // pero "casi" no es lo que se pidió: a bocajarro —el osito nace ENTRE los
       // pies de quien dispara— o si el jugador corre a meterse encima, no hay
@@ -513,6 +582,26 @@ export class Proyectiles {
   liberarEn(i) { this.pool.liberarEn(i); }
 
   vaciar() { this.pool.vaciar(); reiniciarSellos(); }
+
+  // TODO LO QUE HAYA LANZADO ESTE JUGADOR, FUERA. Lo llama main.js en el
+  // instante en que alguien cae abatido.
+  //
+  // Un proyectil en vuelo no tiene quien lo gobierne, pero tampoco se apaga
+  // solo: sigue su recta hasta salir de cámara o caducar, y mientras tanto pega.
+  // Con el dueño en el suelo eso se lee como un arma que dispara sin nadie
+  // detrás — y en la práctica quedaba peor todavía, porque los que orbitan o
+  // persiguen se quedan CLAVADOS apuntando a un cadáver.
+  //
+  // Se recorre hacia atrás y se libera en el sitio: `liberarEn` del pool
+  // intercambia el hueco con el último activo, así que ir de atrás hacia delante
+  // es lo único que no se salta elementos al reordenar bajo los pies.
+  retirarDe(duenyo) {
+    if (!duenyo) return;
+    const items = this.pool.items;
+    for (let k = this.pool.activos - 1; k >= 0; k--) {
+      if (items[k].duenyo === duenyo) this.pool.liberarEn(k);
+    }
+  }
 
   // Recicla lo que ha salido de cámara. Va aparte de mover() porque necesita la
   // cámara y mover() se llama antes de que la cámara se actualice.
