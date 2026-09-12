@@ -456,10 +456,6 @@ export const Director = {
         escalaVidaDe(this.nivel, this.t), escalaDanyoDe(this.nivel, this.t));
       if (puesto > 0) {
         const entidadJefe = ultimoIndividual;
-        // La horda se BORRA y los élites que queden salen huyendo. Ver
-        // `barrerHorda` en entidades/enemigo.js para por qué son dos llamadas y
-        // no una.
-        enemigos.barrerHorda();
         enemigos.huidaGeneral();
         if (jefes.escolta) {
           PATRONES.individual(enemigos, camara.x, camara.y, 2, [jefes.escolta],
@@ -492,7 +488,6 @@ export const Director = {
           enemigos, camara.x, camara.y, 1, [tipoJefe], this.rng,
           escalaVidaDe(this.nivel, this.t), escalaDanyoDe(this.nivel, this.t));
         if (puestoH > 0) {
-          enemigos.barrerHorda();
           enemigos.huidaGeneral();
           Jefes.registrar(ultimoIndividual, h.texto);
           this.anunciar(h.texto);
@@ -611,18 +606,30 @@ export const Director = {
       if (this.relojes[i] < cada) continue;
       this.relojes[i] -= cada;
 
+      // CON UN JEFE EN PIE NO SALE NADIE MÁS. Lo pidió Sergio y cierra lo que
+      // la desbandada dejaba a medias: de poco sirve vaciar la pantalla al
+      // entrar el jefe si la curva de fondo la vuelve a llenar a los diez
+      // segundos.
+      //
+      // Antes de esto el director SÍ seguía repartiendo, solo que poniéndoles
+      // 'huida' para que salieran corriendo. Era peor de las dos maneras: la
+      // pelea del jefe se llenaba igual de bichos —estorbando, tapando y
+      // comiéndose los disparos— y encima de bichos que no hacían nada, así que
+      // el sitio se ocupaba a cambio de nada.
+      //
+      // Va DESPUÉS de consumir el reloj a propósito. Saltando antes, los relojes
+      // de todos los eventos se acumularían durante los dos minutos que puede
+      // durar un jefe y al morir soltarían de golpe todo lo atrasado: la
+      // recompensa por matarlo sería una avalancha.
+      if (Jefes.hayJefeActivo) continue;
+
       const techo = ev.patron === 'anillo' ? this.tope * CUOTA_FONDO : this.tope;
       if (enemigos.activos + ev.cantidad > techo) continue;
 
       const fn = PATRONES[ev.patron];
       if (!fn) continue;
-      // Con un jefe en pantalla, hasta el que acaba de aparecer sale
-      // huyendo: huidaGeneral() solo alcanza a los que YA estaban cuando el
-      // jefe entró, y sin esto la oleada de fondo seguiría repartiendo carne
-      // de cañón normal por debajo de la escena del jefe.
-      const mov = Jefes.hayJefeActivo ? 'huida' : ev.movimiento;
       fn(enemigos, camara.x, camara.y, ev.cantidad, ev.tipos, this.rng,
-         escalaVida, escalaDanyo, mov, rX, rY);
+         escalaVida, escalaDanyo, ev.movimiento, rX, rY);
       this.ultimoPatron = ev.patron;
     }
   },

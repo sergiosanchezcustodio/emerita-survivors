@@ -139,6 +139,28 @@ const MOV_REVOLOTEO = 2;
 const MOV_ORBITA = 3;
 const MOV_ACECHO = 4;
 const MOV_HUIDA = 5;
+
+// CUÁNTO DURA UNA DESBANDADA. Al entrar un jefe, los comunes salen corriendo a
+// triple marcha y a los tres segundos se esfuman, hayan salido de cuadro o no.
+//
+// Son dos cosas a la vez y las dos hacen falta: la carrera es la puesta en
+// escena —ver a la horda largarse es lo que convierte la llegada del jefe en un
+// acontecimiento en vez de en un cambio de pantalla— y el borrado es la garantía
+// de que la pelea empieza limpia. Sin el reloj, el que se traba contra unas
+// ruinas se queda ahí toda la pelea; sin la carrera, la horda se desvanece de
+// golpe y no se ha visto pasar nada.
+//
+// Se retiran SIN premio: ni gema, ni denarios, ni cadáver. No los has matado, se
+// han ido. Por eso el borrado vive en `reciclarLejanos` —que solo devuelve el
+// hueco al pool— y no en `danyar`, que es quien reparte.
+const DESBANDADA = 3;
+
+// Y A CUÁNTO CORREN COMO MÍNIMO mientras dura. 110 es más de lo que corre nada
+// en el bestiario —la arpía, la más rápida, va a 32— y esa es la idea: en una
+// desbandada no se trota, se huye. A este paso, media pantalla son poco más de
+// dos segundos, así que salen por el borde antes de que el reloj tenga que
+// borrar a nadie.
+const VELOCIDAD_DESBANDADA = 110;
 const MOV_TRAVESIA = 6;
 const CODIGO_MOV = {
   directo: MOV_DIRECTO, zigzag: MOV_ZIGZAG, revoloteo: MOV_REVOLOTEO,
@@ -322,6 +344,11 @@ function crearEnemigo() {
     relojAtaque: 0,
     // Huida SIN vuelta: la de los que se largan cuando entra el jefe final.
     huidaTotal: false,
+    // Segundos que le quedan de desbandada antes de esfumarse. Solo lo llevan
+    // los COMUNES a los que la entrada de un jefe ha puesto a correr; a cero se
+    // les retira del pool sin premio (ver `reciclarLejanos`). Cero = no está en
+    // desbandada, que es el caso de todos los demás.
+    relojDesbandada: 0,
     // Pánico TEMPORAL: segundos que le quedan de salir corriendo por el chillido
     // del Pollito Fantasma (sistemas/mascotas.js). A diferencia de `huidaTotal`,
     // esto se pasa: al llegar a cero vuelve al movimiento que tenía, que se
@@ -591,6 +618,7 @@ export class Enemigos {
     // oleada dispararan a la vez, no serían seis enemigos, sería un solo evento.
     e.relojAtaque = def.ataque ? this._rng() * def.ataque.cadencia : 0;
     e.huidaTotal = false;
+    e.relojDesbandada = 0;
     e.panico = 0;
     // NACE PARALIZADO si el Reloj está corriendo. Es lo que hace que el efecto
     // valga también para lo que todavía no había aparecido — que es la mitad de
@@ -664,6 +692,17 @@ export class Enemigos {
       const e = items[k];
       e.xPrev = e.x;
       e.yPrev = e.y;
+
+      // EL RELOJ DE LA DESBANDADA, antes que nada y sin `continue`: lo único
+      // que hace es contar, y tiene que contar también mientras el enemigo está
+      // paralizado o haciendo cualquier otra cosa. Se le deja bajar POR DEBAJO
+      // de cero —de ahí el `< 0` con el que lo lee `reciclarLejanos`— para
+      // distinguir "se le acabó" de "nunca estuvo en desbandada", que es el cero
+      // de fábrica de todos los demás.
+      if (e.relojDesbandada > 0) {
+        e.relojDesbandada -= dt;
+        if (e.relojDesbandada <= 0) e.relojDesbandada = -1;
+      }
 
       // --- PARALIZADO (el Reloj de Emerita) --------------------------------
       // Lo primero de todo, por delante del pánico y de la embestida de un
@@ -960,7 +999,14 @@ export class Enemigos {
           // La desbandada de un jefe (huidaGeneral) no es la presa que ronda
           // por el cofre: aquí "huir" tiene que leerse como PÁNICO, no como
           // el mismo trote de siempre con la flecha invertida.
-          if (e.huidaTotal) vFactor *= 1.45;
+          //
+          // x3 y no el x1,45 que tuvo: a uno y medio se iban al trote y el
+          // desalojo duraba tanto que la pelea con el jefe empezaba con la
+          // pantalla todavía llena de espaldas. Lo pidió Sergio más rápido y de
+          // paso arregla eso. A triple marcha, un básico cruza lo que queda de
+          // pantalla en poco más de un segundo — se ve la desbandada, que es lo
+          // que hace de la llegada del jefe un acontecimiento, y se acaba.
+          if (e.huidaTotal) vFactor *= 3;
         }
 
         const m2 = nx * nx + ny * ny;
@@ -980,7 +1026,27 @@ export class Enemigos {
       // un valor máximo, no acumulativo: dos redes solapadas frenan lo mismo
       // que una, o bastaría con apilar armas de control para dejar el mapa
       // congelado.
-      const v = e.velocidad * vFactor * multJefe * (1 - e.frenado);
+      let v = e.velocidad * vFactor * multJefe * (1 - e.frenado);
+
+      // LA DESBANDADA TIENE VELOCIDAD MÍNIMA, no solo multiplicador.
+      //
+      // Con el x3 a secas, los lentos seguían sin salir de cuadro: una serpiente
+      // va a 10, o sea 18 por segundo contando el vaivén, y la pantalla tiene 240
+      // de semieje. Le harían falta trece segundos para desaparecer por el borde
+      // y el reloj de la desbandada la borra a los tres — a la vista, que es
+      // justo el parpadeo que esto evita. Un cíclope, a 7, ni se movía.
+      //
+      // Con el suelo, hasta el más lento cruza la media pantalla en menos de los
+      // tres segundos que tiene, así que se va POR EL BORDE y lo recoge el
+      // culling. El reloj deja de ser el camino normal y pasa a ser lo que era:
+      // la red por si alguno se queda trabado.
+      //
+      // Y el frenado se aplica igual —una red que pisa un enemigo en desbandada
+      // lo sigue frenando—, así que sigue siendo un suelo y no una inmunidad.
+      if (e.huidaTotal && e.relojDesbandada !== 0) {
+        const suelo = VELOCIDAD_DESBANDADA * (1 - e.frenado);
+        if (v < suelo) v = suelo;
+      }
       if (e.frenado > 0) {
         e.frenado -= dt * 1.6;
         if (e.frenado < 0) e.frenado = 0;
@@ -1310,8 +1376,28 @@ export class Enemigos {
       // aparecer". El desenganche que sí hace falta (que no se quede atrás de
       // verdad) se resuelve con velocidad de alcance más abajo, en mover().
       if (e.def.rol === 'jefe') { k++; continue; }
-      const margen = e.def.persistente ? 2 : 1;
-      if (Math.abs(e.x - centroX) > CULL_X * margen ||
+
+      // EL QUE SE HA IDO EN LA DESBANDADA, fuera aunque siga a la vista. Su
+      // reloj lo puso `huidaGeneral` al entrar el jefe y lo descuenta `mover`;
+      // a cero se retira sin más, que es lo que garantiza que la pelea con el
+      // jefe empieza sin nadie más en pantalla.
+      //
+      // Aquí y no en `danyar` a propósito: por este camino el hueco vuelve al
+      // pool y ya está — ni gema, ni denarios, ni cadáver, ni el contador de
+      // bajas. No los has matado, se han largado.
+      const seFue = e.huidaTotal && e.relojDesbandada < 0;
+
+      // Y AL QUE HUYE SE LE RECOGE EN CUANTO SALE DE CUADRO, sin esperar al
+      // margen generoso de siempre. Ese margen existe para que un enemigo que se
+      // queda un momento fuera de plano no desaparezca y reaparezca; el que va
+      // en desbandada no va a volver, así que guardarle el sitio es tener medio
+      // pool ocupado por gente que ya se ha ido. 0,4 de CULL deja 288 en x y 162
+      // en y, las dos por fuera de la pantalla (240 y 135).
+      const margen = e.huidaTotal && e.relojDesbandada !== 0
+                   ? 0.4
+                   : (e.def.persistente ? 2 : 1);
+      if (seFue ||
+          Math.abs(e.x - centroX) > CULL_X * margen ||
           Math.abs(e.y - centroY) > CULL_Y * margen) {
         if (e.def.cofre) this.elitesVivos--;
         if (e.def.escolta) this.escoltasVivos--;
@@ -1371,40 +1457,14 @@ export class Enemigos {
     }
   }
 
-  // LA HORDA SE BORRA DE GOLPE cuando entra un jefe. Lo llama el director en los
-  // tres hitos —minuto 10, 20 y el final—, justo antes de soltarlo.
+  // TODOS SALEN HUYENDO, menos los jefes, y lo llama el director en los tres
+  // hitos de jefe —minutos 10, 20 y el final—.
   //
-  // Antes esto era `huidaGeneral`: se les daba media vuelta y se iban solos, que
-  // es mejor puesta en escena pero deja el trabajo a medias. Un enemigo que huye
-  // sigue existiendo, sigue chocando y sigue siendo culleado a su ritmo, así que
-  // la pelea contra el jefe empezaba con la pantalla todavía llena de gente
-  // dando la espalda. Lo pidió Sergio: que desaparezcan del todo.
-  //
-  // NO SE BORRAN TRES COSAS:
-  //   - los JEFES, que es de quien va esto;
-  //   - los OBJETOS del escenario (`esObjeto`, las antorchas), que no son horda:
-  //     borrarlas dejaría la avenida pelada cada diez minutos;
-  //   - los ÉLITES, y esta es la única discutible. Un élite suelta un cofre al
-  //     morir, y es la única vía a las evoluciones: borrarlo le quita al jugador
-  //     un premio que ya se estaba peleando, y encima sin avisar. Huyen, como
-  //     hacían antes, y el culling se los lleva si de verdad se van.
-  //
-  // Se recorre hacia atrás porque `liberarEn` intercambia el hueco con el último
-  // activo: de delante hacia atrás se saltaría elementos.
-  barrerHorda() {
-    const items = this.pool.items;
-    for (let k = this.pool.activos - 1; k >= 0; k--) {
-      const e = items[k];
-      if (e.def.rol === 'jefe' || e.def.rol === 'elite' || e.def.esObjeto) continue;
-      this.pool.liberarEn(k);
-    }
-    // Los contadores que llevaba la horda dejan de tener a quién contar. Los
-    // élites siguen vivos, así que `elitesVivos` no se toca.
-    this.escoltasVivos = 0;
-  }
-
-  // Todos los que estén vivos salen huyendo, menos los jefes. Se sigue usando
-  // para los ÉLITES, que `barrerHorda` no borra.
+  // Llegó a hacerse de otra forma: borrar la horda de golpe. Se ve peor, y
+  // Sergio pidió lo contrario: que huyan MÁS RÁPIDO y desaparezcan. Son las dos
+  // mitades de lo mismo y ninguna sobra — la carrera a triple marcha es lo que
+  // se ve (ver `huidaTotal` en mover) y el reloj de desbandada es lo que
+  // garantiza que a los tres segundos no queda ni uno.
   //
   // No se les mata ni se les borra: se les cambia el movimiento. Ver desaparecer
   // la horda de golpe se leería como un fallo del juego; verla dar media vuelta
@@ -1423,6 +1483,17 @@ export class Enemigos {
       // Sin tope de huida: estos no rondan, se van. El culling los recoge.
       e.radioAcoso = 0;
       e.derivaAcoso = 0;
+      // Y A LOS COMUNES SE LES PONE FECHA DE CADUCIDAD. Corriendo a triple
+      // marcha les sobra para salir de cuadro, pero "casi siempre" no vale:
+      // basta un básico trabado contra unas ruinas o uno que sale hacia donde
+      // el jugador va para que se quede dando vueltas por la pelea del jefe. A
+      // los DESBANDADA segundos se le retira del pool, esté donde esté.
+      //
+      // A LOS ÉLITES NO. Un élite suelta el cofre que es la única vía a las
+      // evoluciones: borrarlo le quita al jugador un premio que ya se estaba
+      // peleando y sin avisar. Huyen como todos, pero si los alcanzas siguen
+      // valiendo lo que valían.
+      if (e.def.rol !== 'elite') e.relojDesbandada = DESBANDADA;
     }
   }
 

@@ -1703,7 +1703,19 @@ export const ARMAS = {
     // velocidad, así que el mismo camino a la mitad de marcha son el doble de
     // segundos por el mapa. Es coherente con lo que es —un bicho que va a lo
     // suyo— y de paso le da tiempo a rodear a quien se cruce.
-    recarga: 2.4, proyectiles: 1, velocidad: 35, alcance: 240,
+    // CADENCIA AL DOBLE, pedido de Sergio: la recarga baja de 2,4 a 1,2, o sea
+    // que suelta el doble de ositos en el mismo tiempo.
+    //
+    // Es la compensación que le faltaba a las tres bajadas de velocidad de más
+    // arriba. Un osito que corre a 35 tarda lo suyo en llegar, y con una tanda
+    // cada 2,4 s había ratos enteros sin nada corriendo por la pantalla: el arma
+    // se leía como "de vez en cuando pasa algo" en vez de como una marea de
+    // peluches. A 1,2 siempre hay ositos en camino, que es lo que hace el chiste.
+    //
+    // No dispara más fuerte, dispara más veces: el daño y el radio no se tocan.
+    // Y `niveles` no toca la recarga en ningún escalón, así que este número es
+    // el de todos los niveles y el x2 vale del 1 al 10.
+    recarga: 1.2, proyectiles: 1, velocidad: 35, alcance: 240,
     radio: 4, perforacion: 0, dispersion: 0, empuje: 110,
     color: '#ffb45a', estela: '#8a3a10', largoTrazo: 6,
     // LO QUE DA CADA NIVEL A LA EXPLOSIÓN subió primero un 20% —el radio gana 14
