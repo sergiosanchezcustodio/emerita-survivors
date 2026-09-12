@@ -1098,7 +1098,6 @@ const RELOJ_DIGITO_W = 34;
 const RELOJ_DIGITO_H = 60;
 const RELOJ_GROSOR = 8;            // ancho de un segmento
 const RELOJ_HUECO = 9;             // aire entre cifras
-const RELOJ_COLON_W = 14;
 // Desde el borde de abajo hasta la base de las cifras. Sube lo justo para NO
 // pisar la barra de jefe ni su nombre: el peor momento de la partida —que es
 // para lo que se coge este objeto— suele tener un jefe encima, así que las dos
@@ -1114,12 +1113,19 @@ const RELOJ_ENCENDIDO = '#e2372b';
 // hueco en uve entre segmentos vecinos es lo que hace que se lea como cristal
 // líquido, y un halo generoso es exactamente lo que lo rellena.
 const RELOJ_FILO = 'rgba(255,140,120,.40)';
-// Los apagados van del MISMO rojo, casi negro. Es lo que hace un display real: el
-// segmento en reposo no es gris, es el mismo cristal sin encender. Y tiene que
-// verse tanto sobre el granito oscuro como sobre el velo de hielo —que es
-// claro—, porque sin los segmentos apagados esto deja de parecer una pantalla y
-// vuelve a ser tres cifras sueltas.
-const RELOJ_APAGADO = 'rgba(74,20,16,.26)';
+// LOS APAGADOS, GRIS MUY CLARO Y CASI TRANSPARENTE, que es lo que pidió Sergio.
+//
+// Estuvieron en el mismo rojo que los encendidos pero oscurecido, imitando a un
+// display real, donde el segmento en reposo es el mismo cristal sin encender. En
+// pantalla no funciona: SON EL MISMO TONO, así que a la velocidad a la que se
+// mira esto —de reojo, sin dejar de esquivar— un segmento apagado se lee como
+// uno encendido y las cifras se confunden unas con otras.
+//
+// Gris y al 20% de opacidad se separan del rojo por color Y por peso, que son
+// dos señales en vez de una. Siguen cumpliendo su papel —dibujar el ocho de
+// fondo que hace que esto parezca una pantalla y no dos cifras sueltas— pero ya
+// no compiten por ser la cifra.
+const RELOJ_APAGADO = 'rgba(232,236,240,.20)';
 
 // Qué segmentos enciende cada cifra, en el orden a b c d e f g: arriba,
 // arriba-derecha, abajo-derecha, abajo, abajo-izquierda, arriba-izquierda y el
@@ -1164,12 +1170,17 @@ function segmentoV(ctx, x, y, h, t) {
   ctx.fill();
 }
 
-// Una cifra entera, con sus siete segmentos: los encendidos en azul y los otros
-// siete —todos, siempre— en el azul casi negro del cristal en reposo.
+// Una cifra entera, con sus siete segmentos: los encendidos en rojo y el resto
+// —siempre los siete, encendida o no— en el gris del cristal en reposo.
+//
+// `cifra` puede ser -1, y entonces la CELDA SE QUEDA A OSCURAS: los siete
+// segmentos apagados y ninguno encendido. No es lo mismo que no dibujar nada, y
+// tampoco es un cero. Ver la supresión del cero de la izquierda en
+// dibujarCuentaAtrasReloj.
 function dibujarCifra(ctx, x, y, cifra) {
   const w = RELOJ_DIGITO_W, h = RELOJ_DIGITO_H, t = RELOJ_GROSOR;
   const mitad = h / 2;
-  const mascara = RELOJ_SEGMENTOS[cifra];
+  const mascara = cifra < 0 ? 0 : RELOJ_SEGMENTOS[cifra];
 
   // Cada entrada es [encendido?, cómo se pinta]. Se recorre dos veces —primero
   // los apagados y luego los encendidos— para que el brillo de uno encendido
@@ -1200,17 +1211,38 @@ function dibujarCifra(ctx, x, y, cifra) {
 export function dibujarCuentaAtrasReloj(ctx, restante) {
   if (!(restante > 0)) return;
 
-  // CEIL y no floor. Con floor, un reloj de diecinueve segundos arranca
-  // marcando 0:18 —la cifra que se anunció no llega a verse— y se pasa el
-  // último segundo entero en 0:00, que es justo cuando hace falta saber que
-  // todavía queda algo. Redondeando hacia arriba empieza en 0:19 y el 0:00
-  // aparece en el instante en que la horda vuelve a moverse.
+  // CEIL y no floor. Con floor, un reloj de diez segundos arranca marcando 09
+  // —la cifra que se anunció no llega a verse— y se pasa el último segundo
+  // entero en 00, que es justo cuando hace falta saber que todavía queda algo.
+  // Redondeando hacia arriba empieza en 10 y el 00 aparece en el instante en
+  // que la horda vuelve a moverse.
   const seg = Math.ceil(restante);
-  const minutos = Math.floor(seg / 60);
-  const segundos = seg % 60;
-  const cifras = [minutos % 10, Math.floor(segundos / 10), segundos % 10];
 
-  const ancho = RELOJ_DIGITO_W * 3 + RELOJ_COLON_W + RELOJ_HUECO * 3;
+  // SOLO LOS SEGUNDOS, sin minutos y sin los dos puntos. Lo pidió Sergio y el
+  // objeto le da la razón: esto dura diez segundos, así que el 0: de la
+  // izquierda era una cifra que nunca cambiaba y unos puntos que separaban algo
+  // de nada. Quitados, las dos cifras que sí importan salen más centradas y no
+  // hay que saltarse nada para leerlas.
+  //
+  // DOS CELDAS SIEMPRE, para que el display no cambie de ancho al bajar de diez:
+  // eso movería las cifras de sitio a mitad de cuenta, justo cuando más se están
+  // mirando.
+  //
+  // Pero de nueve para abajo la celda de la izquierda se queda APAGADA en vez de
+  // encender un cero. Un cero encendido es una cifra: se lee, y durante nueve de
+  // los diez segundos de este objeto está diciendo algo que no significa nada. Un
+  // reloj de verdad hace justo esto —suprime el cero a la izquierda y deja el
+  // hueco con sus segmentos en reposo—, así que además es lo que se espera ver.
+  //
+  // El -1 es esa celda a oscuras, y no es lo mismo que no dibujarla: el ocho
+  // fantasma sigue ahí y la cifra de las unidades no se mueve del sitio.
+  //
+  // El tope de 99 es teórico —hoy entra en 10— pero deja el dibujo definido si
+  // algún día alguien sube PARALISIS_RELOJ por encima del minuto y medio.
+  const decenas = Math.floor((seg % 100) / 10);
+  const cifras = [decenas > 0 ? decenas : -1, seg % 10];
+
+  const ancho = RELOJ_DIGITO_W * 2 + RELOJ_HUECO;
   let x = (ANCHO_UI - ancho) / 2;
   const y = ALTO_UI - RELOJ_ABAJO - RELOJ_DIGITO_H;
 
@@ -1230,26 +1262,7 @@ export function dibujarCuentaAtrasReloj(ctx, restante) {
 
   dibujarCifra(ctx, x + RELOJ_GROSOR / 2, y, cifras[0]);
   x += RELOJ_DIGITO_W + RELOJ_HUECO;
-
-  // LOS DOS PUNTOS PARPADEAN a un segundo, como el reloj de la mesilla, y por
-  // eso van del tiempo que queda y no de performance.now(): así el guiño cae
-  // clavado en el cambio de cifra en vez de ir por su cuenta. Apagados no se
-  // borran, se quedan en el azul del cristal en reposo: un display no pierde
-  // sus puntos, los apaga.
-  const guino = (seg % 2) === 0;
-  ctx.fillStyle = guino ? RELOJ_ENCENDIDO : RELOJ_APAGADO;
-  const cxPuntos = x + RELOJ_COLON_W / 2 + RELOJ_GROSOR / 2;
-  const rPunto = RELOJ_GROSOR / 2;
-  for (let i = 0; i < 2; i++) {
-    ctx.beginPath();
-    ctx.arc(cxPuntos, y + RELOJ_DIGITO_H * (i === 0 ? 0.3 : 0.7), rPunto, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  x += RELOJ_COLON_W + RELOJ_HUECO;
-
   dibujarCifra(ctx, x + RELOJ_GROSOR / 2, y, cifras[1]);
-  x += RELOJ_DIGITO_W + RELOJ_HUECO;
-  dibujarCifra(ctx, x + RELOJ_GROSOR / 2, y, cifras[2]);
 
   ctx.restore();
 }
