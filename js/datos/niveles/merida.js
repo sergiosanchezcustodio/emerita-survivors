@@ -431,26 +431,67 @@ export const NIVEL = {
   // A propósito NO se ha metido decoración en la franja añadida, la más
   // externa: es la que sale del espejo y tiene su propio pliegue visible, y
   // llenarla de objetos solo llamaría la atención hacia él.
-  // MÁS ANTORCHAS (pedido de Sergio): de dos por tile a seis, tres por lado.
-  // Van todas sobre el borde de la calzada, alternando lado y repartidas en
-  // vertical con unas 90-130 unidades entre una y la siguiente, que a 430 de
-  // alto deja unas cuatro a la vista en cada momento sin que la calle parezca
-  // un pasillo de teas.
+  // MÁS ANTORCHAS (pedido de Sergio): de dos por tile a seis, y ahora de seis a
+  // VEINTICUATRO, que es el x4 que pidió después de jugarlo.
+  //
+  // EN CUATRO CARRILES, no en dos, y ahí está la mitad del encargo. Cuadruplicar
+  // los dos carriles de siempre habría puesto una antorcha cada 36 unidades
+  // sobre el borde de la calzada: eso no es una avenida iluminada, es una
+  // empalizada, y además con la antorcha siendo sólida se cierra el paso al
+  // borde. Los dos carriles nuevos van por la hierba, por fuera de la piedra, y
+  // dejan la calle igual de transitable con cuatro veces el fuego.
+  //
+  // Los carriles de hierba están en 130 y 430, y salen de una cuenta como los
+  // demás: las ruinas ocupan 39..105 por la izquierda y 441..507 por la derecha
+  // (semieje de unas 33 unidades, ver la nota de las ruinas más abajo), y la
+  // calzada va de 181 a 395. O sea que 130 y 430 caen en la franja de hierba
+  // libre de las dos cosas, sin rozar ni la piedra ni el escombro.
+  //
+  // Seis por carril, repartidas a lo alto del tile y ESCALONADAS entre carriles:
+  // las `y` de un carril caen en los huecos de los otros, así que no se forman
+  // hileras de cuatro a la misma altura. En los dos carriles de la calzada las
+  // `y` esquivan además la columna y la estatua de su lado, que ya estaban ahí.
   //
   // Ojo a un efecto de lado que no es cosmético: la antorcha es DESTRUIBLE y
   // suelta un consumible al caer (ver `esObjeto` en datos/enemigos.js), así que
-  // triplicarlas triplica también esa fuente de consumibles. Se deja así a
+  // cuadruplicarlas cuadruplica también esa fuente de consumibles. Se deja así a
   // propósito —romperlas cuesta tiempo y dejar de disparar a la horda— pero si
-  // al jugarlo salen demasiados cofres, esta lista es donde se recorta.
+  // al jugarlo salen demasiadas, ESTA LISTA es donde se recorta: quitar un
+  // carril entero de hierba devuelve el escenario a la mitad sin tocar nada más.
   decoracion: [
+    // Carril de hierba izquierdo.
+    { tipo: 'antorcha1', x: 130, y:  25 },
+    { tipo: 'antorcha2', x: 130, y:  95 },
+    { tipo: 'antorcha1', x: 130, y: 165 },
+    { tipo: 'antorcha2', x: 130, y: 235 },
+    { tipo: 'antorcha1', x: 130, y: 305 },
+    { tipo: 'antorcha2', x: 130, y: 375 },
+
+    // Borde izquierdo de la calzada. La columna sigue en 50 y la estatua en 200.
     { tipo: 'columna',   x: 186, y:  50 },
+    { tipo: 'antorcha2', x: 186, y:  90 },
     { tipo: 'antorcha1', x: 186, y: 150 },
     { tipo: 'antorcha1', x: 186, y: 250 },
+    { tipo: 'antorcha2', x: 186, y: 300 },
     { tipo: 'antorcha2', x: 186, y: 340 },
+    { tipo: 'antorcha1', x: 186, y: 400 },
+
+    // Borde derecho de la calzada. La estatua sigue en 195 y la columna en 350.
     { tipo: 'antorcha2', x: 390, y:  40 },
+    { tipo: 'antorcha1', x: 390, y:  90 },
     { tipo: 'antorcha1', x: 390, y: 130 },
     { tipo: 'antorcha2', x: 390, y: 260 },
+    { tipo: 'antorcha1', x: 390, y: 300 },
     { tipo: 'columna',   x: 390, y: 350 },
+    { tipo: 'antorcha2', x: 390, y: 410 },
+
+    // Carril de hierba derecho.
+    { tipo: 'antorcha2', x: 430, y:  60 },
+    { tipo: 'antorcha1', x: 430, y: 130 },
+    { tipo: 'antorcha2', x: 430, y: 200 },
+    { tipo: 'antorcha1', x: 430, y: 270 },
+    { tipo: 'antorcha2', x: 430, y: 340 },
+    { tipo: 'antorcha1', x: 430, y: 410 },
     // LAS ESTATUAS, AL BORDE DE LA CALZADA como las columnas (lo pidió Sergio).
     // Estaban a 141 y 412, o sea en mitad de la hierba: ahí se leían como parte
     // del paisaje y no como lo que son. En el borde —186 y 367— hacen calle con

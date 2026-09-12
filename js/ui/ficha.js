@@ -7,7 +7,7 @@ import { Director } from '../sistemas/director.js';
 import { FUENTE, FUENTE_TITULO, textoEspaciado, textoBorde, envolverTexto } from './capa.js';
 import { Tema, panel, cenefa } from './tema.js';
 import {
-  ALTO_FICHA, MARGEN_FICHA, ICONO_UNIFICADO,
+  ALTO_FICHA, MARGEN_FICHA, ICONO_UNIFICADO, RANURA_UNIFICADA,
   dibujarIconoArma, dibujarIconoPasivo, COLOR_JUGADOR, COLOR_PASIVO
 } from './hud.js';
 
@@ -646,9 +646,22 @@ export function dibujarFicha(ctx, jugadores, indice) {
   // ella y había que recalcularlos a mano; escrito así, la escala se cancela y
   // el número de arriba es literalmente lo que se ve.
   //
-  // 41,25 es lo que medían con el 1,5 del primer intento (13,75 de radio), que
-  // es el tamaño que Sergio dio por bueno.
-  const DIAMETRO_RANURA = 41.25;
+  // Y MIDE LO MISMO QUE EN EL HUD: RANURA_UNIFICADA, que son 30.
+  //
+  // Estuvo en 41,25 —lo que medían con el 1,5 del primer intento— y esa era su
+  // propia medida, decidida aparte de la del panel de la esquina. El resultado
+  // es que el mismo arma se veía de dos tamaños distintos según se mirara la
+  // esquina o se pulsara Tab, que es exactamente el problema que ICONO_UNIFICADO
+  // resolvió para el dibujo y que al medallón se le había quedado sin resolver.
+  //
+  // Y con el Zurrón o la Bandolera además NO CABÍA: cinco medallones de 41,25 en
+  // un grupo de 193,5 de pantalla tocan a 38,7 cada uno, así que se montaban
+  // unos encima de otros. A 30 entran los cinco con aire de sobra y los cuatro
+  // de siempre siguen holgados.
+  //
+  // El dibujo de dentro no se mueve: sigue en ICONO_UNIFICADO, igual que en el
+  // HUD, donde lleva desde siempre metido en una ranura de este mismo tamaño.
+  const DIAMETRO_RANURA = RANURA_UNIFICADA;
   const r = DIAMETRO_RANURA / 2 / ESCALA_FICHA;
   const anchoGrupo = (anchoDer - HUECO) / 2;
   // CUANTAS TENGA ESTE JUGADOR, no cuatro fijas: con la Bandolera son cinco, y
@@ -658,14 +671,15 @@ export function dibujarFicha(ctx, jugadores, indice) {
   const nArmas = j.maxArmas || MAX_ARMAS;
   const nObjetos = j.maxPasivos || MAX_PASIVOS;
   const pasoArmas = anchoGrupo / nArmas;
-  // 48 y no 42: el medallón mide ahora 36,67 de alto y con la caja de 42 se
-  // quedaba a un punto y medio del borde de abajo. Los 6 que sube salen del
-  // hueco que había entre el inventario y el pie de la ficha, que era de 17.
-  const altoGrupo = 48;
+  // La caja sigue al medallón, no al revés: el aire de 11,3 por encima y por
+  // debajo es el que tenía cuando medía 36,67 y la caja 48. Con el medallón en
+  // 26,67 de maqueta salen 38, y los 10 que suelta se quedan de aire entre el
+  // inventario y el pie —que es de donde habían salido—.
+  const altoGrupo = Math.round(DIAMETRO_RANURA / ESCALA_FICHA + 11.3);
 
   caja(ctx, xDer, y, anchoGrupo, altoGrupo, 'ARMAS', t);
-  // Centrado en su caja: 24 es la mitad de 48. Antes eran 22 de 42, un pelín
-  // por encima del centro, y con el medallón grande ese pelín se nota.
+  // Centrado en su caja, la mida lo que mida. Llegó a estar en un número fijo
+  // un pelín por encima del centro, y con el medallón grande ese pelín se nota.
   const yMedallon = y + altoGrupo / 2;
   for (let k = 0; k < nArmas; k++) {
     const a = armas[k];

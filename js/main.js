@@ -41,7 +41,8 @@ import { dibujarFicha } from './ui/ficha.js';
 import { dibujarMapa } from './ui/mapa.js';
 import { dibujarTienda } from './ui/tienda.js';
 import { dibujarFinal, dibujarCartelFinal } from './ui/final.js';
-import { dibujarPaneles, dibujarReloj, dibujarBarraJefe } from './ui/hud.js';
+import { dibujarPaneles, dibujarReloj, dibujarBarraJefe,
+         dibujarCuentaAtrasReloj } from './ui/hud.js';
 import { Pantallas, ocupantePersonaje, dibujarDespedida } from './ui/pantallas.js';
 import { dibujarConfig, dibujarConfirmacion } from './ui/configuracion.js';
 import { Capa, FUENTE } from './ui/capa.js';
@@ -808,24 +809,29 @@ addEventListener('fullscreenchange', () => {
 // Cuánto cura la comida y cuánto dura el lanzallamas prestado.
 const CURA_COMIDA = 20;
 const DURACION_LLAMARADA = 8;
-// El Reloj de Emerita para a la horda entera. DOCE segundos —el doble de los
-// seis que tenía— y son muchísimos: dan para cruzar el anfiteatro de lado a
-// lado, rematar a un élite y levantar a quien se ha quedado en el suelo, todo
-// en la misma parada. Por eso es el consumible más raro de los cinco (ver
-// tipoConsumible en entidades/cofre.js).
+// El Reloj de Emerita para a la horda entera, y son muchísimos segundos: dan
+// para cruzar el anfiteatro de lado a lado, rematar a un élite y levantar a
+// quien se ha quedado en el suelo, todo en la misma parada. Por eso es el
+// consumible más raro de los cinco (ver tipoConsumible en entidades/cofre.js).
+// Cuántos son exactamente, en PARALISIS_RELOJ, unas líneas más abajo.
 //
 // Y mientras dura, la horda congelada NO ES UN OBSTÁCULO: se la atraviesa
 // andando y no hace daño al tocarla (ver contactoJugador y apartarDelJugador en
 // sistemas/colisiones.js). Es lo que convierte el objeto en la salida de
 // verdad del peor momento de la partida: quedar rodeado y que los cuerpos
 // siguieran siendo pared dejaba el pánico intacto, solo que en silencio.
-// EL DOBLE DE LO QUE DURABA (12 -> 24). Es el objeto más raro de los tres
-// consumibles y el que menos veces se coge en una partida; con doce segundos se
-// acababa antes de que diera tiempo a aprovecharlo de verdad.
+// Ha ido 6 -> 12 -> 24 -> 19 -> 10, y el recorte se decidió con la cuenta atrás
+// ya en pantalla: viéndola correr se nota el momento exacto en que el objeto
+// deja de resolver nada y pasa a ser un paseo por un decorado quieto. Con
+// veinticuatro eso ocurría a media cuenta.
+//
+// Diez es además el número que mejor lee el propio display: entra en 0:10 y
+// baja de dos cifras a una, así que se ve de un vistazo en qué mitad de la
+// parada estás sin llegar a leer el número.
 //
 // Congela a la horda ENTERA, incluida la que aparezca durante esos segundos:
 // ver `paralizarTodos` en entidades/enemigo.js.
-const PARALISIS_RELOJ = 24;
+const PARALISIS_RELOJ = 10;
 // Las monedas se cobran FUERA de la partida: van al progreso META y siguen ahí
 // mañana. Es el único consumible que no cambia nada de lo que está pasando.
 const DENARIOS_MONEDAS = 10;
@@ -3495,6 +3501,12 @@ function dibujar(alpha) {
   const infoJefe = Jefes.info(enemigos);
   GestorAudio.jefeActivo(!!infoJefe);
   dibujarBarraJefe(ctxUi, infoJefe);
+
+  // La cuenta atrás del Reloj de Emerita, abajo en el centro y solo mientras
+  // corre. Sale de `paralisisRestante` y no de un cronómetro propio de la
+  // interfaz: es el MISMO número que decide cuánto sigue quieta la horda, así
+  // que lo que se ve en pantalla no puede desajustarse de lo que pasa.
+  dibujarCuentaAtrasReloj(ctxUi, enemigos.paralisisRestante);
 
   // Solo se pierde cuando caen TODOS. Con un compañero en pie la partida sigue,
   // que es lo que hace que el cooperativo tenga sentido.

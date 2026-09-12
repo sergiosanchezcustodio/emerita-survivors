@@ -88,7 +88,7 @@ import { Director } from '../sistemas/director.js';
 // El icono NO se recorta contra el aro: si algún día molesta que asome, el
 // arreglo es un clip en dibujarRanura, no encoger el dibujo —13 es el mismo
 // número en las cinco pantallas y ahí está la gracia.
-const ANCHO = 201;
+const ANCHO_BASE = 201;
 const MARGEN = 9;              // separación al borde de la pantalla
 const RELLENO_H = 5;           // margen interior horizontal
 const RELLENO_V = 4;           // margen interior vertical
@@ -99,19 +99,76 @@ const TARJETA_ANCHO = 42;      // bloque de identidad
 const HUECO_SEP = 4;           // aire a cada lado de la línea separadora
 // 111. Es lo único que se lleva el ensanche de la ficha: todo lo demás —la
 // tarjeta de identidad, la barra de xp y los huecos— se queda con su medida.
-const COLUMNA = ANCHO - RELLENO_H * 2 - ANCHO_XP - HUECO_XP
-                - TARJETA_ANCHO - HUECO_SEP * 2;
+const COLUMNA_BASE = ANCHO_BASE - RELLENO_H * 2 - ANCHO_XP - HUECO_XP
+                     - TARJETA_ANCHO - HUECO_SEP * 2;
+// Todo lo que la ficha mide FUERA de la columna de estado: los dos rellenos, la
+// barra de xp, la tarjeta y los dos huecos del separador. Es constante, y es lo
+// que permite hacer el camino al revés cuando hay ranuras de más —de columna a
+// ancho— en vez de repetir la resta con otro número.
+const RESTO_ANCHO = ANCHO_BASE - COLUMNA_BASE;
 
 const HUECO_RANURA = 4;        // entre ranuras de la misma fila
 const HUECO_FILA = 4;          // entre la fila de armas y la de pasivos
 
-// SIEMPRE cuatro ranuras por fila, llenas o vacías, y reparten el ancho entero
-// de SU columna. Las vacías no son decoración: MAX_ARMAS y MAX_PASIVOS son 4,
-// así que el hueco vacío dice cuánto te queda por elegir, que es una decisión
-// que se toma cada subida de nivel. Con las ranuras apareciendo según se
-// llenan, la fila cambiaba de tamaño y no se sabía si cabía algo más.
+// TODAS las ranuras del jugador por fila, llenas o vacías, y reparten el ancho
+// entero de SU columna. Las vacías no son decoración: el tope es MAX_ARMAS y
+// MAX_PASIVOS —4, o 5 con Bandolera o Zurrón— así que el hueco vacío dice
+// cuánto te queda por elegir, que es una decisión que se toma cada subida de
+// nivel. Con las ranuras apareciendo según se llenan, la fila cambiaba de tamaño
+// y no se sabía si cabía algo más.
+//
+// RANURAS es el CASO BASE, el de la ficha sin potenciadores de hueco: de él sale
+// la medida de una ranura, y a partir de ahí es el panel el que crece. Ver
+// columnaDe.
 const RANURAS = 4;
-const RANURA_W = (COLUMNA - (RANURAS - 1) * HUECO_RANURA) / RANURAS;
+// EL TAMAÑO DE UNA RANURA, UNO SOLO PARA TODO EL JUEGO, por el mismo motivo que
+// ICONO_UNIFICADO: un hueco de arma no puede medir una cosa aquí y otra en la
+// ficha de jugador. Se exporta porque ui/ficha.js dibuja los mismos medallones
+// y hasta ahora los tenía a 41,25 —su propia medida, decidida aparte—, que es
+// lo que hacía que el mismo arma se viera más grande al pulsar Tab.
+//
+// Sale de la ficha base y no al revés: aquí es donde el ancho del panel manda,
+// y de ahí cae el lado de la ranura.
+export const RANURA_UNIFICADA =
+  (COLUMNA_BASE - (RANURAS - 1) * HUECO_RANURA) / RANURAS;
+const RANURA_W = RANURA_UNIFICADA;
+
+// LA FICHA CRECE A LO ANCHO, la ranura NUNCA se encoge.
+//
+// Bandolera y Zurrón suben `maxArmas` y `maxPasivos` de 4 a 5, y hasta aquí la
+// ficha seguía dibujando cuatro huecos: el quinto arma que comprabas no salía
+// en el panel, y el hueco vacío dejaba de decir cuánto te queda por elegir, que
+// es justo para lo que están las ranuras vacías.
+//
+// De las dos salidas posibles —repartir el mismo ancho entre cinco, o ensanchar
+// la ficha— se toma la segunda. Encoger la ranura rompería lo único que este
+// archivo defiende en cinco sitios distintos: que un icono mide 13 en todas las
+// pantallas y el hueco se hace a su medida (ver ICONO_UNIFICADO). Además la
+// ficha cambiaría de aspecto a mitad de partida sin que nada lo haya pedido.
+//
+// Así que la ranura se queda en sus 30 y lo que se añade es un hueco más de
+// ancho por cada ranura de más. Para n = 4 las dos fórmulas devuelven exactamente
+// ANCHO_BASE y COLUMNA_BASE, así que la ficha de siempre no se mueve ni medio
+// píxel: lo nuevo solo se nota cuando de verdad hay una ranura extra.
+//
+// LA BARRA DE VIDA VA POR LA MISMA COLUMNA, y por eso se ensancha con ella en
+// vez de quedarse corta dejando un hueco muerto a su derecha. La barra siempre
+// mide lo mismo que la fila de ranuras de debajo; ese es el único acuerdo que
+// hace que la columna de estado se lea como un bloque.
+//
+// Las DOS FILAS COMPARTEN ANCHO, el de la más larga. Con la Bandolera comprada y
+// el Zurrón no, la fila de objetos se queda en cuatro ranuras y deja su aire a
+// la derecha: son filas de cosas distintas, y alinear la primera ranura de cada
+// una importa más que llenar el renglón.
+function columnaDe(ranuras) {
+  return ranuras * RANURA_W + (ranuras - 1) * HUECO_RANURA;
+}
+
+// Cuántas ranuras pide este jugador. `|| RANURAS` para los sitios donde la ficha
+// se dibuja sin partida detrás —galería, pruebas— y el jugador no trae tope.
+function ranurasDe(j) {
+  return Math.max(j.maxArmas || RANURAS, j.maxPasivos || RANURAS);
+}
 // RANURAS CUADRADAS. Eran 21,75 x 17,5 —achatadas— y eso tenía dos costes: el
 // arma se dibujaba dentro de un rectángulo con más aire a los lados que arriba,
 // y el pasivo, que se marca con esquinas redondas de radio ALTO/2, salía como
@@ -120,7 +177,7 @@ const RANURA_W = (COLUMNA - (RANURAS - 1) * HUECO_RANURA) / RANURAS;
 // la que se distinguen las dos filas de un vistazo.
 //
 // El lado ha ido 17,5 -> 22,5 -> 24,75 -> 37 -> 30, y hoy son esos 30 que pidió
-// Sergio (ver ANCHO, que es de donde salen: la columna reparte su ancho entre
+// Sergio (ver ANCHO_BASE, que es de donde salen: la columna reparte su ancho entre
 // las cuatro y el aire entre ellas sigue siendo 4).
 //
 // EL DIBUJO DE DENTRO NO SE MUEVE CON ELLAS: lo que cambia es el marco, y el
@@ -891,18 +948,25 @@ export function dibujarPaneles(ctx, jugadores) {
     // la misma pieza repetida y descolgada.
     const derecha = (i % 2) === 1;
     const abajo = i >= 2;
-    const x = derecha ? ANCHO_UI - ANCHO - MARGEN : MARGEN;
+    // El ancho es de ESTE jugador: quien lleve Bandolera o Zurrón tiene una
+    // ranura más por fila y su ficha crece lo justo para ella. En cooperativo
+    // las cuatro esquinas pueden medir distinto, y está bien: cada ficha dice
+    // los huecos que tiene su dueño, no los del que más haya comprado.
+    const nRanuras = ranurasDe(j);
+    const columna = columnaDe(nRanuras);
+    const ancho = columna + RESTO_ANCHO;
+    const x = derecha ? ANCHO_UI - ancho - MARGEN : MARGEN;
     const y = abajo ? ALTO_UI - ALTO_FICHA - MARGEN : MARGEN;
 
     // --- Caja de la ficha -------------------------------------------------
-    caja(ctx, x + 0.5, y + 0.5, ANCHO - 1, ALTO_FICHA - 1, R_FICHA,
+    caja(ctx, x + 0.5, y + 0.5, ancho - 1, ALTO_FICHA - 1, R_FICHA,
          PANEL_FONDO, PANEL_BORDE);
 
     // --- Tarjeta de identidad: retrato, nombre y nivel --------------------
     // La barra de xp va pegada al BORDE DE CASA, o sea al lado por el que la
     // ficha toca la pantalla, igual que la tarjeta de identidad y por el mismo
     // motivo: en las fichas espejadas todo lo de identidad mira hacia fuera.
-    const xXp = derecha ? x + ANCHO - RELLENO_H - ANCHO_XP : x + RELLENO_H;
+    const xXp = derecha ? x + ancho - RELLENO_H - ANCHO_XP : x + RELLENO_H;
     const xTarjeta = derecha ? xXp - HUECO_XP - TARJETA_ANCHO
                              : xXp + ANCHO_XP + HUECO_XP;
 
@@ -940,7 +1004,7 @@ export function dibujarPaneles(ctx, jugadores) {
     const bx = derecha ? x + RELLENO_H : xSep + HUECO_SEP;
 
     const fracVida = Math.max(0, j.vida / j.vidaMaxima);
-    dibujarBarra(ctx, bx, y + Y_VIDA, COLUMNA, ALTO_VIDA, fracVida,
+    dibujarBarra(ctx, bx, y + Y_VIDA, columna, ALTO_VIDA, fracVida,
                  COLOR_VIDA, COLOR_VIDA_ALTO);
 
     // ESCUDO (potenciador Égida) POR ENCIMA de la barra de vida, en azul y sin
@@ -955,12 +1019,12 @@ export function dibujarPaneles(ctx, jugadores) {
       const fracEscudo = Math.min(1, j.escudo / j.vidaMaxima);
       ctx.save();
       ctx.beginPath();
-      ctx.roundRect(bx, y + Y_VIDA, COLUMNA, ALTO_VIDA, R_BARRA);
+      ctx.roundRect(bx, y + Y_VIDA, columna, ALTO_VIDA, R_BARRA);
       ctx.clip();
       ctx.fillStyle = COLOR_ESCUDO;
-      ctx.fillRect(bx, y + Y_VIDA, COLUMNA * fracEscudo, ALTO_VIDA);
+      ctx.fillRect(bx, y + Y_VIDA, columna * fracEscudo, ALTO_VIDA);
       ctx.fillStyle = COLOR_ESCUDO_ALTO;
-      ctx.fillRect(bx, y + Y_VIDA + 0.5, COLUMNA * fracEscudo, 1);
+      ctx.fillRect(bx, y + Y_VIDA + 0.5, columna * fracEscudo, 1);
       ctx.restore();
     }
 
@@ -976,17 +1040,17 @@ export function dibujarPaneles(ctx, jugadores) {
     const llena = BORDE_LLENA[indice];
     const paso = RANURA_W + HUECO_RANURA;
     const colocar = (k) => derecha
-      ? bx + COLUMNA - RANURA_W - k * paso
+      ? bx + columna - RANURA_W - k * paso
       : bx + k * paso;
 
-    for (let k = 0; k < RANURAS; k++) {
+    for (let k = 0; k < (j.maxArmas || RANURAS); k++) {
       const a = armas[k];
       dibujarRanura(ctx, colocar(k), y + Y_ARMAS, a ? llena : vacia,
         a ? a.def.color : null, a ? a.nivel : 0,
         a ? ((c, r) => dibujarIconoArma(c, 0, 0, r, a.id, a.def.color)) : null, false);
     }
 
-    for (let k = 0; k < RANURAS; k++) {
+    for (let k = 0; k < (j.maxPasivos || RANURAS); k++) {
       const id = idsPasivos[k];
       const def = id ? PASIVOS[id] : null;
       dibujarRanura(ctx, colocar(k), y + Y_PASIVOS, def ? llena : vacia,
@@ -994,6 +1058,198 @@ export function dibujarPaneles(ctx, jugadores) {
         def ? ((c, r) => dibujarIconoPasivo(c, 0, 0, r, id, COLOR_PASIVO)) : null, true);
     }
   }
+
+  ctx.restore();
+}
+
+// --- Cuenta atrás del Reloj de Emerita ---------------------------------------
+//
+// Mientras la horda está parada, abajo en el centro, con la pinta de un reloj
+// digital de los de toda la vida: dígitos de SIETE SEGMENTOS, dos puntos que
+// parpadean y los segmentos apagados visibles por detrás en un azul casi negro.
+//
+// Los segmentos apagados son la mitad del truco. Un display de cristal líquido
+// se reconoce porque se le ven los palitos que NO están encendidos —es lo que
+// distingue un 1 de un 7 de un vistazo, y lo que hace que el conjunto parezca
+// una pantalla y no un texto—. Sin ellos, esto serían cuatro cifras raras.
+//
+// SE DIBUJAN A MANO y no con una tipografía. No hay dependencias externas en
+// este proyecto (ver CLAUDE.md), y una fuente de sistema con aire digital no
+// existe en todas las máquinas: el mismo juego se vería de dos maneras según
+// quién lo abra. Siete polígonos por cifra es más barato que esa lotería, y
+// además caen justo donde se les dice.
+//
+// EN ROJO, y se llegó ahí por descarte. Empezó en azul apagado por una razón que
+// parecía buena —el Reloj ya tiñe de hielo a la horda y vuelca un velo azul
+// sobre la pantalla (ver VFX.helar), así que la cuenta atrás compartía color con
+// lo que estaba contando— y en pantalla era justo lo que la hundía: ESE VELO ES
+// EL FONDO. Un dígito azul sobre un velo azul se funde por claro y por oscuro, y
+// se probaron los dos antes de aceptarlo.
+//
+// El rojo es lo contrario del velo en la rueda de color, así que se recorta solo
+// sin necesidad de subir brillos ni engordar el halo. Se pierde el guiño de
+// "esto es el mismo efecto que ves teñido de azul", y a cambio se lee. Lo pidió
+// Sergio después de verlo dos veces.
+// GRANDE de verdad: la cifra mide 60 de alto sobre una pantalla de 540, o sea
+// un noveno de alto. Empezó en 46 y se quedaba en un marcador discreto de
+// esquina; esto es lo único que hay que mirar mientras dura, y se mira de reojo
+// sin dejar de correr.
+const RELOJ_DIGITO_W = 34;
+const RELOJ_DIGITO_H = 60;
+const RELOJ_GROSOR = 8;            // ancho de un segmento
+const RELOJ_HUECO = 9;             // aire entre cifras
+const RELOJ_COLON_W = 14;
+// Desde el borde de abajo hasta la base de las cifras. Sube lo justo para NO
+// pisar la barra de jefe ni su nombre: el peor momento de la partida —que es
+// para lo que se coge este objeto— suele tener un jefe encima, así que las dos
+// cosas se ven a la vez o no sirve ninguna.
+const RELOJ_ABAJO = 62;
+
+// El rojo del LED de toda la vida, que además es el que llevan los displays de
+// siete segmentos de verdad. Ha ido #6f9fd0 -> #7fb0dd -> #4a7fb5 (tres azules,
+// los tres se fundían con el velo) -> este.
+const RELOJ_ENCENDIDO = '#e2372b';
+// El brillo del cristal, y va CORTO a propósito. Con un halo ancho los
+// segmentos se desbordaban unos sobre otros y el display salía desenfocado: el
+// hueco en uve entre segmentos vecinos es lo que hace que se lea como cristal
+// líquido, y un halo generoso es exactamente lo que lo rellena.
+const RELOJ_FILO = 'rgba(255,140,120,.40)';
+// Los apagados van del MISMO rojo, casi negro. Es lo que hace un display real: el
+// segmento en reposo no es gris, es el mismo cristal sin encender. Y tiene que
+// verse tanto sobre el granito oscuro como sobre el velo de hielo —que es
+// claro—, porque sin los segmentos apagados esto deja de parecer una pantalla y
+// vuelve a ser tres cifras sueltas.
+const RELOJ_APAGADO = 'rgba(74,20,16,.26)';
+
+// Qué segmentos enciende cada cifra, en el orden a b c d e f g: arriba,
+// arriba-derecha, abajo-derecha, abajo, abajo-izquierda, arriba-izquierda y el
+// travesaño del medio. Es la numeración de siempre de los siete segmentos.
+const RELOJ_SEGMENTOS = [
+  0b0111111, // 0
+  0b0000110, // 1
+  0b1011011, // 2
+  0b1001111, // 3
+  0b1100110, // 4
+  0b1101101, // 5
+  0b1111101, // 6
+  0b0000111, // 7
+  0b1111111, // 8
+  0b1101111  // 9
+];
+
+// Un segmento HORIZONTAL: un hexágono, no un rectángulo. Las puntas en pico son
+// lo que deja el hueco en uve entre dos segmentos vecinos, y ese hueco es la
+// firma del display de cristal líquido.
+function segmentoH(ctx, x, y, w, t) {
+  ctx.beginPath();
+  ctx.moveTo(x + t / 2, y);
+  ctx.lineTo(x + t, y - t / 2);
+  ctx.lineTo(x + w - t, y - t / 2);
+  ctx.lineTo(x + w - t / 2, y);
+  ctx.lineTo(x + w - t, y + t / 2);
+  ctx.lineTo(x + t, y + t / 2);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function segmentoV(ctx, x, y, h, t) {
+  ctx.beginPath();
+  ctx.moveTo(x, y + t / 2);
+  ctx.lineTo(x + t / 2, y + t);
+  ctx.lineTo(x + t / 2, y + h - t);
+  ctx.lineTo(x, y + h - t / 2);
+  ctx.lineTo(x - t / 2, y + h - t);
+  ctx.lineTo(x - t / 2, y + t);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// Una cifra entera, con sus siete segmentos: los encendidos en azul y los otros
+// siete —todos, siempre— en el azul casi negro del cristal en reposo.
+function dibujarCifra(ctx, x, y, cifra) {
+  const w = RELOJ_DIGITO_W, h = RELOJ_DIGITO_H, t = RELOJ_GROSOR;
+  const mitad = h / 2;
+  const mascara = RELOJ_SEGMENTOS[cifra];
+
+  // Cada entrada es [encendido?, cómo se pinta]. Se recorre dos veces —primero
+  // los apagados y luego los encendidos— para que el brillo de uno encendido
+  // caiga siempre POR ENCIMA del vecino apagado y no al revés según el orden.
+  const trazos = [
+    [1 << 0, () => segmentoH(ctx, x, y, w, t)],                       // a
+    [1 << 1, () => segmentoV(ctx, x + w, y, mitad, t)],               // b
+    [1 << 2, () => segmentoV(ctx, x + w, y + mitad, mitad, t)],       // c
+    [1 << 3, () => segmentoH(ctx, x, y + h, w, t)],                   // d
+    [1 << 4, () => segmentoV(ctx, x, y + mitad, mitad, t)],           // e
+    [1 << 5, () => segmentoV(ctx, x, y, mitad, t)],                   // f
+    [1 << 6, () => segmentoH(ctx, x, y + mitad, w, t)]                // g
+  ];
+
+  ctx.fillStyle = RELOJ_APAGADO;
+  for (let i = 0; i < trazos.length; i++) {
+    if (!(mascara & trazos[i][0])) trazos[i][1]();
+  }
+  ctx.fillStyle = RELOJ_ENCENDIDO;
+  for (let i = 0; i < trazos.length; i++) {
+    if (mascara & trazos[i][0]) trazos[i][1]();
+  }
+}
+
+// `restante` son los segundos que le quedan a la parálisis (enemigos
+// .paralisisRestante, que es el único reloj de esto y vale para toda la horda).
+// Con cero o menos no se dibuja nada: el objeto no está activo.
+export function dibujarCuentaAtrasReloj(ctx, restante) {
+  if (!(restante > 0)) return;
+
+  // CEIL y no floor. Con floor, un reloj de diecinueve segundos arranca
+  // marcando 0:18 —la cifra que se anunció no llega a verse— y se pasa el
+  // último segundo entero en 0:00, que es justo cuando hace falta saber que
+  // todavía queda algo. Redondeando hacia arriba empieza en 0:19 y el 0:00
+  // aparece en el instante en que la horda vuelve a moverse.
+  const seg = Math.ceil(restante);
+  const minutos = Math.floor(seg / 60);
+  const segundos = seg % 60;
+  const cifras = [minutos % 10, Math.floor(segundos / 10), segundos % 10];
+
+  const ancho = RELOJ_DIGITO_W * 3 + RELOJ_COLON_W + RELOJ_HUECO * 3;
+  let x = (ANCHO_UI - ancho) / 2;
+  const y = ALTO_UI - RELOJ_ABAJO - RELOJ_DIGITO_H;
+
+  ctx.save();
+
+  // ENTRA Y SALE CON UN FUNDIDO de medio segundo por cada punta. Aparecer de
+  // golpe delante de las narices, y encima grande, roba la vista justo en el
+  // frame en el que acabas de recoger el objeto y estás mirando a la horda
+  // quedarse quieta. Y al desaparecer avisa de que se acaba sin necesidad de
+  // ponerse a parpadear en rojo.
+  ctx.globalAlpha = Math.min(1, restante / 0.5);
+
+  // El brillo del cristal, una sola vez para todo el display. Es flojo a
+  // propósito: un display real no ilumina la habitación.
+  ctx.shadowColor = RELOJ_FILO;
+  ctx.shadowBlur = 3;
+
+  dibujarCifra(ctx, x + RELOJ_GROSOR / 2, y, cifras[0]);
+  x += RELOJ_DIGITO_W + RELOJ_HUECO;
+
+  // LOS DOS PUNTOS PARPADEAN a un segundo, como el reloj de la mesilla, y por
+  // eso van del tiempo que queda y no de performance.now(): así el guiño cae
+  // clavado en el cambio de cifra en vez de ir por su cuenta. Apagados no se
+  // borran, se quedan en el azul del cristal en reposo: un display no pierde
+  // sus puntos, los apaga.
+  const guino = (seg % 2) === 0;
+  ctx.fillStyle = guino ? RELOJ_ENCENDIDO : RELOJ_APAGADO;
+  const cxPuntos = x + RELOJ_COLON_W / 2 + RELOJ_GROSOR / 2;
+  const rPunto = RELOJ_GROSOR / 2;
+  for (let i = 0; i < 2; i++) {
+    ctx.beginPath();
+    ctx.arc(cxPuntos, y + RELOJ_DIGITO_H * (i === 0 ? 0.3 : 0.7), rPunto, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  x += RELOJ_COLON_W + RELOJ_HUECO;
+
+  dibujarCifra(ctx, x + RELOJ_GROSOR / 2, y, cifras[1]);
+  x += RELOJ_DIGITO_W + RELOJ_HUECO;
+  dibujarCifra(ctx, x + RELOJ_GROSOR / 2, y, cifras[2]);
 
   ctx.restore();
 }

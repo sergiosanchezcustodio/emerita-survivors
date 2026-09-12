@@ -95,7 +95,7 @@ export const Obstaculos = {
   activos: 0,
   _plantilla: null,
   _filaBase: NaN,     // fuerza el primer cálculo
-  _filasConTorchas: null,  // filas donde ya se ha invocado lo destruible
+  _filasConTorchas: null,  // filas cuyo destruible ya está invocado y sigue cerca
 
   iniciar(nivel) {
     this._plantilla = nivel.decoracion || [];
@@ -177,6 +177,36 @@ export const Obstaculos = {
     }
   },
 
+  // POR QUÉ LAS ANTORCHAS VUELVEN A CRECER.
+  //
+  // Esto era un Set que no se vaciaba nunca: una fila de tile invocaba sus
+  // antorchas la primera vez que la cámara pasaba por ella y no volvía a
+  // hacerlo en toda la partida. Y en un juego de horda no se avanza, se DA
+  // VUELTAS por la misma zona: rompías las antorchas de tu tramo en el primer
+  // minuto y ya no salía ni una más donde estabas jugando. Visto desde fuera es
+  // exactamente lo que contaba Sergio —"aparecen casi todas al inicio y luego
+  // apenas se muestran"—, y no era una cuestión de cuántas hay, sino de que el
+  // mapa se quedaba pelado por detrás.
+  //
+  // Ahora una fila se OLVIDA cuando la cámara se va lo bastante lejos, así que
+  // al volver está otra vez poblada, igual que el suelo, que también se repite
+  // por hash y no recuerda por dónde se ha pasado.
+  //
+  // DOS FILAS DE DISTANCIA, y el número no es de gusto. El peligro que había
+  // que evitar es duplicar antorchas VIVAS: repoblar una fila cuyas antorchas
+  // siguen en pie pondría dos en cada sitio. A dos filas, lo más cerca que
+  // puede quedar una antorcha de esa fila son 430 unidades (un tile entero), y
+  // el culling se lleva cualquier enemigo no persistente pasadas 405 (CULL_Y en
+  // entidades/enemigo.js). O sea que cuando una fila se olvida, lo que había en
+  // ella ya no existe. Con una sola fila de margen no se cumpliría, y oscilar
+  // sobre una costura llenaría el tramo de teas dobles.
+  _olvidarFilasLejanas(filaCentro) {
+    const filas = this._filasConTorchas;
+    for (const fila of filas) {
+      if (Math.abs(fila - filaCentro) >= 2) filas.delete(fila);
+    }
+  },
+
   actualizar(camaraY, enemigos) {
     const altoTile = Recursos.altoSuelo;
     if (!altoTile || !this._plantilla || this._plantilla.length === 0) {
@@ -187,16 +217,14 @@ export const Obstaculos = {
     const filaCentro = Math.floor(camaraY / altoTile);
     if (filaCentro === this._filaBase) return;
     this._filaBase = filaCentro;
+    this._olvidarFilasLejanas(filaCentro);
 
     let k = 0;
     for (let fila = filaCentro - 1; fila <= filaCentro + 1; fila++) {
       const origenY = fila * altoTile;
-      // Las destruibles se invocan UNA sola vez por fila en toda la partida,
-      // no cada vez que la ventana de ±1 vuelve a cubrirla (oscilar cerca de
-      // un borde la recalcularía muchas veces): sin esto, ir y volver sobre
-      // el mismo tramo duplicaría antorchas ya vivas. Si el jugador se aleja
-      // tanto que el culling se las lleva, no vuelven a salir al regresar
-      // —igual de "sin memoria" que el resto del suelo repetido—.
+      // Una fila se invoca una vez MIENTRAS SIGA CERCA, no una vez en toda la
+      // partida. Ver `_olvidarFilasLejanas`: la diferencia es la razón entera
+      // de que las antorchas parecieran salir casi todas al principio.
       const yaInvocadaFila = this._filasConTorchas.has(fila);
 
       for (let i = 0; i < this._plantilla.length; i++) {

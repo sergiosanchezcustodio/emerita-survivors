@@ -1,4 +1,30 @@
 
+Ficha del jugador (al pulsar TAB en el gameplay), el tamaño mostrado de las imágenes de armas y objetos del jugador, deben ser más pequeñas, debemos usar las mismas imágenes que se muestran de armas y objetos en el HUD. Al incrementar en 5 objetos con el zurrón no queda muy bien. 
+
+HUD no está adaptado a las 5 armas y objetos, que ahora pueden llegar a tener los jugadores, debemos tener dos tamaños de HUD, cuando solo se tienen 4 armas y 4 objetos y otro para cuando se amplien objetos o armas, apliar el tamaño en anchura del HUD para incluirlos, igualmente hay que adaptar la barra de vida para que siga ocupando todo el espacio yh no tengamos huecos extraños.
+
+
+
+
+
+
+
+
+
+
+
+##################################################################
+Arma: osito dinamito: deben ser un 50% más lentos
+Escenario "Emerita Augusta":
+ - Las columnas y estátuas deben situarse siempre en el borde la calzada, el resto de monumentos, ruinas deben ser un 20% más pequeñas.
+ 
+La imagen de Helen en el HUD y en la Tienda debe ser ampliada y que se muestre en la imagen hasta el pecho de la imagen (igual que se muestran los otros jugadores)
+
+
+
+
+
+############################################################
 Imagenes a mejorar:
 látigo
 Rete

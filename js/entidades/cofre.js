@@ -73,15 +73,32 @@ export const MONEDAS = 5;
 // director (sistemas/director.js)—: con una copia en cada uno, tocar el reparto
 // en un sitio lo dejaba desajustado en el otro, que es como estaba.
 //
-// El orden no es casual, va de lo corriente a lo gordo. El reloj es el más raro
-// porque parar la horda seis segundos resuelve el peor momento de una partida, y
-// las monedas van por delante de él porque no cambian la partida en curso: lo
-// suyo se cobra al terminar.
+// EL REPARTO, tal y como lo pidió Sergio: un tercio comida, un tercio monedas y
+// el tercio que queda a partes iguales entre los otros tres.
+//
+// Los dos que se llevan dos tercios enteros son justo los dos que NO deciden un
+// momento de la partida: la comida repone lo que ya se ha perdido y las monedas
+// ni siquiera se cobran hoy —van al progreso META y siguen ahí mañana, ver
+// core/metaProgreso.js—. Son el premio de fondo, el que hace que valga la pena
+// desviarse a romper una antorcha cualquiera.
+//
+// El tercio restante es el que sí cambia lo que está pasando —llamarada, imán y
+// reloj— y por eso es el tercio pequeño. Va a partes iguales entre los tres, así
+// que el reloj sube un poco respecto a lo que era (del 9% al 11%); con diez
+// segundos de parada en vez de veinticuatro (ver PARALISIS_RELOJ en main.js) eso
+// es menos generoso de lo que parece.
+//
+// Los cortes se escriben como sumas de TERCIOS y no como cifras redondeadas a
+// mano: 0,33 y 0,66 dejarían un 1% que no es de nadie y acabaría cayendo en el
+// último caso del `if` sin que nadie lo hubiera decidido.
+const TERCIO = 1 / 3;
+const RESTO = TERCIO / 3;          // lo que toca a cada uno de los otros tres
+
 export function tipoConsumible(dado) {
-  if (dado < 0.30) return COMIDA;
-  if (dado < 0.55) return LLAMARADA;
-  if (dado < 0.74) return IMAN;
-  if (dado < 0.91) return MONEDAS;
+  if (dado < TERCIO) return COMIDA;
+  if (dado < TERCIO * 2) return MONEDAS;
+  if (dado < TERCIO * 2 + RESTO) return LLAMARADA;
+  if (dado < TERCIO * 2 + RESTO * 2) return IMAN;
   return RELOJ;
 }
 
